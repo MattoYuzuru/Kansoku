@@ -1,0 +1,149 @@
+# TDD 10 — Frontend, hardening and release
+
+## Frontend stack
+
+Baseline: TypeScript, React, a lightweight router/query cache, Apache ECharts and an internal token/
+component layer. Build static assets into the Go binary/image. No CDN, external fonts, remote source
+maps or analytics.
+
+Final ADR compares bundle/accessibility/performance and may choose a smaller framework if it meets
+linked filtering and complex chart requirements.
+
+## Route model
+
+```text
+/
+/activity
+/prompts
+/agents
+/agents/:id
+/models
+/components/skills
+/components/plugins
+/components/mcp
+/tools
+/reliability
+/privacy
+/system
+/settings
+```
+
+Routes consume capability/metric registries so unsupported panels render intentionally. Agent-specific
+pages MAY add namespaced panels supplied by adapter metadata, but common navigation stays canonical.
+
+## Global query state
+
+URL-encoded safe state includes preset/custom range, timezone, comparison, agent/project/model/
+component filters and bucket resolution. Sensitive raw paths/IDs are not placed in URLs; use opaque
+IDs/aliases. One shared date engine resolves half-open ranges and sprint configuration.
+
+## Response/view states
+
+Every panel handles:
+
+- loading and stale-while-revalidate;
+- exact complete data;
+- partial/degraded with affected interval overlay;
+- unsupported capability;
+- unknown/no eligible evidence;
+- true empty/zero;
+- query error and incident link.
+
+Blank chart and “0” are never generic fallbacks.
+
+## Core visual specifications
+
+### Activity timeline
+
+Stacked counts/area with p50/p95 prompt-size band, version/incident annotations and comparison ghost
+series. Adaptive buckets retain exact totals.
+
+### Hour × weekday heatmap
+
+Local timezone grid, selectable metric, accessible table equivalent and DST explanation. Tooltips
+show count, median/p95 and completeness.
+
+### Component funnel
+
+Installed/enabled/exposed/invoked/loaded/executed/succeeded counts, conversion between adjacent
+observable stages, missing-stage hatching and evidence tier filter. Never divide by unsupported stage.
+
+### Component explorer
+
+Sortable virtualized table: trend sparkline, lifecycle counts, last used, success, opportunity
+recall, source/version, completeness and cold/stale reason. Drill-down shows co-activation and
+evidence without transcript text.
+
+### Reliability timeline
+
+Rows per agent/source/capability with complete/partial/degraded/unknown intervals, audit markers and
+incidents. This is the first place to validate a suspicious usage dip.
+
+### MCP/tool analytics
+
+Server tree, calls/success/errors/latency, connection uptime, approvals and top safe error classes.
+No raw arguments/results.
+
+## Percentage component
+
+A single shared component requires numerator/denominator, formula ID/version, sample size,
+completeness and comparison basis. It suppresses percentage/trend when denominator unknown or below
+registered minimum and always displays raw counts.
+
+## Accessibility and design system
+
+- WCAG AA contrast, keyboard access, visible focus and semantic landmarks;
+- chart data tables/ARIA summaries and non-color status patterns;
+- reduced-motion support;
+- dark/light/system themes using local CSS tokens;
+- responsive desktop-first layouts down to tablet width;
+- locale-ready number/date formatting; initial UI language decision recorded separately.
+
+## Frontend performance
+
+- route-level code splitting where it reduces initial bundle;
+- server aggregation/downsampling, no million-point browser payloads;
+- virtualized large tables;
+- request cancellation and cache keys including formula/completeness version;
+- performance budget for bundle, first render and chart interaction;
+- visual regression fixtures for DST, gaps, unknown and high-cardinality data.
+
+## Final hardening gates
+
+### Security/privacy
+
+CSP, dependency/SBOM review, XSS via aliases/error strings, CSRF/auth, no prohibited API fields,
+browser network capture and raw canary scan.
+
+### Reliability/data
+
+End-to-end canaries, reconciliation, unknown schema, late data, migration/restore, formula golden
+tests and no-silent-zero UI review.
+
+### Performance/operations
+
+Reference load, seven-day soak, disk forecast, backup restore, container restart, ARM64/x86_64 and
+supported browser matrix.
+
+### Release
+
+Pinned/signed images where infrastructure permits, checksums, SBOM, changelog, compatibility matrix,
+fresh-install test, rollback guide and known gaps. Never claim “all agents” or “100%” without a
+capability/version evidence record.
+
+## Post-release evolution
+
+- Adapter SDK compatibility tests run in CI.
+- Newly observed unknown fingerprints become issues linked to sanitized structure metadata.
+- Metrics/formulas are versioned; deprecated panels retain historical explanation.
+- Optional local panel-usage counters store only panel IDs to guide UI pruning.
+- Quarterly review checks official agent contracts, dependency health, privacy model and unused
+  metrics/adapters.
+- Incident fixes always add fixtures/fault tests.
+
+## Exit gate
+
+All supported routes pass accessibility, privacy, reliability, performance and visual-state tests;
+formula/evidence drill-down is universal; release/restore is reproducible; the project has a safe
+adapter and metric evolution process beyond the initial ten sessions.
+
