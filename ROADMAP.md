@@ -23,7 +23,12 @@
   reconciliation report exist; automated contract gates pass. ADR 0002 separates that sequencing
   gate from the still-blocked public adapter Supported/Beta gate, which requires two independent
   approved human reviews plus bounded privacy/replay/audit/canary evidence.
-- **02 — next:** privacy/security implementation and raw-content canary exit gate.
+- **02 — complete (2026-07-21):** typed bounded sanitizer, data/threat/host/retention registries,
+  local HTTP and container policy, virtual installer consent/rollback, and the independent
+  ten-sink raw-content canary pass. Versioned privacy-policy locks and independent exact invariants
+  reject coherent registry/runtime/checksum weakening; protected review/CI remains the external
+  trust root. This synthetic privacy proof does not satisfy adapter-specific public support evidence.
+- **03 — next:** canonical event envelope and idempotent hook/OTLP/transcript routes.
 
 ## Dependency graph
 

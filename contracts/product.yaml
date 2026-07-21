@@ -2,7 +2,7 @@
   "schema_version": "kansoku.product-contract/1",
   "contract_version": "1.0.0",
   "effective_at": "2026-07-21",
-  "status": "accepted_for_session_02",
+  "status": "accepted_for_session_03",
   "scope": {
     "mvp": [
       "one local device and user",
@@ -70,6 +70,12 @@
       "status": "passed",
       "effect": "Session 02 may begin because product semantics, formulas, evidence states and support governance are machine-readable.",
       "evidence": ["scripts/validate_contracts.py", "tests/fixtures/session-01", "reports/session-01-reconciliation.md"]
+    },
+    "session_02_privacy_security_gate": {
+      "status": "passed",
+      "effect": "Session 03 may implement ingestion routes only through the typed bounded privacy boundary and mandatory ten-sink canary checks.",
+      "evidence": ["contracts/privacy", "internal/privacy", "internal/localhttp", "internal/installer", "tests/fixtures/session-02/raw-canary-input.json", "reports/session-02-canary-results.json", "reports/session-02-reconciliation.md"],
+      "scope_limit": "Synthetic fixture-agent proof only; this is not adapter-specific Supported/Beta evidence and performed no real agent configuration write."
     },
     "public_adapter_support_governance_gate": {
       "status": "blocked",

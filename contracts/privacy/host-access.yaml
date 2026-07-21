@@ -1,0 +1,18 @@
+{
+  "schema_version": "kansoku.host-access/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "control_id": "PRV-HOST-001",
+  "closed_world": true,
+  "accesses": [
+    {"id": "installer_agent_config", "actor": "installer", "mode": "read_then_explicit_write", "scope": "one exact approved agent config file", "default_enabled": false, "justification": "preview and apply a separately consented telemetry/hook plan", "disable_remove": "revision-checked restoration/removal of plan-owned keys only"},
+    {"id": "runtime_hook_ingress", "actor": "agent hook", "mode": "loopback_write_only", "scope": "bounded Kansoku ingress endpoint", "default_enabled": false, "justification": "submit a transient untrusted event to the sanitizer", "disable_remove": "remove exact hook entry; collector remains read-only toward the agent"},
+    {"id": "historical_import_root", "actor": "import worker", "mode": "read_only", "scope": "one exact user-selected transcript root", "default_enabled": false, "justification": "optional historical metadata extraction through the same sanitizer", "disable_remove": "unmount/revoke root; no source deletion"},
+    {"id": "identity_key_file", "actor": "Kansoku core", "mode": "read_write_create_once", "scope": "one rootless secret file outside database and backup volumes, mode 0600, nlink 1, inside an owner-only 0700 leaf directory reached by fd-relative no-symlink directory walk", "default_enabled": true, "justification": "device-scoped HMAC pseudonyms", "disable_remove": "explicit key deletion after data-linkage warning; never copied into exports/backups; cleanup unlinks only the inode created by the current operation"},
+    {"id": "database_password_secret", "actor": "Compose secret mount", "mode": "read_only", "scope": "one exact rootless secret file, mode 0600, mounted only at /run/secrets/database_password", "default_enabled": true, "justification": "authenticate app to the internal unpublished database without exposing credentials to agent hooks", "disable_remove": "remove after Kansoku containers stop; never copy into data volume, export or backup"},
+    {"id": "kansoku_data_volume", "actor": "Kansoku core", "mode": "read_write", "scope": "named Kansoku application data volume", "default_enabled": true, "justification": "privacy-safe metadata and audit storage", "disable_remove": "explicit previewed volume deletion independent of agent data"},
+    {"id": "database_volume", "actor": "PostgreSQL", "mode": "read_write", "scope": "named PostgreSQL data volume", "default_enabled": true, "justification": "privacy-safe metadata database", "disable_remove": "explicit previewed volume deletion after backup disclosure"}
+  ],
+  "forbidden_mounts": ["home root", "Docker socket", "SSH directory", "GPG directory", "OS keychain", "cloud/provider credential directory", "agent authentication store", "arbitrary repository root", "writable transcript root"],
+  "runtime_agent_access": "read-only inventory/import or loopback event receipt; Kansoku runtime never writes agent configuration"
+}

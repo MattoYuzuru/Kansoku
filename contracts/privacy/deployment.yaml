@@ -1,0 +1,15 @@
+{
+  "schema_version": "kansoku.local-security/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "controls": [
+    {"id": "PRV-HTTP-001", "requirements": ["loopback listeners only", "loopback peer only", "exact Host allowlist", "same-origin check", "bearer and CSRF for mutation", "same checks for SSE and WebSocket", "no wildcard CORS", "payload and rate limits", "CSP frame-ancestors none", "nosniff", "strict referrer policy"]},
+    {"id": "PRV-CONTAINER-001", "requirements": ["non-root", "read-only root filesystem", "cap_drop ALL", "no-new-privileges", "named writable volumes only", "no Docker socket", "no broad host mount", "database port unpublished", "immutable image references", "SBOM and vulnerability evidence before release"]},
+    {"id": "PRV-EGRESS-001", "requirements": ["runtime network internal by default", "no CDN/fonts/analytics/crash upload", "optional metadata jobs separately allowlisted", "no local telemetry in metadata requests", "live canary explicit opt-in and daily budget"]}
+  ],
+  "http": {"allowed_hosts": ["127.0.0.1", "::1", "localhost"], "allowed_origins": ["http://127.0.0.1:3000", "http://[::1]:3000", "http://localhost:3000"], "listener_addresses": ["127.0.0.1:3000", "[::1]:3000", "127.0.0.1:4318", "[::1]:4318"], "cors": "same_origin_only", "mutation_auth": "bearer_plus_csrf", "bearer_secret_min_bytes": 32, "csrf_secret_min_bytes": 32, "secrets_must_differ": true, "secret_comparison": "sha256_fixed_length_constant_time", "route_modes": {"ui_stream": {"methods": ["GET", "HEAD"], "auth": "bearer", "origin": "same_origin_when_present", "csrf": false}, "hook_otlp": {"methods": ["POST"], "auth": "bearer", "origin": "reject", "csrf": false}, "ui_mutation": {"methods": ["POST", "PUT", "PATCH", "DELETE"], "auth": "bearer", "origin": "required_same_origin", "csrf": true}}, "reject_methods": ["CONNECT", "TRACE", "OPTIONS", "custom_or_unknown"], "forwarded_headers": "reject", "max_body_bytes": 1048576, "requests_per_minute": 120},
+  "compose_template": "deploy/compose.security-baseline.yaml",
+  "frontend": {"remote_assets": false, "cdn": false, "remote_fonts": false, "analytics": false, "automatic_crash_upload": false},
+  "compose_reachability": {"session_02": "unreachable_static_placeholder", "published_ports": false, "reason": "a process bound to container loopback is not reachable through Docker port publishing; Session 09 owns a tested secure topology"},
+  "release_evidence_deferred_to_session_10": ["production image SBOM", "signed provenance", "release vulnerability scan"]
+}

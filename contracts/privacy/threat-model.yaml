@@ -1,0 +1,33 @@
+{
+  "schema_version": "kansoku.privacy-threat-model/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "protected_assets": [
+    "agent prompts and responses",
+    "source code and tool input/output",
+    "credentials, environment values and telemetry headers",
+    "raw filesystem paths and account identifiers",
+    "agent configuration and historical telemetry",
+    "privacy-safe aggregates, lineage and integrity evidence"
+  ],
+  "trust_boundaries": [
+    {"id": "untrusted_ingress", "allowed_raw_access": true, "durable": false, "controls": ["bounded_decoder", "known_source_schema", "feature_extractor", "redactor"]},
+    {"id": "sanitized_core", "allowed_raw_access": false, "durable": true, "controls": ["generated_allowlist_types", "typed_safe_errors", "safe_attribute_registry"]},
+    {"id": "local_http", "allowed_raw_access": false, "durable": false, "controls": ["loopback_peer", "host_allowlist", "same_origin", "auth_and_csrf", "payload_and_rate_limits"]},
+    {"id": "installer", "allowed_raw_access": false, "durable": true, "controls": ["exact_preview", "per_target_consent", "revision_check", "rollback_revision_check"]},
+    {"id": "optional_metadata_egress", "allowed_raw_access": false, "durable": true, "controls": ["disabled_by_default", "destination_allowlist", "no_local_telemetry"]}
+  ],
+  "threats": [
+    {"id": "TM-001", "threat": "raw content reaches a durable or output sink", "controls": ["PRV-INGRESS-001", "PRV-SINK-001"], "tests": ["canary_all_sinks", "secret_format_scan"]},
+    {"id": "TM-002", "threat": "malformed, oversized, deeply nested or compressed input exhausts resources", "controls": ["PRV-INGRESS-002"], "tests": ["decoder_limits", "compression_rejected", "malformed_input"]},
+    {"id": "TM-003", "threat": "unknown schema is dropped or serialized raw", "controls": ["PRV-INGRESS-003"], "tests": ["unknown_schema_metadata_quarantine"]},
+    {"id": "TM-004", "threat": "LAN, hostile Host header, browser origin or DNS rebinding reaches local HTTP", "controls": ["PRV-HTTP-001"], "tests": ["loopback_host_origin_csrf"]},
+    {"id": "TM-005", "threat": "installer silently changes or overwrites concurrent agent configuration", "controls": ["PRV-INSTALL-001"], "tests": ["preview_consent_race_rollback"]},
+    {"id": "TM-006", "threat": "container gains broad host, credential, Docker or network access", "controls": ["PRV-CONTAINER-001", "PRV-HOST-001"], "tests": ["container_manifest_conformance", "host_access_closed_world"]},
+    {"id": "TM-007", "threat": "deleted content remains in export, quarantine or backup without disclosure", "controls": ["PRV-RETENTION-001"], "tests": ["retention_surface_coverage", "backup_manifest_and_restore_scan"]},
+    {"id": "TM-008", "threat": "third-party adapter bypasses sanitization or receives database credentials", "controls": ["PRV-INGRESS-001", "PRV-CONTAINER-001"], "tests": ["typed_boundary", "adapter_no_database_access"]},
+    {"id": "TM-009", "threat": "supply-chain or remote frontend asset introduces egress", "controls": ["PRV-CONTAINER-001", "PRV-EGRESS-001"], "tests": ["immutable_images", "no_remote_assets", "egress_default_deny"]},
+    {"id": "TM-010", "threat": "analytics are presented as employee ranking or universal productivity", "controls": ["product_non_goal", "privacy_manifest"], "tests": ["non_goal_preserved"]}
+  ],
+  "out_of_scope": ["an administrator or root user already controlling the host", "provider-side retention outside Kansoku", "raw source data retained by the agent itself"]
+}

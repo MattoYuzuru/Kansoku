@@ -1,0 +1,63 @@
+{
+  "schema_version": "kansoku.raw-canary-corpus/1",
+  "canaries": {
+    "prompt": "KANSOKU_RAW_PROMPT_7QF4Z9",
+    "response": "KANSOKU_RAW_RESPONSE_6XP2M8",
+    "source_code": "KANSOKU_RAW_SOURCE_5VK3N7",
+    "tool_input": "KANSOKU_TOOL_INPUT_4TJ8B6",
+    "tool_output": "KANSOKU_TOOL_OUTPUT_3SH7C5",
+    "command": "KANSOKU_COMMAND_2RG6D4",
+    "path": "/private/KANSOKU_PATH_1PF5E3/project.go",
+    "environment": "KANSOKU_ENV_9NE4F2",
+    "credential": "sk-proj-KANSOKUSECRET8MD3G1H7J5K9",
+    "high_entropy": "q7Vx9Lm2Pz8Nr4Kt6Yw3Hd5Fc1Bs0AeG",
+    "exception": "KANSOKU_EXCEPTION_7LC2H8",
+    "attachment": "KANSOKU_ATTACHMENT_6KB1J7"
+  },
+  "transformed_canaries": {
+    "prompt_casefold": "kansoku_raw_prompt_7qf4z9",
+    "prompt_base64": "S0FOU09LVV9SQVdfUFJPTVBUXzdRRjRaOQ==",
+    "prompt_hex": "4b414e534f4b555f5241575f50524f4d50545f375146345a39",
+    "path_urlencoded": "%2Fprivate%2FKANSOKU_PATH_1PF5E3%2Fproject.go",
+    "unicode_nfc": "KANSOKU_CAFÉ_4N2",
+    "unicode_nfd": "KANSOKU_CAFÉ_4N2",
+    "unicode_confusable": "KANSОKU_CОNFUSABLE_8W3",
+    "fragment_reassembled": "KANSOKU_FRAGMENTED_SECRET_5Y9"
+  },
+  "payload": {
+    "event_id": "event-private-001",
+    "session_id": "session-private-001",
+    "observed_at": "2026-07-21T12:34:56.123456789Z",
+    "event_type": "user_prompt",
+    "outcome": "succeeded",
+    "value_state": "redacted",
+    "model": "catalog/model-safe",
+    "tool_name": "inventory/tool-safe",
+    "prompt": "KANSOKU_RAW_PROMPT_7QF4Z9 asks for inventory/skill-safe.\n```go\nfunc private() {}\n```\nSee https://private.invalid and ./private/file.go",
+    "attachments": [{"name": "KANSOKU_ATTACHMENT_6KB1J7", "content": "private"}],
+    "response": "KANSOKU_RAW_RESPONSE_6XP2M8 kansoku_raw_prompt_7qf4z9 KANSOKU_CAFÉ_4N2 KANSOKU_CAFÉ_4N2 KANSОKU_CОNFUSABLE_8W3",
+    "source_code": "const secret = \"KANSOKU_RAW_SOURCE_5VK3N7\"; const encoded = \"S0FOU09LVV9SQVdfUFJPTVBUXzdRRjRaOQ==\"",
+    "tool_input": {"argument": "KANSOKU_TOOL_INPUT_4TJ8B6", "hex": "4b414e534f4b555f5241575f50524f4d50545f375146345a39"},
+    "tool_output": {"result": "KANSOKU_TOOL_OUTPUT_3SH7C5", "urlencoded": "%2Fprivate%2FKANSOKU_PATH_1PF5E3%2Fproject.go"},
+    "command": ["printf KANSOKU_COMMAND_2RG6D4", "KANSOKU_FRAGMENTED_", "SECRET_5Y9"],
+    "path": "/private/KANSOKU_PATH_1PF5E3/project.go",
+    "environment": {"PRIVATE_VALUE": "KANSOKU_ENV_9NE4F2"},
+    "credentials": {"authorization": "Bearer KANSOKU_ENV_9NE4F2", "api_key": "sk-proj-KANSOKUSECRET8MD3G1H7J5K9", "opaque_secret": "q7Vx9Lm2Pz8Nr4Kt6Yw3Hd5Fc1Bs0AeG"},
+    "exception": "panic: KANSOKU_EXCEPTION_7LC2H8"
+  },
+  "rejection_cases": [
+    {"event_id": "reject-unknown-field", "session_id": "s", "observed_at": "2026-07-21T12:34:56Z", "event_type": "session_started", "KANSOKU_RAW_PROMPT_7QF4Z9": "KANSOKU_RAW_RESPONSE_6XP2M8"},
+    {"event_id": "reject-type", "session_id": "s", "observed_at": "2026-07-21T12:34:56Z", "event_type": "session_started", "prompt": {"nested": "KANSOKU_TOOL_OUTPUT_3SH7C5"}}
+  ],
+  "expected": {
+    "record_count": 1,
+    "required_sink_count": 10,
+    "component_mentions": ["inventory/skill-safe"],
+    "prompt_state": "complete",
+    "attachment_count": 1,
+    "url_reference_count": 1,
+    "file_reference_count": 1,
+    "canary_matches": 0,
+    "secret_format_matches": 0
+  }
+}

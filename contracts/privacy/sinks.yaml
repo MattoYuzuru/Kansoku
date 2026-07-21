@@ -1,0 +1,28 @@
+{
+  "schema_version": "kansoku.privacy-sinks/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "control_id": "PRV-SINK-001",
+  "required_sinks": [
+    {"id": "database", "slo_scope": "database", "durable": true},
+    {"id": "application_logs", "slo_scope": "logs", "durable": true},
+    {"id": "internal_traces", "slo_scope": "traces", "durable": true},
+    {"id": "durable_queue", "slo_scope": "durable_queue", "durable": true},
+    {"id": "retry_queue", "slo_scope": "retry_queue", "durable": true},
+    {"id": "quarantine", "slo_scope": "quarantine", "durable": true},
+    {"id": "error_response", "slo_scope": "error_responses", "durable": false},
+    {"id": "dashboard_network", "slo_scope": "ui_traffic", "durable": false},
+    {"id": "export", "slo_scope": "exports", "durable": true},
+    {"id": "backup", "slo_scope": "backups", "durable": true}
+  ],
+  "proof": {
+    "fixture": "tests/fixtures/session-02/raw-canary-input.json",
+    "scan": "exact UTF-8 canaries plus secret-format patterns across every serialized sink",
+    "required_preserved_fields": ["adapter_id", "adapter_version", "source_schema_id", "schema_fingerprint", "idempotency_key", "confidence", "prompt_features", "redaction_counts", "lineage"],
+    "raw_canary_target": 0,
+    "unknown_schema_sink": "metadata-only quarantine",
+    "backup_restore": "exact export bytes are base64 encoded in the backup and restored byte-for-byte",
+    "artifact_paths": "bounded repo-relative regular files only; no symlink, traversal, absolute or out-of-root paths",
+    "report_schema": {"closed": true, "required_fields": ["schema_version", "status", "record_count", "sink_count", "canary_match_count", "secret_format_match_count", "preserved", "sinks", "rejection_sinks", "generator", "fixture", "fixture_sha256", "source_revision", "toolchain_image", "toolchain_digest", "generator_sha256", "independent_external_scan"], "sink_fields": ["id", "bytes", "sha256"]}
+  }
+}

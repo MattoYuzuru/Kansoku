@@ -1,0 +1,20 @@
+{
+  "schema_version": "kansoku.privacy-policy-locks/1",
+  "trust_model": {
+    "bootstrap": "In an archive or before the first reviewed commit containing this file, this review-controlled lock registry is the deterministic source of truth.",
+    "trusted_head": "After bootstrap, validation compares existing policy-version locks with an explicit trusted merge-base or HEAD revision when available.",
+    "history": "Existing policy-version-to-digest entries are append-only. Reusing a version for changed registry semantics is forbidden.",
+    "version_transition": "A reviewed semantic policy change requires a new policy version and lock entry; every prior entry remains unchanged.",
+    "external_root": "Repository-local validation cannot resist a simultaneous malicious rewrite of validator, policy registries, runtime, locks, tests and Git history. Protected review or CI with a trusted revision is the external root of trust."
+  },
+  "locks": [
+    {"policy_version": "privacy.data-classes/1", "registry": "contracts/privacy/data-classes.yaml", "semantic_sha256": "94f37119b9ae43db7987e4d0b1d6e7a4e53d5ff42520a468bac2d98fa8400c53"},
+    {"policy_version": "privacy.deployment/1", "registry": "contracts/privacy/deployment.yaml", "semantic_sha256": "c04703c59cc9a27dfc81130202810693cf263b8300582a58464031f0011ffe72"},
+    {"policy_version": "privacy.host-access/1", "registry": "contracts/privacy/host-access.yaml", "semantic_sha256": "a558a266fdd8a443e43bea67225f29d5c669716ba4ed019ff4babad9fbe0fae9"},
+    {"policy_version": "privacy.ingress/1", "registry": "contracts/privacy/ingress.yaml", "semantic_sha256": "7372e1484f680ce93ae06c86352b079514e8cc4528716d919cb0a61f3f9a1826"},
+    {"policy_version": "privacy.installer/1", "registry": "contracts/privacy/installer.yaml", "semantic_sha256": "15048f7ec9f4dba76f72b0b011aac7bee6ebec3707a7c9a27d0568b919a4f60c"},
+    {"policy_version": "privacy.retention/1", "registry": "contracts/privacy/retention.yaml", "semantic_sha256": "1b3a779c4ac6e730abbeda427a452914edd04f60c557eeb3b3251547b4449332"},
+    {"policy_version": "privacy.sinks/1", "registry": "contracts/privacy/sinks.yaml", "semantic_sha256": "690bba78d2712dc33daeeb7dd500988d94616df74ae712a54c0935b870efce85"},
+    {"policy_version": "privacy.threat-model/1", "registry": "contracts/privacy/threat-model.yaml", "semantic_sha256": "7f0e4308806b07362a99c458b4c1308b7520bbe6715ac525e3c0141ba84da540"}
+  ]
+}

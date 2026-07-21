@@ -1,0 +1,13 @@
+{
+  "schema_version": "kansoku.retention-deletion/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "control_id": "PRV-RETENTION-001",
+  "defaults_source": "contracts/product.yaml#decisions.retention_defaults",
+  "surfaces": ["normalized metadata", "sanitized ingest envelopes", "metadata-only quarantine", "hourly/daily rollups", "operational SLO samples", "audit/installer records", "exports", "daily backups", "weekly backups"],
+  "policy_row_fields": ["policy_version", "effective_at", "class_id", "retention_days_or_count", "status"],
+  "deletion_protocol": ["preview exact partitions/rollups/quarantine/exports/backups", "separate explicit consent", "execute bounded deletion", "record metadata-only audit", "post-delete query", "scan remaining exports/backups", "report immutable or offline backup limitations"],
+  "postgresql_disclosure": "DELETE does not guarantee immediate physical erasure from heap pages; VACUUM and storage/backup behavior must be reported honestly.",
+  "backup_disclosure": "Deletion from the live database does not mutate immutable/offline backups; affected backup generations must expire or be explicitly destroyed and verified.",
+  "identity_key": {"retained_in_database": false, "included_in_export": false, "included_in_backup": false, "rotation_effect": "breaks cross-rotation linkage unless an explicit local re-key migration is previewed and approved"}
+}

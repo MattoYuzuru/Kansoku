@@ -62,7 +62,7 @@
       "id": "raw-content-persisted-count", "metric_id": "privacy.raw_content_persisted_count", "reference_profile": "personal",
       "sli": {"aggregation": "sum", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
       "target": {"operator": "==", "value": 0, "unit": "count"}, "rolling_window": "entire retained history and latest backup/export", "error_budget": "zero; any match is a release-blocking incident",
-      "allowed_exclusions": [], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["database", "logs", "traces", "quarantine", "error_responses", "ui_traffic", "exports", "backups"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+      "allowed_exclusions": [], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["database", "logs", "traces", "durable_queue", "retry_queue", "quarantine", "error_responses", "ui_traffic", "exports", "backups"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
     },
     {
       "id": "ingest-durability-ratio", "metric_id": "collection.acknowledged_durability_ratio", "reference_profile": "personal",

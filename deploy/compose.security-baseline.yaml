@@ -1,0 +1,48 @@
+{
+  "name": "kansoku",
+  "services": {
+    "app": {
+      "image": "${KANSOKU_IMAGE_REPOSITORY:?set immutable image repository}@sha256:${KANSOKU_IMAGE_SHA256:?set exact 64-character digest}",
+      "user": "65532:65532",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "init": true,
+      "restart": "always",
+      "networks": ["kansoku-internal"],
+      "volumes": ["kansoku-data:/var/lib/kansoku"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=16777216,mode=1777"],
+      "environment": {
+        "KANSOKU_HTTP_LISTEN": "127.0.0.1:3000",
+        "KANSOKU_OTLP_HTTP_LISTEN": "127.0.0.1:4318",
+        "KANSOKU_SESSION02_REACHABILITY": "unreachable-static-placeholder-until-session09",
+        "KANSOKU_EXTERNAL_EGRESS": "disabled",
+        "KANSOKU_DATABASE_PASSWORD_FILE": "/run/secrets/database_password"
+      },
+      "secrets": ["database_password"],
+      "depends_on": {"database": {"condition": "service_healthy"}},
+      "healthcheck": {"test": ["CMD", "/app/kansoku", "health", "--self"], "interval": "30s", "timeout": "5s", "retries": 3, "start_period": "10s"}
+    },
+    "database": {
+      "image": "postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+      "user": "999:999",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "always",
+      "networks": ["kansoku-internal"],
+      "volumes": ["postgres-data:/var/lib/postgresql"],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=16777216,mode=1777", "/run/postgresql:rw,noexec,nosuid,nodev,size=1048576,mode=0750,uid=999,gid=999"],
+      "environment": {
+        "POSTGRES_DB": "kansoku",
+        "POSTGRES_USER": "kansoku",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/database_password"
+      },
+      "secrets": ["database_password"],
+      "healthcheck": {"test": ["CMD-SHELL", "pg_isready -U kansoku -d kansoku"], "interval": "10s", "timeout": "5s", "retries": 5, "start_period": "10s"}
+    }
+  },
+  "networks": {"kansoku-internal": {"internal": true}},
+  "volumes": {"kansoku-data": {}, "postgres-data": {}},
+  "secrets": {"database_password": {"file": "${KANSOKU_DB_PASSWORD_FILE:?set exact rootless secret path}"}}
+}

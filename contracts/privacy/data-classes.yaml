@@ -1,0 +1,23 @@
+{
+  "schema_version": "kansoku.data-classification/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "classes": [
+    {"id": "prohibited_content", "examples": ["prompt", "response", "source_code", "tool_input", "tool_output", "command", "credential", "environment_value"], "transient_access": "bounded_ingress_only", "durable": false, "logging": false, "export": false, "backup": false},
+    {"id": "sensitive_identifier", "examples": ["raw_path", "repository_name", "email", "account_id", "hostname"], "transient_access": "bounded_ingress_or_installer_preview", "durable": "keyed_hmac_or_explicit_alias_only", "logging": false, "export": "pseudonym_or_alias_only", "backup": "pseudonym_or_alias_only"},
+    {"id": "operational_metadata", "examples": ["timestamp", "agent_version", "token_count", "latency_ms", "outcome"], "transient_access": "allowed", "durable": true, "logging": "safe_registry_only", "export": true, "backup": true},
+    {"id": "derived_metadata", "examples": ["prompt_byte_count", "prompt_word_count", "coarse_script", "percentile", "confidence"], "transient_access": "allowed", "durable": "with_lineage", "logging": "safe_registry_only", "export": true, "backup": true},
+    {"id": "public_catalog", "examples": ["agent_version", "model_catalog_id", "documentation_url", "schema_id"], "transient_access": "allowed", "durable": "versioned", "logging": "safe_registry_only", "export": true, "backup": true}
+  ],
+  "prohibited_durable_aliases": [
+    "prompt", "prompt_text", "user_prompt", "response", "assistant_response", "model_output",
+    "source", "source_code", "file_content", "tool_input", "tool_output", "tool_result", "arguments",
+    "command", "command_line", "stdout", "stderr", "exception", "stack_trace", "path", "file_path",
+    "cwd", "workspace_roots", "transcript_path", "environment", "env", "headers", "authorization",
+    "credential", "secret", "token_value", "api_key", "email", "account_id", "hostname"
+  ],
+  "state_invariants": {
+    "canonical_value_states": ["unsupported", "not_observed", "redacted", "unknown", "numeric_zero"],
+    "rule": "A removed value is redacted; an unestablished value is unknown; an unobserved eligible event is not_observed; unsupported and numeric_zero remain distinct."
+  }
+}

@@ -109,3 +109,41 @@ Synthetic secrets, prompts, code and tool payloads cannot be found in database, 
 quarantine, error responses, dashboard network traffic, export or backup. All required host/config
 access is enumerated and justified; the user can disable and remove Kansoku without damaging agent
 configuration.
+
+## Implemented contract (2026-07-21)
+
+Session 02 implements this proposal through the machine-readable registries in
+`contracts/privacy/`, the review-controlled `contracts/privacy-policy-locks.yaml`, ADRs
+`adr/0004-session-02-privacy-boundary.md` and
+`adr/0005-privacy-policy-lock-and-trust-root.md`, and the reconciliation report
+`reports/session-02-reconciliation.md`.
+
+The embedded aggregate registry SHA-256 is only a runtime drift check. Versioned semantic policy
+locks and exact validator invariants independently reject coherent registry/runtime/checksum
+weakenings. Archive/bootstrap validation uses the checked-out lock deterministically; after its first
+trusted commit, old entries are append-only against a protected trusted ref. Protected review/CI is
+the external root: no repository-local check can resist simultaneous malicious replacement of its
+validator, lock, tests and Git history.
+
+The accepted sink population is stricter than the original eight named outputs: durable and retry
+queues are separate mandatory scopes, for ten total sinks. The synthetic canary contains prompt,
+response, source, tool input/output, command, path, environment, credential, opaque high-entropy,
+exception and attachment families. Both the Go scanner and an independent Python scanner find zero
+matches across accepted and rejected materialized paths, including casefold, Unicode normalization/
+confusable, base64, hexadecimal, URL encoding and fragmentation variants, while approved prompt
+counts, versioned source lineage, confidence and idempotency survive.
+
+The installer is deliberately a protocol implementation, not a live config writer in this session.
+It renders an exact transient path/diff/backup/rollback preview, binds consent to the exact plan and
+agent target and both revisions, rejects concurrent revision changes, models rollback/removal, and
+persists only a keyed path pseudonym. Typed per-agent plans verify effective managed/environment
+precedence and require a target-bound runtime canary before any future real write; the Session 02
+real-write entry point always fails closed. No Codex, Claude, Gemini or Cursor configuration was
+read or changed.
+
+The Compose artifact is a hardening policy template for Session 09 rather than a released runtime:
+it requires a caller-supplied digest-only application image, pins PostgreSQL, uses an internal
+network and named volumes, and applies non-root/read-only/capability-drop/no-new-privileges controls.
+It intentionally publishes no ports: a process bound to container loopback cannot be reached via
+ordinary Docker publishing, and Session 09 owns the tested secure topology. Production image, SBOM,
+vulnerability, reachability and soak proof remain release gates rather than claims of this proposal.

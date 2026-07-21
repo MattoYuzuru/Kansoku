@@ -7,11 +7,13 @@ Kansoku (観測, «наблюдение», «измерение явлений»
 
 ## Статус
 
-Session 01 / фаза 001 выполнена 2026-07-21: product contract, registries, SLO harness, измеряемые
-technology spikes и ADR baseline находятся в репозитории, а автоматизированный exit gate проходит.
-Следующая реализационная сессия — Session 02 (privacy, security and trust). До появления bounded
-fixtures, privacy tests, audit/canary evidence и двух независимых human reviews ни один адаптер не
-имеет публичного статуса Supported/Beta.
+Session 02 / фаза 002 выполнена 2026-07-21: machine-readable threat/data/ingress/sink/installer/
+host/deployment/retention contracts, typed Go privacy boundary, hardened local HTTP guard,
+virtual consent/rollback protocol и десяти-sink raw-content canary находятся в репозитории.
+Автоматизированные Session 01–02 gates проходят; следующая реализационная сессия — Session 03
+(core observability architecture). Session 02 использует только synthetic fixture agent и не
+повышает ни один реальный адаптер выше Experimental: для публичного Supported/Beta по-прежнему
+нужны version-bounded agent fixtures/evidence и два независимых human review.
 
 Проект по-прежнему строится десятью последовательными сессиями, каждая из которых имеет продуктовый
 proposal и парный technical design document. Переход к следующей сессии допускается только после
@@ -42,6 +44,10 @@ proposal и парный technical design document. Переход к следу
 - [SOURCES.md](SOURCES.md) — официальные интерфейсы агентов и инфраструктуры, на которых основан
   дизайн.
 - [AGENTS.md](AGENTS.md) — правила работы будущих сессий над проектом.
+- [Session 02 reconciliation](reports/session-02-reconciliation.md) — точный privacy/security exit
+  gate, десять проверенных sink и остаточные риски.
+- [Privacy policy trust ADR](adr/0005-privacy-policy-lock-and-trust-root.md) — versioned semantic
+  locks, bootstrap/trusted-history model и внешний review/CI root of trust.
 
 ## Принятый технологический baseline
 
