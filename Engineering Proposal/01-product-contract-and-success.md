@@ -99,7 +99,39 @@ Targets become binding only after Session 01 benchmarks and are versioned therea
 
 ## Exit gate
 
-Two reviewers can independently classify the same event as installed/exposed/invoked/etc.; every
-MVP chart maps to a user question and a data source; SLOs, privacy defaults and non-goals are
-accepted before implementation begins.
+The Session 01 automated contract gate requires every MVP chart to map to a user question and data
+source; SLOs, privacy defaults, non-goals, lifecycle classifications and support-claim evidence
+requirements must be machine-readable and mutation-tested before Session 02 begins. Two independent
+human reviewers must still classify the same bounded fixture before any adapter capability may be
+published as Supported or Beta. The automation does not fabricate those sign-offs. ADR 0002 records
+this separation of the implementation-sequencing gate from the public-support governance gate.
 
+## Session outcome — 2026-07-21
+
+The product decisions are now explicit and machine-readable in `contracts/product.yaml`:
+
+- sprint ranges use a configurable local anchor and duration (14 days by default);
+- cost estimation is in MVP scope but is not a release blocker when exact tokens or a matching
+  versioned price snapshot are unavailable; it renders `unknown`, never a synthetic zero;
+- bounded default retention is 365 days for normalized metadata, 7 days for sanitized envelopes,
+  30 days for metadata-only quarantine, and 1095 days for rollups;
+- MVP exports are privacy-safe NDJSON and a versioned privacy manifest; Parquet is a `should`;
+- support is published per capability and bounded agent version, never for an agent brand as a
+  whole;
+- the reference machine is an Apple M2 Pro with 16 GiB RAM; cross-architecture release gates remain
+  required.
+
+The six approved registries are `contracts/glossary.yaml`, `contracts/capabilities.yaml`,
+`contracts/metrics.yaml`, `contracts/formula-version-locks.yaml`, `contracts/slo.yaml`, and
+`contracts/dashboard.yaml`. Deterministic review fixtures prove that the rubric rejects inferred
+promotion, hidden or ineligible SLO evidence scopes,
+false passes through authorized exclusions and unauthorized exclusions while keeping unsupported,
+not-observed, redacted, unknown and numeric zero distinct. All 34 metric formula versions bind a
+stable population ID, expression, typed evaluator and fixture policy with a semantic SHA-256. Their
+review-controlled version locks make existing `/1` identities append-only after the first trusted
+commit. Normalized-record fixtures exercise population/filter/dedupe, selection by a preclassified
+`in_interval` flag, exclusion semantics and ordering; they do not prove timestamp boundary
+classification. p95 uses PostgreSQL continuous interpolation. Raw-event derivation, exact
+`[from,to)` boundary tests and production SQL remain Sessions 03–04 gates. Two independent, exactly
+bound human review receipts are still required before any public Supported/Beta claim; automation
+does not fabricate them.

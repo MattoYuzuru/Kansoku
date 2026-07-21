@@ -1,0 +1,2060 @@
+{
+  "schema_version": "kansoku.metrics/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "priority_meaning": {
+    "must": "Required for the MVP release gate when the source capability is supported.",
+    "should": "In MVP scope but not a release blocker when evidence or a safe dependency is unavailable.",
+    "could": "Post-MVP or opt-in experiment."
+  },
+  "state_contract": {
+    "registry": "kansoku.glossary/1#state_registry",
+    "value_states": [
+      "unsupported",
+      "not_observed",
+      "redacted",
+      "unknown",
+      "numeric_zero"
+    ],
+    "completeness_states": [
+      "complete",
+      "partial",
+      "degraded"
+    ],
+    "policy": "Every metric may be not_observed when its declared source interval is healthy but its eligible population is empty. Redacted and unknown remain explicit even when a metric normally consumes metadata; neither is coerced to numeric_zero."
+  },
+  "formula_fixture_boundary": {
+    "input_stage": "normalized_metric_records",
+    "proves": "Registry-bound aggregation semantics over deterministic normalized records, including population filtering, deduplication, selection by a preclassified in_interval boolean, authorized exclusions, ordering, completeness and declared evaluator parameters.",
+    "does_not_prove": "Timestamp-to-interval classification or exact [from,to) boundary behavior, raw agent-event parsing, lineage derivation or production SQL; those implementation gates belong to Sessions 03 and 04."
+  },
+  "quantile_semantics": {
+    "method": "percentile_cont",
+    "probability": 0.95,
+    "ordering": "ascending numeric value; nulls excluded with an explicit exclusion count",
+    "interpolation": "linear between zero-based ranks floor((n-1)*p) and ceil((n-1)*p)",
+    "empty_population": "unknown",
+    "postgresql_equivalent": "percentile_cont(0.95) WITHIN GROUP (ORDER BY value)"
+  },
+  "dimensions": [
+    {
+      "id": "time_range",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "timezone",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "agent",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "agent_version",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "surface",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "project",
+      "cardinality": "pseudonymous"
+    },
+    {
+      "id": "model",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "component_kind",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "component",
+      "cardinality": "bounded_by_inventory"
+    },
+    {
+      "id": "lifecycle_state",
+      "cardinality": "fixed"
+    },
+    {
+      "id": "source",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "adapter_version",
+      "cardinality": "bounded"
+    },
+    {
+      "id": "evidence_tier",
+      "cardinality": "fixed"
+    },
+    {
+      "id": "completeness",
+      "cardinality": "fixed"
+    },
+    {
+      "id": "outcome",
+      "cardinality": "fixed"
+    },
+    {
+      "id": "error_class",
+      "cardinality": "allowlisted"
+    },
+    {
+      "id": "permission_mode",
+      "cardinality": "bounded"
+    }
+  ],
+  "metrics": [
+    {
+      "id": "collection.coverage_ratio",
+      "title": "Source coverage",
+      "priority": "must",
+      "unit": "ratio",
+      "formula": {
+        "version": "collection.coverage_ratio/1",
+        "calculation": "ratio",
+        "expression": "normalized_eligible_events / expected_eligible_events",
+        "numerator": "normalized eligible events",
+        "denominator": "expected eligible events",
+        "population_id": "collection.coverage_ratio.population/1",
+        "evaluator": {
+          "id": "collection.coverage_ratio/1",
+          "implementation": "ratio_of_record_field_sums",
+          "parameters": {
+            "numerator_field": "numerator",
+            "denominator_field": "denominator",
+            "zero_denominator_state": "unknown"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "declared_maintenance"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "0d29c5eb3b8db443d387686ed50a1a3af95f82ec23da2f49b78dfdcdc2f69537"
+      },
+      "population": "eligible source events in the selected capability and half-open interval",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "source",
+        "adapter_version",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH",
+        "Q-UPDATE-DRIFT"
+      ],
+      "source_capabilities": [
+        "reconciliation"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint",
+        "evidence_tier"
+      ],
+      "completeness": {
+        "required": true,
+        "unknown_denominator": "unknown",
+        "degraded_value_policy": "show value with affected intervals"
+      },
+      "exactness": "exact when expected-event contract exists"
+    },
+    {
+      "id": "collection.completeness_duration_seconds",
+      "title": "Completeness duration",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "collection.completeness_duration_seconds/1",
+        "calculation": "duration",
+        "expression": "sum(intersection(interval, selected_range)) by completeness",
+        "population_id": "collection.completeness_duration_seconds.population/1",
+        "evaluator": {
+          "id": "collection.completeness_duration_seconds/1",
+          "implementation": "sum_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "declared_maintenance"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "fdda049e58499710ea8063873a6268f1d14fac89ae3efc954145f9fe34791076"
+      },
+      "population": "wall-clock seconds in the selected range",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "source",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH"
+      ],
+      "source_capabilities": [
+        "reconciliation"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "watermark",
+        "incident_id"
+      ],
+      "completeness": {
+        "required": true,
+        "partition": "complete/partial/degraded/unknown/unsupported"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "collection.active_source_gap_seconds",
+      "title": "Longest active-source gap",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "collection.active_source_gap_seconds/1",
+        "calculation": "max",
+        "expression": "max(gap_end - gap_start) after eligible activity",
+        "population_id": "collection.active_source_gap_seconds.population/1",
+        "evaluator": {
+          "id": "collection.active_source_gap_seconds/1",
+          "implementation": "max_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "declared_maintenance"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "ef567a3115f4ed2a38509df76c2a9ca25cfba0aa30474efe2edbe417731c21d7"
+      },
+      "population": "gaps following an eligible active-source signal",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "source",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH",
+        "Q-UPDATE-DRIFT"
+      ],
+      "source_capabilities": [
+        "reconciliation"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "watermark"
+      ],
+      "completeness": {
+        "required": true,
+        "no_eligible_activity": "not_observed"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "collection.ingest_latency_seconds",
+      "title": "Ingest latency p95",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "collection.ingest_latency_seconds/1",
+        "calculation": "p95",
+        "expression": "p95(ingested_at - observed_at)",
+        "population_id": "collection.ingest_latency_seconds.population/1",
+        "evaluator": {
+          "id": "collection.ingest_latency_seconds/1",
+          "implementation": "percentile_cont_record_field",
+          "parameters": {
+            "value_field": "value",
+            "probability": 0.95,
+            "method": "percentile_cont",
+            "null_policy": "explicit_exclusion_only"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "declared_maintenance"
+          ],
+          "ordering": "value ASC NULLS excluded"
+        },
+        "semantic_sha256": "dc8a49b96817df7845d12c2bb74240e5027bbafa86097fd2ed92db0c11a0f0a3"
+      },
+      "population": "durably accepted supported events",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "source",
+        "adapter_version",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH",
+        "Q-KANSOKU-OVERHEAD"
+      ],
+      "source_capabilities": [
+        "operations.telemetry"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "late_events": "included"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "collection.rollup_freshness_seconds",
+      "title": "Rollup freshness p95",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "collection.rollup_freshness_seconds/1",
+        "calculation": "p95",
+        "expression": "p95(rollup_visible_at - latest_eligible_ingested_at)",
+        "population_id": "collection.rollup_freshness_seconds.population/1",
+        "evaluator": {
+          "id": "collection.rollup_freshness_seconds/1",
+          "implementation": "percentile_cont_record_field",
+          "parameters": {
+            "value_field": "value",
+            "probability": 0.95,
+            "method": "percentile_cont",
+            "null_policy": "explicit_exclusion_only"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "declared_maintenance"
+          ],
+          "ordering": "value ASC NULLS excluded"
+        },
+        "semantic_sha256": "c31c1b8b0a272b7a070ae4aa8128fb458408c34cb7277b6849637d63ff42ecbc"
+      },
+      "population": "completed rollup checkpoints for affected metric buckets",
+      "dimensions": [
+        "time_range",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH",
+        "Q-KANSOKU-OVERHEAD"
+      ],
+      "source_capabilities": [
+        "operations.telemetry"
+      ],
+      "provenance": [
+        "rollup_id",
+        "formula_version",
+        "schema_version",
+        "watermark"
+      ],
+      "completeness": {
+        "required": true,
+        "pending_late_events": "partial"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "collection.acknowledged_durability_ratio",
+      "title": "Acknowledged event durability",
+      "priority": "must",
+      "unit": "ratio",
+      "formula": {
+        "version": "collection.acknowledged_durability_ratio/1",
+        "calculation": "ratio",
+        "expression": "reconciled durable acknowledged events / acknowledged supported events",
+        "numerator": "acknowledged supported events present after fault/reconciliation",
+        "denominator": "all acknowledged supported events in the tested fault window",
+        "population_id": "collection.acknowledged_durability_ratio.population/1",
+        "evaluator": {
+          "id": "collection.acknowledged_durability_ratio/1",
+          "implementation": "ratio_of_record_field_sums",
+          "parameters": {
+            "numerator_field": "numerator",
+            "denominator_field": "denominator",
+            "zero_denominator_state": "unknown"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "pre_ack_development_reset"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "28f6dde4fa593657bf37636758bc63ebcaff303c4d233bd0d04842c53eda4cbe"
+      },
+      "population": "acknowledged supported events covered by a completed fault/restart reconciliation",
+      "dimensions": [
+        "time_range",
+        "source",
+        "adapter_version",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH",
+        "Q-RECOVERY"
+      ],
+      "source_capabilities": [
+        "reconciliation",
+        "operations.telemetry"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "fault_model_version",
+        "reconciliation_run_id"
+      ],
+      "completeness": {
+        "required": true,
+        "unfinished_reconciliation": "unknown"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "inventory.agent_installations",
+      "title": "Agent installations",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "inventory.agent_installations/1",
+        "calculation": "count",
+        "expression": "count(distinct agent_installation_id)",
+        "population_id": "inventory.agent_installations.population/1",
+        "evaluator": {
+          "id": "inventory.agent_installations/1",
+          "implementation": "count_distinct_records",
+          "parameters": {
+            "distinct_field": "record_id"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "0bda0e45776fbb1c477dcea6fb74efb179f109091cc876e9dd67ff52af9dd97d"
+      },
+      "population": "discoverable local agent installations",
+      "dimensions": [
+        "agent",
+        "agent_version",
+        "surface",
+        "source",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-AGENT-INVENTORY"
+      ],
+      "source_capabilities": [
+        "agent.discovery"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "observed_at"
+      ],
+      "completeness": {
+        "required": true,
+        "undiscoverable": "unsupported"
+      },
+      "exactness": "exact within declared discovery roots"
+    },
+    {
+      "id": "activity.sessions",
+      "title": "Sessions",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "activity.sessions/1",
+        "calculation": "count",
+        "expression": "count(distinct session_id)",
+        "population_id": "activity.sessions.population/1",
+        "evaluator": {
+          "id": "activity.sessions/1",
+          "implementation": "count_distinct_records",
+          "parameters": {
+            "distinct_field": "record_id"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "31018b7e3757e0cbfbf07b829f875995b0f831f20def1ea0ce69c8ac9b1d8279"
+      },
+      "population": "observed sessions intersecting the selected range",
+      "dimensions": [
+        "time_range",
+        "timezone",
+        "agent",
+        "surface",
+        "project",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-ACTIVITY-RHYTHM",
+        "Q-AGENT-INVENTORY"
+      ],
+      "source_capabilities": [
+        "session.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "missing_boundaries": "partial"
+      },
+      "exactness": "exact or reconstructed as declared by evidence tier"
+    },
+    {
+      "id": "activity.prompts",
+      "title": "Submitted prompts",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "activity.prompts/1",
+        "calculation": "count",
+        "expression": "count(prompt.submitted metadata events)",
+        "population_id": "activity.prompts.population/1",
+        "evaluator": {
+          "id": "activity.prompts/1",
+          "implementation": "count_distinct_records",
+          "parameters": {
+            "distinct_field": "record_id"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "raw_content"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "4267c7120ad4ed07d217f5453ed4b344960e91c295ad050fe37d4fa47d375516"
+      },
+      "population": "eligible submitted prompt metadata events",
+      "dimensions": [
+        "time_range",
+        "timezone",
+        "agent",
+        "surface",
+        "project",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-ACTIVITY-RHYTHM",
+        "Q-PROMPT-SHAPE"
+      ],
+      "source_capabilities": [
+        "prompt.metadata"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "content": "always excluded"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "activity.active_duration_seconds",
+      "title": "Active duration",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "activity.active_duration_seconds/1",
+        "calculation": "sum",
+        "expression": "sum(non-overlapping observed active intervals)",
+        "population_id": "activity.active_duration_seconds.population/1",
+        "evaluator": {
+          "id": "activity.active_duration_seconds/1",
+          "implementation": "sum_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "47e3a9c9036540f0e5e66ca3e7b402863d58b5d4df715e46888c508cc573bf6a"
+      },
+      "population": "supported activity intervals",
+      "dimensions": [
+        "time_range",
+        "timezone",
+        "agent",
+        "surface",
+        "project",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-ACTIVITY-RHYTHM"
+      ],
+      "source_capabilities": [
+        "session.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "evidence_tier"
+      ],
+      "completeness": {
+        "required": true,
+        "unknown_stop": "partial"
+      },
+      "exactness": "exact or reconstructed"
+    },
+    {
+      "id": "prompt.utf8_bytes",
+      "title": "Prompt bytes p95",
+      "priority": "must",
+      "unit": "bytes",
+      "formula": {
+        "version": "prompt.utf8_bytes/1",
+        "calculation": "p95",
+        "expression": "p95(ephemeral UTF-8 byte count)",
+        "population_id": "prompt.utf8_bytes.population/1",
+        "evaluator": {
+          "id": "prompt.utf8_bytes/1",
+          "implementation": "percentile_cont_record_field",
+          "parameters": {
+            "value_field": "value",
+            "probability": 0.95,
+            "method": "percentile_cont",
+            "null_policy": "explicit_exclusion_only"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "rejected_payload"
+          ],
+          "ordering": "value ASC NULLS excluded"
+        },
+        "semantic_sha256": "856c3eb7734d97e76f9da8c5d3537d939b8141c65800c9ae84ba05eef614e847"
+      },
+      "population": "submitted prompts whose transient decoder completed safely",
+      "dimensions": [
+        "time_range",
+        "timezone",
+        "agent",
+        "surface",
+        "project",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-PROMPT-SHAPE"
+      ],
+      "source_capabilities": [
+        "prompt.metadata",
+        "privacy.enforcement"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint",
+        "redaction_policy_version"
+      ],
+      "completeness": {
+        "required": true,
+        "rejected_payload": "degraded"
+      },
+      "exactness": "exact metadata; raw text never retained"
+    },
+    {
+      "id": "model.requests",
+      "title": "Model requests",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "model.requests/1",
+        "calculation": "count",
+        "expression": "count(model request operations)",
+        "population_id": "model.requests.population/1",
+        "evaluator": {
+          "id": "model.requests/1",
+          "implementation": "count_distinct_records",
+          "parameters": {
+            "distinct_field": "record_id"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "80db9947c4100ec280fd804ddec5f3562579bb443e599b06ac8c824f68d9e759"
+      },
+      "population": "supported model request operations",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "surface",
+        "project",
+        "model",
+        "outcome",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-MODEL-USAGE"
+      ],
+      "source_capabilities": [
+        "model.usage"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "missing_model": "unknown dimension"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "model.tokens",
+      "title": "Provider-reported tokens",
+      "priority": "must",
+      "unit": "tokens",
+      "formula": {
+        "version": "model.tokens/1",
+        "calculation": "sum",
+        "expression": "sum(provider token category)",
+        "population_id": "model.tokens.population/1",
+        "evaluator": {
+          "id": "model.tokens/1",
+          "implementation": "sum_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "ca69fd4947a595adb4acb625362482955d887061fe47a83084c52897b4d3324d"
+      },
+      "population": "model operations with provider-reported token categories",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "surface",
+        "project",
+        "model",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-MODEL-USAGE",
+        "Q-COST-ESTIMATE"
+      ],
+      "source_capabilities": [
+        "model.usage"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint",
+        "token_category"
+      ],
+      "completeness": {
+        "required": true,
+        "unreported_category": "unsupported"
+      },
+      "exactness": "exact when provider-reported; estimates use separate metrics"
+    },
+    {
+      "id": "model.request_latency_seconds",
+      "title": "Model latency p95",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "model.request_latency_seconds/1",
+        "calculation": "p95",
+        "expression": "p95(model operation duration)",
+        "population_id": "model.request_latency_seconds.population/1",
+        "evaluator": {
+          "id": "model.request_latency_seconds/1",
+          "implementation": "percentile_cont_record_field",
+          "parameters": {
+            "value_field": "value",
+            "probability": 0.95,
+            "method": "percentile_cont",
+            "null_policy": "explicit_exclusion_only"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "non_terminal"
+          ],
+          "ordering": "value ASC NULLS excluded"
+        },
+        "semantic_sha256": "cc575af68afcd9440bf0e51d1abb1e3b8b647eb703019f93c6b61c14c59afc01"
+      },
+      "population": "terminal supported model operations",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "model",
+        "outcome",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-MODEL-USAGE"
+      ],
+      "source_capabilities": [
+        "model.usage"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "non_terminal": "excluded with count"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "model.error_ratio",
+      "title": "Model error rate",
+      "priority": "must",
+      "unit": "ratio",
+      "formula": {
+        "version": "model.error_ratio/1",
+        "calculation": "ratio",
+        "expression": "failed terminal model operations / terminal model operations",
+        "numerator": "failed terminal model operations",
+        "denominator": "all terminal model operations",
+        "population_id": "model.error_ratio.population/1",
+        "evaluator": {
+          "id": "model.error_ratio/1",
+          "implementation": "ratio_of_record_field_sums",
+          "parameters": {
+            "numerator_field": "numerator",
+            "denominator_field": "denominator",
+            "zero_denominator_state": "unknown"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "e526f76ab2f0cd1cb3832d48d1baf1e79c489654e7aa012914e9ab75b18f3b32"
+      },
+      "population": "terminal supported model operations",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "model",
+        "error_class",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-MODEL-USAGE",
+        "Q-UPDATE-DRIFT"
+      ],
+      "source_capabilities": [
+        "model.usage"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "zero_denominator": "unknown"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "model.estimated_cost_usd",
+      "title": "Estimated model cost",
+      "priority": "should",
+      "unit": "USD",
+      "formula": {
+        "version": "model.estimated_cost_usd/1",
+        "calculation": "sum",
+        "expression": "sum(exact token category * price at effective time)",
+        "population_id": "model.estimated_cost_usd.population/1",
+        "evaluator": {
+          "id": "model.estimated_cost_usd/1",
+          "implementation": "sum_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "7e51145608e4b839c4c9e67b4601b72de944c3216c13bd363f25b511d2fd0286"
+      },
+      "population": "model operations with exact tokens and a matching versioned price entry",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "project",
+        "model",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COST-ESTIMATE"
+      ],
+      "source_capabilities": [
+        "model.usage"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "price_catalog_version",
+        "price_effective_at"
+      ],
+      "completeness": {
+        "required": true,
+        "missing_price": "unknown"
+      },
+      "exactness": "estimated; never presented as a bill"
+    },
+    {
+      "id": "component.lifecycle_count",
+      "title": "Component lifecycle count",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "component.lifecycle_count/1",
+        "calculation": "count",
+        "expression": "count(distinct component-stage fact)",
+        "population_id": "component.lifecycle_count.population/1",
+        "evaluator": {
+          "id": "component.lifecycle_count/1",
+          "implementation": "count_distinct_records",
+          "parameters": {
+            "distinct_field": "record_id"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "e7edb8e6c6d5e7ed8b7acb4de82e981c00d731dc4704784f68fcbfe5eebe6dc4"
+      },
+      "population": "eligible components at the selected lifecycle stage",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "project",
+        "component_kind",
+        "component",
+        "lifecycle_state",
+        "evidence_tier",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COMPONENT-LIFECYCLE",
+        "Q-COMPONENT-GAPS"
+      ],
+      "source_capabilities": [
+        "component.inventory",
+        "component.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint",
+        "evidence_tier"
+      ],
+      "completeness": {
+        "required": true,
+        "unsupported_stage": "unsupported"
+      },
+      "exactness": "exact for native/reconstructed; inferred is limited to opportunity_detected"
+    },
+    {
+      "id": "component.activation_ratio",
+      "title": "Component activation rate",
+      "priority": "must",
+      "unit": "ratio",
+      "formula": {
+        "version": "component.activation_ratio/1",
+        "calculation": "ratio",
+        "expression": "invoked eligible components / exposed eligible components",
+        "numerator": "invoked eligible components",
+        "denominator": "exposed eligible components",
+        "population_id": "component.activation_ratio.population/1",
+        "evaluator": {
+          "id": "component.activation_ratio/1",
+          "implementation": "ratio_of_record_field_sums",
+          "parameters": {
+            "numerator_field": "numerator",
+            "denominator_field": "denominator",
+            "zero_denominator_state": "unknown"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "581d14afd962ae843624fcc91c7d72dddbfe61598fcde28091a5cd1e95576d8e"
+      },
+      "population": "components with supported exposed and invoked stages",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "project",
+        "component_kind",
+        "component",
+        "evidence_tier",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COMPONENT-LIFECYCLE",
+        "Q-COMPONENT-GAPS"
+      ],
+      "source_capabilities": [
+        "component.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint",
+        "evidence_tier"
+      ],
+      "completeness": {
+        "required": true,
+        "zero_or_unknown_denominator": "unknown"
+      },
+      "exactness": "exact for native/reconstructed evidence"
+    },
+    {
+      "id": "component.success_ratio",
+      "title": "Component success rate",
+      "priority": "must",
+      "unit": "ratio",
+      "formula": {
+        "version": "component.success_ratio/1",
+        "calculation": "ratio",
+        "expression": "succeeded terminal executions / terminal executions",
+        "numerator": "succeeded terminal component executions",
+        "denominator": "all terminal component executions",
+        "population_id": "component.success_ratio.population/1",
+        "evaluator": {
+          "id": "component.success_ratio/1",
+          "implementation": "ratio_of_record_field_sums",
+          "parameters": {
+            "numerator_field": "numerator",
+            "denominator_field": "denominator",
+            "zero_denominator_state": "unknown"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "49595804871247f2d8ffb1c1338b87ce712975c1600300f9bf4f16fe02a03393"
+      },
+      "population": "terminal component executions with a declared terminal contract",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "project",
+        "component_kind",
+        "component",
+        "outcome",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COMPONENT-LIFECYCLE",
+        "Q-COMPONENT-GAPS"
+      ],
+      "source_capabilities": [
+        "component.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint",
+        "outcome_source"
+      ],
+      "completeness": {
+        "required": true,
+        "stop_event": "not automatically succeeded"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "tool.calls",
+      "title": "Tool calls",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "tool.calls/1",
+        "calculation": "count",
+        "expression": "count(distinct tool call identity)",
+        "population_id": "tool.calls.population/1",
+        "evaluator": {
+          "id": "tool.calls/1",
+          "implementation": "count_distinct_records",
+          "parameters": {
+            "distinct_field": "record_id"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "arguments_results"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "36eee4206ae41484a4a8239b1f48f76edf1e4dd89d4c717ed12c6739ad03f8a3"
+      },
+      "population": "supported tool calls",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "project",
+        "component",
+        "permission_mode",
+        "outcome",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COMPONENT-LIFECYCLE",
+        "Q-MODEL-USAGE"
+      ],
+      "source_capabilities": [
+        "tool.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "arguments_results": "always excluded"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "tool.success_ratio",
+      "title": "Tool success rate",
+      "priority": "must",
+      "unit": "ratio",
+      "formula": {
+        "version": "tool.success_ratio/1",
+        "calculation": "ratio",
+        "expression": "successful terminal calls / terminal calls",
+        "numerator": "successful terminal calls",
+        "denominator": "all terminal calls",
+        "population_id": "tool.success_ratio.population/1",
+        "evaluator": {
+          "id": "tool.success_ratio/1",
+          "implementation": "ratio_of_record_field_sums",
+          "parameters": {
+            "numerator_field": "numerator",
+            "denominator_field": "denominator",
+            "zero_denominator_state": "unknown"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "645db732e1cb356989f9b3fae8db466afb2e2017c427f9dedee47efeb0ba722a"
+      },
+      "population": "terminal supported tool calls",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "component",
+        "outcome",
+        "error_class",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COMPONENT-LIFECYCLE",
+        "Q-UPDATE-DRIFT"
+      ],
+      "source_capabilities": [
+        "tool.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "zero_denominator": "unknown"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "tool.latency_seconds",
+      "title": "Tool latency p95",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "tool.latency_seconds/1",
+        "calculation": "p95",
+        "expression": "p95(terminal tool call duration)",
+        "population_id": "tool.latency_seconds.population/1",
+        "evaluator": {
+          "id": "tool.latency_seconds/1",
+          "implementation": "percentile_cont_record_field",
+          "parameters": {
+            "value_field": "value",
+            "probability": 0.95,
+            "method": "percentile_cont",
+            "null_policy": "explicit_exclusion_only"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "non_terminal"
+          ],
+          "ordering": "value ASC NULLS excluded"
+        },
+        "semantic_sha256": "8a6f046b665ab6b150e9a6bf0d62f1e2edd513553be8c7456aec7433c4f3d5c3"
+      },
+      "population": "terminal supported tool calls",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "component",
+        "outcome",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COMPONENT-LIFECYCLE",
+        "Q-MODEL-USAGE"
+      ],
+      "source_capabilities": [
+        "tool.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "non_terminal": "excluded with count"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "mcp.connection_uptime_ratio",
+      "title": "MCP connection uptime",
+      "priority": "must",
+      "unit": "ratio",
+      "formula": {
+        "version": "mcp.connection_uptime_ratio/1",
+        "calculation": "ratio",
+        "expression": "connected eligible duration / configured eligible duration",
+        "numerator": "connected eligible seconds",
+        "denominator": "configured eligible seconds",
+        "population_id": "mcp.connection_uptime_ratio.population/1",
+        "evaluator": {
+          "id": "mcp.connection_uptime_ratio/1",
+          "implementation": "ratio_of_record_field_sums",
+          "parameters": {
+            "numerator_field": "numerator",
+            "denominator_field": "denominator",
+            "zero_denominator_state": "unknown"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "9358d4e7904a024f990be87895cc8618e55d74f4ffc71f0a3f784967c7d96cc4"
+      },
+      "population": "configured MCP server intervals where connection state is observable",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "component",
+        "outcome",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COMPONENT-LIFECYCLE",
+        "Q-COMPONENT-GAPS"
+      ],
+      "source_capabilities": [
+        "mcp.lifecycle"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint"
+      ],
+      "completeness": {
+        "required": true,
+        "unobservable_state": "unsupported"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "reliability.unknown_schema_count",
+      "title": "Unknown schemas",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "reliability.unknown_schema_count/1",
+        "calculation": "count",
+        "expression": "count(metadata-only quarantine records with unknown fingerprint)",
+        "population_id": "reliability.unknown_schema_count.population/1",
+        "evaluator": {
+          "id": "reliability.unknown_schema_count/1",
+          "implementation": "count_distinct_records",
+          "parameters": {
+            "distinct_field": "record_id"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "037331cc52ef25e21343edeca059f6865fc05215c1114eae822b8094713fceee"
+      },
+      "population": "bounded ingress payloads with a recognized source and unknown schema fingerprint",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "source",
+        "adapter_version",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH",
+        "Q-UPDATE-DRIFT"
+      ],
+      "source_capabilities": [
+        "reconciliation",
+        "privacy.enforcement"
+      ],
+      "provenance": [
+        "source",
+        "adapter_version",
+        "schema_fingerprint",
+        "reason_code"
+      ],
+      "completeness": {
+        "required": true,
+        "affected_interval": "degraded"
+      },
+      "exactness": "exact metadata count"
+    },
+    {
+      "id": "reliability.reconciliation_mismatch_count",
+      "title": "Reconciliation mismatches",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "reliability.reconciliation_mismatch_count/1",
+        "calculation": "count",
+        "expression": "count(open or closed source disagreements)",
+        "population_id": "reliability.reconciliation_mismatch_count.population/1",
+        "evaluator": {
+          "id": "reliability.reconciliation_mismatch_count/1",
+          "implementation": "count_distinct_records",
+          "parameters": {
+            "distinct_field": "record_id"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "e2aaf0eb7df848e69c0cef156fa20fe7fff490075917d08830101a0281e018a5"
+      },
+      "population": "facts with at least two comparable evidence sources",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "source",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH",
+        "Q-UPDATE-DRIFT"
+      ],
+      "source_capabilities": [
+        "reconciliation"
+      ],
+      "provenance": [
+        "source_set",
+        "adapter_version_set",
+        "reconciliation_rule_version"
+      ],
+      "completeness": {
+        "required": true,
+        "open_mismatch": "degraded"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "reliability.drift_detection_seconds",
+      "title": "Drift detection latency",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "reliability.drift_detection_seconds/1",
+        "calculation": "max",
+        "expression": "max(incident_detected_at - fault_started_at)",
+        "population_id": "reliability.drift_detection_seconds.population/1",
+        "evaluator": {
+          "id": "reliability.drift_detection_seconds/1",
+          "implementation": "max_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "f4a279909c36f8dd60a3335b6ccd11c1ce20ec8de99892760407e1b24a39318d"
+      },
+      "population": "eligible injected or corroborated source/schema drift faults",
+      "dimensions": [
+        "time_range",
+        "agent",
+        "source",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-COLLECTION-HEALTH",
+        "Q-UPDATE-DRIFT"
+      ],
+      "source_capabilities": [
+        "reconciliation",
+        "live.canary"
+      ],
+      "provenance": [
+        "fault_class",
+        "audit_version",
+        "incident_id",
+        "source"
+      ],
+      "completeness": {
+        "required": true,
+        "unknown_fault_start": "unknown"
+      },
+      "exactness": "exact for injected faults; bounded reconstruction otherwise"
+    },
+    {
+      "id": "privacy.raw_content_persisted_count",
+      "title": "Raw-content persistence violations",
+      "priority": "must",
+      "unit": "count",
+      "formula": {
+        "version": "privacy.raw_content_persisted_count/1",
+        "calculation": "sum",
+        "expression": "sum(raw-content canary matches across durable/output sinks)",
+        "population_id": "privacy.raw_content_persisted_count.population/1",
+        "evaluator": {
+          "id": "privacy.raw_content_persisted_count/1",
+          "implementation": "sum_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "entire retained history plus latest backup/export",
+          "authorized_exclusions": [],
+          "ordering": null
+        },
+        "semantic_sha256": "ea1e127d2823199d68ed0f5308ef86cfa864de8f7dde0e54ef9f7367abac958a"
+      },
+      "population": "database, logs, traces, quarantine, errors, UI traffic, exports, and backups scanned by the canary",
+      "dimensions": [
+        "time_range",
+        "source",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-PRIVACY-STATE"
+      ],
+      "source_capabilities": [
+        "privacy.enforcement"
+      ],
+      "provenance": [
+        "canary_version",
+        "sink",
+        "scan_version"
+      ],
+      "completeness": {
+        "required": true,
+        "unscanned_sink": "unknown and failing gate"
+      },
+      "exactness": "exact; target zero"
+    },
+    {
+      "id": "system.collector_cpu_ratio",
+      "title": "Collector CPU",
+      "priority": "must",
+      "unit": "ratio",
+      "formula": {
+        "version": "system.collector_cpu_ratio/1",
+        "calculation": "mean",
+        "expression": "mean(process CPU / one logical CPU)",
+        "population_id": "system.collector_cpu_ratio.population/1",
+        "evaluator": {
+          "id": "system.collector_cpu_ratio/1",
+          "implementation": "mean_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "startup_warmup",
+            "declared_maintenance"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "e658d28fea61386b63e39202129b96f695605591ff6b7265b2efb7f481b7e6f1"
+      },
+      "population": "collector process samples",
+      "dimensions": [
+        "time_range",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-KANSOKU-OVERHEAD"
+      ],
+      "source_capabilities": [
+        "operations.telemetry"
+      ],
+      "provenance": [
+        "collector_version",
+        "host_profile",
+        "sample_interval"
+      ],
+      "completeness": {
+        "required": true,
+        "missing_samples": "partial"
+      },
+      "exactness": "measured"
+    },
+    {
+      "id": "system.collector_rss_bytes",
+      "title": "Collector RSS",
+      "priority": "must",
+      "unit": "bytes",
+      "formula": {
+        "version": "system.collector_rss_bytes/1",
+        "calculation": "max",
+        "expression": "max(process resident set size)",
+        "population_id": "system.collector_rss_bytes.population/1",
+        "evaluator": {
+          "id": "system.collector_rss_bytes/1",
+          "implementation": "max_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "startup_warmup",
+            "declared_maintenance"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "5a1427fd6358aedc2a1f20ad30da8ecd1059538e3115a80e3ec7f5fdee1822fe"
+      },
+      "population": "collector process samples",
+      "dimensions": [
+        "time_range",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-KANSOKU-OVERHEAD"
+      ],
+      "source_capabilities": [
+        "operations.telemetry"
+      ],
+      "provenance": [
+        "collector_version",
+        "host_profile",
+        "sample_interval"
+      ],
+      "completeness": {
+        "required": true,
+        "missing_samples": "partial"
+      },
+      "exactness": "measured"
+    },
+    {
+      "id": "system.database_size_bytes",
+      "title": "Database size",
+      "priority": "must",
+      "unit": "bytes",
+      "formula": {
+        "version": "system.database_size_bytes/1",
+        "calculation": "latest",
+        "expression": "latest durable database size sample",
+        "population_id": "system.database_size_bytes.population/1",
+        "evaluator": {
+          "id": "system.database_size_bytes/1",
+          "implementation": "latest_record_by_order_field",
+          "parameters": {
+            "value_field": "value",
+            "order_field": "observed_order",
+            "direction": "ascending"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": "observed_order ASC"
+        },
+        "semantic_sha256": "8aee052b87a657036707d81d7fbb842f38559315543050e4a726be0c85d5c5a9"
+      },
+      "population": "Kansoku database and required indexes",
+      "dimensions": [
+        "time_range",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-KANSOKU-OVERHEAD",
+        "Q-PRIVACY-STATE"
+      ],
+      "source_capabilities": [
+        "operations.telemetry"
+      ],
+      "provenance": [
+        "database_version",
+        "schema_version",
+        "host_profile"
+      ],
+      "completeness": {
+        "required": true,
+        "missing_sample": "unknown"
+      },
+      "exactness": "measured"
+    },
+    {
+      "id": "system.database_growth_bytes_per_day",
+      "title": "Database growth per day",
+      "priority": "must",
+      "unit": "bytes_per_day",
+      "formula": {
+        "version": "system.database_growth_bytes_per_day/1",
+        "calculation": "max",
+        "expression": "max(positive database size delta across complete UTC days)",
+        "population_id": "system.database_growth_bytes_per_day.population/1",
+        "evaluator": {
+          "id": "system.database_growth_bytes_per_day/1",
+          "implementation": "max_record_field",
+          "parameters": {
+            "value_field": "value"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "complete UTC days",
+          "authorized_exclusions": [
+            "declared_migration_rewrite"
+          ],
+          "ordering": null
+        },
+        "semantic_sha256": "b54d6cb1ed31d0141f1ecd40d03e408caac952953a63cb66e55e75a462d42783"
+      },
+      "population": "complete daily database-size intervals excluding declared migration rewrites",
+      "dimensions": [
+        "time_range",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-KANSOKU-OVERHEAD",
+        "Q-PRIVACY-STATE"
+      ],
+      "source_capabilities": [
+        "operations.telemetry"
+      ],
+      "provenance": [
+        "database_version",
+        "schema_version",
+        "retention_policy_version",
+        "host_profile"
+      ],
+      "completeness": {
+        "required": true,
+        "missing_boundary_sample": "unknown"
+      },
+      "exactness": "measured"
+    },
+    {
+      "id": "system.common_query_latency_seconds",
+      "title": "Common dashboard query latency p95",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "system.common_query_latency_seconds/1",
+        "calculation": "p95",
+        "expression": "p95(server query duration for registered common panels)",
+        "population_id": "system.common_query_latency_seconds.population/1",
+        "evaluator": {
+          "id": "system.common_query_latency_seconds/1",
+          "implementation": "percentile_cont_record_field",
+          "parameters": {
+            "value_field": "value",
+            "probability": 0.95,
+            "method": "percentile_cont",
+            "null_policy": "explicit_exclusion_only"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [
+            "cancelled_query"
+          ],
+          "ordering": "value ASC NULLS excluded"
+        },
+        "semantic_sha256": "7e49cc3cc5db70cf66b2368cfdd71b66f3e65b6d1a87d517e0a30c7ca81ffe6a"
+      },
+      "population": "registered common 30-day dashboard queries on the reference profile",
+      "dimensions": [
+        "time_range",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-KANSOKU-OVERHEAD"
+      ],
+      "source_capabilities": [
+        "operations.telemetry"
+      ],
+      "provenance": [
+        "query_id",
+        "formula_version",
+        "schema_version",
+        "host_profile"
+      ],
+      "completeness": {
+        "required": true,
+        "cancelled_queries": "excluded with count"
+      },
+      "exactness": "measured"
+    },
+    {
+      "id": "system.backup_age_seconds",
+      "title": "Backup age",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "system.backup_age_seconds/1",
+        "calculation": "latest",
+        "expression": "now - latest verified backup completion",
+        "population_id": "system.backup_age_seconds.population/1",
+        "evaluator": {
+          "id": "system.backup_age_seconds/1",
+          "implementation": "latest_record_by_order_field",
+          "parameters": {
+            "value_field": "value",
+            "order_field": "observed_order",
+            "direction": "ascending"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": "observed_order ASC"
+        },
+        "semantic_sha256": "4cf7f711abb84ce336b2da7d2b4c1d62b9fab0b20beb5cf830121aef0420b97c"
+      },
+      "population": "configured backup schedule",
+      "dimensions": [
+        "time_range",
+        "outcome",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-RECOVERY"
+      ],
+      "source_capabilities": [
+        "backup.restore"
+      ],
+      "provenance": [
+        "backup_manifest_version",
+        "schema_version",
+        "checksum_status"
+      ],
+      "completeness": {
+        "required": true,
+        "no_backup": "unknown and incident"
+      },
+      "exactness": "exact"
+    },
+    {
+      "id": "system.restore_test_age_seconds",
+      "title": "Restore-test age",
+      "priority": "must",
+      "unit": "seconds",
+      "formula": {
+        "version": "system.restore_test_age_seconds/1",
+        "calculation": "latest",
+        "expression": "now - latest successful isolated restore test",
+        "population_id": "system.restore_test_age_seconds.population/1",
+        "evaluator": {
+          "id": "system.restore_test_age_seconds/1",
+          "implementation": "latest_record_by_order_field",
+          "parameters": {
+            "value_field": "value",
+            "order_field": "observed_order",
+            "direction": "ascending"
+          }
+        },
+        "fixture_policy": {
+          "filter": {
+            "eligible": true,
+            "in_interval": true
+          },
+          "dedupe_key": "record_id",
+          "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+          "authorized_exclusions": [],
+          "ordering": "observed_order ASC"
+        },
+        "semantic_sha256": "91d071b5965be8a1cbf7d9751fafd16acb7d95948100b3923da3a25bc1e1026b"
+      },
+      "population": "configured restore-test schedule",
+      "dimensions": [
+        "time_range",
+        "outcome",
+        "completeness"
+      ],
+      "question_ids": [
+        "Q-RECOVERY"
+      ],
+      "source_capabilities": [
+        "backup.restore"
+      ],
+      "provenance": [
+        "backup_manifest_version",
+        "schema_version",
+        "restore_test_id"
+      ],
+      "completeness": {
+        "required": true,
+        "no_restore_test": "unknown and incident"
+      },
+      "exactness": "exact"
+    }
+  ]
+}

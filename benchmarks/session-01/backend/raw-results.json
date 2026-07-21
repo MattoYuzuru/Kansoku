@@ -1,0 +1,290 @@
+{
+  "docker_version": {
+    "Client": {
+      "ApiVersion": "1.54",
+      "Arch": "arm64",
+      "BuildTime": "Wed Jun  3 17:16:33 2026",
+      "Context": "colima",
+      "DefaultAPIVersion": "1.54",
+      "GitCommit": "d1c06ef6b4",
+      "GoVersion": "go1.26.4",
+      "Os": "darwin",
+      "Platform": {
+        "Name": "Docker Engine - Community"
+      },
+      "Version": "29.5.3"
+    },
+    "Server": {
+      "ApiVersion": "1.54",
+      "Arch": "arm64",
+      "BuildTime": "2026-05-20T14:39:25.000000000+00:00",
+      "Components": [
+        {
+          "Details": {
+            "ApiVersion": "1.54",
+            "Arch": "arm64",
+            "BuildTime": "Wed May 20 14:39:25 2026",
+            "Experimental": "false",
+            "GitCommit": "568f755",
+            "GoVersion": "go1.26.3",
+            "KernelVersion": "6.8.0-117-generic",
+            "MinAPIVersion": "1.40",
+            "Module": "github.com/moby/moby/v2",
+            "ModuleVersion": "v2.0.0+unknown",
+            "Os": "linux"
+          },
+          "Name": "Engine",
+          "Version": "29.5.2"
+        },
+        {
+          "Details": {
+            "GitCommit": "193637f7ee8ae5f5aa5248f49e7baa3e6164966e"
+          },
+          "Name": "containerd",
+          "Version": "v2.2.4"
+        },
+        {
+          "Details": {
+            "GitCommit": "v1.3.5-0-g488fc13e"
+          },
+          "Name": "runc",
+          "Version": "1.3.5"
+        },
+        {
+          "Details": {
+            "GitCommit": "de40ad0"
+          },
+          "Name": "docker-init",
+          "Version": "0.19.0"
+        }
+      ],
+      "GitCommit": "568f755",
+      "GoVersion": "go1.26.3",
+      "KernelVersion": "6.8.0-117-generic",
+      "MinAPIVersion": "1.40",
+      "Os": "linux",
+      "Platform": {
+        "Name": "Docker Engine - Community"
+      },
+      "Version": "29.5.2"
+    }
+  },
+  "host_architecture": "arm64",
+  "immutable_inputs": {
+    "go": "golang@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2",
+    "python": "python@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92",
+    "volume_owner_helper": "alpine@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40"
+  },
+  "limitations": [
+    "The spike uses OTLP/HTTP JSON structural counting, not production protobuf decoding.",
+    "The durable sink stores only sanitized batch metadata; database performance is measured separately.",
+    "Container stats are point samples, not the binding 24-hour idle SLO."
+  ],
+  "results": [
+    {
+      "build_output_tail": [],
+      "build_seconds": 0.507945,
+      "canary_sha256": {
+        "key": "93b2607d11c8272a88187acbc63671dd36cb1a7250ca7d4bce0ed075c405428c",
+        "path": "75d770df2c0ce6e8a1bbbf2be17d9ff7185c5fa1e998f7553d04a0ae151a4abe",
+        "prompt": "5dd28988982919c468d08ebc5d72505e3608a3a7936c494f90f01c5dfd698e78",
+        "response": "c0680a5b023c8ab124541e2eb6c1457ef7d916fc822ede26661e7e53e1546fd8",
+        "tool": "158e21012cf9f85ed31b5b79c5cd4a2e32677edb05cfda091b586a23073b6f74"
+      },
+      "cold_start_seconds": 0.159133,
+      "concurrency": 8,
+      "dependency_surface": "language standard library only",
+      "expected_batches_including_warmup": 420,
+      "expected_records_including_warmup": 2100,
+      "graceful_stop_output": "Flag --time has been deprecated, use --timeout instead\nkansoku-s01-go",
+      "idle_stats": {
+        "cpu_percent": "0.01%",
+        "memory_usage": "5.613MiB / 7.737GiB"
+      },
+      "image": {
+        "id": "sha256:3fe42182eb998fe14d834fbd35961da83bf0748a3392b3cb181f41658e15384e",
+        "repo_digests": [
+          "kansoku-session-01-go@sha256:3fe42182eb998fe14d834fbd35961da83bf0748a3392b3cb181f41658e15384e"
+        ],
+        "size_bytes": 2371589
+      },
+      "implementation": "go",
+      "latency_p50_seconds": 0.033741,
+      "latency_p95_seconds": 0.038727,
+      "latency_p99_seconds": 0.044141,
+      "load_stats": {
+        "cpu_percent": "0.00%",
+        "memory_usage": "8.145MiB / 7.737GiB"
+      },
+      "persisted_batches": 420,
+      "persisted_field_allowlist": [
+        "body_bytes",
+        "received_at",
+        "record_count",
+        "route",
+        "schema_fingerprint"
+      ],
+      "persisted_records": 2100,
+      "persisted_row_schema_violations": [],
+      "records_per_request": 5,
+      "recursive_canary_matches": [],
+      "rejection_statuses": {
+        "content_alias_arguments": 400,
+        "content_alias_body": 400,
+        "content_alias_command": 400,
+        "content_alias_content": 400,
+        "content_alias_content_bearing_key": 400,
+        "content_alias_cwd": 400,
+        "content_alias_message": 400,
+        "content_alias_prompt": 400,
+        "content_alias_tool_input": 400,
+        "content_alias_tool_output": 400,
+        "oversized_body": 413
+      },
+      "requests": 400,
+      "retained_sanitized_row_evidence": [
+        {
+          "body_bytes": 201,
+          "received_at": "2026-07-21T17:01:21.721782682Z",
+          "record_count": 5,
+          "route": "otlp_http_json_logs",
+          "schema_fingerprint": "spike.otlp-json-safe-counts/1"
+        },
+        {
+          "body_bytes": 201,
+          "received_at": "2026-07-21T17:01:25.066427017Z",
+          "record_count": 5,
+          "route": "otlp_http_json_logs",
+          "schema_fingerprint": "spike.otlp-json-safe-counts/1"
+        }
+      ],
+      "shutdown_flush_verified": true,
+      "status_counts": {
+        "202": 400
+      },
+      "throughput_requests_per_second": 231.42
+    },
+    {
+      "build_output_tail": [],
+      "build_seconds": 0.33031,
+      "canary_sha256": {
+        "key": "93b2607d11c8272a88187acbc63671dd36cb1a7250ca7d4bce0ed075c405428c",
+        "path": "75d770df2c0ce6e8a1bbbf2be17d9ff7185c5fa1e998f7553d04a0ae151a4abe",
+        "prompt": "5dd28988982919c468d08ebc5d72505e3608a3a7936c494f90f01c5dfd698e78",
+        "response": "c0680a5b023c8ab124541e2eb6c1457ef7d916fc822ede26661e7e53e1546fd8",
+        "tool": "158e21012cf9f85ed31b5b79c5cd4a2e32677edb05cfda091b586a23073b6f74"
+      },
+      "cold_start_seconds": 0.449815,
+      "concurrency": 8,
+      "dependency_surface": "language standard library only",
+      "expected_batches_including_warmup": 420,
+      "expected_records_including_warmup": 2100,
+      "graceful_stop_output": "Flag --time has been deprecated, use --timeout instead\nkansoku-s01-python",
+      "idle_stats": {
+        "cpu_percent": "0.03%",
+        "memory_usage": "15.43MiB / 7.737GiB"
+      },
+      "image": {
+        "id": "sha256:f7aec19ebc2c4741208138e2551afbe65e5e4a7925b669840bda321fcc62bd50",
+        "repo_digests": [
+          "kansoku-session-01-python@sha256:f7aec19ebc2c4741208138e2551afbe65e5e4a7925b669840bda321fcc62bd50"
+        ],
+        "size_bytes": 18167987
+      },
+      "implementation": "python",
+      "latency_p50_seconds": 0.033747,
+      "latency_p95_seconds": 0.038587,
+      "latency_p99_seconds": 0.040253,
+      "load_stats": {
+        "cpu_percent": "0.06%",
+        "memory_usage": "15.44MiB / 7.737GiB"
+      },
+      "persisted_batches": 420,
+      "persisted_field_allowlist": [
+        "body_bytes",
+        "received_at",
+        "record_count",
+        "route",
+        "schema_fingerprint"
+      ],
+      "persisted_records": 2100,
+      "persisted_row_schema_violations": [],
+      "records_per_request": 5,
+      "recursive_canary_matches": [],
+      "rejection_statuses": {
+        "content_alias_arguments": 400,
+        "content_alias_body": 400,
+        "content_alias_command": 400,
+        "content_alias_content": 400,
+        "content_alias_content_bearing_key": 400,
+        "content_alias_cwd": 400,
+        "content_alias_message": 400,
+        "content_alias_prompt": 400,
+        "content_alias_tool_input": 400,
+        "content_alias_tool_output": 400,
+        "oversized_body": 413
+      },
+      "requests": 400,
+      "retained_sanitized_row_evidence": [
+        {
+          "body_bytes": 201,
+          "received_at": "2026-07-21T17:01:27Z",
+          "record_count": 5,
+          "route": "otlp_http_json_logs",
+          "schema_fingerprint": "spike.otlp-json-safe-counts/1"
+        },
+        {
+          "body_bytes": 201,
+          "received_at": "2026-07-21T17:01:30Z",
+          "record_count": 5,
+          "route": "otlp_http_json_logs",
+          "schema_fingerprint": "spike.otlp-json-safe-counts/1"
+        }
+      ],
+      "shutdown_flush_verified": true,
+      "status_counts": {
+        "202": 400
+      },
+      "throughput_requests_per_second": 233.484
+    }
+  ],
+  "retrieved_at": "2026-07-21",
+  "schema_version": "kansoku.session-01-backend-benchmark/1",
+  "toolchains": {
+    "go": {
+      "base_image": {
+        "id": "sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2",
+        "repo_digests": [
+          "golang@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2"
+        ],
+        "size_bytes": 68622368
+      },
+      "version": "go version go1.26.5 linux/arm64"
+    },
+    "python": {
+      "base_image": {
+        "id": "sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92",
+        "repo_digests": [
+          "python@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92"
+        ],
+        "size_bytes": 18173946
+      },
+      "version": "Python 3.14.6"
+    },
+    "volume_owner_helper": {
+      "image": {
+        "id": "sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40",
+        "repo_digests": [
+          "alpine@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40"
+        ],
+        "size_bytes": 4192730
+      }
+    }
+  },
+  "workload": {
+    "body_limit_bytes": 1048576,
+    "concurrency": 8,
+    "requests": 400,
+    "warmup_requests": 20
+  }
+}

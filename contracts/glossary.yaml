@@ -1,0 +1,49 @@
+{
+  "schema_version": "kansoku.glossary/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "state_registry": {
+    "value_states": ["unsupported", "not_observed", "redacted", "unknown", "numeric_zero"],
+    "completeness_states": ["complete", "partial", "degraded"],
+    "display_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"],
+    "measured_value_rule": "A non-zero measured value is carried with a completeness state; numeric_zero is the only zero display state."
+  },
+  "terms": [
+    {"id": "agent", "definition": "A developer-facing AI runtime or product whose local surfaces Kansoku may inventory or observe."},
+    {"id": "surface", "definition": "A distinct agent execution surface such as CLI, IDE, desktop app, web task, or cloud worker."},
+    {"id": "session", "definition": "A source-scoped resumable interaction container; it is not assumed to be one process or one task."},
+    {"id": "turn", "definition": "One user-initiated or agent-initiated interaction unit inside a session when the source exposes that boundary."},
+    {"id": "component", "definition": "A versioned skill, plugin, MCP server/tool, built-in tool, custom command, hook, or agent extension."},
+    {"id": "installed", "definition": "An inventory source confirms that an artifact and version exist in an installation scope."},
+    {"id": "enabled", "definition": "Effective agent configuration permits the component to participate."},
+    {"id": "exposed", "definition": "Evidence shows the component was available to a specific session or model; inventory alone is insufficient."},
+    {"id": "invoked", "definition": "An explicit native, tool, user, or deterministic reconstructed invocation occurred."},
+    {"id": "loaded", "definition": "Instructions or resources were actually loaded when that stage is observable."},
+    {"id": "executed", "definition": "A uniquely attributed script, tool, MCP, command, or hook action occurred."},
+    {"id": "succeeded", "definition": "The component-specific terminal contract succeeded; this does not assert that the overall task succeeded."},
+    {"id": "opportunity_detected", "definition": "An ephemeral or stored metadata-only inference that a component might have applied; it never promotes a factual lifecycle state."},
+    {"id": "supported", "definition": "For a bounded agent/capability/version scope, contract, privacy tests, fixtures, passive audit, and end-to-end verification pass."},
+    {"id": "beta", "definition": "A deterministic data path and fixtures exist, but live or version coverage remains incomplete."},
+    {"id": "experimental", "definition": "A documentation, inventory, or source probe exists without a completeness promise."},
+    {"id": "unsupported", "definition": "No reliable source exists for the bounded capability/version scope, or the capability is explicitly out of scope."},
+    {"id": "not_observed", "definition": "The capability is observable and the source interval is healthy, but no qualifying event was seen."},
+    {"id": "redacted", "definition": "A value existed at the transient trust boundary and was intentionally removed by data policy."},
+    {"id": "unknown", "definition": "The system cannot establish a value or denominator from available evidence."},
+    {"id": "numeric_zero", "definition": "A complete eligible population was measured and its numeric result is exactly zero."},
+    {"id": "complete", "definition": "All required sources for the declared capability and interval are healthy, reconciled, and past their watermarks."},
+    {"id": "partial", "definition": "Some but not all eligible evidence is available and the missing portion is bounded and disclosed."},
+    {"id": "degraded", "definition": "A known source, schema, parser, reconciliation, or freshness failure affects the result."},
+    {"id": "evidence", "definition": "A source-scoped observation carrying adapter/schema versions, confidence, timestamps, and lineage."},
+    {"id": "coverage", "definition": "Observed normalized eligible events divided by expected eligible events for a declared source/capability/time population."},
+    {"id": "sprint", "definition": "A configurable half-open calendar range derived from a local anchor date and duration; the default duration is fourteen days."},
+    {"id": "cost_estimate", "definition": "A non-billing monetary estimate derived from provider-reported tokens and a versioned price snapshot, with confidence and unknown states."}
+  ],
+  "forbidden_aliases": [
+    {"alias": "used", "reason": "Conflates lifecycle stages.", "use_instead": ["invoked", "loaded", "executed", "succeeded"]},
+    {"alias": "activated", "reason": "Conflates inference with factual invocation.", "use_instead": ["invoked", "opportunity_detected"]},
+    {"alias": "missing", "reason": "Conflates evidence and value states.", "use_instead": ["unsupported", "not_observed", "redacted", "unknown", "degraded"]},
+    {"alias": "success", "reason": "Requires an explicit subject and terminal contract.", "use_instead": ["succeeded", "session outcome"]},
+    {"alias": "100% coverage", "reason": "A percentage without capability, interval, numerator, denominator, and exclusions is not a claim.", "use_instead": ["coverage with declared population and completeness"]},
+    {"alias": "productivity score", "reason": "Kansoku does not rank developer worth or produce a universal score.", "use_instead": ["explainable workflow metric"]}
+  ]
+}

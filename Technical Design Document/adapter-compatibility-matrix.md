@@ -7,16 +7,16 @@ baseline, not a support claim; live evidence and version-specific manifests are 
 | Capability | Codex | Claude Code | Gemini CLI | Cursor | Generic adapter |
 |---|---:|---:|---:|---:|---:|
 | Agent/version discovery | N/R | N/R | N/R | P | required |
-| Session lifecycle | N/R | N/R | N | P | optional |
-| Prompt count/size | N/R | N/R | N | P | optional |
+| Session lifecycle | N/R | N/R | N | N/P via hooks | optional |
+| Prompt count/size | N/R | N/R | N | N/P via hooks | optional |
 | Prompt content excluded | configurable | configurable | `logPrompts=false` | P | required policy |
 | Model/token metadata | N | N | N | P | optional |
 | Explicit skill invocation | R/N when exposed | N (`Skill`) | P | P | optional |
 | Implicit skill activation | R/I | N/R/I | P/I | P/I | optional |
 | Plugin attribution | inventory/R | N/R | extension mapping | P | optional |
-| MCP server/tool usage | N/R | N | N | P | optional |
-| Tool calls/latency | N | N | N | P | optional |
-| Hook integration | N | N | N | documented/P | optional |
+| MCP server/tool usage | N/R | N | N | N/P via hooks | optional |
+| Tool calls/latency | N | N | N | N/P via hooks | optional |
+| Hook integration | N | N | N | N/P | optional |
 | Native OTel | N | N | N | —/P | optional |
 | Historical transcript import | R | R | P | P | optional |
 | Component inventory | N/R | N/R | N/R | N/R | required for inventory adapters |
@@ -39,14 +39,46 @@ Each released adapter matrix row expands into machine-readable records:
 ```yaml
 adapter: claude-code
 adapter_version: 0.1.0
-agent_versions: ">=x <y"
+evidence_artifact_registry:
+  - artifact_id: "sha256:<verified-contract-digest>"
+    kind: capability_contract
+    path: tests/fixtures/claude-code/component-lifecycle-contract.json
+    canonicalization: canonical_json_v1
+    sha256: "<verified-contract-digest>"
 capabilities:
   skill_invocation:
     support: supported
-    evidence: [otel, transcript_skill_tool]
-    fixtures: [claude-x-skill.jsonl]
-    canary: claude-skill-v1
+    version_range: &range
+      {scheme: semver_core, min_inclusive: 2.1.197, max_exclusive: 2.2.0}
+    evidence:
+      official_docs: [https://code.claude.com/docs/en/monitoring-usage]
+      receipts: &receipts
+        - {receipt_id: receipt/contract-v1, kind: capability_contract, adapter_id: claude-code, capability_id: component.lifecycle, version_range: *range, artifact_ids: ["sha256:<verified-contract-digest>"], result: pass}
+        - {receipt_id: receipt/privacy-v1, kind: privacy_test, adapter_id: claude-code, capability_id: component.lifecycle, version_range: *range, artifact_ids: ["sha256:<verified-privacy-digest>"], result: pass}
+        - {receipt_id: receipt/replay-v1, kind: sanitized_fixture_replay, adapter_id: claude-code, capability_id: component.lifecycle, version_range: *range, artifact_ids: ["sha256:<verified-replay-digest>"], result: pass}
+        - {receipt_id: receipt/audit-v1, kind: passive_audit, adapter_id: claude-code, capability_id: component.lifecycle, version_range: *range, artifact_ids: ["sha256:<verified-audit-digest>"], result: pass}
+        - {receipt_id: receipt/canary-v1, kind: canary_or_end_to_end, adapter_id: claude-code, capability_id: component.lifecycle, version_range: *range, artifact_ids: ["sha256:<verified-canary-digest>"], result: pass}
+      human_classification_reviews:
+        - {review_id: review/classification-a, reviewer_id: reviewer-a, adapter_id: claude-code, capability_id: component.lifecycle, version_range: *range, fixture_ids: ["sha256:<verified-classification-digest>"], evidence_receipt_ids: [receipt/contract-v1, receipt/privacy-v1, receipt/replay-v1, receipt/audit-v1, receipt/canary-v1], result: approved}
+        - {review_id: review/classification-b, reviewer_id: reviewer-b, adapter_id: claude-code, capability_id: component.lifecycle, version_range: *range, fixture_ids: ["sha256:<verified-classification-digest>"], evidence_receipt_ids: [receipt/contract-v1, receipt/privacy-v1, receipt/replay-v1, receipt/audit-v1, receipt/canary-v1], result: approved}
 ```
 
-No wildcard “all future versions” support is allowed.
+The digest placeholders above describe schema shape and are not valid evidence. The YAML anchor only
+shortens this documentation example; every stored receipt carries the complete range. Every real
+artifact/fixture ID must equal `sha256:<digest>` and resolve in `evidence_artifact_registry` to a
+canonical JSON file under `tests/fixtures`. The validator rejects unsafe/missing paths and symlink
+escape, verifies canonical bytes and payload kind, and recomputes the digest; a registry string or
+declared hash alone is not evidence. No prose range,
+reversed bound or wildcard “all future versions” support is allowed. Version schemes are explicit;
+Session 01 implements strict numeric SemVer core comparison and requires a new parser/comparator
+before another scheme can be registered. Supported and Beta are both public claims and must satisfy
+the typed, exactly bound privacy/replay/audit/end-to-end and two-independent-human-receipt gate in
+`contracts/capabilities.yaml`; Beta only communicates disclosed coverage limits after those gates.
 
+## Session 01 support state
+
+The signal table above describes documented or reconstructable source availability, not released
+support. `contracts/capabilities.yaml` is authoritative for current claims: documentation-only rows
+are **Experimental**, and absent stable sources are **Unsupported**. No adapter is **Supported** or
+**Beta** until its privacy tests, sanitized fixtures, bounded version manifest, passive audit and
+required end-to-end evidence exist.

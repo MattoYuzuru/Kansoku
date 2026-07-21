@@ -4,6 +4,24 @@ This is the product-facing catalog. Exact tables and query contracts are defined
 Every metric must declare unit, dimensions, numerator, denominator, completeness, provenance and
 whether it is exact, estimated, inferred or unavailable.
 
+## Session 01 priority review
+
+`contracts/metrics.yaml` is the authoritative MVP registry and assigns stable IDs plus `must`,
+`should` or `could` priority. The review outcome is:
+
+- **Must:** collection coverage/completeness/freshness/durability, agent inventory, sessions and
+  prompt counts/size, provider tokens/model reliability, component lifecycle, tool/MCP reliability,
+  unknown schemas/reconciliation/drift, raw-content canary, collector/database/query overhead and
+  backup/restore age.
+- **Should:** versioned cost estimates when exact provider token categories and a matching price
+  snapshot exist; Parquet export and deeper distributions that do not change core semantics.
+- **Could:** opportunity classifiers, causal workflow experiments, rework proxies, panel-usage
+  telemetry, co-activation/sequence mining and advanced quality correlations.
+
+Catalog entries without a registered metric ID remain backlog questions, not implicit UI or support
+claims. Before a panel uses one, it must gain a versioned formula, population, lineage,
+completeness behavior and deterministic complete/unknown/degraded fixtures.
+
 ## Universal dimensions
 
 - time range, timezone and comparison period;
@@ -155,4 +173,3 @@ active plugin share    = plugins with child usage / enabled plugins
 
 If the denominator is unknown, Kansoku shows `unknown`, not `0%`. Small denominators show the raw
 counts prominently and suppress misleading trend arrows.
-

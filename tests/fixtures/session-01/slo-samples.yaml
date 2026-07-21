@@ -1,0 +1,108 @@
+{
+  "schema_version": "kansoku.slo-fixtures/2",
+  "passing_cases": {
+    "live-ingest-latency-p95": {"values": [0.8, 1.1, 1.2, 1.3, 1.5, 1.8, 2.0, 2.2, 2.5, 3.0, 3.2, 3.5, 4.0, 4.1, 4.5, 5.0, 5.5, 6.0, 7.0, 9.0]},
+    "rollup-freshness-p95": {"values": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 115]},
+    "common-query-latency-p95": {"values": [0.05, 0.08, 0.1, 0.12, 0.15, 0.18, 0.2, 0.25, 0.3, 0.4]},
+    "daily-drift-detection-max": {"values": [60, 300, 3600, 43200, 86399]},
+    "active-source-gap-max": {"values": [10, 30, 60, 120, 299]},
+    "raw-content-persisted-count": {"scope_values": {"database": 0, "logs": 0, "traces": 0, "quarantine": 0, "error_responses": 0, "ui_traffic": 0, "exports": 0, "backups": 0}},
+    "ingest-durability-ratio": {"values": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]},
+    "collector-idle-cpu-mean": {"records": [
+      {"value": 0.001, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "primary"},
+      {"value": 0.002, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "primary"},
+      {"value": 0.003, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "primary"},
+      {"value": 1.0, "eligible": true, "completeness_state": "complete", "exclusion_code": "startup_warmup", "evidence_scope": "primary"}
+    ]},
+    "collector-idle-rss-max": {"values": [67108864, 83886080, 100663296]},
+    "database-growth-per-day-max": {"values": [10485760, 52428800, 104857600]}
+  },
+  "adversarial_cases": [
+    {
+      "id": "incomplete-primary-cannot-be-filtered-away",
+      "slo_id": "live-ingest-latency-p95",
+      "records": [{"value": 1.0, "eligible": true, "completeness_state": "unknown", "exclusion_code": null, "evidence_scope": "primary"}],
+      "expected_measurement_state": "unknown",
+      "expected_gate": "fail"
+    },
+    {
+      "id": "unauthorized-exclusion-cannot-be-filtered-away",
+      "slo_id": "live-ingest-latency-p95",
+      "records": [{"value": 1.0, "eligible": true, "completeness_state": "complete", "exclusion_code": "quiet_period", "evidence_scope": "primary"}],
+      "expected_measurement_state": "unknown",
+      "expected_gate": "fail"
+    },
+    {
+      "id": "raw-content-missing-backup-scan-is-unknown",
+      "slo_id": "raw-content-persisted-count",
+      "records": [
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "database"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "logs"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "traces"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "quarantine"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "error_responses"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "ui_traffic"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "exports"}
+      ],
+      "expected_measurement_state": "unknown",
+      "expected_gate": "fail"
+    },
+    {
+      "id": "raw-content-unscanned-log-sink-is-unknown",
+      "slo_id": "raw-content-persisted-count",
+      "records": [
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "database"},
+        {"value": 0, "eligible": true, "completeness_state": "unknown", "exclusion_code": null, "evidence_scope": "logs"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "traces"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "quarantine"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "error_responses"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "ui_traffic"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "exports"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "backups"}
+      ],
+      "expected_measurement_state": "unknown",
+      "expected_gate": "fail"
+    },
+    {
+      "id": "raw-content-ineligible-backup-row-does-not-satisfy-scope",
+      "slo_id": "raw-content-persisted-count",
+      "records": [
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "database"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "logs"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "traces"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "quarantine"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "error_responses"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "ui_traffic"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "exports"},
+        {"value": 0, "eligible": false, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "backups"}
+      ],
+      "expected_measurement_state": "unknown",
+      "expected_gate": "fail"
+    },
+    {
+      "id": "authorized-scope-exclusion-is-exposed-and-cannot-pass",
+      "slo_id": "live-ingest-latency-p95",
+      "records": [
+        {"value": 0, "eligible": false, "completeness_state": "unknown", "exclusion_code": "declared_maintenance", "evidence_scope": "primary", "scope_exclusion": true}
+      ],
+      "expected_measurement_state": "partial",
+      "expected_gate": "fail"
+    },
+    {
+      "id": "raw-content-sink-match-is-not-numeric-zero",
+      "slo_id": "raw-content-persisted-count",
+      "records": [
+        {"value": 1, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "database"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "logs"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "traces"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "quarantine"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "error_responses"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "ui_traffic"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "exports"},
+        {"value": 0, "eligible": true, "completeness_state": "complete", "exclusion_code": null, "evidence_scope": "backups"}
+      ],
+      "expected_measurement_state": "complete",
+      "expected_gate": "fail"
+    }
+  ]
+}

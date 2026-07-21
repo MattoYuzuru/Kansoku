@@ -1,0 +1,55 @@
+{
+  "artifacts": [
+    {
+      "bytes": 9797,
+      "path": "benchmarks/session-01/backend/raw-results.json",
+      "sha256": "6cc71d2d8aadd0ae42d06f0f8bdcf8b6ae4dd606efa283676812978242762c41"
+    },
+    {
+      "bytes": 6885,
+      "path": "benchmarks/session-01/database/raw-results.json",
+      "sha256": "89244d87f98edc3460fa7eeb1c8b3f443fefd2624bc8f6c78e277e9e8e19c99b"
+    },
+    {
+      "bytes": 4682,
+      "path": "benchmarks/session-01/frontend/raw-results.json",
+      "sha256": "7ce1ce495667fa0f9fde50dfdfdfff86327a3641757f261fd5cc67774564f545"
+    }
+  ],
+  "finished_at": "2026-07-21T17:01:48Z",
+  "host": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "privacy": "No username, hostname, serial number, hardware UUID, environment value, or filesystem path recorded.",
+    "python": "3.14.6"
+  },
+  "mode": "full_run",
+  "runs": [
+    {
+      "elapsed_seconds": 12.022471,
+      "script": "backend/run_benchmark.py",
+      "stderr": [],
+      "stdout": [
+        "benchmarks/session-01/backend/raw-results.json"
+      ]
+    },
+    {
+      "elapsed_seconds": 11.460459,
+      "script": "database/run_benchmark.py",
+      "stderr": [],
+      "stdout": [
+        "benchmarks/session-01/database/raw-results.json"
+      ]
+    },
+    {
+      "elapsed_seconds": 5.26612,
+      "script": "frontend/run_benchmark.py",
+      "stderr": [],
+      "stdout": [
+        "benchmarks/session-01/frontend/raw-results.json"
+      ]
+    }
+  ],
+  "schema_version": "kansoku.session-01-benchmark-run/1",
+  "started_at": "2026-07-21T17:01:20Z"
+}

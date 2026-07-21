@@ -1,0 +1,68 @@
+{
+  "schema_version": "kansoku.lifecycle-fixtures/1",
+  "classification_cases": [
+    {
+      "id": "inventory-can-skip-enabled",
+      "prior_state": "installed",
+      "observed_state": "exposed",
+      "evidence_tier": "native",
+      "expected_state": "exposed",
+      "expected_error": null
+    },
+    {
+      "id": "deterministic-invocation",
+      "prior_state": "exposed",
+      "observed_state": "invoked",
+      "evidence_tier": "reconstructed",
+      "expected_state": "invoked",
+      "expected_error": null
+    },
+    {
+      "id": "inference-does-not-promote-invocation",
+      "prior_state": "exposed",
+      "observed_state": "invoked",
+      "evidence_tier": "inferred",
+      "expected_state": null,
+      "expected_error": "invalid_evidence_tier"
+    },
+    {
+      "id": "opportunity-remains-parallel",
+      "prior_state": "exposed",
+      "observed_state": "opportunity_detected",
+      "evidence_tier": "inferred",
+      "expected_state": "opportunity_detected",
+      "expected_error": null
+    },
+    {
+      "id": "unobservable-stages-may-be-skipped",
+      "prior_state": "invoked",
+      "observed_state": "succeeded",
+      "evidence_tier": "native",
+      "expected_state": "succeeded",
+      "expected_error": null
+    },
+    {
+      "id": "lifecycle-does-not-regress",
+      "prior_state": "succeeded",
+      "observed_state": "executed",
+      "evidence_tier": "native",
+      "expected_state": null,
+      "expected_error": "lifecycle_regression"
+    },
+    {
+      "id": "unknown-stage-fails-visibly",
+      "prior_state": "installed",
+      "observed_state": "activated",
+      "evidence_tier": "native",
+      "expected_state": null,
+      "expected_error": "unknown_state"
+    }
+  ],
+  "value_state_cases": [
+    {"input": "capability_has_no_reliable_source", "expected": "unsupported"},
+    {"input": "source_healthy_but_no_event", "expected": "not_observed"},
+    {"input": "field_intentionally_removed", "expected": "redacted"},
+    {"input": "denominator_cannot_be_established", "expected": "unknown"},
+    {"input": "measured_count_is_zero", "expected": "numeric_zero"}
+  ]
+}

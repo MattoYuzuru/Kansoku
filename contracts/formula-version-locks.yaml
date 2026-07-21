@@ -1,0 +1,147 @@
+{
+  "schema_version": "kansoku.formula-version-locks/1",
+  "trust_model": {
+    "bootstrap": "In an archive or before the first commit containing this file, this review-controlled registry is the deterministic source of truth.",
+    "history": "After the first commit, existing version-to-digest entries are append-only. CI or review tooling compares this file with an explicit trusted merge-base or HEAD revision when available.",
+    "version_transition": "Any semantic change requires a new formula version and a new lock entry; prior entries remain unchanged even after a metric moves to a newer version.",
+    "limit": "No repository-local validator can defend against a simultaneous malicious rewrite of validator, registry, lock, tests and history without an external trusted revision or reviewer."
+  },
+  "locks": [
+    {
+      "formula_version": "collection.coverage_ratio/1",
+      "semantic_sha256": "0d29c5eb3b8db443d387686ed50a1a3af95f82ec23da2f49b78dfdcdc2f69537"
+    },
+    {
+      "formula_version": "collection.completeness_duration_seconds/1",
+      "semantic_sha256": "fdda049e58499710ea8063873a6268f1d14fac89ae3efc954145f9fe34791076"
+    },
+    {
+      "formula_version": "collection.active_source_gap_seconds/1",
+      "semantic_sha256": "ef567a3115f4ed2a38509df76c2a9ca25cfba0aa30474efe2edbe417731c21d7"
+    },
+    {
+      "formula_version": "collection.ingest_latency_seconds/1",
+      "semantic_sha256": "dc8a49b96817df7845d12c2bb74240e5027bbafa86097fd2ed92db0c11a0f0a3"
+    },
+    {
+      "formula_version": "collection.rollup_freshness_seconds/1",
+      "semantic_sha256": "c31c1b8b0a272b7a070ae4aa8128fb458408c34cb7277b6849637d63ff42ecbc"
+    },
+    {
+      "formula_version": "collection.acknowledged_durability_ratio/1",
+      "semantic_sha256": "28f6dde4fa593657bf37636758bc63ebcaff303c4d233bd0d04842c53eda4cbe"
+    },
+    {
+      "formula_version": "inventory.agent_installations/1",
+      "semantic_sha256": "0bda0e45776fbb1c477dcea6fb74efb179f109091cc876e9dd67ff52af9dd97d"
+    },
+    {
+      "formula_version": "activity.sessions/1",
+      "semantic_sha256": "31018b7e3757e0cbfbf07b829f875995b0f831f20def1ea0ce69c8ac9b1d8279"
+    },
+    {
+      "formula_version": "activity.prompts/1",
+      "semantic_sha256": "4267c7120ad4ed07d217f5453ed4b344960e91c295ad050fe37d4fa47d375516"
+    },
+    {
+      "formula_version": "activity.active_duration_seconds/1",
+      "semantic_sha256": "47e3a9c9036540f0e5e66ca3e7b402863d58b5d4df715e46888c508cc573bf6a"
+    },
+    {
+      "formula_version": "prompt.utf8_bytes/1",
+      "semantic_sha256": "856c3eb7734d97e76f9da8c5d3537d939b8141c65800c9ae84ba05eef614e847"
+    },
+    {
+      "formula_version": "model.requests/1",
+      "semantic_sha256": "80db9947c4100ec280fd804ddec5f3562579bb443e599b06ac8c824f68d9e759"
+    },
+    {
+      "formula_version": "model.tokens/1",
+      "semantic_sha256": "ca69fd4947a595adb4acb625362482955d887061fe47a83084c52897b4d3324d"
+    },
+    {
+      "formula_version": "model.request_latency_seconds/1",
+      "semantic_sha256": "cc575af68afcd9440bf0e51d1abb1e3b8b647eb703019f93c6b61c14c59afc01"
+    },
+    {
+      "formula_version": "model.error_ratio/1",
+      "semantic_sha256": "e526f76ab2f0cd1cb3832d48d1baf1e79c489654e7aa012914e9ab75b18f3b32"
+    },
+    {
+      "formula_version": "model.estimated_cost_usd/1",
+      "semantic_sha256": "7e51145608e4b839c4c9e67b4601b72de944c3216c13bd363f25b511d2fd0286"
+    },
+    {
+      "formula_version": "component.lifecycle_count/1",
+      "semantic_sha256": "e7edb8e6c6d5e7ed8b7acb4de82e981c00d731dc4704784f68fcbfe5eebe6dc4"
+    },
+    {
+      "formula_version": "component.activation_ratio/1",
+      "semantic_sha256": "581d14afd962ae843624fcc91c7d72dddbfe61598fcde28091a5cd1e95576d8e"
+    },
+    {
+      "formula_version": "component.success_ratio/1",
+      "semantic_sha256": "49595804871247f2d8ffb1c1338b87ce712975c1600300f9bf4f16fe02a03393"
+    },
+    {
+      "formula_version": "tool.calls/1",
+      "semantic_sha256": "36eee4206ae41484a4a8239b1f48f76edf1e4dd89d4c717ed12c6739ad03f8a3"
+    },
+    {
+      "formula_version": "tool.success_ratio/1",
+      "semantic_sha256": "645db732e1cb356989f9b3fae8db466afb2e2017c427f9dedee47efeb0ba722a"
+    },
+    {
+      "formula_version": "tool.latency_seconds/1",
+      "semantic_sha256": "8a6f046b665ab6b150e9a6bf0d62f1e2edd513553be8c7456aec7433c4f3d5c3"
+    },
+    {
+      "formula_version": "mcp.connection_uptime_ratio/1",
+      "semantic_sha256": "9358d4e7904a024f990be87895cc8618e55d74f4ffc71f0a3f784967c7d96cc4"
+    },
+    {
+      "formula_version": "reliability.unknown_schema_count/1",
+      "semantic_sha256": "037331cc52ef25e21343edeca059f6865fc05215c1114eae822b8094713fceee"
+    },
+    {
+      "formula_version": "reliability.reconciliation_mismatch_count/1",
+      "semantic_sha256": "e2aaf0eb7df848e69c0cef156fa20fe7fff490075917d08830101a0281e018a5"
+    },
+    {
+      "formula_version": "reliability.drift_detection_seconds/1",
+      "semantic_sha256": "f4a279909c36f8dd60a3335b6ccd11c1ce20ec8de99892760407e1b24a39318d"
+    },
+    {
+      "formula_version": "privacy.raw_content_persisted_count/1",
+      "semantic_sha256": "ea1e127d2823199d68ed0f5308ef86cfa864de8f7dde0e54ef9f7367abac958a"
+    },
+    {
+      "formula_version": "system.collector_cpu_ratio/1",
+      "semantic_sha256": "e658d28fea61386b63e39202129b96f695605591ff6b7265b2efb7f481b7e6f1"
+    },
+    {
+      "formula_version": "system.collector_rss_bytes/1",
+      "semantic_sha256": "5a1427fd6358aedc2a1f20ad30da8ecd1059538e3115a80e3ec7f5fdee1822fe"
+    },
+    {
+      "formula_version": "system.database_size_bytes/1",
+      "semantic_sha256": "8aee052b87a657036707d81d7fbb842f38559315543050e4a726be0c85d5c5a9"
+    },
+    {
+      "formula_version": "system.database_growth_bytes_per_day/1",
+      "semantic_sha256": "b54d6cb1ed31d0141f1ecd40d03e408caac952953a63cb66e55e75a462d42783"
+    },
+    {
+      "formula_version": "system.common_query_latency_seconds/1",
+      "semantic_sha256": "7e49cc3cc5db70cf66b2368cfdd71b66f3e65b6d1a87d517e0a30c7ca81ffe6a"
+    },
+    {
+      "formula_version": "system.backup_age_seconds/1",
+      "semantic_sha256": "4cf7f711abb84ce336b2da7d2b4c1d62b9fab0b20beb5cf830121aef0420b97c"
+    },
+    {
+      "formula_version": "system.restore_test_age_seconds/1",
+      "semantic_sha256": "91d071b5965be8a1cbf7d9751fafd16acb7d95948100b3923da3a25bc1e1026b"
+    }
+  ]
+}

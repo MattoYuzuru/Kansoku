@@ -1,0 +1,82 @@
+{
+  "schema_version": "kansoku.product-contract/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "status": "accepted_for_session_02",
+  "scope": {
+    "mvp": [
+      "one local device and user",
+      "Codex and Claude capability-scoped adapters",
+      "Gemini portability validation",
+      "metadata-only inventory, sessions, prompt features, models/tokens, components, tools, and reliability",
+      "local Compose runtime with loopback dashboard",
+      "historical import only through the same transient privacy boundary",
+      "daily integrity audit with visible completeness intervals"
+    ],
+    "non_goals": [
+      "raw conversation or source-code capture/search",
+      "employee ranking, surveillance, or universal productivity scoring",
+      "automatic agent behavior changes made to improve metrics",
+      "cloud synchronization, SaaS accounts, public endpoints, or mobile apps in MVP",
+      "claims of proprietary cloud-surface coverage without a documented export or API"
+    ]
+  },
+  "user_questions": [
+    {"id": "Q-COLLECTION-HEALTH", "priority": "must", "question": "Is collection complete for this interval, and which sources or capabilities are missing?"},
+    {"id": "Q-AGENT-INVENTORY", "priority": "must", "question": "Which agent installations, surfaces, and versions are present and active on this device?"},
+    {"id": "Q-ACTIVITY-RHYTHM", "priority": "must", "question": "When and for how long do agent sessions and prompts occur?"},
+    {"id": "Q-PROMPT-SHAPE", "priority": "must", "question": "How large and structurally complex are requests without retaining their text?"},
+    {"id": "Q-MODEL-USAGE", "priority": "must", "question": "Which models consume tokens and time, and where are errors or fallbacks concentrated?"},
+    {"id": "Q-COMPONENT-LIFECYCLE", "priority": "must", "question": "Which components are installed, enabled, exposed, invoked, loaded, executed, and successful?"},
+    {"id": "Q-COMPONENT-GAPS", "priority": "must", "question": "Is a component unused because it was not exposed, not invoked, failed, or was not observable?"},
+    {"id": "Q-UPDATE-DRIFT", "priority": "must", "question": "Did an agent or adapter update break collection or did eligible activity stop?"},
+    {"id": "Q-COST-ESTIMATE", "priority": "should", "question": "What is the versioned estimated cost when exact token evidence and a matching price snapshot exist?"},
+    {"id": "Q-KANSOKU-OVERHEAD", "priority": "must", "question": "How much CPU, memory, disk, and query latency does Kansoku add?"},
+    {"id": "Q-PRIVACY-STATE", "priority": "must", "question": "Which data classes, retention policies, redactions, and egress settings are active?"},
+    {"id": "Q-RECOVERY", "priority": "must", "question": "How old are backups and restore tests, and can the local data be recovered?"}
+  ],
+  "decisions": {
+    "lifecycle": "Use the canonical factual progression plus parallel opportunity_detected; unobservable stages may be skipped but never synthesized.",
+    "support_claims": "Publish support per capability and bounded agent version. No adapter receives a brand-wide support label.",
+    "reference_hardware": "Apple M2 Pro, 16 GiB RAM, macOS 26.5.1, Docker Engine 29.5.2; container limits and cross-architecture gates remain mandatory.",
+    "sprint": {"duration_days_default": 14, "duration_days_min": 1, "duration_days_max": 90, "anchor_default": "Monday of the ISO week containing first run", "range_semantics": "half-open [from,to) in selected timezone"},
+    "cost_estimation": {"mvp": true, "release_gate": false, "policy": "Return unknown unless provider-reported token categories match a versioned price snapshot; label all values estimates, never bills."},
+    "retention_defaults": {
+      "normalized_metadata_days": 365,
+      "sanitized_ingest_envelopes_days": 7,
+      "metadata_only_quarantine_days": 30,
+      "hourly_daily_rollups_days": 1095,
+      "operational_slo_samples_days": 90,
+      "audit_and_installer_records_days": 365,
+      "transient_raw_buffers": "process lifetime only",
+      "backups": {"daily_count": 7, "weekly_count": 4},
+      "policy": "Changing or disabling retention requires a preview; deletion is explicit, audited, and includes backup limitations."
+    },
+    "exports": {
+      "mvp": ["privacy-safe NDJSON", "versioned privacy manifest JSON"],
+      "should": ["Parquet analytics export"],
+      "excluded": ["raw transcripts", "raw prompts", "source code", "tool input/output", "unredacted paths"]
+    },
+    "ui_language": "English identifiers and formula IDs; display copy is locale-ready, with Russian as the first translation after the semantic contract stabilizes."
+  },
+  "review": {
+    "classification_fixture": "tests/fixtures/session-01/lifecycle-cases.yaml",
+    "automated_independent_checks": ["policy-table classification", "expected-case replay"],
+    "human_review_required_before_support_claim": true,
+    "note": "Automation proves deterministic wording and state separation; it does not fabricate two human sign-offs."
+  },
+  "session_gates": {
+    "session_01_automated_contract_gate": {
+      "status": "passed",
+      "effect": "Session 02 may begin because product semantics, formulas, evidence states and support governance are machine-readable.",
+      "evidence": ["scripts/validate_contracts.py", "tests/fixtures/session-01", "reports/session-01-reconciliation.md"]
+    },
+    "public_adapter_support_governance_gate": {
+      "status": "blocked",
+      "applies_to": ["supported", "beta"],
+      "missing_evidence": ["two independent approved human review receipts bound to the exact adapter/capability/version range and concrete fixtures", "typed bounded adapter privacy-test receipts", "typed sanitized fixture-replay receipts", "typed passive-audit receipts", "typed canary or equivalent end-to-end receipts"],
+      "effect": "No public Supported/Beta capability claim may be published.",
+      "decision_record": "adr/0002-session-exit-and-support-governance.md"
+    }
+  }
+}

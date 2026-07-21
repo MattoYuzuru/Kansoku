@@ -7,9 +7,15 @@ Kansoku (観測, «наблюдение», «измерение явлений»
 
 ## Статус
 
-Сейчас репозиторий является engineering blueprint. Реализация разбита на десять самостоятельных
-сессий, каждая из которых имеет продуктовый proposal и парный technical design document. Переход к
-следующей сессии допускается только после выполнения exit gate предыдущей.
+Session 01 / фаза 001 выполнена 2026-07-21: product contract, registries, SLO harness, измеряемые
+technology spikes и ADR baseline находятся в репозитории, а автоматизированный exit gate проходит.
+Следующая реализационная сессия — Session 02 (privacy, security and trust). До появления bounded
+fixtures, privacy tests, audit/canary evidence и двух независимых human reviews ни один адаптер не
+имеет публичного статуса Supported/Beta.
+
+Проект по-прежнему строится десятью последовательными сессиями, каждая из которых имеет продуктовый
+proposal и парный technical design document. Переход к следующей сессии допускается только после
+выполнения exit gate предыдущей.
 
 ## Неподвижные принципы
 
@@ -37,9 +43,9 @@ Kansoku (観測, «наблюдение», «измерение явлений»
   дизайн.
 - [AGENTS.md](AGENTS.md) — правила работы будущих сессий над проектом.
 
-## Предлагаемый технологический baseline
+## Принятый технологический baseline
 
-Baseline намеренно фиксируется как гипотеза до Session 01:
+ADR 0001 принял измеренный baseline после Session 01 spikes:
 
 - **collector/backend:** Go, один процесс и один статический UI bundle;
 - **database:** PostgreSQL, без обязательной time-series extension на старте;
@@ -49,7 +55,8 @@ Baseline намеренно фиксируется как гипотеза до 
 - **scheduling:** встроенный durable scheduler для daily integrity audit плюс запуск после старта;
 - **distribution:** локальный CLI installer/configurator и versioned adapter packages.
 
-Окончательный выбор делается ADR после измеряемого spike, а не закрепляется этим README.
+Точные dependency/image ranges принадлежат реализационным сессиям и должны оставаться pinned;
+замена baseline требует нового ADR и сопоставимых измерений.
 
 ## Что должно считаться использованием
 
@@ -61,4 +68,3 @@ installed -> enabled -> exposed -> invoked -> loaded -> executed -> succeeded
 
 Для неявных активаций возможна дополнительная стадия `opportunity_detected`; она всегда имеет
 вероятностный confidence и не смешивается с нативным событием агента.
-

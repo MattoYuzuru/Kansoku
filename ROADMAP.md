@@ -17,6 +17,14 @@
 | 09 | Local runtime and backend | API, Docker Compose, scheduler, backup/restore и resource controls | 7-day soak переживает restarts без silent loss и duplicate inflation |
 | 10 | Dashboard, hardening and release | Полный UX, accessibility, review, packaging и evolution loop | Privacy/reliability/performance gates зелёные; fresh install воспроизводим |
 
+## Progress
+
+- **01 — complete (2026-07-21):** registries, SLO harness, reproducible spikes, ADR 0001 and
+  reconciliation report exist; automated contract gates pass. ADR 0002 separates that sequencing
+  gate from the still-blocked public adapter Supported/Beta gate, which requires two independent
+  approved human reviews plus bounded privacy/replay/audit/canary evidence.
+- **02 — next:** privacy/security implementation and raw-content canary exit gate.
+
 ## Dependency graph
 
 ```text
@@ -40,4 +48,3 @@ Adapter SDK в Session 05. Frontend spikes допустимы раньше, од
 - privacy regression corpus;
 - reconciliation and coverage reports;
 - release notes с известными gaps.
-

@@ -75,14 +75,17 @@ have a daily budget.
 
 ## Retention proposal
 
-- normalized metadata: indefinite until user changes policy;
-- sanitized ingest envelopes/quarantine: 7–30 days;
-- hourly/daily rollups: indefinite;
+- normalized metadata: 365 days by default;
+- sanitized ingest envelopes: 7 days; metadata-only quarantine: 30 days;
+- hourly/daily rollups: 1095 days by default;
 - transient raw buffers: process lifetime only;
 - audit/installer records: one year by default;
-- backups: bounded count/age with restore tests and explicit deletion.
+- operational SLO samples: 90 days;
+- backups: 7 daily and 4 weekly by default, with restore tests and explicit deletion.
 
-Deletion is verifiable and covers partitions, quarantine, exports and backups where possible.
+Users may preview a different bounded or indefinite policy. Applying or deleting data remains
+explicit, audited and verifiable across partitions, quarantine, exports and backups where possible.
+The accepted defaults and export formats live in `contracts/product.yaml`.
 
 ## Security UX
 
@@ -106,4 +109,3 @@ Synthetic secrets, prompts, code and tool payloads cannot be found in database, 
 quarantine, error responses, dashboard network traffic, export or backup. All required host/config
 access is enumerated and justified; the user can disable and remove Kansoku without damaging agent
 configuration.
-

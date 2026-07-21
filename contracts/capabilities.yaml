@@ -1,0 +1,181 @@
+{
+  "schema_version": "kansoku.capabilities/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "lifecycle": {
+    "canonical_progression": ["installed", "enabled", "exposed", "invoked", "loaded", "executed", "succeeded"],
+    "parallel_state": "opportunity_detected",
+    "skip_policy": "A later observed stage may follow an earlier stage when intermediate stages are unobservable; missing stages remain not_observed or unsupported and are never synthesized.",
+    "states": [
+      {"id": "installed", "allowed_evidence_tiers": ["native", "reconstructed", "corroborated"]},
+      {"id": "enabled", "allowed_evidence_tiers": ["native", "reconstructed", "corroborated"]},
+      {"id": "exposed", "allowed_evidence_tiers": ["native", "reconstructed", "corroborated"]},
+      {"id": "invoked", "allowed_evidence_tiers": ["native", "reconstructed", "corroborated"]},
+      {"id": "loaded", "allowed_evidence_tiers": ["native", "reconstructed", "corroborated"]},
+      {"id": "executed", "allowed_evidence_tiers": ["native", "reconstructed", "corroborated"]},
+      {"id": "succeeded", "allowed_evidence_tiers": ["native", "reconstructed", "corroborated"]},
+      {"id": "opportunity_detected", "allowed_evidence_tiers": ["inferred", "corroborated"]}
+    ]
+  },
+  "outcomes": ["succeeded", "failed", "cancelled", "interrupted", "timed_out", "abandoned", "unknown"],
+  "evidence_tiers": ["corroborated", "native", "reconstructed", "inferred", "unsupported"],
+  "state_registry": "kansoku.glossary/1#state_registry",
+  "support_labels": {
+    "supported": "Capability contract, privacy tests, sanitized fixtures, passive audit, and live or equivalent end-to-end verification pass for declared versions.",
+    "beta": "A deterministic data path and fixtures exist, but live or version coverage is incomplete.",
+    "experimental": "A documentation, inventory, or source probe exists; there is no completeness promise.",
+    "unsupported": "No reliable source exists for the bounded capability/version scope, or the capability is explicitly out of scope."
+  },
+  "support_governance": {
+    "public_claim_labels": ["supported", "beta"],
+    "version_schemes": {
+      "semver_core": {"pattern": "MAJOR.MINOR.PATCH numeric core", "comparison": "numeric tuple", "prerelease_allowed": false},
+      "extension_policy": "A new scheme requires a named deterministic parser/comparator in the contract validator before any claim may use it."
+    },
+    "version_range_schema": {"required_fields": ["scheme", "min_inclusive", "max_exclusive"], "wildcards_forbidden": true, "order": "min_inclusive < max_exclusive"},
+    "required_evidence_kinds": ["capability_contract", "privacy_test", "sanitized_fixture_replay", "passive_audit", "canary_or_end_to_end"],
+    "evidence_receipt_schema": {
+      "required_fields": ["receipt_id", "kind", "adapter_id", "capability_id", "version_range", "artifact_ids", "result"],
+      "allowed_result": "pass",
+      "artifact_ids": "non-empty bounded identifiers; prose and untyped scalar evidence are invalid"
+    },
+    "human_review_receipt_schema": {
+      "required_fields": ["review_id", "reviewer_id", "adapter_id", "capability_id", "version_range", "fixture_ids", "evidence_receipt_ids", "result"],
+      "minimum_independent_reviewers": 2,
+      "required_result": "approved",
+      "binding": "Every review must match the exact adapter, capability and version range and cite concrete fixture and evidence receipt IDs."
+    },
+    "artifact_registry_schema": {
+      "required_fields": ["artifact_id", "kind", "path", "canonicalization", "sha256"],
+      "allowed_kinds": ["capability_contract", "privacy_test", "sanitized_fixture_replay", "passive_audit", "canary_or_end_to_end", "classification_fixture"],
+      "allowed_path_root": "tests/fixtures",
+      "max_bytes": 1048576,
+      "canonicalization": "canonical_json_v1: UTF-8 JSON object serialized with sorted keys, no insignificant whitespace, ensure_ascii=false and one trailing LF",
+      "content_address": "artifact_id must equal sha256:<recomputed lowercase SHA-256 of the canonical file bytes>",
+      "binding": "Every evidence artifact and human-review fixture ID must resolve to a regular file under the allowed root without absolute paths, traversal or symlink escape; validator recomputes canonical bytes, content digest and payload kind before a receipt may cite it."
+    },
+    "identifier_pattern": "lowercase ASCII alphanumeric start followed by lowercase alphanumeric, dot, slash, colon, underscore or hyphen; 3-128 characters",
+    "policy": "Supported and Beta are public capability claims. Both require parseable ordered version bounds, typed bound evidence receipts and two distinct bound human review receipts; Beta may disclose incomplete live/version coverage but may not bypass these gates."
+  },
+  "evidence_artifact_registry": [],
+  "capabilities": [
+    {"id": "agent.discovery", "required_for": ["inventory adapter"], "description": "Discover local agent installations, surfaces, and versions."},
+    {"id": "session.lifecycle", "required_for": ["activity"], "description": "Observe or reconstruct session and turn boundaries."},
+    {"id": "prompt.metadata", "required_for": ["prompt analytics"], "description": "Extract approved prompt-size/shape metadata without retaining content."},
+    {"id": "model.usage", "required_for": ["model analytics"], "description": "Observe model identifiers, tokens, latency, fallback, and errors."},
+    {"id": "component.inventory", "required_for": ["inventory adapter"], "description": "Discover versioned skills, plugins/extensions, MCP, tools, commands, and hooks."},
+    {"id": "component.lifecycle", "required_for": ["component analytics"], "description": "Observe supported component lifecycle stages with evidence tier."},
+    {"id": "tool.lifecycle", "required_for": ["tool analytics"], "description": "Observe tool calls, outcomes, approvals, and latency without arguments/results."},
+    {"id": "mcp.lifecycle", "required_for": ["MCP analytics"], "description": "Observe configured/advertised/connected/called MCP servers and tools."},
+    {"id": "hook.ingest", "required_for": ["live collection"], "description": "Receive bounded metadata from documented lifecycle hooks."},
+    {"id": "otel.ingest", "required_for": ["live collection"], "description": "Receive bounded OTLP logs, metrics, and traces from an agent."},
+    {"id": "transcript.import", "required_for": ["historical import"], "description": "Parse local history transiently and emit only sanitized records."},
+    {"id": "reconciliation", "required_for": ["reliability"], "description": "Compare independent evidence and retain disagreements as incidents."},
+    {"id": "privacy.enforcement", "required_for": ["all ingestion"], "description": "Reject prohibited durable fields before queues, logs, or quarantine."},
+    {"id": "operations.telemetry", "required_for": ["system health"], "description": "Measure Kansoku CPU, RSS, disk, queues, latency, and freshness."},
+    {"id": "backup.restore", "required_for": ["recovery"], "description": "Create versioned backups and verify isolated restore."},
+    {"id": "live.canary", "required_for": ["supported label"], "description": "Exercise a bounded end-to-end agent contract after explicit opt-in."}
+  ],
+  "agent_evidence_baseline": [
+    {
+      "adapter_id": "codex",
+      "agent_versions": "local 0.144.6 plus documentation snapshot 2026-07-21 only",
+      "version_scope": {"scheme": "semver_core", "documentation_snapshot": "2026-07-21", "locally_observed_versions": ["0.144.6"], "public_claim_range": null},
+      "capabilities": [
+        {"capability_id": "session.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://developers.openai.com/codex/codex-manual.md"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "prompt.metadata", "support": "experimental", "evidence": {"official_docs": ["https://learn.chatgpt.com/docs/config-file/config-advanced"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "model.usage", "support": "experimental", "evidence": {"official_docs": ["https://learn.chatgpt.com/docs/config-file/config-advanced"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "component.inventory", "support": "experimental", "evidence": {"official_docs": ["https://learn.chatgpt.com/docs/build-skills", "https://developers.openai.com/codex/codex-manual.md"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "tool.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://learn.chatgpt.com/docs/config-file/config-advanced"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "hook.ingest", "support": "experimental", "evidence": {"official_docs": ["https://learn.chatgpt.com/docs/hooks"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "otel.ingest", "support": "experimental", "evidence": {"official_docs": ["https://learn.chatgpt.com/docs/config-file/config-advanced"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "transcript.import", "support": "unsupported", "reason": "No stable public transcript schema is claimed for this bounded version.", "evidence": {"official_docs": [], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}}
+      ],
+      "omitted_capabilities": [
+        {"capability_id": "agent.discovery", "applicability": "not_established", "reason": "Session 01 reviewed documentation but no version-bounded discovery fixture."},
+        {"capability_id": "component.lifecycle", "applicability": "not_established", "reason": "No stable public skill lifecycle event was established for the observed version."},
+        {"capability_id": "mcp.lifecycle", "applicability": "not_established", "reason": "MCP lifecycle coverage awaits bounded fixtures."},
+        {"capability_id": "reconciliation", "applicability": "core_owned", "reason": "Kansoku core owns reconciliation; adapter participation is not yet implemented."},
+        {"capability_id": "privacy.enforcement", "applicability": "core_owned", "reason": "Kansoku ingress owns privacy enforcement; adapter boundary tests begin in Session 02."},
+        {"capability_id": "operations.telemetry", "applicability": "core_owned", "reason": "Kansoku runtime owns operations telemetry."},
+        {"capability_id": "backup.restore", "applicability": "core_owned", "reason": "Kansoku runtime owns backup and restore."},
+        {"capability_id": "live.canary", "applicability": "planned", "reason": "No opt-in version-bounded canary exists yet."}
+      ]
+    },
+    {
+      "adapter_id": "claude-code",
+      "agent_versions": "documentation gates through 2.1.216; local runtime observed at 2.1.197 and not fixture-verified",
+      "version_scope": {"scheme": "semver_core", "documentation_snapshot": "2026-07-21", "documentation_version_gates_through": "2.1.216", "locally_observed_versions": ["2.1.197"], "public_claim_range": null},
+      "capabilities": [
+        {"capability_id": "session.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/monitoring-usage"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "prompt.metadata", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/monitoring-usage"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "model.usage", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/monitoring-usage"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "component.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/monitoring-usage", "https://code.claude.com/docs/en/skills"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "tool.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/monitoring-usage", "https://code.claude.com/docs/en/tools-reference"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "hook.ingest", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/hooks"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "otel.ingest", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/monitoring-usage"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}}
+      ],
+      "omitted_capabilities": [
+        {"capability_id": "agent.discovery", "applicability": "not_established", "reason": "No version-bounded discovery fixture exists."},
+        {"capability_id": "component.inventory", "applicability": "not_established", "reason": "Inventory coverage awaits sanitized fixtures."},
+        {"capability_id": "mcp.lifecycle", "applicability": "not_established", "reason": "Documented signals are not yet replayed against the observed runtime."},
+        {"capability_id": "transcript.import", "applicability": "not_established", "reason": "The transcript format is documented as internal and version-specific."},
+        {"capability_id": "reconciliation", "applicability": "core_owned", "reason": "Kansoku core owns reconciliation; adapter participation is not yet implemented."},
+        {"capability_id": "privacy.enforcement", "applicability": "core_owned", "reason": "Kansoku ingress owns privacy enforcement; adapter boundary tests begin in Session 02."},
+        {"capability_id": "operations.telemetry", "applicability": "core_owned", "reason": "Kansoku runtime owns operations telemetry."},
+        {"capability_id": "backup.restore", "applicability": "core_owned", "reason": "Kansoku runtime owns backup and restore."},
+        {"capability_id": "live.canary", "applicability": "planned", "reason": "No opt-in version-bounded canary exists yet."}
+      ]
+    },
+    {
+      "adapter_id": "gemini-cli",
+      "agent_versions": "documentation snapshot 2026-07-21; runtime unverified",
+      "version_scope": {"scheme": "semver_core", "documentation_snapshot": "2026-07-21", "locally_observed_versions": [], "public_claim_range": null},
+      "capabilities": [
+        {"capability_id": "session.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://geminicli.com/docs/cli/telemetry/"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "prompt.metadata", "support": "experimental", "evidence": {"official_docs": ["https://geminicli.com/docs/cli/telemetry/"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "model.usage", "support": "experimental", "evidence": {"official_docs": ["https://geminicli.com/docs/cli/telemetry/"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "tool.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://geminicli.com/docs/cli/telemetry/"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "mcp.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://geminicli.com/docs/cli/telemetry/", "https://geminicli.com/docs/hooks/reference/"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "hook.ingest", "support": "experimental", "evidence": {"official_docs": ["https://geminicli.com/docs/hooks/reference/"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "otel.ingest", "support": "experimental", "evidence": {"official_docs": ["https://geminicli.com/docs/cli/telemetry/"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "component.lifecycle", "support": "unsupported", "reason": "The reviewed telemetry catalog has no documented skill lifecycle signal.", "evidence": {"official_docs": ["https://geminicli.com/docs/cli/telemetry/"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}}
+      ],
+      "omitted_capabilities": [
+        {"capability_id": "agent.discovery", "applicability": "not_established", "reason": "No version-bounded discovery fixture exists."},
+        {"capability_id": "component.inventory", "applicability": "not_established", "reason": "Inventory coverage awaits sanitized fixtures."},
+        {"capability_id": "transcript.import", "applicability": "not_established", "reason": "No stable transcript import contract was established."},
+        {"capability_id": "reconciliation", "applicability": "core_owned", "reason": "Kansoku core owns reconciliation; adapter participation is not yet implemented."},
+        {"capability_id": "privacy.enforcement", "applicability": "core_owned", "reason": "Kansoku ingress owns privacy enforcement; adapter boundary tests begin in Session 02."},
+        {"capability_id": "operations.telemetry", "applicability": "core_owned", "reason": "Kansoku runtime owns operations telemetry."},
+        {"capability_id": "backup.restore", "applicability": "core_owned", "reason": "Kansoku runtime owns backup and restore."},
+        {"capability_id": "live.canary", "applicability": "planned", "reason": "No opt-in version-bounded canary exists yet."}
+      ]
+    },
+    {
+      "adapter_id": "cursor",
+      "agent_versions": "documentation snapshot 2026-07-21; runtime unverified",
+      "version_scope": {"scheme": "semver_core", "documentation_snapshot": "2026-07-21", "locally_observed_versions": [], "public_claim_range": null},
+      "capabilities": [
+        {"capability_id": "component.inventory", "support": "experimental", "evidence": {"official_docs": ["https://cursor.com/docs/skills.md", "https://cursor.com/docs/mcp.md"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "hook.ingest", "support": "experimental", "evidence": {"official_docs": ["https://cursor.com/docs/hooks.md"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "mcp.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://cursor.com/docs/hooks.md", "https://cursor.com/docs/mcp.md"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "session.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://cursor.com/docs/hooks.md"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
+        {"capability_id": "otel.ingest", "support": "unsupported", "reason": "No native OpenTelemetry export contract was established in reviewed official documentation.", "evidence": {"official_docs": ["https://cursor.com/docs/hooks.md"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}}
+      ],
+      "omitted_capabilities": [
+        {"capability_id": "agent.discovery", "applicability": "not_established", "reason": "No version-bounded discovery fixture exists."},
+        {"capability_id": "prompt.metadata", "applicability": "not_established", "reason": "Content-bearing hook fields require a privacy fixture before metadata claims."},
+        {"capability_id": "model.usage", "applicability": "not_established", "reason": "No stable native model-usage contract was established."},
+        {"capability_id": "component.lifecycle", "applicability": "not_established", "reason": "Lifecycle coverage awaits sanitized hook fixtures."},
+        {"capability_id": "tool.lifecycle", "applicability": "not_established", "reason": "Tool hook coverage awaits sanitized fixtures and canary evidence."},
+        {"capability_id": "transcript.import", "applicability": "not_established", "reason": "No stable transcript import contract was established."},
+        {"capability_id": "reconciliation", "applicability": "core_owned", "reason": "Kansoku core owns reconciliation; adapter participation is not yet implemented."},
+        {"capability_id": "privacy.enforcement", "applicability": "core_owned", "reason": "Kansoku ingress owns privacy enforcement; adapter boundary tests begin in Session 02."},
+        {"capability_id": "operations.telemetry", "applicability": "core_owned", "reason": "Kansoku runtime owns operations telemetry."},
+        {"capability_id": "backup.restore", "applicability": "core_owned", "reason": "Kansoku runtime owns backup and restore."},
+        {"capability_id": "live.canary", "applicability": "planned", "reason": "No opt-in version-bounded canary exists yet."}
+      ]
+    }
+  ]
+}

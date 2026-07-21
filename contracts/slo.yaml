@@ -1,0 +1,92 @@
+{
+  "schema_version": "kansoku.slo/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "reference_hardware": {
+    "id": "mbp-m2-pro-16g-2026-07",
+    "machine": "MacBook Pro Mac14,9",
+    "cpu": "Apple M2 Pro, 10 cores (6 performance, 4 efficiency)",
+    "memory_bytes": 17179869184,
+    "architecture": "arm64",
+    "os": "macOS 26.5.1 build 25F80",
+    "container_runtime": "Docker client 29.5.3; engine result is recorded per benchmark run",
+    "policy": "No serial number, hardware UUID, account identifier, path, or environment value is recorded."
+  },
+  "load_profiles": [
+    {"id": "personal", "events_per_day": 10000, "components": 500, "retention_days": 365, "purpose": "expected use"},
+    {"id": "enthusiast", "events_per_day": 100000, "components": 5000, "retention_days": 1095, "purpose": "comfortable headroom"},
+    {"id": "stress", "events_per_day": 1000000, "components": 20000, "retention_days": 1826, "purpose": "synthesized design validation"}
+  ],
+  "distribution_requirements": ["bursts", "late events", "out-of-order events", "duplicates", "multiple timezones", "DST", "unknown schemas", "long idle gaps", "agent upgrades"],
+  "sample_table_contract": {
+    "name": "sli_samples",
+    "columns": ["slo_id text", "value real", "eligible integer", "completeness_state text", "exclusion_code text", "evidence_scope text", "scope_exclusion integer"],
+    "allowed_completeness_states": ["complete", "partial", "degraded", "unknown"],
+    "required_scope_resolution": {"measured": "at least one eligible, complete, unexcluded row in that exact scope", "excluded": "an explicit scope_exclusion row using an allowed code whose scope_effect is may_cover_as_excluded", "otherwise": "missing"},
+    "gate_policy": {"missing_required_scope": "unknown_and_fail", "required_scope_excluded": "partial_and_fail", "incomplete_required_evidence": "unknown_and_fail", "unauthorized_exclusion": "unknown_and_fail", "zero_complete_samples": "unknown_and_fail"},
+    "result_disclosure": ["required_scope_status", "authorized_exclusion_counts"],
+    "note": "Required-scope presence is never satisfied by an ineligible row. The harness resolves each scope before SQL, exposes measured/excluded/missing status and exclusion counts, and prevents SQL filters from hiding an unscanned sink or unauthorized exclusion."
+  },
+  "slos": [
+    {
+      "id": "live-ingest-latency-p95", "metric_id": "collection.ingest_latency_seconds", "reference_profile": "personal",
+      "sli": {"aggregation": "p95", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "<=", "value": 10, "unit": "seconds"}, "rolling_window": "30 days", "error_budget": "5% of eligible events may exceed 10 seconds while p95 remains within target",
+      "allowed_exclusions": [{"code": "declared_maintenance", "effect": "remove_sample", "scope_effect": "may_cover_as_excluded", "description": "explicitly declared maintenance interval"}], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "rollup-freshness-p95", "metric_id": "collection.rollup_freshness_seconds", "reference_profile": "personal",
+      "sli": {"aggregation": "p95", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "<=", "value": 120, "unit": "seconds"}, "rolling_window": "30 days", "error_budget": "5% of completed rollup checkpoints may exceed 120 seconds while p95 remains within target",
+      "allowed_exclusions": [{"code": "declared_maintenance", "effect": "remove_sample", "scope_effect": "may_cover_as_excluded", "description": "explicitly declared maintenance interval"}], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "common-query-latency-p95", "metric_id": "system.common_query_latency_seconds", "reference_profile": "personal",
+      "sli": {"aggregation": "p95", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "<=", "value": 0.5, "unit": "seconds"}, "rolling_window": "30 days", "error_budget": "5% of registered common 30-day queries may exceed 500 ms while p95 remains within target",
+      "allowed_exclusions": [{"code": "declared_maintenance", "effect": "remove_sample", "scope_effect": "may_cover_as_excluded", "description": "explicitly declared maintenance interval"}], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "daily-drift-detection-max", "metric_id": "reliability.drift_detection_seconds", "reference_profile": "personal",
+      "sli": {"aggregation": "max", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "<=", "value": 86400, "unit": "seconds"}, "rolling_window": "30 days", "error_budget": "zero eligible simulated drift cases may exceed 24 hours",
+      "allowed_exclusions": [{"code": "declared_maintenance", "effect": "remove_sample", "scope_effect": "may_cover_as_excluded", "description": "explicitly declared maintenance interval"}], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "active-source-gap-max", "metric_id": "collection.active_source_gap_seconds", "reference_profile": "personal",
+      "sli": {"aggregation": "max", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "<=", "value": 300, "unit": "seconds"}, "rolling_window": "30 days", "error_budget": "zero gaps after eligible active-source evidence may exceed five minutes",
+      "allowed_exclusions": [{"code": "declared_maintenance", "effect": "remove_sample", "scope_effect": "may_cover_as_excluded", "description": "explicitly declared maintenance interval"}], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "raw-content-persisted-count", "metric_id": "privacy.raw_content_persisted_count", "reference_profile": "personal",
+      "sli": {"aggregation": "sum", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "==", "value": 0, "unit": "count"}, "rolling_window": "entire retained history and latest backup/export", "error_budget": "zero; any match is a release-blocking incident",
+      "allowed_exclusions": [], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["database", "logs", "traces", "quarantine", "error_responses", "ui_traffic", "exports", "backups"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "ingest-durability-ratio", "metric_id": "collection.acknowledged_durability_ratio", "reference_profile": "personal",
+      "sli": {"aggregation": "mean", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": ">=", "value": 0.9999, "unit": "ratio"}, "rolling_window": "30 days and every restart fault test", "error_budget": "at most 0.01% of acknowledged supported events may be absent after the declared fault model",
+      "allowed_exclusions": [{"code": "pre_ack_development_reset", "effect": "remove_sample", "scope_effect": "sample_only", "description": "explicitly declared destructive development reset before acknowledgement"}], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "collector-idle-cpu-mean", "metric_id": "system.collector_cpu_ratio", "reference_profile": "personal",
+      "sli": {"aggregation": "mean", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "<", "value": 0.01, "unit": "ratio of one logical CPU"}, "rolling_window": "24 idle hours after warm-up", "error_budget": "mean must remain below one percent; bursts are separately reported",
+      "allowed_exclusions": [{"code": "startup_warmup", "effect": "remove_sample", "scope_effect": "sample_only", "description": "first five minutes after start"}, {"code": "declared_maintenance", "effect": "remove_sample", "scope_effect": "may_cover_as_excluded", "description": "explicitly declared maintenance interval"}], "completeness_requirement": {"policy": "minimum_complete_ratio", "minimum_complete_ratio": 0.95, "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "collector-idle-rss-max", "metric_id": "system.collector_rss_bytes", "reference_profile": "personal",
+      "sli": {"aggregation": "max", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "<=", "value": 268435456, "unit": "bytes"}, "rolling_window": "24 idle hours after warm-up", "error_budget": "zero samples above 256 MiB on reference load",
+      "allowed_exclusions": [{"code": "startup_warmup", "effect": "remove_sample", "scope_effect": "sample_only", "description": "first five minutes after start"}, {"code": "declared_maintenance", "effect": "remove_sample", "scope_effect": "may_cover_as_excluded", "description": "explicitly declared maintenance interval"}], "completeness_requirement": {"policy": "minimum_complete_ratio", "minimum_complete_ratio": 0.95, "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    },
+    {
+      "id": "database-growth-per-day-max", "metric_id": "system.database_growth_bytes_per_day", "reference_profile": "enthusiast",
+      "sli": {"aggregation": "max", "query": "SELECT value FROM sli_samples WHERE slo_id = ? AND eligible = 1 AND completeness_state = 'complete' AND exclusion_code IS NULL ORDER BY value"},
+      "target": {"operator": "<=", "value": 268435456, "unit": "bytes per day"}, "rolling_window": "30 days", "error_budget": "zero complete days above 256 MiB at enthusiast load without a visible forecast incident",
+      "allowed_exclusions": [{"code": "declared_migration_rewrite", "effect": "remove_sample", "scope_effect": "sample_only", "description": "explicitly declared migration rewrite interval"}], "completeness_requirement": {"policy": "all_required_scopes_complete", "required_evidence_scopes": ["primary"]}, "test_load": "tests/fixtures/session-01/slo-samples.yaml"
+    }
+  ]
+}

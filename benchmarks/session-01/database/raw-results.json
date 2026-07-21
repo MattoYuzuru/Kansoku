@@ -1,0 +1,195 @@
+{
+  "immutable_inputs": {
+    "postgres": "postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"
+  },
+  "limitations": [
+    "Samples represent one day at personal/enthusiast event rates, not full multi-year retention.",
+    "SQLite and PostgreSQL loaders use equivalent deterministic rows but different client paths.",
+    "The stress profile is projected, not materialized; Session 04 owns the million-event dataset and query plans."
+  ],
+  "paper_evaluation": {
+    "clickhouse": "Reject for MVP baseline: operational cost exceeds measured local workload need unless Session 04 invalidates PostgreSQL budgets.",
+    "duckdb": "Retain for privacy-safe offline Parquet analysis; not the concurrent system of record."
+  },
+  "postgres_image": {
+    "id": "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+    "repo_digests": [
+      "postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"
+    ],
+    "size_bytes": 117826948
+  },
+  "profiles": {
+    "enthusiast_sample": 100000,
+    "personal_sample": 10000
+  },
+  "quantile_semantics": {
+    "interpolation": "linear between zero-based ranks floor((n-1)*p) and ceil((n-1)*p)",
+    "method": "percentile_cont",
+    "postgresql_equivalent": "percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)",
+    "probability": 0.95
+  },
+  "results": [
+    {
+      "bytes_per_event": 88.474,
+      "concurrency": {
+        "duration_seconds": 2.0,
+        "errors": 0,
+        "read_ops_per_second": 16070.5,
+        "reads": 32141,
+        "write_ops_per_second": 5130.5,
+        "writes": 10261
+      },
+      "duplicate_replay_seconds_1000": 0.001169,
+      "duration_p95_value": 4749.049999999999,
+      "engine": "sqlite",
+      "events": 10000,
+      "final_storage_bytes_after_concurrency": 1957888,
+      "idempotency_verified": true,
+      "insert_events_per_second": 579966.507,
+      "insert_seconds": 0.017242,
+      "migration_add_nullable_column_seconds": 0.000141,
+      "profile": "personal_sample",
+      "query_seconds": {
+        "agent_outcome_group": 0.003026,
+        "component_top": 0.00064,
+        "duration_p95_exact": 0.008296,
+        "range_count": 7.4e-05
+      },
+      "rows_after_concurrency": 20261,
+      "rows_after_replay": 10000,
+      "storage_bytes": 884736,
+      "version": "3.53.3"
+    },
+    {
+      "bytes_per_event": 90.972,
+      "concurrency": {
+        "duration_seconds": 2.0,
+        "errors": 0,
+        "read_ops_per_second": 3291.0,
+        "reads": 6582,
+        "write_ops_per_second": 5685.0,
+        "writes": 11370
+      },
+      "duplicate_replay_seconds_1000": 0.001692,
+      "duration_p95_value": 4749.049999999988,
+      "engine": "sqlite",
+      "events": 100000,
+      "final_storage_bytes_after_concurrency": 10280960,
+      "idempotency_verified": true,
+      "insert_events_per_second": 426126.753,
+      "insert_seconds": 0.234672,
+      "migration_add_nullable_column_seconds": 0.000263,
+      "profile": "enthusiast_sample",
+      "query_seconds": {
+        "agent_outcome_group": 0.041467,
+        "component_top": 0.003576,
+        "duration_p95_exact": 0.08912,
+        "range_count": 0.000686
+      },
+      "rows_after_concurrency": 111370,
+      "rows_after_replay": 100000,
+      "storage_bytes": 9097216,
+      "version": "3.53.3"
+    },
+    {
+      "bytes_per_event": 195.789,
+      "concurrency": {
+        "clients": 4,
+        "duration_seconds": 2,
+        "raw": [
+          "pgbench (18.4)",
+          "transaction type: /tmp/kansoku-query.sql",
+          "scaling factor: 1",
+          "query mode: simple",
+          "number of clients: 4",
+          "number of threads: 2",
+          "maximum number of tries: 1",
+          "duration: 2 s",
+          "number of transactions actually processed: 40942",
+          "number of failed transactions: 0 (0.000%)",
+          "latency average = 0.195 ms",
+          "initial connection time = 2.502 ms",
+          "tps = 20494.271245 (without initial connection time)"
+        ],
+        "threads": 2,
+        "tps_including_connection_overhead": 20494.271245
+      },
+      "duplicate_replay_seconds_1000": 0.050856,
+      "duration_p95_value": 4749.049999999999,
+      "engine": "postgresql",
+      "events": 10000,
+      "idempotency_verified": true,
+      "insert_events_per_second": 129016.027,
+      "insert_seconds": 0.07751,
+      "migration_add_nullable_column_seconds": 0.047093,
+      "profile": "personal_sample",
+      "query_seconds": {
+        "agent_outcome_group": 0.001701,
+        "component_top": 0.002526,
+        "duration_p95_exact": 0.001904,
+        "range_count": 0.0005
+      },
+      "rows_after_replay": 10000,
+      "storage_bytes": 1957888,
+      "version": "18.4"
+    },
+    {
+      "bytes_per_event": 205.128,
+      "concurrency": {
+        "clients": 4,
+        "duration_seconds": 2,
+        "raw": [
+          "pgbench (18.4)",
+          "transaction type: /tmp/kansoku-query.sql",
+          "scaling factor: 1",
+          "query mode: simple",
+          "number of clients: 4",
+          "number of threads: 2",
+          "maximum number of tries: 1",
+          "duration: 2 s",
+          "number of transactions actually processed: 4722",
+          "number of failed transactions: 0 (0.000%)",
+          "latency average = 1.693 ms",
+          "initial connection time = 2.289 ms",
+          "tps = 2362.363083 (without initial connection time)"
+        ],
+        "threads": 2,
+        "tps_including_connection_overhead": 2362.363083
+      },
+      "duplicate_replay_seconds_1000": 0.050617,
+      "duration_p95_value": 4749.049999999996,
+      "engine": "postgresql",
+      "events": 100000,
+      "idempotency_verified": true,
+      "insert_events_per_second": 272681.475,
+      "insert_seconds": 0.366728,
+      "migration_add_nullable_column_seconds": 0.044776,
+      "profile": "enthusiast_sample",
+      "query_seconds": {
+        "agent_outcome_group": 0.016587,
+        "component_top": 0.015717,
+        "duration_p95_exact": 0.018027,
+        "range_count": 0.006578
+      },
+      "rows_after_replay": 100000,
+      "storage_bytes": 20512768,
+      "version": "18.4"
+    }
+  ],
+  "retrieved_at": "2026-07-21",
+  "schema_version": "kansoku.session-01-database-benchmark/1",
+  "stress_projections": [
+    {
+      "engine": "sqlite",
+      "stress_profile_logical_events": 1826000000,
+      "uncompressed_linear_projection_bytes": 166114872000,
+      "warning": "Capacity projection only; partitioning, compression, rollups, indexes, and retention must be measured in Session 04."
+    },
+    {
+      "engine": "postgresql",
+      "stress_profile_logical_events": 1826000000,
+      "uncompressed_linear_projection_bytes": 374563728000,
+      "warning": "Capacity projection only; partitioning, compression, rollups, indexes, and retention must be measured in Session 04."
+    }
+  ]
+}

@@ -1,0 +1,2434 @@
+{
+  "schema_version": "kansoku.formula-fixtures/2",
+  "fixture_contract": {
+    "required_fields": [
+      "metric_id",
+      "formula_version",
+      "calculation",
+      "population",
+      "filter",
+      "dedupe_key",
+      "interval",
+      "authorized_exclusions",
+      "ordering",
+      "records",
+      "expected_value",
+      "expected_state",
+      "population_id",
+      "expression",
+      "evaluator",
+      "fixture_policy",
+      "registry_semantic_sha256"
+    ],
+    "record_fields": [
+      "record_id",
+      "eligible",
+      "in_interval",
+      "completeness_state",
+      "exclusion_code"
+    ],
+    "quantile_method": "PostgreSQL percentile_cont linear interpolation",
+    "registry_binding": "Each metric fixture must exactly match registry population ID/text, expression, evaluator, fixture policy and semantic SHA-256."
+  },
+  "metric_cases": [
+    {
+      "metric_id": "collection.coverage_ratio",
+      "formula_version": "collection.coverage_ratio/1",
+      "calculation": "ratio",
+      "population": "eligible source events in the selected capability and half-open interval",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "declared_maintenance"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "numerator": 0,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "outside",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": false,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 0.5,
+      "expected_state": "complete",
+      "population_id": "collection.coverage_ratio.population/1",
+      "expression": "normalized_eligible_events / expected_eligible_events",
+      "evaluator": {
+        "id": "collection.coverage_ratio/1",
+        "implementation": "ratio_of_record_field_sums",
+        "parameters": {
+          "numerator_field": "numerator",
+          "denominator_field": "denominator",
+          "zero_denominator_state": "unknown"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "declared_maintenance"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "0d29c5eb3b8db443d387686ed50a1a3af95f82ec23da2f49b78dfdcdc2f69537"
+    },
+    {
+      "metric_id": "collection.completeness_duration_seconds",
+      "formula_version": "collection.completeness_duration_seconds/1",
+      "calculation": "duration",
+      "population": "wall-clock seconds in the selected range",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "declared_maintenance"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 60,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 120,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "value": 60,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "excluded",
+          "value": 300,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": "declared_maintenance"
+        }
+      ],
+      "expected_value": 180,
+      "expected_state": "complete",
+      "population_id": "collection.completeness_duration_seconds.population/1",
+      "expression": "sum(intersection(interval, selected_range)) by completeness",
+      "evaluator": {
+        "id": "collection.completeness_duration_seconds/1",
+        "implementation": "sum_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "declared_maintenance"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "fdda049e58499710ea8063873a6268f1d14fac89ae3efc954145f9fe34791076"
+    },
+    {
+      "metric_id": "collection.active_source_gap_seconds",
+      "formula_version": "collection.active_source_gap_seconds/1",
+      "calculation": "max",
+      "population": "gaps following an eligible active-source signal",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "declared_maintenance"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 5,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "outside",
+          "value": 50,
+          "eligible": true,
+          "in_interval": false,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 5,
+      "expected_state": "complete",
+      "population_id": "collection.active_source_gap_seconds.population/1",
+      "expression": "max(gap_end - gap_start) after eligible activity",
+      "evaluator": {
+        "id": "collection.active_source_gap_seconds/1",
+        "implementation": "max_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "declared_maintenance"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "ef567a3115f4ed2a38509df76c2a9ca25cfba0aa30474efe2edbe417731c21d7"
+    },
+    {
+      "metric_id": "collection.ingest_latency_seconds",
+      "formula_version": "collection.ingest_latency_seconds/1",
+      "calculation": "p95",
+      "population": "durably accepted supported events",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "declared_maintenance"
+      ],
+      "ordering": "value ASC NULLS excluded",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "d",
+          "value": 4,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 3.85,
+      "expected_state": "complete",
+      "population_id": "collection.ingest_latency_seconds.population/1",
+      "expression": "p95(ingested_at - observed_at)",
+      "evaluator": {
+        "id": "collection.ingest_latency_seconds/1",
+        "implementation": "percentile_cont_record_field",
+        "parameters": {
+          "value_field": "value",
+          "probability": 0.95,
+          "method": "percentile_cont",
+          "null_policy": "explicit_exclusion_only"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "declared_maintenance"
+        ],
+        "ordering": "value ASC NULLS excluded"
+      },
+      "registry_semantic_sha256": "dc8a49b96817df7845d12c2bb74240e5027bbafa86097fd2ed92db0c11a0f0a3"
+    },
+    {
+      "metric_id": "collection.rollup_freshness_seconds",
+      "formula_version": "collection.rollup_freshness_seconds/1",
+      "calculation": "p95",
+      "population": "completed rollup checkpoints for affected metric buckets",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "declared_maintenance"
+      ],
+      "ordering": "value ASC NULLS excluded",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "d",
+          "value": 4,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 3.85,
+      "expected_state": "complete",
+      "population_id": "collection.rollup_freshness_seconds.population/1",
+      "expression": "p95(rollup_visible_at - latest_eligible_ingested_at)",
+      "evaluator": {
+        "id": "collection.rollup_freshness_seconds/1",
+        "implementation": "percentile_cont_record_field",
+        "parameters": {
+          "value_field": "value",
+          "probability": 0.95,
+          "method": "percentile_cont",
+          "null_policy": "explicit_exclusion_only"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "declared_maintenance"
+        ],
+        "ordering": "value ASC NULLS excluded"
+      },
+      "registry_semantic_sha256": "c31c1b8b0a272b7a070ae4aa8128fb458408c34cb7277b6849637d63ff42ecbc"
+    },
+    {
+      "metric_id": "collection.acknowledged_durability_ratio",
+      "formula_version": "collection.acknowledged_durability_ratio/1",
+      "calculation": "ratio",
+      "population": "acknowledged supported events covered by a completed fault/restart reconciliation",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "pre_ack_development_reset"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "excluded",
+          "numerator": 0,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": "pre_ack_development_reset"
+        }
+      ],
+      "expected_value": 1.0,
+      "expected_state": "complete",
+      "population_id": "collection.acknowledged_durability_ratio.population/1",
+      "expression": "reconciled durable acknowledged events / acknowledged supported events",
+      "evaluator": {
+        "id": "collection.acknowledged_durability_ratio/1",
+        "implementation": "ratio_of_record_field_sums",
+        "parameters": {
+          "numerator_field": "numerator",
+          "denominator_field": "denominator",
+          "zero_denominator_state": "unknown"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "pre_ack_development_reset"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "28f6dde4fa593657bf37636758bc63ebcaff303c4d233bd0d04842c53eda4cbe"
+    },
+    {
+      "metric_id": "inventory.agent_installations",
+      "formula_version": "inventory.agent_installations/1",
+      "calculation": "count",
+      "population": "discoverable local agent installations",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "outside",
+          "eligible": true,
+          "in_interval": false,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "inventory.agent_installations.population/1",
+      "expression": "count(distinct agent_installation_id)",
+      "evaluator": {
+        "id": "inventory.agent_installations/1",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "0bda0e45776fbb1c477dcea6fb74efb179f109091cc876e9dd67ff52af9dd97d"
+    },
+    {
+      "metric_id": "activity.sessions",
+      "formula_version": "activity.sessions/1",
+      "calculation": "count",
+      "population": "observed sessions intersecting the selected range",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "outside",
+          "eligible": true,
+          "in_interval": false,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "activity.sessions.population/1",
+      "expression": "count(distinct session_id)",
+      "evaluator": {
+        "id": "activity.sessions/1",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "31018b7e3757e0cbfbf07b829f875995b0f831f20def1ea0ce69c8ac9b1d8279"
+    },
+    {
+      "metric_id": "activity.prompts",
+      "formula_version": "activity.prompts/1",
+      "calculation": "count",
+      "population": "eligible submitted prompt metadata events",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "raw_content"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "raw",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": "raw_content"
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "activity.prompts.population/1",
+      "expression": "count(prompt.submitted metadata events)",
+      "evaluator": {
+        "id": "activity.prompts/1",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "raw_content"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "4267c7120ad4ed07d217f5453ed4b344960e91c295ad050fe37d4fa47d375516"
+    },
+    {
+      "metric_id": "activity.active_duration_seconds",
+      "formula_version": "activity.active_duration_seconds/1",
+      "calculation": "sum",
+      "population": "supported activity intervals",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 60,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 120,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "value": 60,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 180,
+      "expected_state": "complete",
+      "population_id": "activity.active_duration_seconds.population/1",
+      "expression": "sum(non-overlapping observed active intervals)",
+      "evaluator": {
+        "id": "activity.active_duration_seconds/1",
+        "implementation": "sum_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "47e3a9c9036540f0e5e66ca3e7b402863d58b5d4df715e46888c508cc573bf6a"
+    },
+    {
+      "metric_id": "prompt.utf8_bytes",
+      "formula_version": "prompt.utf8_bytes/1",
+      "calculation": "p95",
+      "population": "submitted prompts whose transient decoder completed safely",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "rejected_payload"
+      ],
+      "ordering": "value ASC NULLS excluded",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "d",
+          "value": 4,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "rejected",
+          "value": 999,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": "rejected_payload"
+        }
+      ],
+      "expected_value": 3.85,
+      "expected_state": "complete",
+      "population_id": "prompt.utf8_bytes.population/1",
+      "expression": "p95(ephemeral UTF-8 byte count)",
+      "evaluator": {
+        "id": "prompt.utf8_bytes/1",
+        "implementation": "percentile_cont_record_field",
+        "parameters": {
+          "value_field": "value",
+          "probability": 0.95,
+          "method": "percentile_cont",
+          "null_policy": "explicit_exclusion_only"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "rejected_payload"
+        ],
+        "ordering": "value ASC NULLS excluded"
+      },
+      "registry_semantic_sha256": "856c3eb7734d97e76f9da8c5d3537d939b8141c65800c9ae84ba05eef614e847"
+    },
+    {
+      "metric_id": "model.requests",
+      "formula_version": "model.requests/1",
+      "calculation": "count",
+      "population": "supported model request operations",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "model.requests.population/1",
+      "expression": "count(model request operations)",
+      "evaluator": {
+        "id": "model.requests/1",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "80db9947c4100ec280fd804ddec5f3562579bb443e599b06ac8c824f68d9e759"
+    },
+    {
+      "metric_id": "model.tokens",
+      "formula_version": "model.tokens/1",
+      "calculation": "sum",
+      "population": "model operations with provider-reported token categories",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 5,
+      "expected_state": "complete",
+      "population_id": "model.tokens.population/1",
+      "expression": "sum(provider token category)",
+      "evaluator": {
+        "id": "model.tokens/1",
+        "implementation": "sum_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "ca69fd4947a595adb4acb625362482955d887061fe47a83084c52897b4d3324d"
+    },
+    {
+      "metric_id": "model.request_latency_seconds",
+      "formula_version": "model.request_latency_seconds/1",
+      "calculation": "p95",
+      "population": "terminal supported model operations",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "non_terminal"
+      ],
+      "ordering": "value ASC NULLS excluded",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "d",
+          "value": 4,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 3.85,
+      "expected_state": "complete",
+      "population_id": "model.request_latency_seconds.population/1",
+      "expression": "p95(model operation duration)",
+      "evaluator": {
+        "id": "model.request_latency_seconds/1",
+        "implementation": "percentile_cont_record_field",
+        "parameters": {
+          "value_field": "value",
+          "probability": 0.95,
+          "method": "percentile_cont",
+          "null_policy": "explicit_exclusion_only"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "non_terminal"
+        ],
+        "ordering": "value ASC NULLS excluded"
+      },
+      "registry_semantic_sha256": "cc575af68afcd9440bf0e51d1abb1e3b8b647eb703019f93c6b61c14c59afc01"
+    },
+    {
+      "metric_id": "model.error_ratio",
+      "formula_version": "model.error_ratio/1",
+      "calculation": "ratio",
+      "population": "terminal supported model operations",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "numerator": 0,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 0.5,
+      "expected_state": "complete",
+      "population_id": "model.error_ratio.population/1",
+      "expression": "failed terminal model operations / terminal model operations",
+      "evaluator": {
+        "id": "model.error_ratio/1",
+        "implementation": "ratio_of_record_field_sums",
+        "parameters": {
+          "numerator_field": "numerator",
+          "denominator_field": "denominator",
+          "zero_denominator_state": "unknown"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "e526f76ab2f0cd1cb3832d48d1baf1e79c489654e7aa012914e9ab75b18f3b32"
+    },
+    {
+      "metric_id": "model.estimated_cost_usd",
+      "formula_version": "model.estimated_cost_usd/1",
+      "calculation": "sum",
+      "population": "model operations with exact tokens and a matching versioned price entry",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 0.2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 0.3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 0.5,
+      "expected_state": "complete",
+      "population_id": "model.estimated_cost_usd.population/1",
+      "expression": "sum(exact token category * price at effective time)",
+      "evaluator": {
+        "id": "model.estimated_cost_usd/1",
+        "implementation": "sum_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "7e51145608e4b839c4c9e67b4601b72de944c3216c13bd363f25b511d2fd0286"
+    },
+    {
+      "metric_id": "component.lifecycle_count",
+      "formula_version": "component.lifecycle_count/1",
+      "calculation": "count",
+      "population": "eligible components at the selected lifecycle stage",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "component.lifecycle_count.population/1",
+      "expression": "count(distinct component-stage fact)",
+      "evaluator": {
+        "id": "component.lifecycle_count/1",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "e7edb8e6c6d5e7ed8b7acb4de82e981c00d731dc4704784f68fcbfe5eebe6dc4"
+    },
+    {
+      "metric_id": "component.activation_ratio",
+      "formula_version": "component.activation_ratio/1",
+      "calculation": "ratio",
+      "population": "components with supported exposed and invoked stages",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "numerator": 0,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 0.5,
+      "expected_state": "complete",
+      "population_id": "component.activation_ratio.population/1",
+      "expression": "invoked eligible components / exposed eligible components",
+      "evaluator": {
+        "id": "component.activation_ratio/1",
+        "implementation": "ratio_of_record_field_sums",
+        "parameters": {
+          "numerator_field": "numerator",
+          "denominator_field": "denominator",
+          "zero_denominator_state": "unknown"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "581d14afd962ae843624fcc91c7d72dddbfe61598fcde28091a5cd1e95576d8e"
+    },
+    {
+      "metric_id": "component.success_ratio",
+      "formula_version": "component.success_ratio/1",
+      "calculation": "ratio",
+      "population": "terminal component executions with a declared terminal contract",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "numerator": 0,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 0.5,
+      "expected_state": "complete",
+      "population_id": "component.success_ratio.population/1",
+      "expression": "succeeded terminal executions / terminal executions",
+      "evaluator": {
+        "id": "component.success_ratio/1",
+        "implementation": "ratio_of_record_field_sums",
+        "parameters": {
+          "numerator_field": "numerator",
+          "denominator_field": "denominator",
+          "zero_denominator_state": "unknown"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "49595804871247f2d8ffb1c1338b87ce712975c1600300f9bf4f16fe02a03393"
+    },
+    {
+      "metric_id": "tool.calls",
+      "formula_version": "tool.calls/1",
+      "calculation": "count",
+      "population": "supported tool calls",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "arguments_results"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "tool.calls.population/1",
+      "expression": "count(distinct tool call identity)",
+      "evaluator": {
+        "id": "tool.calls/1",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "arguments_results"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "36eee4206ae41484a4a8239b1f48f76edf1e4dd89d4c717ed12c6739ad03f8a3"
+    },
+    {
+      "metric_id": "tool.success_ratio",
+      "formula_version": "tool.success_ratio/1",
+      "calculation": "ratio",
+      "population": "terminal supported tool calls",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "numerator": 1,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "numerator": 0,
+          "denominator": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 0.5,
+      "expected_state": "complete",
+      "population_id": "tool.success_ratio.population/1",
+      "expression": "successful terminal calls / terminal calls",
+      "evaluator": {
+        "id": "tool.success_ratio/1",
+        "implementation": "ratio_of_record_field_sums",
+        "parameters": {
+          "numerator_field": "numerator",
+          "denominator_field": "denominator",
+          "zero_denominator_state": "unknown"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "645db732e1cb356989f9b3fae8db466afb2e2017c427f9dedee47efeb0ba722a"
+    },
+    {
+      "metric_id": "tool.latency_seconds",
+      "formula_version": "tool.latency_seconds/1",
+      "calculation": "p95",
+      "population": "terminal supported tool calls",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "non_terminal"
+      ],
+      "ordering": "value ASC NULLS excluded",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "d",
+          "value": 4,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 3.85,
+      "expected_state": "complete",
+      "population_id": "tool.latency_seconds.population/1",
+      "expression": "p95(terminal tool call duration)",
+      "evaluator": {
+        "id": "tool.latency_seconds/1",
+        "implementation": "percentile_cont_record_field",
+        "parameters": {
+          "value_field": "value",
+          "probability": 0.95,
+          "method": "percentile_cont",
+          "null_policy": "explicit_exclusion_only"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "non_terminal"
+        ],
+        "ordering": "value ASC NULLS excluded"
+      },
+      "registry_semantic_sha256": "8a6f046b665ab6b150e9a6bf0d62f1e2edd513553be8c7456aec7433c4f3d5c3"
+    },
+    {
+      "metric_id": "mcp.connection_uptime_ratio",
+      "formula_version": "mcp.connection_uptime_ratio/1",
+      "calculation": "ratio",
+      "population": "configured MCP server intervals where connection state is observable",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "numerator": 30,
+          "denominator": 60,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "numerator": 30,
+          "denominator": 60,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 0.5,
+      "expected_state": "complete",
+      "population_id": "mcp.connection_uptime_ratio.population/1",
+      "expression": "connected eligible duration / configured eligible duration",
+      "evaluator": {
+        "id": "mcp.connection_uptime_ratio/1",
+        "implementation": "ratio_of_record_field_sums",
+        "parameters": {
+          "numerator_field": "numerator",
+          "denominator_field": "denominator",
+          "zero_denominator_state": "unknown"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "9358d4e7904a024f990be87895cc8618e55d74f4ffc71f0a3f784967c7d96cc4"
+    },
+    {
+      "metric_id": "reliability.unknown_schema_count",
+      "formula_version": "reliability.unknown_schema_count/1",
+      "calculation": "count",
+      "population": "bounded ingress payloads with a recognized source and unknown schema fingerprint",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "reliability.unknown_schema_count.population/1",
+      "expression": "count(metadata-only quarantine records with unknown fingerprint)",
+      "evaluator": {
+        "id": "reliability.unknown_schema_count/1",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "037331cc52ef25e21343edeca059f6865fc05215c1114eae822b8094713fceee"
+    },
+    {
+      "metric_id": "reliability.reconciliation_mismatch_count",
+      "formula_version": "reliability.reconciliation_mismatch_count/1",
+      "calculation": "count",
+      "population": "facts with at least two comparable evidence sources",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "reliability.reconciliation_mismatch_count.population/1",
+      "expression": "count(open or closed source disagreements)",
+      "evaluator": {
+        "id": "reliability.reconciliation_mismatch_count/1",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "e2aaf0eb7df848e69c0cef156fa20fe7fff490075917d08830101a0281e018a5"
+    },
+    {
+      "metric_id": "reliability.drift_detection_seconds",
+      "formula_version": "reliability.drift_detection_seconds/1",
+      "calculation": "max",
+      "population": "eligible injected or corroborated source/schema drift faults",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 5,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 5,
+      "expected_state": "complete",
+      "population_id": "reliability.drift_detection_seconds.population/1",
+      "expression": "max(incident_detected_at - fault_started_at)",
+      "evaluator": {
+        "id": "reliability.drift_detection_seconds/1",
+        "implementation": "max_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "f4a279909c36f8dd60a3335b6ccd11c1ce20ec8de99892760407e1b24a39318d"
+    },
+    {
+      "metric_id": "privacy.raw_content_persisted_count",
+      "formula_version": "privacy.raw_content_persisted_count/1",
+      "calculation": "sum",
+      "population": "database, logs, traces, quarantine, errors, UI traffic, exports, and backups scanned by the canary",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "entire retained history plus latest backup/export",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "database",
+          "value": 0,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "logs",
+          "value": 0,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "backups",
+          "value": 0,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 0,
+      "expected_state": "numeric_zero",
+      "population_id": "privacy.raw_content_persisted_count.population/1",
+      "expression": "sum(raw-content canary matches across durable/output sinks)",
+      "evaluator": {
+        "id": "privacy.raw_content_persisted_count/1",
+        "implementation": "sum_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "entire retained history plus latest backup/export",
+        "authorized_exclusions": [],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "ea1e127d2823199d68ed0f5308ef86cfa864de8f7dde0e54ef9f7367abac958a"
+    },
+    {
+      "metric_id": "system.collector_cpu_ratio",
+      "formula_version": "system.collector_cpu_ratio/1",
+      "calculation": "mean",
+      "population": "collector process samples",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "startup_warmup",
+        "declared_maintenance"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 2,
+      "expected_state": "complete",
+      "population_id": "system.collector_cpu_ratio.population/1",
+      "expression": "mean(process CPU / one logical CPU)",
+      "evaluator": {
+        "id": "system.collector_cpu_ratio/1",
+        "implementation": "mean_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "startup_warmup",
+          "declared_maintenance"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "e658d28fea61386b63e39202129b96f695605591ff6b7265b2efb7f481b7e6f1"
+    },
+    {
+      "metric_id": "system.collector_rss_bytes",
+      "formula_version": "system.collector_rss_bytes/1",
+      "calculation": "max",
+      "population": "collector process samples",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "startup_warmup",
+        "declared_maintenance"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 5,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 5,
+      "expected_state": "complete",
+      "population_id": "system.collector_rss_bytes.population/1",
+      "expression": "max(process resident set size)",
+      "evaluator": {
+        "id": "system.collector_rss_bytes/1",
+        "implementation": "max_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "startup_warmup",
+          "declared_maintenance"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "5a1427fd6358aedc2a1f20ad30da8ecd1059538e3115a80e3ec7f5fdee1822fe"
+    },
+    {
+      "metric_id": "system.database_size_bytes",
+      "formula_version": "system.database_size_bytes/1",
+      "calculation": "latest",
+      "population": "Kansoku database and required indexes",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": "observed_order ASC",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "observed_order": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 7,
+          "observed_order": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 99,
+          "observed_order": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 7,
+      "expected_state": "complete",
+      "population_id": "system.database_size_bytes.population/1",
+      "expression": "latest durable database size sample",
+      "evaluator": {
+        "id": "system.database_size_bytes/1",
+        "implementation": "latest_record_by_order_field",
+        "parameters": {
+          "value_field": "value",
+          "order_field": "observed_order",
+          "direction": "ascending"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": "observed_order ASC"
+      },
+      "registry_semantic_sha256": "8aee052b87a657036707d81d7fbb842f38559315543050e4a726be0c85d5c5a9"
+    },
+    {
+      "metric_id": "system.database_growth_bytes_per_day",
+      "formula_version": "system.database_growth_bytes_per_day/1",
+      "calculation": "max",
+      "population": "complete daily database-size intervals excluding declared migration rewrites",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "complete UTC days",
+      "authorized_exclusions": [
+        "declared_migration_rewrite"
+      ],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 5,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "migration",
+          "value": 50,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": "declared_migration_rewrite"
+        }
+      ],
+      "expected_value": 5,
+      "expected_state": "complete",
+      "population_id": "system.database_growth_bytes_per_day.population/1",
+      "expression": "max(positive database size delta across complete UTC days)",
+      "evaluator": {
+        "id": "system.database_growth_bytes_per_day/1",
+        "implementation": "max_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "complete UTC days",
+        "authorized_exclusions": [
+          "declared_migration_rewrite"
+        ],
+        "ordering": null
+      },
+      "registry_semantic_sha256": "b54d6cb1ed31d0141f1ecd40d03e408caac952953a63cb66e55e75a462d42783"
+    },
+    {
+      "metric_id": "system.common_query_latency_seconds",
+      "formula_version": "system.common_query_latency_seconds/1",
+      "calculation": "p95",
+      "population": "registered common 30-day dashboard queries on the reference profile",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [
+        "cancelled_query"
+      ],
+      "ordering": "value ASC NULLS excluded",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "d",
+          "value": 4,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 3.85,
+      "expected_state": "complete",
+      "population_id": "system.common_query_latency_seconds.population/1",
+      "expression": "p95(server query duration for registered common panels)",
+      "evaluator": {
+        "id": "system.common_query_latency_seconds/1",
+        "implementation": "percentile_cont_record_field",
+        "parameters": {
+          "value_field": "value",
+          "probability": 0.95,
+          "method": "percentile_cont",
+          "null_policy": "explicit_exclusion_only"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [
+          "cancelled_query"
+        ],
+        "ordering": "value ASC NULLS excluded"
+      },
+      "registry_semantic_sha256": "7e49cc3cc5db70cf66b2368cfdd71b66f3e65b6d1a87d517e0a30c7ca81ffe6a"
+    },
+    {
+      "metric_id": "system.backup_age_seconds",
+      "formula_version": "system.backup_age_seconds/1",
+      "calculation": "latest",
+      "population": "configured backup schedule",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": "observed_order ASC",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 10,
+          "observed_order": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 5,
+          "observed_order": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 8,
+          "observed_order": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 5,
+      "expected_state": "complete",
+      "population_id": "system.backup_age_seconds.population/1",
+      "expression": "now - latest verified backup completion",
+      "evaluator": {
+        "id": "system.backup_age_seconds/1",
+        "implementation": "latest_record_by_order_field",
+        "parameters": {
+          "value_field": "value",
+          "order_field": "observed_order",
+          "direction": "ascending"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": "observed_order ASC"
+      },
+      "registry_semantic_sha256": "4cf7f711abb84ce336b2da7d2b4c1d62b9fab0b20beb5cf830121aef0420b97c"
+    },
+    {
+      "metric_id": "system.restore_test_age_seconds",
+      "formula_version": "system.restore_test_age_seconds/1",
+      "calculation": "latest",
+      "population": "configured restore-test schedule",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": "observed_order ASC",
+      "records": [
+        {
+          "record_id": "a",
+          "value": 10,
+          "observed_order": 1,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "b",
+          "value": 5,
+          "observed_order": 3,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        },
+        {
+          "record_id": "c",
+          "value": 8,
+          "observed_order": 2,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": 5,
+      "expected_state": "complete",
+      "population_id": "system.restore_test_age_seconds.population/1",
+      "expression": "now - latest successful isolated restore test",
+      "evaluator": {
+        "id": "system.restore_test_age_seconds/1",
+        "implementation": "latest_record_by_order_field",
+        "parameters": {
+          "value_field": "value",
+          "order_field": "observed_order",
+          "direction": "ascending"
+        }
+      },
+      "fixture_policy": {
+        "filter": {
+          "eligible": true,
+          "in_interval": true
+        },
+        "dedupe_key": "record_id",
+        "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+        "authorized_exclusions": [],
+        "ordering": "observed_order ASC"
+      },
+      "registry_semantic_sha256": "91d071b5965be8a1cbf7d9751fafd16acb7d95948100b3923da3a25bc1e1026b"
+    }
+  ],
+  "adversarial_cases": [
+    {
+      "id": "metric-incomplete-evidence-is-unknown",
+      "metric_id": "model.tokens",
+      "calculation": "sum",
+      "population": "provider token records",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 10,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "unknown",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": null,
+      "expected_state": "unknown",
+      "expected_error": null,
+      "evaluator": {
+        "id": "adversarial/metric-incomplete-evidence-is-unknown",
+        "implementation": "sum_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      }
+    },
+    {
+      "id": "metric-unauthorized-exclusion-fails",
+      "metric_id": "model.tokens",
+      "calculation": "sum",
+      "population": "provider token records",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "value": 10,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": "quiet_period"
+        }
+      ],
+      "expected_value": null,
+      "expected_state": "unknown",
+      "expected_error": "unauthorized_exclusion",
+      "evaluator": {
+        "id": "adversarial/metric-unauthorized-exclusion-fails",
+        "implementation": "sum_record_field",
+        "parameters": {
+          "value_field": "value"
+        }
+      }
+    },
+    {
+      "id": "ratio-zero-denominator-is-unknown",
+      "metric_id": "model.error_ratio",
+      "calculation": "ratio",
+      "population": "terminal model operations",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [
+        {
+          "record_id": "a",
+          "numerator": 0,
+          "denominator": 0,
+          "eligible": true,
+          "in_interval": true,
+          "completeness_state": "complete",
+          "exclusion_code": null
+        }
+      ],
+      "expected_value": null,
+      "expected_state": "unknown",
+      "expected_error": null,
+      "evaluator": {
+        "id": "adversarial/ratio-zero-denominator-is-unknown",
+        "implementation": "ratio_of_record_field_sums",
+        "parameters": {
+          "numerator_field": "numerator",
+          "denominator_field": "denominator",
+          "zero_denominator_state": "unknown"
+        }
+      }
+    },
+    {
+      "id": "healthy-empty-population-is-not-observed",
+      "metric_id": "activity.sessions",
+      "calculation": "count",
+      "population": "observed sessions",
+      "filter": {
+        "eligible": true,
+        "in_interval": true
+      },
+      "dedupe_key": "record_id",
+      "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
+      "authorized_exclusions": [],
+      "ordering": null,
+      "records": [],
+      "source_interval_state": "complete",
+      "expected_value": null,
+      "expected_state": "not_observed",
+      "expected_error": null,
+      "evaluator": {
+        "id": "adversarial/healthy-empty-population-is-not-observed",
+        "implementation": "count_distinct_records",
+        "parameters": {
+          "distinct_field": "record_id"
+        }
+      }
+    }
+  ]
+}

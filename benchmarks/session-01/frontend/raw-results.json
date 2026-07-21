@@ -1,0 +1,151 @@
+{
+  "capability_review": {
+    "echarts": {
+      "accessibility": "requires Kansoku-authored ARIA summaries and data tables",
+      "dense_time_series": "native",
+      "export": "native SVG/PNG data URL",
+      "funnel": "native",
+      "linked_filtering": "native group/connect plus app state"
+    },
+    "uplot": {
+      "accessibility": "requires Kansoku-authored ARIA summaries and data tables",
+      "dense_time_series": "native and compact",
+      "export": "custom canvas export",
+      "funnel": "custom DOM implementation",
+      "linked_filtering": "custom application state"
+    }
+  },
+  "immutable_inputs": {
+    "package_lock_sha256": "a8448066fa4e7fcf5e94ae9f8eb8f9e7ad1bf69498d86a17d61c3cd1ad6476e8"
+  },
+  "install_output_tail": [
+    "",
+    "added 24 packages in 1s"
+  ],
+  "install_seconds": 1.357585,
+  "limitations": [
+    "Bundle measurements are production Vite builds without source maps.",
+    "The spike checks the accessibility surface statically; Session 10 owns browser/assistive-technology testing.",
+    "No remote fonts, CDN assets, analytics, or telemetry are included."
+  ],
+  "node_version": "v26.3.0",
+  "npm_audit": {
+    "exit_code": 0,
+    "total_dependencies": 57,
+    "vulnerabilities": {
+      "critical": 0,
+      "high": 0,
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "total": 0
+    }
+  },
+  "npm_version": "11.16.0",
+  "resolved_dependencies": {
+    "@vitejs/plugin-react": "6.0.3",
+    "echarts": "6.1.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "uplot": "1.6.32",
+    "vite": "8.1.5"
+  },
+  "results": {
+    "echarts": {
+      "accessibility_surface": {
+        "chart_has_accessible_name": true,
+        "data_table_equivalent": true,
+        "keyboard_native_controls": true,
+        "reduced_motion_css": true,
+        "status_announced": true
+      },
+      "build_output": [
+        "> VITE_CHART_IMPL=echarts vite build --outDir dist/echarts --emptyOutDir",
+        "",
+        "vite v8.1.5 building client environment for production...",
+        "\u001b[2K",
+        "transforming...\u2713 604 modules transformed.",
+        "rendering chunks...",
+        "computing gzip size...",
+        "dist/echarts/index.html                   0.40 kB \u2502 gzip:   0.27 kB",
+        "dist/echarts/assets/index-B9fkbAhc.css    0.84 kB \u2502 gzip:   0.49 kB",
+        "dist/echarts/assets/index-B1q2maJM.js   724.08 kB \u2502 gzip: 240.77 kB",
+        "",
+        "\u2713 built in 463ms"
+      ],
+      "build_seconds": 1.803548,
+      "bundle": {
+        "files": [
+          {
+            "bytes": 404,
+            "gzip_bytes": 271,
+            "path": "index.html"
+          },
+          {
+            "bytes": 724082,
+            "gzip_bytes": 237434,
+            "path": "assets/index-B1q2maJM.js"
+          },
+          {
+            "bytes": 849,
+            "gzip_bytes": 493,
+            "path": "assets/index-B9fkbAhc.css"
+          }
+        ],
+        "javascript_bytes": 724082,
+        "javascript_gzip_bytes": 237434,
+        "total_bytes": 725335,
+        "total_gzip_bytes": 238198
+      }
+    },
+    "uplot": {
+      "accessibility_surface": {
+        "chart_has_accessible_name": true,
+        "data_table_equivalent": true,
+        "keyboard_native_controls": true,
+        "reduced_motion_css": true,
+        "status_announced": true
+      },
+      "build_output": [
+        "> VITE_CHART_IMPL=uplot vite build --outDir dist/uplot --emptyOutDir",
+        "",
+        "vite v8.1.5 building client environment for production...",
+        "\u001b[2K",
+        "transforming...\u2713 20 modules transformed.",
+        "rendering chunks...",
+        "computing gzip size...",
+        "dist/uplot/index.html                   0.40 kB \u2502 gzip:  0.27 kB",
+        "dist/uplot/assets/index-DCQWDbgB.css    2.49 kB \u2502 gzip:  1.05 kB",
+        "dist/uplot/assets/index-DtRRLQJA.js   244.98 kB \u2502 gzip: 83.23 kB",
+        "",
+        "\u2713 built in 75ms"
+      ],
+      "build_seconds": 0.481846,
+      "bundle": {
+        "files": [
+          {
+            "bytes": 404,
+            "gzip_bytes": 272,
+            "path": "index.html"
+          },
+          {
+            "bytes": 2492,
+            "gzip_bytes": 1052,
+            "path": "assets/index-DCQWDbgB.css"
+          },
+          {
+            "bytes": 244989,
+            "gzip_bytes": 81987,
+            "path": "assets/index-DtRRLQJA.js"
+          }
+        ],
+        "javascript_bytes": 244989,
+        "javascript_gzip_bytes": 81987,
+        "total_bytes": 247885,
+        "total_gzip_bytes": 83311
+      }
+    }
+  },
+  "retrieved_at": "2026-07-21",
+  "schema_version": "kansoku.session-01-frontend-benchmark/1"
+}

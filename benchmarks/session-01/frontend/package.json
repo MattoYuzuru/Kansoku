@@ -1,0 +1,18 @@
+{
+  "name": "kansoku-session-01-frontend-spike",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build:echarts": "VITE_CHART_IMPL=echarts vite build --outDir dist/echarts --emptyOutDir",
+    "build:uplot": "VITE_CHART_IMPL=uplot vite build --outDir dist/uplot --emptyOutDir"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "6.0.3",
+    "echarts": "6.1.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "uplot": "1.6.32",
+    "vite": "8.1.5"
+  }
+}

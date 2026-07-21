@@ -1,0 +1,106 @@
+{
+  "schema_version": "kansoku.dashboard/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "global_query": {
+    "ranges": ["day", "week", "sprint", "month", "six_months", "year", "all_time", "custom"],
+    "range_semantics": "half-open [from,to) in selected timezone",
+    "filters": ["agent", "project", "model", "component", "source", "evidence_tier"],
+    "comparison": "previous equivalent calendar or elapsed period, explicitly labeled",
+    "safe_url_policy": "Only opaque IDs or user aliases; never raw paths, prompts, source, tool input/output, or credentials."
+  },
+  "routes": [
+    {
+      "path": "/", "title": "Overview", "wireframe": "health strip; KPI row; activity/model trend; component funnel; incident list",
+      "panels": [
+        {"id": "overview-collection-health", "question_ids": ["Q-COLLECTION-HEALTH"], "metrics": ["collection.coverage_ratio", "collection.completeness_duration_seconds", "collection.acknowledged_durability_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "overview-activity", "question_ids": ["Q-ACTIVITY-RHYTHM", "Q-MODEL-USAGE"], "metrics": ["activity.sessions", "activity.prompts", "model.tokens"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "overview-component-funnel", "question_ids": ["Q-COMPONENT-LIFECYCLE"], "metrics": ["component.lifecycle_count", "component.activation_ratio", "component.success_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "overview-incidents", "question_ids": ["Q-UPDATE-DRIFT"], "metrics": ["reliability.unknown_schema_count", "reliability.reconciliation_mismatch_count"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/activity", "title": "Activity", "wireframe": "timeline; active duration; session distribution; weekday/hour heatmap",
+      "panels": [
+        {"id": "activity-timeline", "question_ids": ["Q-ACTIVITY-RHYTHM"], "metrics": ["activity.sessions", "activity.prompts", "activity.active_duration_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/prompts", "title": "Prompt metadata", "wireframe": "count timeline; byte percentile band; calendar and hour/weekday heatmaps",
+      "panels": [
+        {"id": "prompt-shape", "question_ids": ["Q-PROMPT-SHAPE"], "metrics": ["activity.prompts", "prompt.utf8_bytes"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/agents", "title": "Agents", "wireframe": "installation/version table; surface activity; capability support matrix",
+      "panels": [
+        {"id": "agent-fleet", "question_ids": ["Q-AGENT-INVENTORY", "Q-COLLECTION-HEALTH"], "metrics": ["inventory.agent_installations", "activity.sessions", "collection.coverage_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/agents/:id", "title": "Agent detail", "wireframe": "version markers; activity/model mix; capability coverage; evidence sources",
+      "panels": [
+        {"id": "agent-detail-usage", "question_ids": ["Q-AGENT-INVENTORY", "Q-MODEL-USAGE"], "metrics": ["activity.sessions", "activity.prompts", "model.requests", "model.tokens"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "agent-detail-coverage", "question_ids": ["Q-COLLECTION-HEALTH", "Q-UPDATE-DRIFT"], "metrics": ["collection.coverage_ratio", "collection.active_source_gap_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/models", "title": "Models", "wireframe": "request/token share; latency/errors; fallback markers; estimated cost",
+      "panels": [
+        {"id": "model-usage", "question_ids": ["Q-MODEL-USAGE"], "metrics": ["model.requests", "model.tokens", "model.request_latency_seconds", "model.error_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "model-cost", "question_ids": ["Q-COST-ESTIMATE"], "metrics": ["model.estimated_cost_usd", "model.tokens"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/components/skills", "title": "Skills", "wireframe": "lifecycle funnel; activation/success; cold/unused reasons; evidence table",
+      "panels": [
+        {"id": "skill-lifecycle", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio", "component.success_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/components/plugins", "title": "Plugins", "wireframe": "plugin tree; child lifecycle; version adoption; cold/stale reasons",
+      "panels": [
+        {"id": "plugin-lifecycle", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio", "component.success_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/components/mcp", "title": "MCP", "wireframe": "server tree; connection timeline; calls/errors/latency; support gaps",
+      "panels": [
+        {"id": "mcp-health", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["mcp.connection_uptime_ratio", "tool.calls", "tool.success_ratio", "tool.latency_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/tools", "title": "Tools", "wireframe": "call timeline; success/errors/latency; approvals; tool table",
+      "panels": [
+        {"id": "tool-analytics", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-UPDATE-DRIFT"], "metrics": ["tool.calls", "tool.success_ratio", "tool.latency_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/reliability", "title": "Reliability", "wireframe": "coverage timeline; source gaps/watermarks; drift/mismatch tables; incident list",
+      "panels": [
+        {"id": "reliability-coverage", "question_ids": ["Q-COLLECTION-HEALTH", "Q-UPDATE-DRIFT"], "metrics": ["collection.coverage_ratio", "collection.completeness_duration_seconds", "collection.active_source_gap_seconds", "collection.ingest_latency_seconds", "collection.rollup_freshness_seconds", "collection.acknowledged_durability_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "reliability-drift", "question_ids": ["Q-UPDATE-DRIFT"], "metrics": ["reliability.unknown_schema_count", "reliability.reconciliation_mismatch_count", "reliability.drift_detection_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/privacy", "title": "Privacy", "wireframe": "data classes; retention; redactions/canary; egress and host-access status",
+      "panels": [
+        {"id": "privacy-canary", "question_ids": ["Q-PRIVACY-STATE"], "metrics": ["privacy.raw_content_persisted_count", "reliability.unknown_schema_count"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "privacy-retention", "question_ids": ["Q-PRIVACY-STATE"], "metrics": ["system.database_size_bytes", "system.backup_age_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/system", "title": "System", "wireframe": "CPU/RSS/disk; ingest/query latency; database growth; backup/restore state",
+      "panels": [
+        {"id": "system-overhead", "question_ids": ["Q-KANSOKU-OVERHEAD"], "metrics": ["system.collector_cpu_ratio", "system.collector_rss_bytes", "system.database_size_bytes", "system.database_growth_bytes_per_day", "system.common_query_latency_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "system-recovery", "question_ids": ["Q-RECOVERY"], "metrics": ["system.backup_age_seconds", "system.restore_test_age_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/settings", "title": "Settings", "wireframe": "read-only current policy; separate preview/apply flows for retention, exports, adapters, and backups",
+      "panels": [
+        {"id": "settings-impact-preview", "question_ids": ["Q-PRIVACY-STATE", "Q-RECOVERY"], "metrics": ["system.database_size_bytes", "system.backup_age_seconds", "system.restore_test_age_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    }
+  ]
+}

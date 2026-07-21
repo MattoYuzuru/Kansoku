@@ -7,6 +7,7 @@ Session 01 creates versioned machine-readable registries before feature code:
 - `contracts/glossary.yaml` — canonical terms and forbidden aliases;
 - `contracts/capabilities.yaml` — capability identifiers and lifecycle states;
 - `contracts/metrics.yaml` — metric IDs, units, formula versions and dimensions;
+- `contracts/formula-version-locks.yaml` — review-controlled append-only formula identities;
 - `contracts/slo.yaml` — targets, windows, exclusions and reference hardware/load;
 - `contracts/dashboard.yaml` — route/panel/metric ownership;
 - `adr/0001-*.md` — measured technology baseline.
@@ -73,6 +74,15 @@ SLOs are computed by Kansoku about Kansoku and stored separately from user activ
 - completeness requirement;
 - error budget and alert threshold.
 
+The bootstrap registry encodes allowed exclusions as stable codes and completeness as a policy plus
+required evidence scopes. Each required scope resolves to `measured`, `excluded` or `missing`.
+`measured` requires at least one eligible, complete, non-excluded row for that exact scope; an
+ineligible row cannot satisfy the requirement. `missing`, incomplete evidence and unauthorized
+exclusions produce `unknown` plus a failing gate. An authorized exclusion may cover a whole scope
+only when its contract explicitly allows that effect; the result then exposes the scope and
+exclusion count as `partial` plus a failing gate, never a false pass. In particular, an unscanned
+raw-content sink cannot disappear through a SQL `WHERE` clause and become a passing numeric zero.
+
 Initial candidates:
 
 ```text
@@ -107,13 +117,42 @@ Measure bundle, accessibility, linked brushing/filtering and export behavior.
 
 - metric registry has unique stable IDs and valid referenced dimensions;
 - every dashboard panel references registered metrics;
-- every formula has deterministic fixtures including unknown/degraded periods;
+- every formula version has a stable population ID, an exact typed evaluator and semantic SHA-256
+  binding its registry population/expression/policy to deterministic normalized-record fixtures and
+  an independent version lock; those fixtures cover filtering, dedupe, selection by a preclassified
+  `in_interval` flag, completeness, exclusions and ordering where relevant, and p95 matches
+  PostgreSQL `percentile_cont`;
 - lifecycle state rules reject invalid inferred promotion;
 - every SLO has a runnable SLI query and test load;
 - glossary terms and support labels are consistent across docs.
 
+The formula harness proves registry-bound aggregation over normalized metric records. It does not
+derive `in_interval` from timestamps and therefore does not prove exact `[from,to)` boundary
+behavior, production raw-event parsing, lineage derivation or SQL; those gates remain in Sessions
+03–04. ADR 0003 defines bootstrap review trust and the post-commit append-only history check.
+
 ## Exit gate
 
 Approved contract registries, benchmark artifacts and ADRs exist; generated checks pass; the next
-session can write privacy tests without resolving product semantics.
+session can write privacy tests without resolving product semantics. This automated gate does not
+authorize public Supported/Beta claims: bounded privacy/replay/audit/end-to-end evidence and two
+independent approved human classification reviews remain a separate blocking governance gate under
+ADR 0002.
 
+## Implemented Session 01 artifacts
+
+- Product and privacy defaults: `contracts/product.yaml`.
+- Required registries: `contracts/glossary.yaml`, `contracts/capabilities.yaml`,
+  `contracts/metrics.yaml`, `contracts/formula-version-locks.yaml`, `contracts/slo.yaml`, and
+  `contracts/dashboard.yaml`.
+- Executable checks: `scripts/validate_contracts.py` and `tests/test_contracts.py`.
+- Deterministic lifecycle, formula and SLI loads: `tests/fixtures/session-01/`.
+- Reproducible spikes and raw measurements: `benchmarks/session-01/`.
+- Measured decision: `adr/0001-technology-baseline.md`.
+- Gate interpretation: `adr/0002-session-exit-and-support-governance.md`.
+- Formula identity and proof boundary: `adr/0003-formula-version-identity-and-proof-boundary.md`.
+- Exit reconciliation: `reports/session-01-reconciliation.md`.
+
+The bootstrap registries use the JSON subset of YAML 1.2 so checks have no package-manager
+dependency. Production schema/formula generators may later use native YAML syntax without changing
+the versioned registry semantics.
