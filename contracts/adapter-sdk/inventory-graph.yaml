@@ -1,0 +1,39 @@
+{
+  "schema_version": "kansoku.adapter-sdk-inventory-graph/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "snapshot_fields": ["snapshot_id", "adapter_id", "adapter_version", "installation_id", "observed_at", "fingerprint", "nodes", "edges"],
+  "snapshot_semantics": "snapshots_are_immutable_point_in_time_observations_reconciliation_derives_current_state_by_diffing_snapshots_never_by_mutating_a_prior_one",
+  "node_kinds": [
+    "device",
+    "agent_installation",
+    "agent_surface",
+    "agent_version",
+    "plugin_package",
+    "plugin_version",
+    "skill_identity",
+    "mcp_server_instance",
+    "mcp_tool",
+    "hook_definition",
+    "custom_command_definition",
+    "subagent_definition",
+    "cache_artifact"
+  ],
+  "node_fields": ["node_id", "kind", "declared_name", "version", "source_scope", "path_pseudonym", "display_alias", "cached_only", "fingerprint"],
+  "source_scopes": ["system", "user", "repository", "admin", "marketplace", "plugin_cache", "transient_session"],
+  "edge_kinds": ["bundles", "provides", "configured_in", "enabled_for", "shadows", "collides_with", "depends_on", "observed_using"],
+  "edge_fields": ["edge_id", "kind", "from_node_id", "to_node_id"],
+  "identity_rule": "same_declared_name_never_forces_identity_merge_across_two_nodes_distinct_source_scope_or_fingerprint_keeps_them_separate_nodes_linked_by_shadows_or_collides_with",
+  "cache_separation": "cache_artifact_nodes_are_always_kept_separate_from_active_configuration_nodes_a_cached_version_is_never_reported_as_enabled_without_an_enabled_for_edge_to_an_active_installation",
+  "path_pseudonymization": "every_path_pseudonym_is_derived_from_the_same_device_scoped_hmac_construction_as_privacy.Lineage_no_raw_filesystem_path_is_ever_a_durable_field_users_may_assign_a_local_display_alias_that_never_leaves_the_device",
+  "example_graph_paths": [
+    "agent_installation -> agent_surface -> enabled_plugin_package -> bundled_skill_or_mcp_or_hook_or_command",
+    "plugin_package -> cache_artifact (cached_only=true, no enabled_for edge)",
+    "skill_identity -> source_scope -> shadows|collides_with another skill_identity",
+    "mcp_server_instance -> mcp_tool (provides)"
+  ],
+  "change_plan_fields": ["plan", "reconcile_scope", "reconcile_result"],
+  "reconcile_scope_fields": ["installation_id", "since_snapshot_id", "capability_ids"],
+  "reconcile_result_fields": ["snapshot_id", "added_node_ids", "removed_node_ids", "changed_node_ids", "new_collisions", "completeness"],
+  "reconcile_idempotency": "reconciling_the_same_two_snapshots_twice_yields_byte_identical_reconcile_result_added_removed_changed_and_collision_sets_replay_never_duplicates_a_node_or_edge"
+}

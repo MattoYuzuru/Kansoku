@@ -11,6 +11,7 @@ python3 scripts/validate_contracts.py
 python3 scripts/validate_privacy.py
 python3 scripts/validate_observability.py
 python3 scripts/validate_data_platform.py
+python3 scripts/validate_adapter_sdk.py
 python3 -m unittest discover -s tests -v
 python3 scripts/run_go_tests.py
 python3 scripts/run_privacy_canary.py
@@ -72,3 +73,20 @@ pinned-digest Postgres container to reconcile a synthetic reference dataset exac
 budgets on both the server and client side, and verify lineage-preserving backup/restore. ADR 0007
 records mergeable percentile sketches, million-event query-budget evidence, time-range preset
 resolution and cost-formula computation as explicit downstream gaps rather than silent scope drops.
+
+Session 05 adds four closed registries under `contracts/adapter-sdk/`: manifest/parse-limits/
+external-protocol, capability model/state machine, inventory entity-graph and discovery-safety/
+change-plan/CLI-concept. Their versioned semantic digests live in
+`contracts/adapter-sdk-policy-locks.yaml`; independent exact invariants prevent a coherent lock edit
+from weakening the no-agent-name-branch/brand-binding invariant, the closed capability/node/edge
+vocabulary, the never-scan-the-home-directory and no-code-execution discovery safety rules, the
+HostView guarantee that no adapter ever receives a database credential or unscoped filesystem
+handle, or the requirement that `ChangePlan` apply/rollback/removal reuse `internal/installer`'s
+existing `Plan`/`Approval`/`SimulateApply`/`SimulateRollback`/`SimulateRemove`/`PlanSHA256` machinery
+instead of a second parallel mechanism. `scripts/validate_adapter_sdk.py` cross-checks
+`internal/adaptersdk` and its `fakeadapter` conformance adapter against those same registries and can
+optionally build/vet/test that package inside the same pinned, offline Go image
+`scripts/run_go_tests.py` uses. ADR 0008 records the fake "Loomwright" adapter as the proof that core
+routing never branches on an adapter/agent name, and lists external-process/Wasm adapter execution,
+the compatibility registry's live version-drift enforcement and the `kansoku doctor`/`configure`/
+`adapter verify` CLI surface as explicit downstream gaps.

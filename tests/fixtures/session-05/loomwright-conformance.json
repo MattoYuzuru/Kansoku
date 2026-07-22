@@ -1,0 +1,54 @@
+{
+  "schema_version": "kansoku.session05-fixture/1",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "adapter_id": "loomwright",
+  "adapter_version": "0.9.0",
+  "discovery": {
+    "state_root_env": "LOOMWRIGHT_HOME",
+    "documented_default": "~/.loomwright",
+    "allowed_roots": ["/private/tmp/kansoku-fixture/loomwright-home"],
+    "looms_subpath": "looms",
+    "expected_candidate_count": 1,
+    "expected_detection_method": "documented_env_var",
+    "outside_root_probe": "/private/tmp/kansoku-fixture/not-allowed/looms",
+    "outside_root_probe_must_fail": true
+  },
+  "prohibited_content_canary": {
+    "raw_fields_that_must_never_appear_durably": ["prompt", "response", "source_code", "tool_input", "tool_output", "command", "path", "environment", "credential", "exception"],
+    "sample_raw_event": {
+      "event_type": "shuttle.passed",
+      "prompt": "SYNTHETIC_ONLY: never persisted raw text",
+      "path": "/private/tmp/kansoku-fixture/loomwright-home/looms/demo/shuttle.log"
+    }
+  },
+  "normalize_cases": [
+    {"loomwright_event_type": "weave.begun", "expected_canonical_event_type": "session_started"},
+    {"loomwright_event_type": "shuttle.passed", "expected_canonical_event_type": "user_prompt"},
+    {"loomwright_event_type": "thread.completed", "expected_canonical_event_type": "tool_finished"},
+    {"loomwright_event_type": "weave.completed", "expected_canonical_event_type": "session_finished"},
+    {"loomwright_event_type": "unknown.spindle_event", "expected_error": "unsupported_loomwright_event_type"}
+  ],
+  "reconciliation": {
+    "previous_node_ids": ["node_a", "node_b", "node_c"],
+    "previous_fingerprints": {"node_a": "fp1", "node_b": "fp2", "node_c": "fp3"},
+    "current_node_ids": ["node_a", "node_b", "node_d"],
+    "current_fingerprints": {"node_a": "fp1", "node_b": "fp2_changed", "node_d": "fp4"},
+    "expected_added": ["node_d"],
+    "expected_removed": ["node_c"],
+    "expected_changed": ["node_b"],
+    "replay_is_idempotent": true
+  },
+  "unknown_version_behavior": {
+    "declared_compatibility_range": ["0.1.0", "0.9.0"],
+    "observed_agent_version": "2.0.0",
+    "expected_capability_state": "degraded"
+  },
+  "permission_bound_tests": {
+    "manifest_network_grade": "loopback_only",
+    "manifest_process_exec_allowlist": ["loomctl"],
+    "disallowed_exec_target": "curl",
+    "disallowed_exec_must_error": "disallowed_exec_probe",
+    "no_database_credential_field_present": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": "kansoku.adapter-sdk-policy-locks/1",
+  "effective_at": "2026-07-22",
+  "locks": [
+    {"policy_version": "adapter-sdk.manifest/1", "registry": "contracts/adapter-sdk/manifest.yaml", "semantic_sha256": "c2c4bb77085642a6c5fe279ffa255894baa1df87f8dd0b37ffb47218a57a4b54"},
+    {"policy_version": "adapter-sdk.capabilities/1", "registry": "contracts/adapter-sdk/capabilities.yaml", "semantic_sha256": "0fec2bb80afbd00eb10168f90abf191385df5e9abe7f93514d27a6e02b04af4d"},
+    {"policy_version": "adapter-sdk.inventory-graph/1", "registry": "contracts/adapter-sdk/inventory-graph.yaml", "semantic_sha256": "a09d0a40a7ae6fc508dd758ae59cfa1ff6f7c020b8276ba6473f8e4ecdd9b149"},
+    {"policy_version": "adapter-sdk.discovery-and-plans/1", "registry": "contracts/adapter-sdk/discovery-and-plans.yaml", "semantic_sha256": "b744de8a56d1c2d5753162565875a5bcac9cf0aa83012196a634a8325bf1a323"}
+  ]
+}

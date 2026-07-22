@@ -1,0 +1,78 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [],
+  "metadata": {
+    "component": {
+      "name": "kansoku-session05-adapter-sdk",
+      "type": "application",
+      "version": "0.5.0"
+    },
+    "timestamp": "2026-07-22T00:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "name": "Go",
+          "type": "application",
+          "version": "1.26.5"
+        }
+      ]
+    }
+  },
+  "properties": [
+    {
+      "name": "kansoku:dependency-delta",
+      "value": "none_session05_adds_no_new_third_party_go_or_python_dependency"
+    },
+    {
+      "name": "kansoku:go-mod-sha256",
+      "value": "716f9585d010d6b8b5b3b565ddca2dc169fcf42bd3dee9a422562557084b1179"
+    },
+    {
+      "name": "kansoku:go-sum-sha256",
+      "value": "ea6a111b2b0a1e5ae698a6523cde0e353e5ceff2e430de3f68667a922eff7a3e"
+    },
+    {
+      "name": "kansoku:go-mod-go-sum-unchanged-since",
+      "value": "session04_pgx_v5_addition_see_reports_session-04-sbom.json"
+    },
+    {
+      "name": "kansoku:internal-adaptersdk-imports",
+      "value": "go_standard_library_plus_already_vendored_internal_privacy_and_internal_installer_only"
+    },
+    {
+      "name": "kansoku:toolchain-image",
+      "value": "docker.io/library/golang:1.26.5-bookworm"
+    },
+    {
+      "name": "kansoku:toolchain-digest",
+      "value": "sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651"
+    },
+    {
+      "name": "kansoku:session05-source-sha256",
+      "value": "a30da67530585ed7bd882cfd13fb38afde4ace5ccf0ea43de8372859c5e4af6c"
+    },
+    {
+      "name": "kansoku:session05-source-scope",
+      "value": "internal/adaptersdk, contracts/adapter-sdk, contracts/adapter-sdk-policy-locks.yaml, scripts/validate_adapter_sdk.py, tests/test_adapter_sdk_contracts.py, tests/fixtures/session-05"
+    },
+    {
+      "name": "kansoku:verification-network",
+      "value": "none"
+    },
+    {
+      "name": "kansoku:go-build-mode",
+      "value": "-mod=vendor"
+    },
+    {
+      "name": "kansoku:excludes",
+      "value": "no new external runtime (no database, no network service); no scripts/session05_supply_chain.py because no new dependency was vendored, see reports/session-05-reconciliation.md"
+    },
+    {
+      "name": "kansoku:provenance-scope",
+      "value": "unsigned source/module inventory; release image signing and vulnerability scan remain Session09/10"
+    }
+  ],
+  "serialNumber": "urn:uuid:5f6c1c9a-2f6b-4b3f-9a7e-6d0b6e2a8f10",
+  "specVersion": "1.6",
+  "version": 1
+}

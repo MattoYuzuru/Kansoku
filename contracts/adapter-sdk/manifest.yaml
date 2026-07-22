@@ -1,0 +1,30 @@
+{
+  "schema_version": "kansoku.adapter-sdk-manifest/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "api_version": "kansoku.adapter/v1",
+  "manifest_fields": ["api_version", "id", "version", "execution", "agent_detection", "capabilities", "sources", "permissions", "health_checks"],
+  "agent_detection_fields": ["executables", "state_roots"],
+  "execution_forms": ["builtin", "external_process", "wasm", "container"],
+  "execution_form_sequence": "builtin_first_external_process_second_wasm_evaluated_after_real_third_party_demand_container_rejected",
+  "permissions_fields": ["filesystem_read", "network", "process_exec"],
+  "network_grades": ["none", "loopback_only"],
+  "parse_limits": {
+    "max_config_entries": 256,
+    "max_config_depth": 8,
+    "max_config_string": 4096,
+    "code_execution": "forbidden_manifests_are_data_only_parsed_with_a_generic_bounded_decoder_never_evaluated_or_executed"
+  },
+  "validation": "manifests_are_data_validated_against_this_closed_registry_and_stored_alongside_releases_not_evaluated_as_code",
+  "id_naming": "adapter_id_is_a_stable_lowercase_hyphenated_identifier_independent_of_any_agent_brand_string_in_core_code",
+  "external_protocol": {
+    "transport": "line_delimited_framed_json_or_grpc_over_unix_socket",
+    "handshake": "negotiates_api_version_capabilities_and_max_frame_before_any_capability_scoped_request",
+    "bounds": ["per_call_timeout", "output_byte_limit", "crash_restart_budget", "health_state"],
+    "environment": "explicit_allowlist_only_no_inherited_parent_environment",
+    "filesystem": "least_privilege_grants_scoped_to_declared_state_roots_only",
+    "distribution": "unsigned_adapters_are_labeled_and_disabled_by_default_signed_packages_deferred"
+  },
+  "compatibility_registry_fields": ["adapter_id", "agent_version_range", "source_schema_fingerprints", "fixture_coverage", "last_passive_audit_at", "last_live_audit_at", "known_gaps", "setup_recipe_version"],
+  "unknown_agent_version_policy": "an_agent_version_outside_every_declared_compatibility_range_defaults_to_degraded_even_if_parsing_appears_to_succeed"
+}

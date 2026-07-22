@@ -11,10 +11,21 @@ Session 04 / фаза 004 выполнена 2026-07-22: закрытые schema
 registries и реальный PostgreSQL 18 `internal/dataplatform` заменяют Session 03 file-durability
 spike — monthly partitioning, точные `percentile_cont` rollups, never-average late-data repair,
 enforced query budgets и lineage-verified backup/restore находятся в репозитории.
-Автоматизированные Session 01–04 gates проходят; следующая реализационная сессия — Session 05
-(adapter SDK and inventory). Реализация использует только synthetic fixture agent и не
-повышает ни один реальный адаптер выше Experimental: для публичного Supported/Beta по-прежнему
-нужны version-bounded agent fixtures/evidence и два независимых human review.
+
+Session 05 / фаза 005 выполнена 2026-07-22: закрытые manifest/capabilities/inventory-graph/
+discovery-and-plans registries под `contracts/adapter-sdk/` и Go-пакет `internal/adaptersdk`
+формализуют typed `Adapter` interface, permission-checked `HostView`, immutable inventory
+entity-graph и reversible `ChangePlan`. Fake external-vocabulary adapter ("Loomwright") проходит
+полный conformance suite (manifest/schema validation, discovery/inventory/normalization/
+reconciliation fixtures, prohibited-content canary, unknown-version degrade, idempotent replay,
+permission-bound tests) через те же `Registry`/`CapabilityMatrix`/`HostView` API, что и любой
+будущий built-in адаптер — без единого agent-name branch в core коде за пределами регистрации
+самого адаптера. `ChangePlan` не изобретает второй apply/rollback механизм: он переиспользует
+`internal/installer`'s `Plan`/`Approval`/`SimulateApply`/`SimulateRollback`/`SimulateRemove`/
+`PlanSHA256` через `PlanSHA256`-binding. Automated Session 01–05 gates проходят; следующая
+реализационная сессия — Session 06 (Codex adapter). Реализация использует только synthetic fixture
+agent и не повышает ни один реальный адаптер выше Experimental: для публичного Supported/Beta
+по-прежнему нужны version-bounded agent fixtures/evidence и два независимых human review.
 
 Проект по-прежнему строится десятью последовательными сессиями, каждая из которых имеет продуктовый
 proposal и парный technical design document. Переход к следующей сессии допускается только после
@@ -57,6 +68,10 @@ proposal и парный technical design document. Переход к следу
   budget/retention/backup exit gate и явные downstream-gaps.
 - [Data platform ADR](adr/0007-session-04-data-platform-and-metrics.md) — partitioning/rollup/query-
   budget/retention decisions и rejected alternatives поверх ADR 0001 baseline.
+- [Session 05 reconciliation](reports/session-05-reconciliation.md) — adapter SDK/inventory exit gate,
+  fake "Loomwright" conformance evidence и явные downstream-gaps.
+- [Adapter SDK ADR](adr/0008-session-05-adapter-sdk-and-inventory.md) — Adapter interface/HostView/
+  inventory-graph/ChangePlan decisions, `internal/installer` reuse и rejected alternatives.
 
 ## Принятый технологический baseline
 

@@ -40,7 +40,18 @@
   backup/restore all pass against an ephemeral, pinned-digest Postgres harness. ADR 0007 records
   million-event query-budget evidence, mergeable percentile sketches, time-range preset resolution
   and cost-formula computation as explicit downstream gaps.
-- **05 — next:** Adapter SDK, capability model, discovery, versioning, plugin API and inventory graph.
+- **05 — complete (2026-07-22):** closed manifest/capabilities/inventory-graph/discovery-and-plans
+  registries and a typed `internal/adaptersdk` package deliver the `Adapter` interface, a
+  permission-checked `HostView`, an immutable inventory entity graph and a reversible `ChangePlan`
+  that reuses `internal/installer`'s existing `Plan`/`Approval`/`SimulateApply`/`SimulateRollback`/
+  `SimulateRemove`/`PlanSHA256` machinery instead of a second mechanism. A fake external-vocabulary
+  conformance adapter ("Loomwright") passes the full discovery/inventory/normalization/
+  reconciliation/audit suite through the same `Registry`/`CapabilityMatrix`/`HostView` APIs any
+  built-in adapter would use, with zero agent-name branch in core code. ADR 0008 records
+  external-process/Wasm adapter execution, compatibility-registry persistence and the
+  `kansoku doctor`/`configure`/`adapter verify` CLI as explicit downstream gaps.
+- **06 — next:** Codex adapter (hooks, OTel, sessions, skills/plugins/MCP inventory and
+  reconciliation).
 
 ## Dependency graph
 

@@ -1,0 +1,38 @@
+{
+  "schema_version": "kansoku.adapter-sdk-discovery-and-plans/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "discovery_safety_rules": [
+    "resolve_state_roots_from_documented_env_or_config_before_falling_back_to_documented_defaults",
+    "never_speculatively_scan_an_entire_home_directory",
+    "never_follow_a_symlink_outside_an_already_allowed_root_without_explicit_target_resolution",
+    "parse_manifests_and_config_with_size_and_depth_limits_and_no_code_execution",
+    "command_probes_are_credential_free_version_help_or_status_reads_only",
+    "cache_paths_are_discovered_and_reported_but_always_labeled_separately_from_active_configuration"
+  ],
+  "host_view_fields": ["allowed_roots", "read_probe", "exec_probe", "pseudonymize_path"],
+  "host_view_guarantee": "host_view_exposes_only_permission_checked_read_and_exec_probes_scoped_to_allowed_roots_no_adapter_ever_receives_a_database_credential_connection_string_or_unscoped_filesystem_handle",
+  "installation_candidate_fields": ["candidate_id", "adapter_id", "surface_id", "state_root", "detected_version", "detection_method", "confidence"],
+  "detection_methods": ["executable_on_path", "documented_env_var", "documented_config_file", "documented_state_root_present"],
+  "change_plan_fields": ["plan_id", "installation_candidate_id", "capability_id", "precondition_hash", "before_sanitized_diff", "after_sanitized_diff", "backup_locator", "commands", "privacy_disclosure", "rollback_command"],
+  "change_plan_reuse": "change_plan_apply_rollback_and_removal_reuse_internal_installer_plan_approval_simulateapply_simulaterollback_simulateremove_and_plansha256_verbatim_scoping_them_by_capability_id_instead_of_inventing_a_second_apply_rollback_mechanism",
+  "apply_requires": ["explicit_confirmation", "precondition_recheck_against_current_config_hash_to_avoid_overwriting_a_concurrent_edit"],
+  "normal_operation_rule": "normal_collector_operation_never_applies_a_change_plan_apply_only_happens_through_an_explicit_operator_initiated_configure_or_verify_flow",
+  "audit_modes": ["passive", "fixture_replay", "live_canary"],
+  "check_result_fields": ["check_id", "capability_id", "mode", "status", "detail_ref", "observed_at"],
+  "check_statuses": ["pass", "fail", "skipped_unsupported"],
+  "cli_concepts": {
+    "doctor": "discovers_installed_agents_and_prints_a_capability_matrix_read_only",
+    "configure": "generates_an_exact_patch_backup_rollback_change_plan_for_one_agent_no_mutation_without_separate_apply_confirmation",
+    "adapter_verify": "runs_fixtures_passive_probes_and_an_optional_live_canary_for_one_adapter"
+  },
+  "third_party_acceptance_checklist": [
+    "versioned_manifest_and_protocol_handshake",
+    "declared_file_network_and_process_permissions",
+    "prohibited_data_canary_tests_pass",
+    "deterministic_discovery_inventory_normalization_fixtures",
+    "bounded_output_timeouts_and_crash_isolation",
+    "no_direct_database_credential_access",
+    "unsigned_distribution_clearly_labeled_signed_packages_deferred"
+  ]
+}

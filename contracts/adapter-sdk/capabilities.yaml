@@ -1,0 +1,32 @@
+{
+  "schema_version": "kansoku.adapter-sdk-capabilities/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "capability_ids": [
+    "discovery.agent_and_surface",
+    "inventory.components",
+    "activity.sessions",
+    "activity.prompt_metadata",
+    "activity.token_model_cost",
+    "components.skill_invocation",
+    "components.plugin_and_custom_command",
+    "components.mcp_lifecycle",
+    "components.builtin_tool_calls_and_approvals",
+    "components.subagents_and_compaction",
+    "ingestion.historical_import",
+    "ingestion.live_stream",
+    "configuration.install",
+    "configuration.live_canary"
+  ],
+  "capability_states": ["unsupported", "available", "configured", "healthy", "degraded"],
+  "state_transitions": {
+    "unsupported_to_available": "adapter_manifest_declares_the_capability_and_a_matching_source_schema_exists",
+    "available_to_configured": "a_change_plan_for_the_capability_has_been_applied_or_the_capability_needs_no_configuration",
+    "configured_to_healthy": "a_passive_or_live_audit_check_for_the_capability_passed_within_its_freshness_window",
+    "any_to_degraded": "a_check_failed_a_schema_fingerprint_is_unrecognized_or_the_agent_version_is_outside_every_compatibility_range",
+    "brand_binding": "ui_features_and_routing_bind_to_capability_ids_only_never_to_an_agent_brand_string"
+  },
+  "evidence_tiers": ["corroborated", "native", "reconstructed", "inferred"],
+  "capability_record_fields": ["capability_id", "state", "evidence_tier", "last_checked_at", "detail_ref"],
+  "no_brand_branch_invariant": "core_capability_routing_switches_on_capability_id_and_adapter_id_string_equality_only_never_on_a_hardcoded_agent_name_conditional_outside_the_adapter_registry_entry_itself"
+}
