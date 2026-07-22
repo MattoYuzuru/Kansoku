@@ -21,7 +21,7 @@ def command() -> list[str]:
         "--mount", f"type=bind,src={ROOT},dst=/src,readonly", "--workdir", "/src",
         "--env", "GOCACHE=/tmp/go-cache", "--env", "GOTMPDIR=/tmp/go-tmp", "--env", "HOME=/tmp/home",
         GO_IMAGE, "sh", "-c",
-        "mkdir -p /tmp/go-cache /tmp/go-tmp /tmp/home && /usr/local/go/bin/go version && cc --version | head -1 && /usr/local/go/bin/go test ./... && /usr/local/go/bin/go vet ./... && CGO_ENABLED=1 /usr/local/go/bin/go test -race ./internal/...",
+        "mkdir -p /tmp/go-cache /tmp/go-tmp /tmp/home && /usr/local/go/bin/go version && cc --version | head -1 && /usr/local/go/bin/go test -mod=vendor ./... && /usr/local/go/bin/go vet -mod=vendor ./... && CGO_ENABLED=1 /usr/local/go/bin/go test -mod=vendor -race ./internal/...",
     ]
 
 

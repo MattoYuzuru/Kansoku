@@ -1,0 +1,21 @@
+{
+  "schema_version": "kansoku.observability-envelope/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "event_spec_version": "kansoku.event/1",
+  "event_fields": ["spec_version", "event_id", "fact_key", "event_type", "emitted_at", "observed_at", "ingested_at", "timestamp_quality", "source", "scope", "subject", "measurements", "value_state", "outcome", "correlation_status", "lifecycle"],
+  "source_fields": ["adapter_id", "adapter_version", "source_kind", "source_schema", "schema_fingerprint", "installation_id", "native_event_id", "sequence"],
+  "scope_fields": ["device_id", "agent_installation_id", "surface_id", "project_id", "session_id", "turn_id", "parent_event_id"],
+  "subject_fields": ["kind", "component_id", "component_version_id"],
+  "measurement_fields": ["duration_ms", "success", "count"],
+  "evidence_fields": ["evidence_id", "event_id", "source", "tier", "confidence", "completeness", "replay_count", "first_seen_at", "last_seen_at", "sanitizer_version", "privacy_contract_sha256", "assertion"],
+  "evidence_assertion_fields": ["event_type", "outcome", "value_state"],
+  "forbidden_fields": ["prompt", "response", "body", "content", "source_code", "tool_input", "tool_output", "command", "path", "environment", "credential", "exception", "attributes", "payload", "error_message"],
+  "identity": {
+    "fact": "sha256 over sanitizer-derived logical record identity plus canonical event type",
+    "evidence": "sha256 over fact identity plus source kind plus source idempotency identity",
+    "native_scope": "adapter + installation + source kind",
+    "raw_path_identity": "not representable in durable event; import file identity is a one-way digest"
+  },
+  "time": {"precision": "nanoseconds_in_spike_microseconds_in_session04_database", "zone": "UTC", "late_events": "accepted_and_reconciled", "timestamp_substitution": "must_set_timestamp_quality"}
+}

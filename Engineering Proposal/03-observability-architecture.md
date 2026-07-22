@@ -1,5 +1,12 @@
 # Session 03 — Core observability architecture
 
+## Status
+
+Implemented on 2026-07-21 for the synthetic fixture agent. The closed envelope/lifecycle/ingress/
+reconciliation registries, typed Go spike and shared fixture prove the automated exit gate. This is
+not an adapter support claim. ADR 0006 records the bounded file durability boundary and the explicit
+OTLP gzip conformance gap.
+
 ## Purpose
 
 Define a source-independent system that can ingest high-fidelity native telemetry and still detect
@@ -67,12 +74,16 @@ optional adapter capabilities, not MVP requirements.
 
 ## Deliverables
 
-- Canonical envelope and event taxonomy.
-- Evidence/confidence/completeness model.
-- Idempotency, correlation and reconciliation rules.
-- OTLP, hook and replay ingress spikes using one shared fixture.
-- Unknown-schema quarantine and visible incident.
-- Capability-level coverage report.
+- Canonical envelope and event taxonomy in `contracts/observability/envelope.yaml` and
+  `Technical Design Document/canonical-event-contract.md`.
+- Evidence/confidence/completeness and source/event lifecycle models in
+  `contracts/observability/lifecycles.yaml`.
+- Idempotency, correlation, watermarks and reconciliation rules in
+  `contracts/observability/reconciliation.yaml`.
+- Authenticated OTLP HTTP/gRPC binary protobuf, hook HTTP and read-only checkpointed transcript
+  spikes using `tests/fixtures/session-03/shared-scenario.json`.
+- Metadata-only unknown-schema quarantine, durable degraded incident and contradiction history.
+- Exact capability-level exit evidence in `reports/session-03-reconciliation.md`.
 
 ## Exit gate
 
@@ -80,3 +91,7 @@ The same logical fixture arriving through multiple lanes produces one fact with 
 records; duplicates and reordering do not inflate metrics; removing one lane lowers completeness
 without deleting facts; unknown versions create a visible degraded state.
 
+The automated gate is executable through `scripts/validate_observability.py`, Python mutation tests
+and `internal/observability` Go tests. OTLP remains Experimental: uncompressed binary protobuf is
+implemented for logs, metrics and traces, while mandatory gzip support is deliberately blocked by
+the current reviewed privacy policy and is not overclaimed.

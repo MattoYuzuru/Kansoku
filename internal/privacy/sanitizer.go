@@ -197,6 +197,7 @@ func (s *IngressSanitizer) extractObject(object map[string]any, schema SourceSch
 	}
 	redactions := countRedactions(object)
 	sourcePseudonym := s.pseudonym("source-record/1", schema.AdapterID+"\x00"+eventID)
+	sessionPseudonym := s.pseudonym("session/1", schema.AdapterID+"\x00"+sessionID)
 	idempotency := s.pseudonym("idempotency/1", schema.AdapterID+"\x00"+schema.ID+"\x00"+eventID+"\x00"+observedAt.UTC().Format(time.RFC3339Nano))
 	recordID := s.pseudonym("record/1", schema.AdapterID+"\x00"+sessionID+"\x00"+eventID+"\x00"+strconv.Itoa(index))
 	return SafeRecord{
@@ -208,7 +209,7 @@ func (s *IngressSanitizer) extractObject(object map[string]any, schema SourceSch
 		Model: model, Tool: tool, ComponentMentions: mentions,
 		PromptFeatures: promptFeatures, RedactionCounts: redactions,
 		Lineage: Lineage{
-			SourceRecordPseudonym: sourcePseudonym, AdapterID: schema.AdapterID,
+			SourceRecordPseudonym: sourcePseudonym, SessionPseudonym: sessionPseudonym, AdapterID: schema.AdapterID,
 			AdapterVersion: schema.AdapterVersion, SourceSchemaID: schema.ID,
 			SchemaFingerprint: fingerprint, SanitizerVersion: sanitizerVersion,
 			ContractSHA256: PrivacyContractSemanticSHA256,

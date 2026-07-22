@@ -1,5 +1,18 @@
 # TDD 03 — Canonical ingestion architecture
 
+## Implemented boundary
+
+`internal/observability` is the executable Session 03 spike. Its `Event`, `Evidence`, `Fact`,
+`Correlation`, `Quarantine`, `Incident`, `Watermark` and `Checkpoint` types are closed durable
+allowlists. The machine-readable authority is `contracts/observability/`; semantic digests are
+version-locked. The implementation depends on the Session 02 sanitizer and local HTTP guard rather
+than defining a second privacy/authentication boundary.
+
+The spike uses a bounded fsync/rename file transaction because Session 04 owns PostgreSQL. An
+acknowledged hook/OTLP event and a committed transcript checkpoint have survived a durable atomic
+revision; in-memory decode is never acknowledgement. ADR 0006 defines exact guarantees and
+non-guarantees.
+
 ## Components
 
 - **Ingress server:** OTLP gRPC/HTTP, hook HTTP and adapter batch endpoints.
@@ -23,6 +36,13 @@ Support OTLP/gRPC and OTLP/HTTP protobuf first; JSON MAY follow. Bind host loopb
 scope and log/span/metric records, then route by adapter/source fingerprint. Unknown resource
 service names are rejected or stored only as safe unsupported-source metadata.
 
+Implemented: official Go protobuf messages and unary services for log, metric and trace Export;
+binary-protobuf HTTP on the three standard signal paths; one MiB preallocation/body limits;
+loopback bearer authentication; resource/schema selection; and closed safe attribute extraction.
+Prohibited body/name/event/link/description/unknown-attribute surfaces are discarded before the
+typed event exists. OTLP JSON is absent. Gzip is explicitly rejected under the reviewed Session 02
+compression policy, so the spike does not claim complete OTLP 1.10.0 conformance.
+
 ### Hooks
 
 `POST /v1/hooks/{adapter}/{event}` accepts bounded JSON with local auth. The generated hook client
@@ -30,17 +50,30 @@ reads stdin, calculates prompt-safe features where required, sends with short ti
 blocks the agent solely because Kansoku is unavailable. Failed sends append already-sanitized
 records to a bounded local spool with `0600` permissions.
 
+The server returns retryable `503` without retaining the raw request. `DurableSpool` accepts only a
+typed `CommitRequest` containing already-sanitized event/evidence and enforces its byte bound and
+`0600` mode; it is the primitive for a future generated hook client, not a raw server retry queue.
+
 ### Adapter batches/import
 
 External adapters emit NDJSON frames over stdin/stdout or loopback gRPC in a later SDK. Frames
 contain sanitized source records plus checkpoint proposals. A checkpoint commits only in the same
 transaction as accepted normalized events.
 
+The implemented transcript importer opens a regular file read-only, seeks only to its durable
+file-identity-bound checkpoint, enforces a one MiB line cap and commits each accepted
+event/evidence/checkpoint atomically. Adapter stdin/stdout belongs to Session 05.
+
 ## Acknowledgement and durability
 
 An event is acknowledged after idempotency key and sanitized envelope/evidence are committed to
 PostgreSQL or the bounded durable spool. In-memory receipt is insufficient. Backpressure returns a
 retryable status without logging payloads.
+
+For Session 03, “committed” specifically means the typed bounded snapshot was written to a `0600`
+temporary file, file-fsynced, atomically renamed and directory-fsynced. Crash injection before sync
+or rename exposes the previous revision; a crash after rename exposes the complete next revision on
+restart. Session 04 replaces this with PostgreSQL, not with an in-memory receipt.
 
 ## Normalization pipeline
 
@@ -80,6 +113,12 @@ tolerance:
 A mismatch opens or updates an incident and marks the affected interval partial. Later events can
 recover health but do not erase incident history.
 
+The fixture capability requires hook, one OTLP signal and transcript evidence for `complete`.
+Duplicate delivery increments replay metadata on the existing evidence. Source disabled/degraded/
+error removes that lane from current completeness without deleting its evidence. Conflicting
+outcome/value/type evidence opens `evidence_contradiction` and retains the first fact pending an
+adapter-specific resolution rule.
+
 ## Watermarks and gaps
 
 Each source tracks last discovered/read/emitted/observed/committed sequence, last eligible agent
@@ -106,3 +145,9 @@ privacy canaries and load/backpressure tests.
 One logical multi-source scenario remains correct through replay, crash and reordering; source loss
 changes completeness; sanitization precedes every durable step; all contract tests are automated.
 
+Implemented evidence covers: shared three-lane convergence; duplicate/reorder/late/property load;
+clock skew; exact/candidate/ambiguous/unmatched correlation; source disable; eligible stall versus
+true inactivity; contradiction; unknown schema; poison/backpressure; durable spool; checkpoint
+atomicity; three crash stages; HTTP and real loopback gRPC protobuf routes for all three signals;
+and Session 02 ten-sink privacy regressions. Production rollups, PostgreSQL, backup/restore and
+adapter version support remain later-session gates.

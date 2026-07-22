@@ -3,13 +3,14 @@
   "generated_at": "2026-07-21",
   "scope": "Session 02 source, offline test toolchain and container policy inputs",
   "components": [
-    {"type": "go-module", "name": "kansoku.local/kansoku", "version": "workspace", "dependencies": [], "evidence": "offline go list -m all returned only kansoku.local/kansoku"},
+    {"type": "go-module", "name": "kansoku.local/kansoku", "version": "workspace at Session 02 boundary", "dependencies": [], "evidence": "Session 02 packages are standard-library-only; Session 03 workspace dependencies are inventoried in reports/session-03-sbom.json"},
     {"type": "toolchain-image", "name": "golang", "version": "go1.26.5 linux/arm64, Debian bookworm, GCC 12.2.0", "digest": "sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651", "usage": "offline test, vet, race, fuzz and benchmark only", "source": "Docker Official Image library/golang:1.26.5-bookworm; manifest resolved 2026-07-21"},
     {"type": "runtime-template-image", "name": "postgres", "version": "18 line inherited from Session 01 measurement", "digest": "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15", "usage": "static Compose security template; not started in Session 02"},
     {"type": "runtime-template-image", "name": "kansoku application", "version": "not built", "digest": "caller must supply exact repository plus SHA-256", "usage": "Session 09 production gate"}
   ],
   "verification": {
-    "go_standard_library_only": true,
+    "session02_packages_standard_library_only": true,
+    "workspace_module_after_session03": "contains pinned vendored OTLP/gRPC/protobuf dependencies recorded in reports/session-03-sbom.json",
     "go_version_checked_against_official_release_history": "go1.26.5, released 2026-07-07 with security fixes",
     "immutable_test_toolchain": true,
     "race_compiler_available": "gcc (Debian 12.2.0-14+deb12u1) 12.2.0",

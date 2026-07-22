@@ -99,7 +99,7 @@ EXPECTED_NESTED_TYPES = {
         "sensitive_identifier_fields": "nonnegative_integer",
     }, "closed": True},
     "Lineage": {"fields": {
-        "source_record_pseudonym": "hmac_sha256", "adapter_id": "registered_adapter_id",
+        "source_record_pseudonym": "hmac_sha256", "session_pseudonym": "hmac_sha256", "adapter_id": "registered_adapter_id",
         "adapter_version": "registered_adapter_version", "source_schema_id": "registered_schema_id",
         "schema_fingerprint": "sha256", "sanitizer_version": "registered_sanitizer_version",
         "contract_sha256": "sha256_hex",
@@ -161,7 +161,7 @@ EXPECTED_GO_SCHEMAS = {
     "CatalogObservation": {"state": "ObservationState", "id": "*string"},
     "PromptFeatures": {"state": "CompletenessState", "byte_count": "int", "character_count": "int", "word_count": "int", "line_count": "int", "coarse_script": "string", "code_fence_count": "int", "attachment_count": "int", "url_reference_count": "int", "file_reference_count": "int"},
     "RedactionCounts": {"prompt_fields": "int", "attachment_fields": "int", "response_fields": "int", "source_fields": "int", "tool_io_fields": "int", "command_fields": "int", "path_fields": "int", "environment_fields": "int", "credential_fields": "int", "exception_fields": "int", "sensitive_identifier_fields": "int"},
-    "Lineage": {"source_record_pseudonym": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "sanitizer_version": "string", "contract_sha256": "string"},
+    "Lineage": {"source_record_pseudonym": "string", "session_pseudonym": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "sanitizer_version": "string", "contract_sha256": "string"},
     "SafeRecord": {"record_id": "string", "idempotency_key": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "observed_at": "time.Time", "received_at": "time.Time", "confidence": "float64", "event_type": "string", "outcome": "string", "value_state": "ValueState", "model": "CatalogObservation", "tool": "CatalogObservation", "component_mentions": "[]string", "prompt_features": "PromptFeatures", "redaction_counts": "RedactionCounts", "lineage": "Lineage"},
     "SafeError": {"incident_id": "string", "source_schema_id": "string", "schema_fingerprint": "string", "field_path": "string", "category": "string", "total_bytes": "int64", "record_count": "int", "observed_at": "time.Time", "received_at": "time.Time"},
     "SafeLogEvent": {"event_name": "string", "category": "string", "adapter_id": "string", "source_schema_id": "string", "schema_fingerprint": "string", "field_path": "string", "byte_count": "int64", "record_count": "int", "outcome": "string", "value_state": "ValueState", "duration_ms": "int64"},
@@ -800,8 +800,8 @@ def validate_evidence() -> list[str]:
     if external != expected_external:
         errors.append("evidence: independent scan and backup restore/checksum proof required")
     sbom = load(ROOT / "reports" / "session-02-sbom.json")
-    if sbom.get("verification", {}).get("go_standard_library_only") is not True:
-        errors.append("evidence: Go dependency inventory must remain standard-library only")
+    if sbom.get("verification", {}).get("session02_packages_standard_library_only") is not True:
+        errors.append("evidence: Session 02 packages must remain standard-library only")
     if sbom.get("verification", {}).get("release_vulnerability_scan_status") != "deferred_and_release_blocking":
         errors.append("evidence: unavailable production vulnerability scan must remain release-blocking")
     return errors

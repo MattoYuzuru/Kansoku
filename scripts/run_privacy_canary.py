@@ -119,9 +119,14 @@ def run() -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--verify-report", action="store_true")
+    parser.add_argument("--write-report", action="store_true")
     args = parser.parse_args()
     try:
         report = run()
+        if args.write_report:
+            (ROOT / "reports" / "session-02-canary-results.json").write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
         if args.verify_report:
             persisted = json.loads((ROOT / "reports" / "session-02-canary-results.json").read_text(encoding="utf-8"))
             differences = [key for key, value in report.items() if persisted.get(key) != value]

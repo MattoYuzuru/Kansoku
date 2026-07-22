@@ -1,0 +1,19 @@
+{
+  "schema_version": "kansoku.observability-reconciliation/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "capability": "component_lifecycle",
+  "logical_fixture": "tests/fixtures/session-03/shared-scenario.json",
+  "expected_lanes": ["hook_http", "otlp", "transcript_jsonl"],
+  "one_fact_rule": "logical identity is lane-independent; each lane has a distinct evidence identity",
+  "complete_when": "hook_http and at least one otlp signal and transcript_jsonl are healthy and observed",
+  "partial_when": "at least one expected healthy lane is missing disabled degraded or errored",
+  "dedupe": "same evidence identity increments replay_count and never increments fact count",
+  "contradiction": "first fact remains authoritative while every conflicting outcome value_state or event_type is retained in the typed evidence assertion and opens evidence_contradiction",
+  "reorder": "sequence order never changes fact identity; watermark records source order and gaps",
+  "late": "accepted and earliest affected rollup is queued in Session04",
+  "watermark_fields": ["last_discovered_at", "last_read_sequence", "last_emitted_sequence", "last_observed_at", "last_committed_at", "last_eligible_activity_at", "expected_cadence_ms", "gap_count", "inactivity"],
+  "silence": {"eligible_activity": "stalled cadence opens watermark_stall incident and degrades interval", "true_inactivity": "sets inactivity and opens no gap incident", "eligibility_unknown": "completeness unknown"},
+  "recovery": {"duplicates": "replay evidence retained", "crash": "restart reads last atomic durable revision", "corrupt_state": "strict open fails visibly before rewrite and leaves bytes unchanged", "poison": "bounded failure stops only affected import/source", "backpressure": "retryable without payload logging", "source_return": "health may recover but incident history remains"},
+  "durable_state_validation": "map keys references identities typed enums ranges timestamps checkpoints watermarks incidents correlations and orphan records are validated exhaustively on open and before commit"
+}

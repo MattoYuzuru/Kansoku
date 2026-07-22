@@ -1,0 +1,26 @@
+{
+  "schema_version": "kansoku.observability-ingress/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "protocols": [
+    {"id": "hook_http", "route": "/v1/hooks/{adapter}/{event}", "encoding": "bounded_json", "auth": "session02_loopback_bearer", "ack": "after_durable_commit", "failure": "safe_4xx_or_retryable_503"},
+    {"id": "otlp_http_logs", "route": "/v1/logs", "encoding": "binary_protobuf", "auth": "session02_loopback_bearer", "ack": "otlp_export_response_after_durable_commit", "failure": "protobuf_status_for_every_protocol_or_ingest_4xx_5xx_after_auth"},
+    {"id": "otlp_http_metrics", "route": "/v1/metrics", "encoding": "binary_protobuf", "auth": "session02_loopback_bearer", "ack": "otlp_export_response_after_durable_commit", "failure": "protobuf_status_for_every_protocol_or_ingest_4xx_5xx_after_auth"},
+    {"id": "otlp_http_traces", "route": "/v1/traces", "encoding": "binary_protobuf", "auth": "session02_loopback_bearer", "ack": "otlp_export_response_after_durable_commit", "failure": "protobuf_status_for_every_protocol_or_ingest_4xx_5xx_after_auth"},
+    {"id": "otlp_grpc_logs", "route": "opentelemetry.proto.collector.logs.v1.LogsService/Export", "encoding": "grpc_binary_protobuf", "auth": "loopback_bearer_interceptor", "ack": "export_response_after_durable_commit", "failure": "grpc_status"},
+    {"id": "otlp_grpc_metrics", "route": "opentelemetry.proto.collector.metrics.v1.MetricsService/Export", "encoding": "grpc_binary_protobuf", "auth": "loopback_bearer_interceptor", "ack": "export_response_after_durable_commit", "failure": "grpc_status"},
+    {"id": "otlp_grpc_traces", "route": "opentelemetry.proto.collector.trace.v1.TraceService/Export", "encoding": "grpc_binary_protobuf", "auth": "loopback_bearer_interceptor", "ack": "export_response_after_durable_commit", "failure": "grpc_status"},
+    {"id": "transcript_jsonl", "route": "read_only_file", "encoding": "one_bounded_json_record_per_line", "auth": "local_file_permissions", "ack": "event_evidence_checkpoint_same_transaction", "failure": "stop_at_poison_record"}
+  ],
+  "limits": {"max_frame_bytes": 1048576, "grpc_max_receive_bytes": 1048576, "grpc_max_send_bytes": 1048576, "max_concurrent_ingest": 128, "max_spool_bytes": 8388608, "spool_mode": "0600", "compression": "rejected_by_reviewed_session02_policy"},
+  "otlp": {"specification": "1.10.0", "proto_module": "go.opentelemetry.io/proto/otlp@v1.10.0", "signals": ["logs", "metrics", "traces"], "http_content_type": "application/x-protobuf", "http_failure_body": "google.rpc.Status_binary_protobuf_after_auth", "grpc_rpc": "unary", "grpc_server_construction": "NewIngressGRPCServer_only_with_loopback_bearer_interceptor_and_fixed_receive_send_limits", "json": "not_implemented", "gzip": "known_conformance_gap"},
+  "source_schemas": [
+    {"id": "fixture.agent-hook/1", "source_kind": "hook_http", "adapter_id": "fixture-agent", "adapter_version": "1.0.0"},
+    {"id": "fixture.agent-otlp/1", "source_kind": "otlp_log_span_metric", "adapter_id": "fixture-agent", "adapter_version": "1.0.0"},
+    {"id": "fixture.agent-transcript/1", "source_kind": "transcript_jsonl", "adapter_id": "fixture-agent", "adapter_version": "1.0.0"}
+  ],
+  "otlp_safe_attributes": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.outcome", "kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence"],
+  "ignored_prohibited_otlp_surfaces": ["log.body", "span.name", "span.events", "span.links", "metric.description", "unknown.attributes"],
+  "unknown_schema": {"durable_fields": ["quarantine_id", "source_kind", "schema_fingerprint", "category", "byte_count", "record_count", "observed_at"], "incident": "degraded", "raw_bytes": false},
+  "durability": {"session03_backend": "bounded_typed_fsync_snapshot", "state_schema": "kansoku.durable-state/1", "state_open": "strict_duplicate_and_unknown_field_rejection_then_exhaustive_invariant_validation_before_any_rewrite", "spool_path_safety": "fd_relative_no_symlink_owner_only_0700_parent_regular_owner_0600_nlink1_file", "transaction": "temp_write_file_fsync_atomic_rename_directory_fsync", "not_claimed": ["PostgreSQL", "multi_process", "production_backup_restore"], "session04_replacement": "PostgreSQL event evidence idempotency checkpoint transaction"}
+}

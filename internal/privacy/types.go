@@ -8,7 +8,7 @@ import (
 // PrivacyContractSemanticSHA256 is generated from the canonical JSON encoding
 // of every contracts/privacy registry, ordered by repository-relative path.
 // scripts/validate_privacy.py refuses a registry/runtime drift.
-const PrivacyContractSemanticSHA256 = "219e7f4c72ffc67c2ea764ee85da56dda68c2d0ff25afeb99d3f57c4d37cf3d2"
+const PrivacyContractSemanticSHA256 = "57af85c5fe779b6833d15bc9d62e2a9ec5550c58b7be3941bcbc152093c2cce7"
 
 type ValueState string
 
@@ -153,6 +153,7 @@ type RedactionCounts struct {
 
 type Lineage struct {
 	SourceRecordPseudonym string `json:"source_record_pseudonym"`
+	SessionPseudonym      string `json:"session_pseudonym"`
 	AdapterID             string `json:"adapter_id"`
 	AdapterVersion        string `json:"adapter_version"`
 	SourceSchemaID        string `json:"source_schema_id"`

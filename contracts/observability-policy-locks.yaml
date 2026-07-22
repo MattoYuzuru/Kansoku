@@ -1,0 +1,10 @@
+{
+  "schema_version": "kansoku.observability-policy-locks/1",
+  "effective_at": "2026-07-21",
+  "locks": [
+    {"policy_version": "observability.envelope/1", "registry": "contracts/observability/envelope.yaml", "semantic_sha256": "6fd3592fe884f5f359e2768a4d32b86e82ed8395a97307c404434041c5bb73dd"},
+    {"policy_version": "observability.ingress/1", "registry": "contracts/observability/ingress.yaml", "semantic_sha256": "0e36cc39dfcaa8ec5da26213caf99e7e3f2b39e75ac3368a4835a07126238a25"},
+    {"policy_version": "observability.lifecycles/1", "registry": "contracts/observability/lifecycles.yaml", "semantic_sha256": "4d927983377776b3fad2fcdd01bcbb3c7d1c29d94a0b3462808afa159ef5b329"},
+    {"policy_version": "observability.reconciliation/1", "registry": "contracts/observability/reconciliation.yaml", "semantic_sha256": "b417b8a41a916f726859f33b32d1675392bca4af84beb52e73fead5c45fa12f4"}
+  ]
+}

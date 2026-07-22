@@ -1,0 +1,21 @@
+{
+  "schema_version": "kansoku.session03-fixture/1",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "logical_event": {
+    "event_id": "shared-001",
+    "session_id": "session-safe-001",
+    "observed_at": "2026-07-21T12:00:00.123Z",
+    "event_type": "tool_finished",
+    "outcome": "succeeded",
+    "value_state": "numeric_zero",
+    "tool_name": "inventory/tool-safe"
+  },
+  "lanes": [
+    {"id": "hook_http", "source_schema": "fixture.agent-hook/1", "evidence_tier": "native"},
+    {"id": "otlp_log", "source_schema": "fixture.agent-otlp/1", "evidence_tier": "native"},
+    {"id": "transcript_jsonl", "source_schema": "fixture.agent-transcript/1", "evidence_tier": "reconstructed"}
+  ],
+  "expected": {"facts": 1, "evidence": 3, "completeness": "complete", "correlation": "exact", "duplicate_fact_inflation": 0},
+  "variations": ["duplicate", "reorder", "late", "crash_before_sync", "crash_before_rename", "crash_after_rename", "source_disabled", "unknown_schema", "poison", "backpressure"]
+}

@@ -28,7 +28,7 @@
 
 The eight privacy registries are JSON-subset YAML and require no third-party Python package. Every
 nested registry is closed. Their canonical aggregate hash is
-`219e7f4c72ffc67c2ea764ee85da56dda68c2d0ff25afeb99d3f57c4d37cf3d2`; validators require the
+`57af85c5fe779b6833d15bc9d62e2a9ec5550c58b7be3941bcbc152093c2cce7`; validators require the
 same value in all three executable boundary packages. This aggregate detects accidental
 registry/runtime drift, but a coherently updated registry, runtime and aggregate could satisfy it;
 it is not the privacy-policy authority.
@@ -41,6 +41,11 @@ content/free-text features, safe log schema, installer values, host accesses, lo
 and nonempty controls. Tests recompute the mutable aggregate for nine coherent weakening cases and
 still reject all nine. An intentional semantic change appends a new policy version and digest while
 preserving every old entry.
+
+Session 03 appended `privacy.ingress/2` to add only a keyed `session_pseudonym` to `Lineage`; the
+native session identifier remains prohibited. That reviewed-style semantic transition updated the
+aggregate above and regenerated the exact canary bytes below so canonical events can preserve a
+stable session scope without persisting source session IDs.
 
 Before the first reviewed lock commit, or in a source archive without history, the checked-out lock
 is the deterministic bootstrap authority. After bootstrap, validation compares against an explicit
@@ -67,7 +72,7 @@ metadata-only quarantine.
 `unsupported`, `not_observed`, `redacted`, `unknown` and `numeric_zero` remain distinct typed values.
 Missing `value_state` becomes `unknown`, not silently `not_observed`. Missing model/tool observations
 carry a typed `not_observed` state and JSON null ID rather than a catalog sentinel string. Attachment
-redaction is counted independently. Lineage contains adapter/schema versions, source pseudonym,
+redaction is counted independently. Lineage contains adapter/schema versions, source and session pseudonyms,
 schema and contract hashes, sanitizer version, confidence and replay-stable idempotency identity.
 
 ## Raw-content exit gate
@@ -86,14 +91,14 @@ generator, source revision and toolchain in `reports/session-02-canary-results.j
 
 | Accepted sink | Bytes | SHA-256 |
 |---|---:|---|
-| application logs | 336 | `f778280b121506fc8230ea72145082e672cc6acb42c8a696740894926f0247c4` |
-| backup | 2,432 | `b76a2cdaaeae5bcaa67bb7482c6381a4963e48d146a77495c46f9f51455148a4` |
-| dashboard network | 1,745 | `d2f1f3266cab984c0c79ba4bdee366b81a0c812e34b07259676f897c5684726b` |
-| database | 1,670 | `6b514b5352a0adede913fea862b9d2d1c6a79b3108fe844f51c7a1f9ac6c4cee` |
-| durable queue | 1,670 | `6b514b5352a0adede913fea862b9d2d1c6a79b3108fe844f51c7a1f9ac6c4cee` |
+| application logs | 336 | `26a870778432a412b6de99ae50d73cfc46a5c4e4b6e1d64db0c8ff5842052d75` |
+| backup | 2,564 | `1421c6ad8328be02e22150eec8170bdeb1867da0ecb261d894583be2d7077418` |
+| dashboard network | 1,844 | `9b5761a3c4dbb09b19055399857b5d2f7d9a9e1d4f1d7491558e935396a7c053` |
+| database | 1,769 | `99fae3d39635da326a069c61e84ba5f7db0b50433638c07cf02e8ac692401370` |
+| durable queue | 1,769 | `99fae3d39635da326a069c61e84ba5f7db0b50433638c07cf02e8ac692401370` |
 | error response | 39 | `99e0562472988acbdcd413387f0fa23cebfaf6e1032f9cac5e9bce6be7672498` |
-| export | 1,677 | `8d83a3673b8788222623db8f174f92db9a99ffb49824c2cd32b80acc590caec4` |
-| internal traces | 384 | `e274be522d212238a226aadef6152df45a17aa8f14ced669755ea16249ac82b5` |
+| export | 1,776 | `09e2fa743c9d21c681896413b8486685bce17cbdfce39bfcae296ef120d2868c` |
+| internal traces | 384 | `559dc42089fdb6f88a48ae82d361c5163cd6fc5b8f6b1bb060a461be67b3a411` |
 | quarantine | 3 | `37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570` |
 | retry queue | 42 | `9c655d4fc06910d5363039ceaa70f9a0baebff314cd588ebdbdf4993d7f131e9` |
 
@@ -139,7 +144,9 @@ binds and Docker socket remain forbidden.
 `raw-content-persisted-count` SLO evidence scopes. A rename, omission, duplication or new sink makes
 the validator and SLO gate fail rather than producing numeric zero.
 
-The Go module has no third-party dependencies. Tests use the Docker Official Image
+The Session 02 packages remain standard-library-only. Session 03 added pinned/vendored OTLP,
+gRPC and protobuf dependencies to the workspace module; those are inventoried separately in
+`reports/session-03-sbom.json`. Tests use the Docker Official Image
 `golang:1.26.5-bookworm` at
 `sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651`, which reports Go
 1.26.5 and GCC 12.2.0. `reports/session-02-sbom.json` is an exact source/toolchain inventory, not a

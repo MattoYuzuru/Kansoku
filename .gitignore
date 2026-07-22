@@ -2,3 +2,6 @@ __pycache__/
 *.py[cod]
 benchmarks/session-01/frontend/node_modules/
 benchmarks/session-01/frontend/dist/
+.gocache/
+.gohome/
+.gopath/

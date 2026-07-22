@@ -9,7 +9,10 @@
 
 ## Envelope v1
 
-Illustrative JSON; the authoritative schema will be generated and versioned in code.
+The authoritative field sets are now the closed registry in
+`contracts/observability/envelope.yaml` and typed Go definitions in
+`internal/observability/types.go`. The JSON below remains an explanatory projection; Session 04
+must map it to PostgreSQL without widening the durable allowlist.
 
 ```json
 {
@@ -147,3 +150,8 @@ rejected with safe diagnostics. Error messages contain field paths, not values.
 - Adapters declare min/max supported source versions and observed fingerprints.
 - Database migrations never reinterpret historical facts without a versioned replay and audit log.
 
+Session 03 binds the complete architecture registry set through
+`contracts/observability-policy-locks.yaml`. A semantic change appends a reviewed policy version;
+editing the registry and its digest together does not bypass the validator's independent closed
+invariants. The synthetic v1 fixture uses `fixture.agent-hook/1`, `fixture.agent-otlp/1` and
+`fixture.agent-transcript/1`; it confers no support status on a real agent.

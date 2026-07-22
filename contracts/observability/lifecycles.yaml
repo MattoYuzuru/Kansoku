@@ -1,0 +1,19 @@
+{
+  "schema_version": "kansoku.observability-lifecycles/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-21",
+  "source_primary": ["discovered", "configured", "connected", "producing", "reconciled"],
+  "source_branches": ["degraded", "disabled", "error"],
+  "event_primary": ["received", "sanitized", "validated", "normalized", "deduplicated", "correlated", "reconciled"],
+  "terminal_failure": "metadata_only_quarantine",
+  "correlation_states": ["exact", "candidate", "ambiguous", "unmatched"],
+  "completeness_states": ["complete", "partial", "degraded", "unknown", "unsupported"],
+  "evidence_tiers": ["corroborated", "native", "reconstructed", "inferred"],
+  "confidence_ceilings": {"corroborated": 1.0, "native": 1.0, "reconstructed": 0.95, "inferred_exclusive_max": 0.9},
+  "invariants": [
+    "ambiguous candidates remain plural and no winner is forced",
+    "source removal changes completeness but never deletes historical facts or evidence",
+    "contradiction opens an incident rather than overwriting evidence",
+    "numeric zero is distinct from unsupported not_observed redacted and unknown"
+  ]
+}
