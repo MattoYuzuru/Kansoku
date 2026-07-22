@@ -1,0 +1,38 @@
+{
+  "schema_version": "kansoku.data-platform-rollups/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "granularities": ["hourly", "daily"],
+  "bucket_rule": "half_open_utc_bucket_start_inclusive_bucket_end_exclusive",
+  "dimension_scope_fields": ["agent_installation_id", "surface_id", "component_id", "event_type"],
+  "rollup_row_fields": ["metric_family", "granularity", "bucket_start", "dimension_scope", "formula_version", "event_count", "unknown_count", "completeness_duration_ms", "watermark", "value_numeric", "value_percentiles", "computed_at"],
+  "percentile_policy": {
+    "method": "exact_percentile_cont_over_normalized_facts_within_the_bucket",
+    "forbidden": "averaging_or_otherwise_recombining_already_computed_percentile_values_across_buckets_or_sources",
+    "levels": [0.5, 0.9, 0.95, 0.99],
+    "future_options": ["mergeable_sketch_extension_after_measured_need", "precomputed_distribution_buckets_for_stable_panels"],
+    "current_choice": "exact_percentile_cont_only; sketch/bucket options remain a documented gap until measured need exists"
+  },
+  "late_data_algorithm": {
+    "trigger": "commit_of_a_normalized_fact_whose_observed_at_falls_in_an_existing_or_past_bucket",
+    "enqueue_key": ["metric_family", "bucket_start", "dimension_scope"],
+    "queue_table": "rollup_repair_queue",
+    "coalesce": "duplicate_keys_collapse_before_worker_claims_them",
+    "recompute": "worker_recomputes_the_bucket_aggregate_from_normalized_facts_never_incrementally_patches_a_percentile",
+    "watermark_advance": "rollup_watermark_only_advances_after_a_successful_recompute_commit",
+    "retention_boundary": "a_source_event_older_than_the_retention_horizon_for_its_partition_is_rejected_or_recorded_as_unapplied_late_metadata_per_policy_and_never_silently_shifts_published_history"
+  },
+  "time_ranges": {
+    "boundary": "half_open_from_to",
+    "presets": ["day", "week", "month", "six_month", "year", "all_time", "sprint", "custom"],
+    "timezone": "resolved_in_user_timezone_then_exposed_with_utc_bucket_boundaries",
+    "dst": "bucket_membership_uses_the_zone_offset_at_bucket_start_and_never_silently_drops_or_duplicates_a_wall_clock_hour",
+    "sprint": {"configurable": ["start_date", "duration_days"]},
+    "comparison": "immediately_previous_equal_calendar_or_elapsed_range_labeled_explicitly"
+  },
+  "formula_registry": {
+    "versioning": "every_metric_formula_change_creates_a_new_registered_version_and_never_mutates_an_existing_one",
+    "fields": ["formula_id", "version", "sql_template", "unit", "dimensions", "numerator", "denominator", "population", "minimum_sample", "allowed_completeness", "formatting"],
+    "cost_formulas": "reference_a_price_catalog_version_and_effective_date_snapshot_and_never_a_live_mutable_price"
+  }
+}

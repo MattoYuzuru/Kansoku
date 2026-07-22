@@ -1,0 +1,25 @@
+{
+  "schema_version": "kansoku.data-platform-retention/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "event_expiration": {
+    "mechanism": "partition_drop_preferred_over_row_by_row_delete",
+    "default_horizon_days": 400,
+    "policy_table": "retention_policies",
+    "audited_actions": ["partition_create", "partition_drop", "vacuum", "analyze", "disk_forecast"]
+  },
+  "rollup_retention": {
+    "default": "rollups_whose_source_partition_is_dropped_are_deleted_unless_policy_explicitly_marks_aggregate_only",
+    "aggregate_only_label": "rows_kept_past_source_expiration_are_labeled_aggregate_only_and_carry_no_new_drilldown_claim"
+  },
+  "backup": {
+    "strategy": "postgresql_native_logical_and_physical_selected_in_session_09",
+    "manifest_fields": ["app_version", "schema_version", "formula_registry_version", "adapter_versions", "checksum_sha256", "privacy_policy_sha256", "created_at"],
+    "restore_test": {
+      "target": "isolated_temporary_database",
+      "verifies": ["row_counts", "constraints", "sample_formula_results", "formula_version_lineage"],
+      "cleanup": "temporary_restore_target_is_dropped_after_verification"
+    },
+    "deletion_plan_limitation": "backups_older_than_the_retention_horizon_may_still_contain_expired_partitions_until_their_own_backup_retention_elapses_and_this_is_recorded_not_hidden"
+  }
+}

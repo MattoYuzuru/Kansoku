@@ -1,0 +1,114 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "go_sum": "h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=",
+      "name": "github.com/jackc/pgpassfile",
+      "purl": "pkg:golang/github.com/jackc/pgpassfile@v1.0.0",
+      "type": "library",
+      "version": "v1.0.0"
+    },
+    {
+      "go_sum": "h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=",
+      "name": "github.com/jackc/pgservicefile",
+      "purl": "pkg:golang/github.com/jackc/pgservicefile@v0.0.0-20240606120523-5a60cdf6a761",
+      "type": "library",
+      "version": "v0.0.0-20240606120523-5a60cdf6a761"
+    },
+    {
+      "go_sum": "h1:rWQc5FwZSPX58r1OQmkuaNicxdmExaEz5A2DO2hUuTk=",
+      "name": "github.com/jackc/pgx/v5",
+      "purl": "pkg:golang/github.com/jackc/pgx/v5@v5.7.6",
+      "type": "library",
+      "version": "v5.7.6"
+    },
+    {
+      "go_sum": "h1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=",
+      "name": "github.com/jackc/puddle/v2",
+      "purl": "pkg:golang/github.com/jackc/puddle/v2@v2.2.2",
+      "type": "library",
+      "version": "v2.2.2"
+    },
+    {
+      "go_sum": "h1:zO47/JPrL6vsNkINmLoo/PH1gcxpls50DNogFvB5ZGI=",
+      "name": "golang.org/x/crypto",
+      "purl": "pkg:golang/golang.org/x/crypto@v0.50.0",
+      "type": "library",
+      "version": "v0.50.0"
+    },
+    {
+      "go_sum": "h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=",
+      "name": "golang.org/x/sync",
+      "purl": "pkg:golang/golang.org/x/sync@v0.20.0",
+      "type": "library",
+      "version": "v0.20.0"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "name": "kansoku-session04-data-platform",
+      "type": "application",
+      "version": "0.4.0"
+    },
+    "timestamp": "2026-07-22T00:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "name": "Go",
+          "type": "application",
+          "version": "1.26.5"
+        },
+        {
+          "name": "PostgreSQL",
+          "type": "application",
+          "version": "18"
+        }
+      ]
+    }
+  },
+  "properties": [
+    {
+      "name": "kansoku:toolchain-image",
+      "value": "docker.io/library/golang:1.26.5-bookworm"
+    },
+    {
+      "name": "kansoku:toolchain-digest",
+      "value": "sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651"
+    },
+    {
+      "name": "kansoku:database-image-digest",
+      "value": "postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"
+    },
+    {
+      "name": "kansoku:go-mod-sha256",
+      "value": "716f9585d010d6b8b5b3b565ddca2dc169fcf42bd3dee9a422562557084b1179"
+    },
+    {
+      "name": "kansoku:go-sum-sha256",
+      "value": "ea6a111b2b0a1e5ae698a6523cde0e353e5ceff2e430de3f68667a922eff7a3e"
+    },
+    {
+      "name": "kansoku:session04-source-sha256",
+      "value": "c69fd2c8aaebde414fa68f65e337f27355cdb565bec03b4823cfc9d446c7daa7"
+    },
+    {
+      "name": "kansoku:verification-network",
+      "value": "none_for_go_toolchain_isolated_bridge_for_ephemeral_postgres"
+    },
+    {
+      "name": "kansoku:go-build-mode",
+      "value": "-mod=vendor"
+    },
+    {
+      "name": "kansoku:excludes",
+      "value": "OTLP/gRPC modules already inventoried by reports/session-03-sbom.json are out of scope here"
+    },
+    {
+      "name": "kansoku:provenance-scope",
+      "value": "unsigned source/module inventory; release image signing and vulnerability scan remain Session09/10"
+    }
+  ],
+  "serialNumber": "urn:uuid:c9f6f3fa-3f2e-4c1a-9d0e-9e6b1f0b9a04",
+  "specVersion": "1.6",
+  "version": 1
+}

@@ -7,11 +7,12 @@ Kansoku (観測, «наблюдение», «измерение явлений»
 
 ## Статус
 
-Session 02 / фаза 002 выполнена 2026-07-21: machine-readable threat/data/ingress/sink/installer/
-host/deployment/retention contracts, typed Go privacy boundary, hardened local HTTP guard,
-virtual consent/rollback protocol и десяти-sink raw-content canary находятся в репозитории.
-Автоматизированные Session 01–02 gates проходят; следующая реализационная сессия — Session 03
-(core observability architecture). Session 02 использует только synthetic fixture agent и не
+Session 04 / фаза 004 выполнена 2026-07-22: закрытые schema/rollups/query-contract/retention
+registries и реальный PostgreSQL 18 `internal/dataplatform` заменяют Session 03 file-durability
+spike — monthly partitioning, точные `percentile_cont` rollups, never-average late-data repair,
+enforced query budgets и lineage-verified backup/restore находятся в репозитории.
+Автоматизированные Session 01–04 gates проходят; следующая реализационная сессия — Session 05
+(adapter SDK and inventory). Реализация использует только synthetic fixture agent и не
 повышает ни один реальный адаптер выше Experimental: для публичного Supported/Beta по-прежнему
 нужны version-bounded agent fixtures/evidence и два независимых human review.
 
@@ -46,8 +47,16 @@ proposal и парный technical design document. Переход к следу
 - [AGENTS.md](AGENTS.md) — правила работы будущих сессий над проектом.
 - [Session 02 reconciliation](reports/session-02-reconciliation.md) — точный privacy/security exit
   gate, десять проверенных sink и остаточные риски.
+- [Session 03 reconciliation](reports/session-03-reconciliation.md) — canonical ingestion,
+  multi-lane replay, protocol/durability evidence и явные ограничения spike.
 - [Privacy policy trust ADR](adr/0005-privacy-policy-lock-and-trust-root.md) — versioned semantic
   locks, bootstrap/trusted-history model и внешний review/CI root of trust.
+- [Ingestion durability ADR](adr/0006-session-03-ingestion-and-durability-boundary.md) — bounded
+  pre-PostgreSQL writer, pinned OTLP protobuf dependencies и gzip conformance gap.
+- [Session 04 reconciliation](reports/session-04-reconciliation.md) — PostgreSQL schema/rollup/query-
+  budget/retention/backup exit gate и явные downstream-gaps.
+- [Data platform ADR](adr/0007-session-04-data-platform-and-metrics.md) — partitioning/rollup/query-
+  budget/retention decisions и rejected alternatives поверх ADR 0001 baseline.
 
 ## Принятый технологический baseline
 

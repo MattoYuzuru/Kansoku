@@ -120,6 +120,69 @@ Design note: Kansoku may map stable source fields into its own versioned envelop
 the moving GenAI repository `main` branch as an implicit production schema. Every adopted snapshot
 requires a pinned revision, adapter version and schema fingerprint.
 
+## Session 03 OTLP and Go protocol implementation
+
+- OTLP specification: <https://opentelemetry.io/docs/specs/otlp/>
+- Language-independent protobuf definitions:
+  <https://github.com/open-telemetry/opentelemetry-proto>
+- Generated Go OTLP protobuf module: <https://pkg.go.dev/go.opentelemetry.io/proto/otlp>
+- gRPC-Go module: <https://pkg.go.dev/google.golang.org/grpc>
+- Go protobuf API: <https://pkg.go.dev/google.golang.org/protobuf/proto>
+- Go module transparency metadata:
+  <https://proxy.golang.org/go.opentelemetry.io/proto/otlp/@latest>,
+  <https://proxy.golang.org/google.golang.org/grpc/@latest>,
+  <https://proxy.golang.org/google.golang.org/protobuf/@latest>
+- Retrieved: 2026-07-21.
+- Relevant versions: OTLP specification `1.10.0`; generated OTLP Go module `v1.10.0`
+  (origin commit `5abb227a3efbfea092a8db5b89a8a9e59117cee1`); gRPC-Go `v1.82.1`
+  (origin commit `ebd8f06a09426fbece97157c95c3917abff28f4e`); Go protobuf `v1.36.11`
+  (origin commit `96a179180f0ad6bba9b1e7b6e38d0affb0168e9a`). Exact module content hashes are
+  in `go.sum`, the offline build set is in `vendor/modules.txt`, and the resolved inventory is in
+  `reports/session-03-sbom.json`.
+
+Design note: OTLP 1.10.0 marks trace, metric and log signals stable and defines the same protobuf
+request/response schemas for unary gRPC and HTTP. Binary HTTP uses proto3 wire bytes,
+`application/x-protobuf`, standard `/v1/traces`, `/v1/metrics` and `/v1/logs` paths, and a successful
+Export response only after acceptance. Retryable HTTP failures are 429/502/503/504. The protocol
+also requires receivers to support both no compression and gzip. Session 03 implements authenticated
+loopback binary protobuf for all three signals over HTTP and gRPC, bounds messages at one MiB, and
+returns acknowledgement only after a durable typed transaction. It deliberately rejects gzip under
+the reviewed Session 02 compression policy and therefore remains an Experimental non-conformant
+spike; ADR 0006 prevents a full-OTLP or adapter support claim. JSON, partial success, remote/TLS
+deployment and exporter environment configuration are not implemented.
+
+No OpenTelemetry GenAI semantic-convention names were adopted into the core. The fixture uses a
+Kansoku-owned, versioned safe attribute namespace solely to exercise protocol transport and source-
+independent normalization; real agent field mappings remain version-bounded adapter work.
+
+## Session 04 PostgreSQL driver and data platform implementation
+
+- pgx driver documentation: <https://pkg.go.dev/github.com/jackc/pgx/v5>
+- pgx source repository: <https://github.com/jackc/pgx>
+- PostgreSQL 18 `percentile_cont`/window function reference:
+  <https://www.postgresql.org/docs/18/functions-aggregate.html>
+- PostgreSQL 18 partitioning reference: <https://www.postgresql.org/docs/18/ddl-partitioning.html>
+- Go module transparency metadata: <https://proxy.golang.org/github.com/jackc/pgx/v5/@latest>
+- Retrieved: 2026-07-22.
+- Relevant versions: `github.com/jackc/pgx/v5 v5.7.6` plus resolved transitives
+  `github.com/jackc/pgpassfile v1.0.0`, `github.com/jackc/pgservicefile` (pseudo-versioned commit
+  `5a60cdf6a761`), `github.com/jackc/puddle/v2 v2.2.2`, `golang.org/x/crypto v0.50.0` and
+  `golang.org/x/sync v0.20.0`. Exact module content hashes are in `go.sum`, the offline build set is
+  in `vendor/modules.txt`, and the resolved inventory independent of Session 03's is in
+  `reports/session-04-sbom.json`.
+
+Design note: Session 04 replaces the Session 03 `FileStore` durability spike with a real PostgreSQL
+18 system of record, matching the engine ADR 0001 already selected. Facts are range-partitioned
+monthly; rollups use PostgreSQL's exact `percentile_cont` and never average two already-computed
+percentiles, per the vendored aggregate-function reference above. `contracts/data-platform/
+schema.yaml.engine.image_digest` pins the same PostgreSQL image digest already used in
+`deploy/compose.security-baseline.yaml`, so the ephemeral validator harness and the eventual
+Session 09 runtime agree on exactly which image is authoritative. `pgx/v5` was chosen as the
+first-party Go driver over `database/sql` + `lib/pq` for native PostgreSQL protocol support
+(binary parameters, connection pooling via `puddle`) without an additional `database/sql` shim
+layer; this is an implementation detail of ADR 0001's already-selected engine, not a re-litigation
+of the engine choice itself.
+
 ## Session 02 implementation infrastructure
 
 - Go release history: <https://go.dev/doc/devel/release>
@@ -134,8 +197,9 @@ requires a pinned revision, adapter version and schema fingerprint.
   18 digest from Session 01 and requires an exact application-image digest.
 
 Design note: the Go official release history records 1.26.5 on 2026-07-07 with security fixes. The
-Session 02 module has no third-party Go dependency, and all Go tests/vet/fuzz/benchmark runs use the
-pinned toolchain with network disabled. The local Docker installation exposes neither Scout nor an
+Session 02 packages have no third-party Go dependency; Session 03 later added pinned protocol
+modules to the shared workspace. All Go tests/vet/fuzz/benchmark runs use the pinned toolchain with
+network disabled. The local Docker installation exposes neither Scout nor an
 SBOM plugin, and no production Kansoku image exists, so `reports/session-02-sbom.json` is a source
 inventory rather than a signed release SBOM. Production image scanning/provenance remains a blocking
 Session 09/10 gate. Compose documentation supports the static service/network/secret fields, but a

@@ -28,7 +28,19 @@
   ten-sink raw-content canary pass. Versioned privacy-policy locks and independent exact invariants
   reject coherent registry/runtime/checksum weakening; protected review/CI remains the external
   trust root. This synthetic privacy proof does not satisfy adapter-specific public support evidence.
-- **03 — next:** canonical event envelope and idempotent hook/OTLP/transcript routes.
+- **03 — complete (2026-07-21):** closed canonical envelope/lifecycle/ingress/reconciliation
+  contracts and a typed Go spike converge one synthetic fact across authenticated hook, OTLP
+  HTTP/gRPC protobuf and checkpointed transcript lanes. Replay/reorder/crash/source-loss/unknown-
+  schema/privacy gates pass. ADR 0006 keeps the bounded file writer explicitly pre-PostgreSQL and
+  records unsupported OTLP gzip as a conformance gap.
+- **04 — complete (2026-07-22):** closed schema/rollups/query-contract/retention registries and a
+  real PostgreSQL 18 `internal/dataplatform` package replace the Session 03 file-durability spike.
+  Monthly-partitioned facts, exact `percentile_cont` rollups with a never-average late-data repair
+  path, two-sided query-budget enforcement, partition-drop retention and lineage-verified
+  backup/restore all pass against an ephemeral, pinned-digest Postgres harness. ADR 0007 records
+  million-event query-budget evidence, mergeable percentile sketches, time-range preset resolution
+  and cost-formula computation as explicit downstream gaps.
+- **05 — next:** Adapter SDK, capability model, discovery, versioning, plugin API and inventory graph.
 
 ## Dependency graph
 

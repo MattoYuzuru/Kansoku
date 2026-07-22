@@ -1,0 +1,12 @@
+DROP INDEX IF EXISTS metric_rollups_daily_lookup;
+DROP INDEX IF EXISTS metric_rollups_hourly_lookup;
+DROP INDEX IF EXISTS component_lifecycle_events_installation_idx;
+DROP INDEX IF EXISTS tool_calls_component_idx;
+DROP INDEX IF EXISTS tool_calls_session_idx;
+DROP INDEX IF EXISTS events_source_instance_idx;
+DROP INDEX IF EXISTS events_component_idx;
+DROP INDEX IF EXISTS events_session_idx;
+DROP INDEX IF EXISTS token_usage_observed_at_brin;
+DROP INDEX IF EXISTS model_operations_observed_at_brin;
+DROP INDEX IF EXISTS event_evidence_observed_at_brin;
+DROP INDEX IF EXISTS events_observed_at_brin;

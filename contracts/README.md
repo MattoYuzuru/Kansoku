@@ -9,9 +9,13 @@ Run all contract checks with:
 ```sh
 python3 scripts/validate_contracts.py
 python3 scripts/validate_privacy.py
+python3 scripts/validate_observability.py
+python3 scripts/validate_data_platform.py
 python3 -m unittest discover -s tests -v
 python3 scripts/run_go_tests.py
 python3 scripts/run_privacy_canary.py
+python3 scripts/session03_supply_chain.py --verify
+python3 scripts/session04_supply_chain.py --verify
 ```
 
 Session 02 adds the closed privacy/security registry set under `contracts/privacy/`:
@@ -48,3 +52,23 @@ parsed and ordered capability version range, typed evidence receipts bound to th
 adapter/capability/range tuple and validator-recomputed canonical fixture bytes, and two independent
 approved human review receipts bound to the same tuple and verified fixtures. Session sequencing
 never bypasses that public-claim gate.
+
+Session 03 adds four closed registries under `contracts/observability/`: canonical envelope,
+source/event lifecycle, ingress protocols/durability, and reconciliation/watermarks/recovery. Their
+versioned semantic digests live in `contracts/observability-policy-locks.yaml`; independent exact
+invariants prevent a coherent lock edit from removing ambiguity, privacy, durable acknowledgement,
+HTTP/gRPC protobuf, three-lane or metadata-only-quarantine requirements. The synthetic shared
+scenario is `tests/fixtures/session-03/shared-scenario.json`. ADR 0006 limits the current durable
+writer to a bounded single-process fsync/rename spike and records that OTLP gzip remains an explicit
+conformance gap rather than a support claim.
+
+Session 04 adds four closed registries under `contracts/data-platform/`: schema, rollups,
+query-contract and retention. Their versioned semantic digests live in
+`contracts/data-platform-policy-locks.yaml`; independent exact invariants prevent a coherent lock
+edit from weakening the pinned PostgreSQL 18 engine digest, the partition-drop-only retention
+mechanism, the percentile method/forbidden-averaging clause, the budgeted query id set/ceilings, or
+the restore-test cleanup requirement. `scripts/validate_data_platform.py` starts an ephemeral,
+pinned-digest Postgres container to reconcile a synthetic reference dataset exactly, enforce query
+budgets on both the server and client side, and verify lineage-preserving backup/restore. ADR 0007
+records mergeable percentile sketches, million-event query-budget evidence, time-range preset
+resolution and cost-formula computation as explicit downstream gaps rather than silent scope drops.

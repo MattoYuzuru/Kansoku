@@ -1,0 +1,23 @@
+{
+  "schema_version": "kansoku.data-platform-query-contract/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "response_fields": ["data", "formula_version", "population", "completeness", "freshness"],
+  "population_fields": ["numerator", "denominator"],
+  "completeness_fields": ["status", "covered_ratio", "intervals"],
+  "completeness_statuses": ["complete", "partial", "degraded", "unknown"],
+  "freshness_fields": ["rollup_watermark", "late_events_pending"],
+  "budgets": {
+    "reference_scale": "1000000_events_per_day_synthetic_load",
+    "queries": [
+      {"id": "hourly_rollup_range_30d", "description": "single metric family hourly rollup over a 30-day range for one dimension scope", "max_ms": 50, "backing": "metric_rollups_hourly"},
+      {"id": "daily_rollup_range_1y", "description": "single metric family daily rollup over a 1-year range for one dimension scope", "max_ms": 50, "backing": "metric_rollups_daily"},
+      {"id": "session_drilldown", "description": "raw event list for a single session ordered by observed_at", "max_ms": 100, "backing": "events_partition_pruned"},
+      {"id": "percentile_recompute_bucket", "description": "exact percentile_cont recompute for one hour bucket of normalized facts", "max_ms": 200, "backing": "events_partition_pruned"}
+    ],
+    "enforcement": "statement_timeout_set_per_session_at_the_budget_ceiling_and_measured_wall_clock_assertion_in_tests",
+    "plan_review": "EXPLAIN_ANALYZE_captured_for_each_budgeted_query_and_checked_for_sequential_scan_of_a_partitioned_fact_table"
+  },
+  "half_open_boundary": "from_inclusive_to_exclusive_for_every_range_parameter",
+  "unknown_denominator_policy": "population.denominator_of_zero_forces_completeness.status_to_unknown_and_data_to_an_empty_series"
+}

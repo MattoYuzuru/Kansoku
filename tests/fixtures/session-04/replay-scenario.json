@@ -1,0 +1,36 @@
+{
+  "schema_version": "kansoku.session04-fixture/1",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "extends": "tests/fixtures/session-03/shared-scenario.json",
+  "generation": {
+    "seed": "kansoku-session04-replay-v1",
+    "dimension_scope": {"agent_installation_id": "ain_fixture", "surface_id": "cli", "component_id": "inventory/tool-safe", "event_type": "component.executed"},
+    "bucket_granularity": "hourly",
+    "buckets": 6,
+    "events_per_bucket": 40,
+    "duration_ms_formula": "100 + (bucket_index * 10) + (event_index_in_bucket * 3)",
+    "duplicate_replay_count": 3,
+    "late_event": {
+      "target_bucket_index": 2,
+      "arrives_after_first_rollup_of_bucket": true,
+      "duration_ms": 1
+    }
+  },
+  "expected": {
+    "total_events_before_late": 240,
+    "total_events_after_late_and_duplicates": 241,
+    "duplicate_fact_inflation": 0,
+    "distinct_evidence_replays": 3,
+    "buckets_recomputed_exactly": true,
+    "percentile_never_averaged_across_recompute": true
+  },
+  "retention": {
+    "horizon_days": 400,
+    "old_partition_month_offset_months": -20,
+    "old_partition_events": 5,
+    "expect_partition_dropped": true,
+    "expect_whole_partition_drop_not_row_delete": true
+  },
+  "budgets_exercised": ["hourly_rollup_range_30d", "daily_rollup_range_1y", "session_drilldown", "percentile_recompute_bucket"]
+}
