@@ -76,20 +76,26 @@
   sooner without waiting on two more agents. ADR 0010 records the scope-narrowing rationale and lists
   the missing `claude.transcript` JSONL importer, live-CLI canary evidence and nil `Audit` as explicit
   downstream gaps.
-- **07b — next:** Gemini adapter and Cursor probe (deferred from the original Session 07 scope). 07b
-  keeps the original TDD/proposal 07 content for Gemini/Cursor and does not change Sessions 08-10
-  numbering.
+- **07b — deferred/backlog (2026-07-23):** Gemini adapter and Cursor probe (deferred from the
+  original Session 07 scope). 07b was originally slated as the immediate next session, but the
+  sequencing changed on 2026-07-23: it is pulled out of the main dependency chain into backlog so
+  Session 08 can start now. It keeps the original TDD/proposal 07 content for Gemini/Cursor and is
+  not cancelled, just decoupled from the 08-10 sequence — whoever picks it up later should re-verify
+  it against whatever Sessions 08-10 have changed in the meantime.
+- **08 — next:** Integrity and drift detection.
 
 ## Dependency graph
 
 ```text
-01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 07b -> 08 -> 09 -> 10
+01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10
                    \-----------------------> analytics/UI fixtures
+                                 \-> 07b (Gemini/Cursor, backlog, non-blocking)
 ```
 
-Sessions 06, 07 and 07b могут делить parser fixtures, но не должны идти параллельно до стабилизации
+Sessions 06 and 07 могут делить parser fixtures, но не должны идти параллельно до стабилизации
 Adapter SDK в Session 05. Frontend spikes допустимы раньше, однако production UI строится только
-после фиксации semantics и completeness states.
+после фиксации semantics и completeness states. 07b остаётся валидной будущей сессией, но больше не
+блокирует 08-10.
 
 ## Cross-session deliverables
 
