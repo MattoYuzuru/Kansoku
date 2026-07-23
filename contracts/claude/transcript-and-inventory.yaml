@@ -1,0 +1,43 @@
+{
+  "schema_version": "kansoku.claude-transcript-and-inventory/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "transcript_source": {
+    "source_id": "claude.transcript",
+    "source_kind": "transcript_jsonl",
+    "route": "read_only_file",
+    "route_reuse": "reuses_contracts/observability/ingress.yaml_transcript_jsonl_protocol_verbatim_one_bounded_json_record_per_line_never_a_second_file_ingestion_mechanism",
+    "state_root": "resolved_from_the_documented_local_project_session_transcript_directory_only_never_a_speculative_home_directory_scan_and_never_a_CLAUDE_HOME_env_var_which_claude_code_does_not_document",
+    "checkpoint_fields": ["file_identity", "inode_or_file_id_where_available", "byte_offset", "first_record_fingerprint", "last_record_fingerprint", "rotation_generation", "truncation_detected"],
+    "parsing": "streams_jsonl_records_one_bounded_record_at_a_time_extracts_only_canonical_metadata_never_writes_to_the_claude_code_session_tree",
+    "skill_tool_call_mapping": "Skill_tool_calls_observed_in_the_transcript_are_mapped_to_explicit_or_implicit_activation_mode_only_when_the_native_transcript_field_itself_distinguishes_the_two_modes_the_adapter_never_guesses_a_mode_the_transcript_does_not_label",
+    "historical_content_mode": {
+      "default": "safe_structured_fields_only_may_report_lower_skill_coverage",
+      "opt_in": "historical_content_feature_extraction_examines_content_bearing_records_transiently_in_memory_only_emits_approved_sanitized_features_and_evidence_and_discards_the_line_afterward_raw_content_is_never_written_to_a_durable_path",
+      "user_disable": "users_may_disable_historical_content_parsing_entirely_falling_back_to_the_default_safe_structured_mode"
+    },
+    "corrupt_or_unknown_schema": {
+      "handling": "quarantined_as_a_metadata_only_incident_reusing_contracts/observability/ingress.yaml_unknown_schema_durable_fields",
+      "raw_bytes_durable": false
+    },
+    "replay_and_crash": {
+      "offset_resume": "reopens_at_the_last_committed_byte_offset_checkpoint",
+      "rotation_truncation": "detected_via_file_identity_and_first_last_record_fingerprint_mismatch_and_opens_a_degraded_incident_scoped_to_claude.transcript_only",
+      "idempotency": "replaying_the_same_byte_range_twice_yields_the_same_fact_and_evidence_identities_never_a_duplicate_fact"
+    }
+  },
+  "inventory_source": {
+    "source_id": "claude.inventory",
+    "scopes_inventoried": ["system", "user", "repository", "admin", "marketplace", "plugin_cache"],
+    "scopes_reused_from": "contracts/adapter-sdk/inventory-graph.yaml_source_scopes_verbatim_no_new_scope_is_invented",
+    "components_inventoried": ["standalone_skills", "commands", "agents", "hooks", "plugins", "marketplaces_and_cache", "mcp_servers", "managed_project_and_user_settings_layers"],
+    "active_vs_cached_distinction": "plugin_and_marketplace_cache_entries_are_always_reported_separately_from_active_installed_and_enabled_components_a_cached_plugin_version_is_never_reported_as_enabled_without_an_enabled_for_edge_to_an_active_installation",
+    "plugin_bundled_component_relationship": "every_skill_command_agent_hook_or_mcp_server_that_a_plugin_bundles_is_linked_to_that_plugin_package_node_by_a_bundles_edge_reusing_contracts/adapter-sdk/inventory-graph.yaml_edge_kinds_verbatim_never_reported_as_a_standalone_unowned_component_when_bundling_is_observable",
+    "repository_scan_bound": "repository_roots_are_scanned_only_for_known_active_projects_or_an_explicit_user_target_never_a_speculative_recursive_filesystem_walk",
+    "cache_rule": "cache_packages_are_never_considered_enabled_a_plugin_cache_artifact_node_requires_an_explicit_enabled_for_edge_to_an_active_installation_before_it_is_reported_as_enabled_reusing_contracts/adapter-sdk/inventory-graph.yaml_cache_separation_verbatim",
+    "node_kinds_used": ["agent_installation", "agent_surface", "agent_version", "plugin_package", "plugin_version", "skill_identity", "mcp_server_instance", "mcp_tool", "hook_definition", "custom_command_definition", "subagent_definition", "cache_artifact"],
+    "node_kinds_source": "reused_verbatim_from_contracts/adapter-sdk/inventory-graph.yaml_node_kinds_no_claude_specific_node_kind_is_invented",
+    "edge_kinds_used": ["bundles", "provides", "configured_in", "enabled_for", "shadows", "collides_with", "depends_on", "observed_using"],
+    "collision_rule": "two_skill_identity_or_mcp_server_instance_nodes_sharing_a_declared_name_across_scopes_are_never_merged_they_remain_distinct_nodes_linked_by_a_shadows_or_collides_with_edge_reusing_contracts/adapter-sdk/inventory-graph.yaml_identity_rule_verbatim"
+  }
+}

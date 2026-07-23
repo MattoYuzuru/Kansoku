@@ -1,0 +1,82 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [],
+  "metadata": {
+    "component": {
+      "name": "kansoku-session07-claude-adapter",
+      "type": "application",
+      "version": "0.7.0"
+    },
+    "timestamp": "2026-07-23T00:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "name": "Go",
+          "type": "application",
+          "version": "1.26.5"
+        }
+      ]
+    }
+  },
+  "properties": [
+    {
+      "name": "kansoku:dependency-delta",
+      "value": "none_session07_adds_no_new_third_party_go_or_python_dependency"
+    },
+    {
+      "name": "kansoku:go-mod-sha256",
+      "value": "716f9585d010d6b8b5b3b565ddca2dc169fcf42bd3dee9a422562557084b1179"
+    },
+    {
+      "name": "kansoku:go-sum-sha256",
+      "value": "ea6a111b2b0a1e5ae698a6523cde0e353e5ceff2e430de3f68667a922eff7a3e"
+    },
+    {
+      "name": "kansoku:go-mod-go-sum-unchanged-since",
+      "value": "session05_adapter_sdk_baseline_see_reports_session-05-sbom.json_identical_go-mod-sha256_and_go-sum-sha256_still_unchanged_through_session06"
+    },
+    {
+      "name": "kansoku:internal-claudeadapter-imports",
+      "value": "go_standard_library_plus_already_vendored_internal_adaptersdk_internal_privacy_internal_installer_and_internal_observability_only"
+    },
+    {
+      "name": "kansoku:internal-adaptersdk-wayfinder-imports",
+      "value": "go_standard_library_plus_already_vendored_internal_adaptersdk_only"
+    },
+    {
+      "name": "kansoku:internal-crossagent-imports",
+      "value": "go_standard_library_plus_already_vendored_internal_adaptersdk_internal_claudeadapter_and_internal_codexadapter_only"
+    },
+    {
+      "name": "kansoku:toolchain-image",
+      "value": "docker.io/library/golang:1.26.5-bookworm"
+    },
+    {
+      "name": "kansoku:toolchain-digest",
+      "value": "sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651"
+    },
+    {
+      "name": "kansoku:session07-source-scope",
+      "value": "internal/claudeadapter, internal/adaptersdk/wayfinder, internal/crossagent, internal/observability/routes.go (claude hook dispatch), contracts/claude, contracts/cross-agent, contracts/claude-policy-locks.yaml, contracts/cross-agent-policy-locks.yaml, adr/0010-session-07-claude-adapter-and-portability-proof.md, scripts/validate_claude.py, tests/test_claude_contracts.py, tests/fixtures/session-07"
+    },
+    {
+      "name": "kansoku:verification-network",
+      "value": "none"
+    },
+    {
+      "name": "kansoku:go-build-mode",
+      "value": "-mod=vendor"
+    },
+    {
+      "name": "kansoku:excludes",
+      "value": "no new external runtime (no database, no network service, no real Claude Code CLI/IDE-extension/app process in this environment); no scripts/session07_supply_chain.py because no new dependency was vendored, matching Session 05/06's precedent, see reports/session-07-reconciliation.md"
+    },
+    {
+      "name": "kansoku:provenance-scope",
+      "value": "unsigned source/module inventory; release image signing and vulnerability scan remain Session 09/10; the claude.user_hook installer target this session declares has no signed-distribution story yet either, matching adapter-sdk manifest.yaml's external_protocol deferral and Session 06's identical codex.user_hook precedent"
+    }
+  ],
+  "serialNumber": "urn:uuid:2013a8ff-b52a-4a38-85ce-579e610bd6e9",
+  "specVersion": "1.6",
+  "version": 1
+}

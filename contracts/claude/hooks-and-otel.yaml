@@ -1,0 +1,76 @@
+{
+  "schema_version": "kansoku.claude-hooks-and-otel/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "hook_source": {
+    "source_id": "claude.hook",
+    "source_kind": "hook_http",
+    "supported_events": ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "SubagentStart", "SubagentStop", "Stop"],
+    "event_availability": "exact_event_availability_is_version_manifested_per_claude_code_release_missing_an_event_degrades_only_its_own_capability",
+    "route": "/v1/hooks/claude/{event}",
+    "route_reuse": "reuses_the_generic_hook_http_route_template_/v1/hooks/{adapter}/{event}_already_declared_in_contracts/observability/ingress.yaml_no_parallel_ingress_route_is_declared_here_and_this_route_never_collides_with_the_reserved_fixture-agent_adapter_path_segment",
+    "auth": "session02_loopback_bearer_reused_verbatim",
+    "documented_payload_surfaces": {
+      "source": "SOURCES.md_Anthropic_Claude_Code_hooks_reference_retrieved_2026-07-21_re-checked_2026-07-21",
+      "content_bearing_fields_present_upstream": ["transcript_path", "cwd", "prompt", "tool_input", "tool_response"],
+      "kansoku_treatment": "every_content_bearing_field_documented_above_is_stripped_unconditionally_at_the_hook_helper_boundary_before_any_http_send_flags_are_defense_in_depth_only_never_the_sole_control"
+    },
+    "helper_contract": {
+      "shape": "small_standalone_binary_or_script_installed_by_the_hook_installer_target",
+      "input": "reads_bounded_stdin_json_only",
+      "prompt_feature_computation": "prompt_features_are_computed_in_memory_for_prompt_events_the_raw_prompt_text_is_never_written_to_disk_or_sent",
+      "path_pseudonymization": "transcript_path_and_cwd_are_pseudonymized_via_the_same_device_scoped_hmac_construction_as_privacy.Lineage_before_leaving_the_helper_process_the_raw_path_is_never_sent_or_stored",
+      "allowlisted_fields": ["session_id", "turn_id", "model_id", "tool_id", "tool_status", "timing_ms", "surface_id", "installation_id"],
+      "transport": "sends_to_http://127.0.0.1:<ingest_port>/v1/hooks/claude/<event>_with_the_local_loopback_bearer_secret",
+      "timeout": "short_bounded_timeout_the_helper_never_blocks_claude_code_if_kansoku_is_unreachable",
+      "spool": "unreachable_ingest_spools_only_already_sanitized_events_to_a_bounded_0600_file_reusing_contracts/observability/ingress.yaml_limits.max_spool_bytes_and_spool_mode",
+      "output": "emits_protocol_correct_neutral_output_expected_by_the_claude_code_hook_contract"
+    },
+    "hook_installer_target": {
+      "id": "claude.user_hook",
+      "agent_id": "claude",
+      "config_locator_kind": "claude_user_settings",
+      "format": "json",
+      "ownership": "plan_owned_hook_entries_only",
+      "forbidden_keys": ["remote_command", "raw_payload_log", "credential_forwarding", "project_local_hook"],
+      "default_scope": "user_level_only_project_local_claude_settings_are_never_modified_unless_the_user_explicitly_selects_that_scope",
+      "new_target_note": "this_is_a_new_installer_target_appended_to_contracts/privacy/installer.yaml_targets_alongside_the_pre-existing_claude.user_otel_entry_it_does_not_edit_or_redefine_claude.user_otel"
+    },
+    "trust_and_enabled_state": {
+      "audited": true,
+      "bypass_forbidden": "kansoku_never_bypasses_or_silently_repairs_claude_code_hook_trust_or_enabled_state_it_only_audits_and_surfaces_remediation",
+      "remediation_only": "an_untrusted_or_disabled_hook_opens_a_degraded_capability_incident_with_a_remediation_pointer_never_a_silent_repair"
+    }
+  },
+  "otel_source": {
+    "source_id": "claude.otel",
+    "source_kind": "otlp_log_span_metric",
+    "installer_target_reuse": "claude.user_otel_target_already_declared_in_contracts/privacy/installer.yaml_targets_reused_verbatim_endpoint_http://127.0.0.1:4318_env.CLAUDE_CODE_ENABLE_TELEMETRY=1_env.OTEL_LOG_USER_PROMPTS=0_env.OTEL_LOG_ASSISTANT_RESPONSES=0_env.OTEL_LOG_TOOL_DETAILS=0_env.OTEL_LOG_TOOL_CONTENT=0_env.OTEL_LOG_RAW_API_BODIES=0_internal/installer/protocol.go_BuildClaudePlan_already_wired_to_exactly_this_target_and_reused_verbatim_never_redefined_or_renamed",
+    "no_second_otel_target": "hooks-and-otel.yaml_declares_no_new_otel_installer_target_it_only_maps_documented_claude_code_otel_events_onto_the_existing_target",
+    "documented_attributes": {
+      "source": "SOURCES.md_Anthropic_Claude_Code_monitoring_reference_retrieved_2026-07-21_re-checked_2026-07-21",
+      "identity_and_component": ["skill.name", "plugin.name", "agent.name"],
+      "activity": ["session.id", "model", "tool_name", "tool_status"],
+      "cost_and_tokens": ["token.usage", "cost.usd"],
+      "detailed_gates_may_expose": ["prompt_text", "assistant_response_text", "tool_input", "tool_output", "raw_api_bodies"]
+    },
+    "otlp_safe_attributes_reuse": "reuses_contracts/observability/ingress.yaml_otlp_safe_attributes_allowlist_verbatim_no_claude_specific_attribute_bypasses_it_skill.name_plugin.name_and_agent.name_are_mapped_onto_the_existing_kansoku.tool.id_and_kansoku.session.id_shaped_allowlist_slots_never_a_new_raw_attribute_passthrough",
+    "dropped_surfaces": ["log.body", "span.name", "span.events", "span.links", "metric.description", "tool_payload", "output_snippet", "prompt_text", "assistant_response_text", "raw_api_body"],
+    "unconditional_strip_rule": "claude_documented_detailed_telemetry_settings_env.OTEL_LOG_USER_PROMPTS_env.OTEL_LOG_ASSISTANT_RESPONSES_env.OTEL_LOG_TOOL_DETAILS_env.OTEL_LOG_TOOL_CONTENT_env.OTEL_LOG_RAW_API_BODIES_may_be_enabled_upstream_by_a_user_outside_kansoku_control_ingress_strips_prompt_text_assistant_response_text_tool_input_tool_output_and_raw_api_bodies_regardless_of_what_those_settings_report_this_is_stricter_than_the_flags_alone_and_is_the_actual_trust_boundary",
+    "log_user_prompt": false
+  },
+  "source_event_mapping": [
+    {"source_event": "SessionStart", "source_kind": "hook_http", "canonical_event_type": "session.started", "tier": "native"},
+    {"source_event": "claude_code.session.started", "source_kind": "otlp_log_span_metric", "canonical_event_type": "session.started", "tier": "native"},
+    {"source_event": "UserPromptSubmit", "source_kind": "hook_http", "canonical_event_type": "prompt.submitted", "tier": "native"},
+    {"source_event": "claude_code.user_prompt", "source_kind": "otlp_log_span_metric", "canonical_event_type": "prompt.submitted", "tier": "native"},
+    {"source_event": "PreToolUse", "source_kind": "hook_http", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "PostToolUse", "source_kind": "hook_http", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "claude_code.tool_result", "source_kind": "otlp_log_span_metric", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "claude_code.api_request", "source_kind": "otlp_log_span_metric", "canonical_event_type": "model.responded", "tier": "native"},
+    {"source_event": "SubagentStart", "source_kind": "hook_http", "canonical_event_type": "subagent.started", "tier": "native"},
+    {"source_event": "SubagentStop", "source_kind": "hook_http", "canonical_event_type": "subagent.completed", "tier": "native"},
+    {"source_event": "Stop", "source_kind": "hook_http", "canonical_event_type": "session.stopped", "tier": "native"}
+  ],
+  "independent_capability_degradation": "claude.hook_and_claude.otel_and_claude.transcript_are_independently_capability_scoped_disabling_or_breaking_one_source_degrades_only_the_capability_ids_that_source_backs_it_never_zeroes_out_the_other_sources_evidence"
+}

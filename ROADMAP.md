@@ -12,7 +12,8 @@
 | 04 | Data platform and analytics | PostgreSQL schema, partitions, rollups, quantiles и query budgets | Replay даёт точные агрегаты и укладывается в performance budget |
 | 05 | Adapter SDK and inventory | Capability model, discovery, versioning, plugin API и inventory graph | Dummy third-party adapter работает без изменения core |
 | 06 | Codex adapter | Hooks, OTel, sessions, skills/plugins/MCP inventory и reconciliation | Поддерживаемый Codex canary даёт полную ожидаемую цепочку или incident |
-| 07 | Claude, Gemini and next agents | Claude + Gemini adapters, Cursor probe и portability validation | Два разных telemetry models нормализуются без agent-specific core schema |
+| 07 | Claude adapter and next-agent portability proof | Claude adapter, второй fixture-agent, cross-agent conformance (Codex + Claude) | Claude данные сосуществуют с Codex в одной canonical model без agent-specific core schema |
+| 07b | Gemini and Cursor | Gemini adapter, Cursor probe, обновлённая portability validation на три реальных источника | Gemini/Cursor нормализуются без agent-specific core schema; Cursor остаётся Experimental |
 | 08 | Integrity and drift detection | Daily audit, schema drift, watermarks, canaries и health scoring | Намеренная поломка каждого source обнаруживается в пределах SLO |
 | 09 | Local runtime and backend | API, Docker Compose, scheduler, backup/restore и resource controls | 7-day soak переживает restarts без silent loss и duplicate inflation |
 | 10 | Dashboard, hardening and release | Полный UX, accessibility, review, packaging и evolution loop | Privacy/reliability/performance gates зелёные; fresh install воспроизводим |
@@ -60,17 +61,33 @@
   route verbatim, adding only a new `codex.user_hook` target. ADR 0009 records the sequential
   checkpointed build order and lists live-CLI canary evidence and CLI surface as explicit
   downstream gaps.
-- **07 — next:** Claude, Gemini and next agents (dual-adapter portability without agent-specific
-  core schema).
+- **07 — complete (2026-07-23):** closed manifest/hooks-and-otel/transcript-and-inventory/
+  skill-evidence-and-reconciliation registries under `contracts/claude/` and a typed
+  `internal/claudeadapter` package deliver the second real `internal/adaptersdk` registration —
+  Claude Code — with zero new agent-name branch inside `internal/adaptersdk` itself. `claude.hook`'s
+  seven-event vocabulary and `claude.otel` (reusing the existing `claude.user_otel` installer target
+  verbatim) unconditionally strip prompt/tool/response/raw-body content regardless of upstream
+  `OTEL_LOG_*` settings, and the seven-tier skill-evidence model never promotes inferred or
+  ambiguous-ownership evidence to a native exact activation. A second, differently-shaped fictional
+  fixture-agent ("Wayfinder", `contracts/cross-agent/`) and a Codex+Claude cross-agent invariant test
+  (`internal/crossagent`) prove the SDK needs no core change for either a second real adapter or a
+  second synthetic agent. Session scope was narrowed from the original Claude+Gemini+Cursor grouping:
+  Gemini and the Cursor probe are deferred to a new **Session 07b**, so Claude adapter evidence lands
+  sooner without waiting on two more agents. ADR 0010 records the scope-narrowing rationale and lists
+  the missing `claude.transcript` JSONL importer, live-CLI canary evidence and nil `Audit` as explicit
+  downstream gaps.
+- **07b — next:** Gemini adapter and Cursor probe (deferred from the original Session 07 scope). 07b
+  keeps the original TDD/proposal 07 content for Gemini/Cursor and does not change Sessions 08-10
+  numbering.
 
 ## Dependency graph
 
 ```text
-01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10
+01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 07b -> 08 -> 09 -> 10
                    \-----------------------> analytics/UI fixtures
 ```
 
-Sessions 06 и 07 могут делить parser fixtures, но не должны идти параллельно до стабилизации
+Sessions 06, 07 and 07b могут делить parser fixtures, но не должны идти параллельно до стабилизации
 Adapter SDK в Session 05. Frontend spikes допустимы раньше, однако production UI строится только
 после фиксации semantics и completeness states.
 

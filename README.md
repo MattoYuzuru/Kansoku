@@ -41,7 +41,31 @@ fixture project (`kansoku-canary-skill` + local echo MCP) проходит ож�
 Experimental: публичный Supported/Beta по-прежнему требует version-bounded live evidence и два
 независимых human review.
 
-Проект по-прежнему строится десятью последовательными сессиями, каждая из которых имеет продуктовый
+Session 07 / фаза 007 выполнена 2026-07-23 (**Claude-only scope** — Gemini CLI и Cursor probe из
+исходного объединённого TDD/proposal 07 вынесены в отдельную **Session 07b** и в этой сессии не
+затрагиваются): закрытые manifest/hooks-and-otel/transcript-and-inventory/skill-evidence-and-
+reconciliation registries под `contracts/claude/` и Go-пакет `internal/claudeadapter` формализуют
+второй реальный `internal/adaptersdk`-адаптер — Claude Code — с нулевым новым agent-name branch
+внутри самого `internal/adaptersdk`. `claude.hook` реализует закрытый семикомпонентный event
+vocabulary с path-псевдонимизацией и unconditional-strip правилом; `claude.otel` переиспользует
+существующий `claude.user_otel` installer target из Session 02 verbatim и безусловно отбрасывает
+`log.body`/`tool_payload`/`prompt_text`/`assistant_response_text`/`raw_api_body` независимо от
+значений `OTEL_LOG_*` переменных, документированных как пользовательские переключатели. Hook ingress
+использует тот же общий `/v1/hooks/{adapter}/{event}` route из Session 03, добавляя только новый
+`claude` dispatch case рядом с уже существующими `fixture-agent`/`codex`. Семиуровневая
+skill-evidence модель никогда не повышает `semantic_opportunity_classifier` выше `inferred` и не
+разрешает ambiguous ownership повышать до `component.invoked`. Второй, по-другому устроенный
+fictional fixture-agent ("Wayfinder", `contracts/cross-agent/`) и cross-agent invariant test
+(`internal/crossagent`, единый логический сценарий `session -> prompt metadata -> skill activation
+-> MCP tool call -> model tokens -> success` для Codex и Claude) доказывают, что SDK не требует
+core-изменений ни для второго реального адаптера, ни для второго synthetic агента. Automated
+Session 01–07 gates проходят; Claude остаётся Experimental — публичный Supported/Beta по-прежнему
+требует version-bounded live evidence и два независимых human review. Известные пробелы (нет Go
+JSONL importer для `claude.transcript`, нет live-CLI canary, `Audit` возвращает nil, `claude.user_hook`
+без filesystem writer) зафиксированы в `reports/session-07-reconciliation.md`.
+
+Проект по-прежнему строится десятью последовательными сессиями (плюс Session 07b), каждая из которых
+имеет продуктовый
 proposal и парный technical design document. Переход к следующей сессии допускается только после
 выполнения exit gate предыдущей.
 
@@ -90,6 +114,12 @@ proposal и парный technical design document. Переход к следу
   four-source reconciliation/skill-evidence evidence, canary fixture chain и явные downstream-gaps.
 - [Codex adapter ADR](adr/0009-session-06-codex-adapter.md) — sequential checkpointed build order,
   installer/ingress/sanitizer reuse decisions и rejected alternatives.
+- [Session 07 reconciliation](reports/session-07-reconciliation.md) — Claude adapter (Claude-only
+  scope) exit gate, second fixture-agent ("Wayfinder") и Codex+Claude cross-agent invariant evidence,
+  явные downstream-gaps и explicit Gemini/Cursor scope exclusion (Session 07b).
+- [Claude adapter and portability proof ADR](adr/0010-session-07-claude-adapter-and-portability-proof.md)
+  — sequential checkpointed build order, Claude-only scope narrowing rationale, installer/ingress/
+  sanitizer reuse decisions и rejected alternatives.
 
 ## Принятый технологический baseline
 

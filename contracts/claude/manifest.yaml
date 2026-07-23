@@ -1,0 +1,81 @@
+{
+  "schema_version": "kansoku.claude-manifest/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "adapter_id": "claude",
+  "adapter_id_naming": "adapter_id_is_the_stable_lowercase_hyphenated_identifier_registered_once_through_adaptersdk.Registry.Register_never_a_branch_inside_adaptersdk_core",
+  "manifest_api_version": "kansoku.adapter/v1",
+  "execution_form": "builtin",
+  "network_grade": "loopback_only",
+  "reused_parse_limits": {
+    "source": "internal/adaptersdk_MaxManifestConfigEntries_MaxManifestConfigDepth_MaxManifestConfigString",
+    "max_config_entries": 256,
+    "max_config_depth": 8,
+    "max_config_string": 4096,
+    "code_execution": "forbidden_claude_manifests_hooks_settings_plugin_and_transcript_records_are_data_only_parsed_with_a_generic_bounded_decoder_never_evaluated_or_executed"
+  },
+  "installation_discovery": {
+    "steps": [
+      "resolve_executable_on_path_and_run_claude_--version_without_login_or_auth_output",
+      "resolve_state_root_from_documented_config_locations_user_settings_project_settings_and_managed_settings_before_falling_back_to_the_documented_default_state_root_never_CLAUDE_HOME_which_claude_code_does_not_document",
+      "detect_cli_ide_extension_or_app_surface_where_observable_without_merging_installations_solely_by_shared_state_root",
+      "fingerprint_active_settings_layers_hooks_plugins_and_skill_manifests_without_recording_their_values",
+      "record_supported_version_match_against_the_compatibility_registry_and_the_adapter_recipe_version"
+    ],
+    "never_speculative_home_scan": "documented_claude_config_locations_are_resolved_first_the_adapter_never_scans_an_entire_home_directory",
+    "file_read_bounds": "every_file_read_is_size_and_depth_bounded_and_every_symlink_target_is_validated_against_an_already_allowed_root_via_adaptersdk.HostView",
+    "installation_merge_rule": "two_candidates_sharing_a_state_root_but_differing_surface_or_detection_method_remain_distinct_installation_candidates",
+    "settings_precedence_reused": "reuses_contracts/privacy/installer.yaml_claude.user_otel_precedence_checks_verbatim_managed_settings_command_line_local_settings_project_settings_user_settings_process_environment_effective_override"
+  },
+  "agent_detection": {
+    "executables": ["claude"],
+    "state_root_env_var": "none_documented_claude_code_resolves_state_from_config_file_locations_not_a_dedicated_home_env_var",
+    "documented_config_roots": ["claude_user_settings", "claude_project_settings", "claude_managed_settings"],
+    "surfaces": ["cli", "ide_extension", "app"]
+  },
+  "permissions": {
+    "filesystem_read": ["claude_user_settings", "claude_project_settings_when_explicitly_selected", "claude_managed_settings", "claude_plugin_and_marketplace_cache", "claude_local_session_transcript_directory"],
+    "network": "loopback_only",
+    "process_exec": ["claude_version_probe"]
+  },
+  "compatibility_registry_fields_reused": "manifest.yaml_compatibility_registry_fields_from_contracts/adapter-sdk/manifest.yaml_agent_id_agent_version_range_source_schema_fingerprints_fixture_coverage_last_passive_audit_at_last_live_audit_at_known_gaps_setup_recipe_version",
+  "unknown_agent_version_policy": "reused_verbatim_from_adapter-sdk.manifest_an_agent_version_outside_every_declared_compatibility_range_defaults_to_degraded_even_if_parsing_appears_to_succeed",
+  "documented_version_gates": {
+    "source": "SOURCES.md_Anthropic_Claude_Code_section_retrieved_2026-07-21_re-checked_2026-07-21",
+    "notes": [
+      "2.1.214_gates_correlation_tool_source_and_content_limit_behavior_and_fixes_progressive_usage_counting",
+      "2.1.216_changes_prometheus_unit_compatibility_and_permission_decision_classifications",
+      "2.1.193_or_later_required_for_independently_gated_assistant_response_text_which_kansoku_never_enables_or_reads_regardless"
+    ],
+    "locally_observed_runtime": "2.1.197_not_fixture_verified_documentation_coverage_and_locally_verified_runtime_coverage_are_recorded_separately_neither_alone_is_a_support_claim"
+  },
+  "sources": ["claude.hook", "claude.otel", "claude.transcript", "claude.inventory"],
+  "capability_ids": [
+    "discovery.agent_and_surface",
+    "inventory.components",
+    "activity.sessions",
+    "activity.prompt_metadata",
+    "activity.token_model_cost",
+    "components.skill_invocation",
+    "components.plugin_and_custom_command",
+    "components.mcp_lifecycle",
+    "components.builtin_tool_calls_and_approvals",
+    "components.subagents_and_compaction",
+    "ingestion.historical_import",
+    "ingestion.live_stream",
+    "configuration.install",
+    "configuration.live_canary"
+  ],
+  "capability_ids_source": "reused_verbatim_from_contracts/adapter-sdk/capabilities.yaml_capability_ids_no_claude_specific_capability_id_is_invented",
+  "installer_target_reuse": {
+    "otel": "claude.user_otel_target_already_declared_in_contracts/privacy/installer.yaml_targets_reused_verbatim_never_redefined_or_renamed_internal/installer/protocol.go_BuildClaudePlan_wired_to_exactly_this_target_is_reused_verbatim",
+    "hook": "a_new_hook_installer_target_is_declared_in_hooks-and-otel.yaml_hook_installer_target_because_installer.yaml_declares_no_claude_hook_target_yet",
+    "project_local_scope": "never_selected_by_default_the_default_change_plan_targets_user_level_config_only_project_local_claude_config_is_touched_only_on_explicit_user_scope_selection"
+  },
+  "hook_ingress_reuse": {
+    "route_template": "reused_verbatim_from_contracts/observability/ingress.yaml_hook_http_protocol_route_/v1/hooks/{adapter}/{event}",
+    "adapter_path_segment": "claude",
+    "auth": "session02_loopback_bearer_reused_verbatim_no_second_auth_mechanism",
+    "no_parallel_route": "internal/observability/routes.go_wires_claude_hook_events_through_the_existing_generic_hook_http_mux_adding_only_a_new_case_alongside_fixture-agent_and_codex_never_a_second_ingress_mechanism_and_never_reusing_or_colliding_with_the_fixture-agent_literal_adapter_id"
+  }
+}

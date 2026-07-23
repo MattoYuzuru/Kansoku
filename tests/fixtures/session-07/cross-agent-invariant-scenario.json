@@ -1,0 +1,76 @@
+{
+  "schema_version": "kansoku.cross-agent-invariant-scenario-fixture/1",
+  "purpose": "one_logical_scenario_session_prompt_metadata_skill_activation_mcp_tool_call_model_tokens_success_expressed_once_per_agent_with_agent-specific_input_shapes_asserted_only_against_shared_capability_ids_and_canonical_event_types",
+  "scenario_stage_to_capability_mapping": [
+    {"stage": "session", "capability_id": "activity.sessions", "canonical_event_type": "session.started"},
+    {"stage": "prompt_metadata", "capability_id": "activity.prompt_metadata", "canonical_event_type": "prompt.submitted"},
+    {"stage": "skill_activation", "capability_id": "components.skill_invocation", "canonical_event_type": "component.invoked"},
+    {"stage": "mcp_tool_call", "capability_id": "components.mcp_lifecycle", "canonical_event_type": "tool.called"},
+    {"stage": "model_tokens", "capability_id": "activity.token_model_cost", "canonical_event_type": "model.responded"},
+    {"stage": "success", "capability_id": "activity.sessions", "canonical_event_type": "session.stopped"}
+  ],
+  "codex": {
+    "session_id": "codex-rollout-8d2f9b6c-6c2b-4e3a-9d59-1a2b3c4d5e6f",
+    "hook_events": [
+      {"hook_event_name": "SessionStart", "session_id": "codex-rollout-8d2f9b6c-6c2b-4e3a-9d59-1a2b3c4d5e6f", "expected_canonical_event_type": "session.started"},
+      {"hook_event_name": "UserPromptSubmit", "session_id": "codex-rollout-8d2f9b6c-6c2b-4e3a-9d59-1a2b3c4d5e6f", "expected_canonical_event_type": "prompt.submitted"},
+      {"hook_event_name": "PreToolUse", "session_id": "codex-rollout-8d2f9b6c-6c2b-4e3a-9d59-1a2b3c4d5e6f", "tool_id": "mcp__filesystem__read_file", "expected_canonical_event_type": "tool.called"},
+      {"hook_event_name": "PostToolUse", "session_id": "codex-rollout-8d2f9b6c-6c2b-4e3a-9d59-1a2b3c4d5e6f", "tool_id": "mcp__filesystem__read_file", "tool_status": "succeeded", "expected_canonical_event_type": "tool.called"},
+      {"hook_event_name": "Stop", "session_id": "codex-rollout-8d2f9b6c-6c2b-4e3a-9d59-1a2b3c4d5e6f", "expected_canonical_event_type": "session.stopped"}
+    ],
+    "skill_activation_evidence": {
+      "kind": "explicit_user_invocation",
+      "candidate_skill_identities": ["code-reviewer"],
+      "source_labels_native": false,
+      "expected_canonical_event_type": "component.invoked",
+      "expected_tier": "reconstructed"
+    },
+    "mcp_tool_call": {
+      "server_name": "filesystem",
+      "tool_name": "read_file",
+      "advertised": true
+    },
+    "model_tokens": {
+      "otel_event_name": "codex.model_token_usage",
+      "documented": true,
+      "expect_unmapped": true,
+      "note": "codex.model_token_usage/codex.api_request are documented but not yet in codex's active canonical mapping table; activity.token_model_cost renders degraded/unsupported for this fixture, never a fabricated model.responded event"
+    },
+    "extra_agent_specific_event": {
+      "field": "rollout_file_id",
+      "note": "codex's own extra identity evidence (rollout checkpoint file identity) is not part of the shared scenario mapping table"
+    }
+  },
+  "claude": {
+    "session_id": "clh-9f3a7d21",
+    "hook_events": [
+      {"hook_event_name": "SessionStart", "session_id": "clh-9f3a7d21", "expected_canonical_event_type": "session.started"},
+      {"hook_event_name": "UserPromptSubmit", "session_id": "clh-9f3a7d21", "expected_canonical_event_type": "prompt.submitted"},
+      {"hook_event_name": "PreToolUse", "session_id": "clh-9f3a7d21", "tool_id": "mcp__filesystem__read_file", "expected_canonical_event_type": "tool.called"},
+      {"hook_event_name": "PostToolUse", "session_id": "clh-9f3a7d21", "tool_id": "mcp__filesystem__read_file", "tool_status": "succeeded", "expected_canonical_event_type": "tool.called"},
+      {"hook_event_name": "Stop", "session_id": "clh-9f3a7d21", "expected_canonical_event_type": "session.stopped"}
+    ],
+    "skill_activation_evidence": {
+      "kind": "skill_tool_call_explicit",
+      "candidate_skill_identities": ["code-reviewer"],
+      "mode_known": true,
+      "expected_canonical_event_type": "component.invoked",
+      "expected_tier": "native"
+    },
+    "mcp_tool_call": {
+      "server_name": "filesystem",
+      "tool_name": "read_file",
+      "advertised": true
+    },
+    "model_tokens": {
+      "otel_event_name": "claude_code.api_request",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id"],
+      "expected_canonical_event_type": "model.responded"
+    },
+    "extra_agent_specific_event": {
+      "field": "plugin.name",
+      "value": "code-review-toolkit",
+      "note": "claude's own extra identity evidence (plugin.name OTel attribution) must survive only as an allowlisted namespaced attribute (mapped onto the existing kansoku.tool.id safe slot), never as a new core canonical-table column"
+    }
+  }
+}

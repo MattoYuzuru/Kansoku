@@ -13,6 +13,7 @@ python3 scripts/validate_observability.py
 python3 scripts/validate_data_platform.py
 python3 scripts/validate_adapter_sdk.py
 python3 scripts/validate_codex.py
+python3 scripts/validate_claude.py
 python3 -m unittest discover -s tests -v
 python3 scripts/run_go_tests.py
 python3 scripts/run_privacy_canary.py
@@ -110,3 +111,33 @@ activation. `scripts/validate_codex.py` cross-checks `internal/observability`'s 
 registration and its fixtures against these registries. ADR 0009 records the sequential checkpointed
 build order this session used and lists the concrete evidence, canary and CLI gaps this stage leaves
 open.
+
+Session 07 adds four closed registries under `contracts/claude/`: adapter manifest/discovery, hooks-
+and-OTel source mapping, transcript-and-inventory, and skill-evidence-and-reconciliation, locked by
+`contracts/claude-policy-locks.yaml` following the identical append-only structure
+`contracts/codex-policy-locks.yaml` established. It also adds two closed registries under
+`contracts/cross-agent/` — a second, differently-shaped fictional fixture-agent ("Wayfinder": no OTel
+source, a "recipe" component vocabulary, non-UUID session identifiers, an unsupported token capability
+and one deliberately unknown event schema) and the Codex+Claude cross-agent invariant scenario — locked
+by `contracts/cross-agent-policy-locks.yaml`. Claude is the second real `internal/adaptersdk`
+registration: it reuses the existing `claude.user_otel` installer target from
+`contracts/privacy/installer.yaml` and `internal/installer/protocol.go`'s existing `BuildClaudePlan`
+verbatim rather than redefining either, adds only a new `claude.user_hook` installer target for the
+observer hook, and routes every Claude hook event through the already-generic
+`/v1/hooks/{adapter}/{event}` ingress declared in `contracts/observability/ingress.yaml` by adding a new
+`internal/observability/routes.go` dispatch case alongside the existing `fixture-agent` and `codex`
+cases, never a parallel ingress mechanism and never colliding with the reserved `fixture-agent` literal
+adapter id. Independent exact invariants prevent a coherent lock edit from weakening the hook trust/
+enabled-state audit-only rule, the never-scan-the-home-directory and no-code-execution discovery safety
+rules carried over from Session 05, the requirement that every source (`claude.hook`, `claude.otel`,
+`claude.transcript`, `claude.inventory`) fail visibly and independently rather than reporting a silent
+zero, the prohibition on ever representing inferred or reconstructed-tier Claude skill evidence as a
+native exact activation, or the unconditional-strip rule that rejects prompt text, assistant response
+text, tool input/output/parameters, transcript paths and raw API bodies before any durable write even
+when Claude's documented detailed telemetry settings are enabled upstream. Gemini CLI and the Cursor
+probe from the original TDD/proposal 07 grouping are explicitly out of scope for Session 07 and are
+deferred to Session 07b; `contracts/cross-agent/` carries no Gemini or Cursor material of any kind yet.
+`scripts/validate_claude.py` cross-checks `internal/observability`'s Claude adapter registration and its
+fixtures against these registries. ADR 0010 records the sequential checkpointed build order this session
+used, the scope narrowing that deferred Gemini/Cursor to Session 07b, and lists the concrete evidence,
+canary and CLI gaps this stage leaves open.

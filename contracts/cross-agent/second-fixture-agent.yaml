@@ -1,0 +1,32 @@
+{
+  "schema_version": "kansoku.cross-agent-second-fixture-agent/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "purpose": "prove_a_second_time_independently_of_loomwright_session_05_and_independently_of_the_reserved_session_03_conformance_identity_fixture-agent_that_internal/adaptersdk_core_needs_zero_new_agent-name_branch_to_host_a_differently_shaped_third_fictional_agent",
+  "adapter_id": "wayfinder",
+  "adapter_id_distinctness": "wayfinder_shares_no_substring_with_codex_claude_gemini_cursor_loomwright_or_the_reserved_fixture-agent_literal_and_must_never_be_confused_with_or_reuse_the_fixture-agent_adapter_id_which_remains_load-bearing_for_session_03_otlp/hook_conformance_tests",
+  "shape_deliberately_unlike_loomwright_and_real_adapters": {
+    "no_otel": "wayfinder_declares_zero_otlp_source_only_a_versioned_local_event_file_this_is_the_opposite_extreme_from_codex/claude_which_both_have_an_otel_source",
+    "component_vocabulary": "wayfinder_calls_its_skill-equivalent_component_a_recipe_never_skill_thread_or_any_real-agent_term",
+    "session_identifiers": "wayfinder_session_identifiers_are_non-uuid_monotonic_ulid-free_sequence_strings_of_the_form_wf-session-<n>_proving_the_canonical_model_does_not_assume_a_uuid_shape",
+    "missing_token_capability": "wayfinder_manifest_declares_activity.token_model_cost_as_unsupported_never_populated_with_a_placeholder_zero",
+    "one_deliberately_unknown_schema": "wayfinder_emits_exactly_one_event_type_recipe.mystery_that_matches_no_entry_in_its_own_declared_source_schema_and_must_be_quarantined_as_an_unknown-schema_incident_never_silently_dropped_or_guessed_into_a_known_canonical_type"
+  },
+  "source": {
+    "source_id": "wayfinder.eventfile",
+    "source_kind": "transcript_jsonl",
+    "route_reuse": "reuses_contracts/observability/ingress.yaml_transcript_jsonl_protocol_verbatim_no_new_file_ingestion_mechanism",
+    "state_root_env_var": "WAYFINDER_HOME",
+    "never_speculative_home_scan": "WAYFINDER_HOME_is_resolved_first_the_adapter_never_scans_an_entire_home_directory_reusing_contracts/adapter-sdk/discovery-and-plans.yaml_discovery_safety_rules_verbatim"
+  },
+  "event_vocabulary": ["path.opened", "recipe.consulted", "recipe.mystery", "path.closed"],
+  "event_vocabulary_note": "recipe.mystery_is_the_one_deliberately_unknown_schema_event_it_is_intentionally_absent_from_source_schema.event_types_so_ingestion_must_quarantine_it",
+  "capability_ids_reused": "capability_ids_used_by_wayfinders_manifest_are_drawn_only_from_contracts/adapter-sdk/capabilities.yaml_closed_capability_ids_list_verbatim_no_wayfinder-specific_capability_id_is_invented",
+  "required_conformance_checks": [
+    "register_wayfinder_through_the_same_adaptersdk.Registry.Register_mechanism_as_loomwright_and_codex_and_claude_with_zero_new_if_agentID_branch_inside_internal/adaptersdk",
+    "discover_inventory_normalize_reconcile_and_audit_succeed_through_the_public_adaptersdk.Adapter_interface_only",
+    "missing_token_capability_renders_as_unsupported_in_capability_state_never_as_a_zero_metric",
+    "the_recipe.mystery_event_is_quarantined_as_an_unknown_schema_incident_with_raw_bytes_durable_false",
+    "non-uuid_session_identifiers_round-trip_through_canonical_session_correlation_without_any_uuid-shape_assumption_in_core_code"
+  ]
+}

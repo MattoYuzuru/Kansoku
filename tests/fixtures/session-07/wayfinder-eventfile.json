@@ -1,0 +1,21 @@
+{
+  "schema_version": "wayfinder.eventfile/1",
+  "purpose": "conformance-only fixture for the second Session 07 fictional fixture-agent (\"wayfinder\"), proving internal/adaptersdk needs zero new agent-name branch for a third, differently-shaped fictional agent whose only source is a versioned local event file (no OTel at all), whose component kind is \"recipe\", whose session identifiers are non-UUID short sequence tokens, and whose fixture data includes exactly one deliberately unknown event schema (\"recipe.mystery\") that must be quarantined rather than crash the batch or be silently dropped.",
+  "adapter_id": "wayfinder",
+  "discovery": {
+    "allowed_roots": ["$WAYFINDER_HOME"],
+    "paths_subpath": "paths",
+    "expected_candidate_count": 1,
+    "expected_detection_method": "documented_env_var"
+  },
+  "session_id": "wf-session-1",
+  "events": [
+    {"event_id": "wf-evt-1", "session_id": "wf-session-1", "sequence": 1, "event_type": "path.opened", "outcome": "succeeded"},
+    {"event_id": "wf-evt-2", "session_id": "wf-session-1", "sequence": 2, "event_type": "recipe.consulted", "outcome": "succeeded", "recipe_name": "brew-tea"},
+    {"event_id": "wf-evt-3", "session_id": "wf-session-1", "sequence": 3, "event_type": "recipe.mystery", "outcome": "succeeded"},
+    {"event_id": "wf-evt-4", "session_id": "wf-session-1", "sequence": 4, "event_type": "path.closed", "outcome": "succeeded"}
+  ],
+  "unknown_schema_event_type": "recipe.mystery",
+  "unknown_schema_event_id": "wf-evt-3",
+  "unsupported_capability": "activity.token_model_cost"
+}

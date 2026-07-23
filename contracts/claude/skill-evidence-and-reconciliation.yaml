@@ -1,0 +1,71 @@
+{
+  "schema_version": "kansoku.claude-skill-evidence-and-reconciliation/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "skill_evidence_model": {
+    "evidence_tiers_reused_from": "contracts/observability/lifecycles.yaml_evidence_tiers_verbatim_corroborated_native_reconstructed_inferred_no_new_tier_is_invented",
+    "evidence_kinds": [
+      {"kind": "skill_tool_call_explicit", "description": "a_native_Skill_tool_call_whose_own_transcript_or_hook_field_labels_it_explicit_user_invocation", "canonical_event_type": "component.invoked", "tier": "native"},
+      {"kind": "skill_tool_call_implicit", "description": "a_native_Skill_tool_call_whose_own_transcript_or_hook_field_labels_it_implicit_model_initiated_invocation", "canonical_event_type": "component.invoked", "tier": "native"},
+      {"kind": "otel_skill_name_attribution", "description": "documented_skill.name_otel_attribute_present_on_a_tool_or_model_span_matched_against_inventory", "canonical_event_type": "component.invoked", "tier": "native"},
+      {"kind": "skill_md_load_evidence", "description": "bounded_evidence_that_a_SKILL.md_file_was_loaded_or_read_when_observable", "canonical_event_type": "component.loaded", "tier": "reconstructed"},
+      {"kind": "plugin_or_mcp_declared_use", "description": "a_plugin_bundled_command_agent_or_mcp_tool_use_declared_in_a_structured_or_transcript_event", "canonical_event_type": "component.invoked", "tier": "reconstructed"},
+      {"kind": "uniquely_owned_helper_execution", "description": "execution_of_a_helper_or_mcp_dependency_uniquely_owned_by_one_skill_identity", "canonical_event_type": "component.executed", "tier": "reconstructed"},
+      {"kind": "semantic_opportunity_classifier", "description": "inferred_opportunity_that_a_skill_could_have_applied_never_promoted_to_actual_invocation", "canonical_event_type": "component.opportunity", "tier": "inferred"}
+    ],
+    "explicit_vs_implicit_mode_rule": "explicit_vs_implicit_mode_is_recorded_only_when_the_native_Skill_tool_call_input_or_hook_field_itself_distinguishes_the_two_an_absent_native_distinction_yields_component.invoked_with_mode_unknown_never_a_guessed_mode",
+    "no_false_exact_count": "the_dashboard_never_combines_these_evidence_kinds_into_a_single_false_exact_activation_count_it_displays_an_evidence_breakdown_by_tier_and_a_best_supported_lifecycle_stage",
+    "ambiguous_ownership_rule": "no_rule_converts_a_helper_or_mcp_call_into_component.invoked_evidence_when_ownership_across_multiple_candidate_skill_identity_plugin_or_subagent_nodes_is_ambiguous_it_remains_component.executed_with_plural_candidates",
+    "native_exact_activation_prohibition": "the_adapter_never_represents_component.opportunity_or_reconstructed_tier_evidence_as_a_component.invoked_native_exact_activation_this_is_the_session_06_exit_gate_invariant_carried_over_unchanged_for_claude_and_is_enforced_independently_of_dashboard_rendering",
+    "unsupported_rendering_rule": "a_capability_or_field_claude_code_does_not_document_or_expose_natively_renders_as_an_explicit_unsupported_state_never_a_zero_value_that_could_be_misread_as_observed_absence_of_use"
+  },
+  "source_to_canonical_mapping": [
+    {"source_evidence": "SessionStart_hook_or_otel_session_started_event", "canonical_event_type": "session.started", "tier": "native"},
+    {"source_evidence": "user_prompt_hook_or_otel_metadata", "canonical_event_type": "prompt.submitted", "tier": "native"},
+    {"source_evidence": "tool_pre_post_hook_or_otel_result", "canonical_event_type": "tool.called_plus_terminal", "tier": "native"},
+    {"source_evidence": "mcp_tool_name", "canonical_event_type": "tool.*_with_mcp_component_relation", "tier": "native"},
+    {"source_evidence": "Skill_tool_call_explicit_or_implicit_native_field", "canonical_event_type": "component.invoked", "tier": "native"},
+    {"source_evidence": "otel_skill.name_plugin.name_agent.name_attribution", "canonical_event_type": "component.invoked_or_subagent.started_per_attribute", "tier": "native"},
+    {"source_evidence": "bounded_skill_md_load_evidence", "canonical_event_type": "component.loaded", "tier": "reconstructed"},
+    {"source_evidence": "uniquely_owned_helper_call", "canonical_event_type": "component.executed", "tier": "reconstructed"},
+    {"source_evidence": "semantic_opportunity_classifier", "canonical_event_type": "component.opportunity", "tier": "inferred"}
+  ],
+  "reconciliation": {
+    "per_session_comparisons": [
+      "hook_prompt_events_vs_otel_prompt_events_vs_transcript_user_messages",
+      "hook_tool_terminal_events_vs_otel_results_vs_transcript_calls_and_outputs",
+      "session_start_stop_resume_vs_transcript_lifecycle",
+      "subagent_lifecycle_vs_parent_transcript_evidence",
+      "mcp_call_counts_vs_configured_and_advertised_tools",
+      "skill_transcript_calls_vs_skill_otel_attribution_vs_tool_hooks",
+      "plugin_ownership_vs_bundled_component_inventory",
+      "component_explicit_load_execute_evidence_compared_without_forcing_equality"
+    ],
+    "tolerance": "tolerance_for_batching_and_terminal_delay_is_versioned_per_compatibility_registry_entry_not_hardcoded",
+    "missing_source_rule": "missing_one_expected_source_marks_only_that_sources_own_capabilities_and_reconciliation_interval_degraded_it_never_silently_reports_zero_usage_for_the_whole_session",
+    "expected_lanes_reused_from": "contracts/observability/reconciliation.yaml_expected_lanes_shape_hook_http_otlp_transcript_jsonl_mapped_onto_claude.hook_claude.otel_claude.transcript",
+    "one_fact_rule_reused": "contracts/observability/reconciliation.yaml_one_fact_rule_logical_identity_is_lane_independent_each_lane_keeps_a_distinct_evidence_identity",
+    "cost_and_token_attribution": "token_and_cost_otel_attributes_are_attributed_to_a_skill_or_plugin_only_when_the_native_source_semantics_directly_support_that_attribution_a_documented_potential_double_attribution_case_multiple_concurrent_subagents_sharing_one_billed_call_is_retained_and_surfaced_rather_than_silently_divided_or_summed"
+  },
+  "required_tests": [
+    "sanitized_transcript_fixtures_for_each_declared_compatibility_version_and_event_variant",
+    "hook_and_otel_golden_maps",
+    "offset_rotation_truncation_replay_crash_importer_tests",
+    "skill_collision_and_ambiguous_ownership_tests",
+    "claude_settings_multi_surface_and_project_scope_inventory_layout_tests",
+    "configuration_concurrent_change_and_rollback_tests",
+    "cross_source_mismatch_and_inactive_source_logic_tests",
+    "prohibited_content_canaries_with_detailed_upstream_telemetry_enabled"
+  ],
+  "exit_gate": {
+    "compatibility_matrix_backed_by": "fixtures_required_at_minimum_live_evidence_recorded_separately_when_available_neither_a_fixture-only_result_nor_an_unfixtured_live_claim_alone_is_sufficient_for_a_production_label",
+    "independent_visible_degradation": "every_source_claude.hook_claude.otel_claude.transcript_claude.inventory_can_fail_visibly_and_independently_degrading_only_its_own_capability_ids_never_silently_reporting_plausible_looking_zero_usage",
+    "no_inferred_promoted_to_native": "the_adapter_never_represents_inferred_or_reconstructed_tier_claude_skill_use_as_a_native_exact_activation",
+    "unsupported_fields_render_as_unsupported": "a_field_or_capability_claude_code_does_not_document_or_expose_natively_renders_as_unsupported_never_as_a_misleading_zero",
+    "detailed_telemetry_stripped_unconditionally": "prompt_text_assistant_response_text_tool_input_tool_output_tool_parameters_transcript_path_and_raw_api_bodies_are_rejected_before_any_durable_write_even_when_the_upstream_agent_has_detailed_telemetry_settings_enabled",
+    "inventory_correct": true,
+    "raw_prompt_absent_from_every_durable_path": true,
+    "replay_idempotent": true,
+    "support_label_governance": "reused_verbatim_from_contracts/README.md_support_label_gate_a_capability_and_version_claim_never_a_brand_wide_claim_requiring_an_explicitly_parsed_and_ordered_capability_version_range_typed_evidence_receipts_and_two_independent_approved_human_review_receipts_bound_to_verified_fixture_bytes_claudes_exact_support_label_production_or_beta_is_backed_only_by_the_fixture_and_test_evidence_this_session_actually_produces_never_asserted_ahead_of_it"
+  }
+}

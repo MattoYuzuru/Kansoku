@@ -1,0 +1,8 @@
+{
+  "schema_version": "kansoku.cross-agent-policy-locks/1",
+  "effective_at": "2026-07-23",
+  "locks": [
+    {"policy_version": "cross-agent.second-fixture-agent/1", "registry": "contracts/cross-agent/second-fixture-agent.yaml", "semantic_sha256": "b30d40dc91bb1d277a0954d67802614792026af9051e60e05e3fcfff7a190ad4"},
+    {"policy_version": "cross-agent.invariant-scenario/1", "registry": "contracts/cross-agent/invariant-scenario.yaml", "semantic_sha256": "6610fc4bb1a843e5f7b68634a80382c386b819131b14154be7fb8c0c8d5d53e6"}
+  ]
+}

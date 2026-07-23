@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"kansoku.local/kansoku/internal/claudeadapter"
 	"kansoku.local/kansoku/internal/codexadapter"
 	"kansoku.local/kansoku/internal/localhttp"
 )
@@ -58,6 +59,8 @@ func hookAdapterHandler(writer http.ResponseWriter, request *http.Request, inges
 		fixtureAgentHookHandler(writer, request, ingestor)
 	case codexadapter.AdapterID:
 		codexHookHandler(writer, request, ingestor)
+	case claudeadapter.AdapterID:
+		claudeHookHandler(writer, request, ingestor)
 	default:
 		http.Error(writer, "unknown_hook_adapter", http.StatusNotFound)
 	}
@@ -114,6 +117,53 @@ func codexHookHandler(writer http.ResponseWriter, request *http.Request, ingesto
 		return
 	}
 	if err := codexadapter.ValidateHookOutputAllowlist(output); err != nil {
+		http.Error(writer, "hook_output_not_allowlisted", http.StatusInternalServerError)
+		return
+	}
+	raw, err := json.Marshal(output)
+	if err != nil {
+		http.Error(writer, "invalid_hook", http.StatusInternalServerError)
+		return
+	}
+	result, err := ingestor.IngestHook(raw, 0)
+	writeHookIngestResult(writer, result, err)
+}
+
+// claudeHookHandler serves every claude.hook event
+// contracts/claude/hooks-and-otel.yaml declares through this same generic
+// mux, never a parallel ingress mechanism and never colliding with the
+// reserved "fixture-agent" adapter path segment or with codex's own case. It
+// decodes stdin-shaped input with unknown-field rejection, computes prompt
+// features in memory only, pseudonymizes transcript_path/cwd with the same
+// device-scoped HMAC key the Ingestor already carries for identity
+// pseudonymization (internal/privacy's own trust boundary, not a second key
+// or mechanism), and re-validates the resulting output's field allowlist
+// before ever forwarding it to the Ingestor.
+func claudeHookHandler(writer http.ResponseWriter, request *http.Request, ingestor *Ingestor) {
+	event := claudeadapter.HookEvent(request.PathValue("event"))
+	input, err := claudeadapter.DecodeHookInput(io.LimitReader(request.Body, maxHookBodyBytes+1))
+	if err != nil {
+		if errors.Is(err, claudeadapter.ErrOversizedHookInput) {
+			http.Error(writer, "oversized_input", http.StatusRequestEntityTooLarge)
+			return
+		}
+		if errors.Is(err, claudeadapter.ErrUnsupportedHookEvent) {
+			http.Error(writer, "unsupported_hook_event", http.StatusBadRequest)
+			return
+		}
+		http.Error(writer, "invalid_hook", http.StatusBadRequest)
+		return
+	}
+	if input.Event != event {
+		http.Error(writer, "hook_event_path_mismatch", http.StatusBadRequest)
+		return
+	}
+	output, err := claudeadapter.BuildHookOutput(input, ingestor.identityKey, ingestor.now())
+	if err != nil {
+		http.Error(writer, "invalid_hook", http.StatusBadRequest)
+		return
+	}
+	if err := claudeadapter.ValidateHookOutputAllowlist(output); err != nil {
 		http.Error(writer, "hook_output_not_allowlisted", http.StatusInternalServerError)
 		return
 	}

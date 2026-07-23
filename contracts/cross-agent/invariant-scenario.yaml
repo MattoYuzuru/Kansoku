@@ -1,0 +1,25 @@
+{
+  "schema_version": "kansoku.cross-agent-invariant-scenario/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "purpose": "represent_one_logical_scenario_with_two_real_but_differently-shaped_source_vocabularies_codex_and_claude_and_assert_only_on_canonical_capabilities_never_on_agent_ids_reusing_the_generic_future-adapter-onboarding_and_cross-agent-invariant-tests_sections_of_TDD_07_adapted_to_the_two_agents_that_actually_exist_this_session_gemini_is_out_of_scope_and_deferred_to_session_07b",
+  "logical_scenario": "session -> prompt metadata -> skill activation -> MCP tool call -> model tokens -> success",
+  "scenario_stage_to_capability_mapping": [
+    {"stage": "session", "capability_id": "activity.sessions"},
+    {"stage": "prompt metadata", "capability_id": "activity.prompt_metadata"},
+    {"stage": "skill activation", "capability_id": "components.skill_invocation"},
+    {"stage": "MCP tool call", "capability_id": "components.mcp_lifecycle"},
+    {"stage": "model tokens", "capability_id": "activity.token_model_cost"},
+    {"stage": "success", "capability_id": "activity.sessions"}
+  ],
+  "participating_adapters": ["codex", "claude"],
+  "participating_adapters_note": "gemini_and_cursor_are_explicitly_excluded_from_this_scenario_in_this_session_contracts/cross-agent/*_carries_no_gemini_or_cursor_material_of_any_kind_that_material_is_deferred_to_a_separate_session_07b_contracts/gemini/_and_contracts/cursor/_registry_set_not_yet_created",
+  "assertion_rule": "every_assertion_in_the_cross-agent_invariant_test_binds_to_a_capability_id_and_canonical_event_type_pair_from_this_mapping_table_never_to_a_string_equality_check_against_codex_or_claude_as_an_agent_id_agent-specific_extra_events_beyond_this_mapping_survive_only_as_allowlisted_namespaced_attributes_or_evidence_and_require_no_core_table_change",
+  "agent_specific_vocabulary_examples_expected_to_differ": {
+    "codex": {"skill_activation_source": "codex.rollout_transcript_or_codex.otel_skill_attribution_no_dedicated_native_skill-activation_event_is_guaranteed", "session_identifier_shape": "codex_rollout_session_id"},
+    "claude": {"skill_activation_source": "native_Skill_tool_call_in_claude.transcript_or_claude.otel_skill.name_attribution", "session_identifier_shape": "claude_hook_or_otel_session_id"}
+  },
+  "unsupported_rendering_rule": "if_either_agent_lacks_native_evidence_for_one_mapped_stage_that_stage_renders_as_unsupported_or_degraded_for_that_agent_only_the_test_never_asserts_a_uniform_zero_or_forces_equal_evidence_tiers_across_both_agents",
+  "reconciliation_reuse": "the_test_reuses_contracts/observability/reconciliation.yaml_one_fact_rule_and_contracts/codex/skill-evidence-and-reconciliation.yaml_and_contracts/claude/skill-evidence-and-reconciliation.yaml_evidence_tier_vocabularies_verbatim_it_declares_no_new_evidence_tier_or_reconciliation_lane_shape",
+  "required_test": "one_go_test_that_builds_a_sanitized_fixture_chain_for_codex_and_a_sanitized_fixture_chain_for_claude_reconciles_both_independently_through_internal/adaptersdk_and_asserts_the_scenario_stage_to_capability_mapping_table_holds_for_both_without_any_agent_id_string_comparison_in_the_assertions_themselves_only_in_fixture_selection"
+}
