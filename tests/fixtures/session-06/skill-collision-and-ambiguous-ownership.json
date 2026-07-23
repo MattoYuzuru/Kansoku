@@ -1,0 +1,80 @@
+{
+  "schema_version": "kansoku.codex-skill-collision-and-ambiguous-ownership/1",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "purpose": "skill_collision_and_ambiguous_ownership_tests_required_by_skill-evidence-and-reconciliation.yaml_required_tests",
+  "collision_scenario": {
+    "note": "two_skill_identity_declarations_sharing_one_name_across_scopes_must_never_be_merged_into_one_node_they_remain_distinct_nodes_linked_by_a_collides_with_edge",
+    "installation_id": "inst-collision-1",
+    "skills": [
+      {"name": "deploy", "scope": "user", "enabled": true, "description_bytes": 120, "description_chars": 118},
+      {"name": "deploy", "scope": "repository", "enabled": true, "description_bytes": 340, "description_chars": 336},
+      {"name": "deploy", "scope": "admin", "enabled": false, "description_bytes": 80, "description_chars": 80}
+    ],
+    "expected_distinct_node_count": 3,
+    "expected_collision_edge_count": 3,
+    "expected_collision_edge_note": "three_pairwise_collides_with_edges_for_three_mutually_colliding_nodes_c(3,2)=3"
+  },
+  "shadow_precedence_scenario": {
+    "note": "scope_precedence_never_influences_node_identity_merge_only_which_duplicate_a_human-facing_report_lists_first_admin_ranks_more_authoritative_than_user_which_ranks_more_authoritative_than_repository",
+    "expected_precedence_order_most_to_least_authoritative": ["admin", "system", "user", "repository", "marketplace", "plugin_cache", "transient_session"]
+  },
+  "ambiguous_ownership_scenarios": [
+    {
+      "case": "single_owner_helper_call_resolves_cleanly",
+      "evidence_kind": "uniquely_owned_helper_execution",
+      "candidate_skill_identities": ["skill-deploy-user"],
+      "expect_error": null,
+      "expected_canonical_event_type": "component.executed",
+      "expected_tier": "reconstructed"
+    },
+    {
+      "case": "two_skills_share_one_helper_ownership_is_ambiguous",
+      "evidence_kind": "uniquely_owned_helper_execution",
+      "candidate_skill_identities": ["skill-deploy-user", "skill-deploy-repository"],
+      "expect_error": "codex_ambiguous_ownership_never_promoted_to_invoked",
+      "expected_canonical_event_type": "component.executed",
+      "expected_tier": "reconstructed",
+      "must_never_resolve_to": "component.invoked"
+    },
+    {
+      "case": "three_way_shared_mcp_tool_ownership_still_never_promoted",
+      "evidence_kind": "uniquely_owned_helper_execution",
+      "candidate_skill_identities": ["skill-deploy-user", "skill-deploy-repository", "skill-deploy-admin"],
+      "expect_error": "codex_ambiguous_ownership_never_promoted_to_invoked",
+      "expected_canonical_event_type": "component.executed",
+      "expected_tier": "reconstructed"
+    },
+    {
+      "case": "zero_candidates_is_an_input_error_not_a_silent_zero",
+      "evidence_kind": "uniquely_owned_helper_execution",
+      "candidate_skill_identities": [],
+      "expect_error": "codex_helper_execution_requires_at_least_one_candidate"
+    },
+    {
+      "case": "explicit_invocation_unlabeled_defaults_to_reconstructed",
+      "evidence_kind": "explicit_user_invocation",
+      "candidate_skill_identities": ["skill-deploy-user"],
+      "source_labels_native": false,
+      "expected_canonical_event_type": "component.invoked",
+      "expected_tier": "reconstructed"
+    },
+    {
+      "case": "explicit_invocation_source_labeled_native_promotes_to_native",
+      "evidence_kind": "explicit_user_invocation",
+      "candidate_skill_identities": ["skill-deploy-user"],
+      "source_labels_native": true,
+      "expected_canonical_event_type": "component.invoked",
+      "expected_tier": "native"
+    },
+    {
+      "case": "semantic_opportunity_never_exceeds_inferred_even_when_source_labels_native",
+      "evidence_kind": "semantic_opportunity_classifier",
+      "candidate_skill_identities": ["skill-deploy-user"],
+      "source_labels_native": true,
+      "expected_canonical_event_type": "component.opportunity",
+      "expected_tier": "inferred",
+      "must_never_resolve_to": "component.invoked"
+    }
+  ]
+}

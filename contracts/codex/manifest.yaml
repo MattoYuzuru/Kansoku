@@ -1,0 +1,71 @@
+{
+  "schema_version": "kansoku.codex-manifest/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "adapter_id": "codex",
+  "adapter_id_naming": "adapter_id_is_the_stable_lowercase_hyphenated_identifier_registered_once_through_adaptersdk.Registry.Register_never_a_branch_inside_adaptersdk_core",
+  "manifest_api_version": "kansoku.adapter/v1",
+  "execution_form": "builtin",
+  "network_grade": "loopback_only",
+  "reused_parse_limits": {
+    "source": "internal/adaptersdk_MaxManifestConfigEntries_MaxManifestConfigDepth_MaxManifestConfigString",
+    "max_config_entries": 256,
+    "max_config_depth": 8,
+    "max_config_string": 4096,
+    "code_execution": "forbidden_codex_manifests_hooks_config_and_rollout_records_are_data_only_parsed_with_a_generic_bounded_decoder_never_evaluated_or_executed"
+  },
+  "installation_discovery": {
+    "steps": [
+      "resolve_executable_on_path_and_run_codex_--version_without_login_or_auth_output",
+      "resolve_state_root_from_documented_CODEX_HOME_env_var_before_falling_back_to_the_documented_default_state_root",
+      "detect_cli_ide_or_app_surface_where_observable_without_merging_installations_solely_by_shared_state_root",
+      "fingerprint_active_config_layers_hooks_skills_and_plugin_manifests_without_recording_their_values",
+      "record_supported_version_match_against_the_compatibility_registry_and_the_adapter_recipe_version"
+    ],
+    "never_speculative_home_scan": "CODEX_HOME_and_documented_config_locations_are_resolved_first_the_adapter_never_scans_an_entire_home_directory",
+    "file_read_bounds": "every_file_read_is_size_and_depth_bounded_and_every_symlink_target_is_validated_against_an_already_allowed_root_via_adaptersdk.HostView",
+    "installation_merge_rule": "two_candidates_sharing_a_state_root_but_differing_surface_or_detection_method_remain_distinct_installation_candidates"
+  },
+  "agent_detection": {
+    "executables": ["codex"],
+    "state_root_env_var": "CODEX_HOME",
+    "documented_default_state_root": "documented_codex_home_default_resolved_only_after_CODEX_HOME_is_checked_and_absent",
+    "surfaces": ["cli", "ide_extension", "app"]
+  },
+  "permissions": {
+    "filesystem_read": ["codex_state_root", "codex_user_config", "codex_rollout_directory", "codex_hooks_directory", "codex_skills_and_plugin_manifests"],
+    "network": "loopback_only",
+    "process_exec": ["codex_version_probe", "codex_hook_helper_binary"]
+  },
+  "compatibility_registry_fields_reused": "manifest.yaml_compatibility_registry_fields_from_contracts/adapter-sdk/manifest.yaml_agent_id_agent_version_range_source_schema_fingerprints_fixture_coverage_last_passive_audit_at_last_live_audit_at_known_gaps_setup_recipe_version",
+  "unknown_agent_version_policy": "reused_verbatim_from_adapter-sdk.manifest_an_agent_version_outside_every_declared_compatibility_range_defaults_to_degraded_even_if_parsing_appears_to_succeed",
+  "sources": ["codex.hook", "codex.otel", "codex.rollout", "codex.inventory"],
+  "capability_ids": [
+    "discovery.agent_and_surface",
+    "inventory.components",
+    "activity.sessions",
+    "activity.prompt_metadata",
+    "activity.token_model_cost",
+    "components.skill_invocation",
+    "components.plugin_and_custom_command",
+    "components.mcp_lifecycle",
+    "components.builtin_tool_calls_and_approvals",
+    "components.subagents_and_compaction",
+    "ingestion.historical_import",
+    "ingestion.live_stream",
+    "configuration.install",
+    "configuration.live_canary"
+  ],
+  "capability_ids_source": "reused_verbatim_from_contracts/adapter-sdk/capabilities.yaml_capability_ids_no_codex_specific_capability_id_is_invented",
+  "installer_target_reuse": {
+    "otel": "codex.user_otel_target_already_declared_in_contracts/privacy/installer.yaml_targets_reused_verbatim_never_redefined",
+    "hook": "a_new_hook_installer_target_is_declared_in_hooks-and-otel.yaml_hook_installer_target_because_installer.yaml_declares_no_codex_hook_target_yet",
+    "project_local_scope": "never_selected_by_default_the_default_change_plan_targets_user_level_config_only_project_local_config_is_touched_only_on_explicit_user_scope_selection"
+  },
+  "hook_ingress_reuse": {
+    "route_template": "reused_verbatim_from_contracts/observability/ingress.yaml_hook_http_protocol_route_/v1/hooks/{adapter}/{event}",
+    "adapter_path_segment": "codex",
+    "auth": "session02_loopback_bearer_reused_verbatim_no_second_auth_mechanism",
+    "no_parallel_route": "internal/observability/routes.go_wires_codex_hook_events_through_the_existing_generic_hook_http_mux_never_a_second_ingress_mechanism"
+  }
+}

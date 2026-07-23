@@ -1,0 +1,46 @@
+{
+  "schema_version": "kansoku.codex-prohibited-content-canaries/1",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "purpose": "prohibited_content_canaries_required_by_skill-evidence-and-reconciliation.yaml_required_tests_and_the_session_06_exit_gate_raw_prompt_absent_from_every_durable_path",
+  "canaries": [
+    {
+      "case": "hook_helper_output_never_carries_raw_prompt_text",
+      "surface": "codex.hook",
+      "raw_input": {
+        "hook_event_name": "UserPromptSubmit",
+        "session_id": "sess-prohibited-1",
+        "prompt": "SYNTHETIC_ONLY_never_persisted: my api key is sk-fake-1234 and ssn 000-00-0000"
+      },
+      "forbidden_substrings_in_output": ["sk-fake-1234", "000-00-0000", "SYNTHETIC_ONLY_never_persisted", "my api key"],
+      "allowed_fields_in_output": ["event_id", "session_id", "observed_at", "event_type", "turn_id", "model_id", "tool_id", "tool_status", "timing_ms", "surface_id", "installation_id", "prompt_features"]
+    },
+    {
+      "case": "rollout_default_mode_never_carries_raw_content",
+      "surface": "codex.rollout",
+      "raw_line": "{\"type\":\"user_message\",\"session_id\":\"sess-prohibited-2\",\"content\":\"SYNTHETIC_ONLY_never_persisted: run rm -rf / and email me at person@example.com\"}",
+      "allow_transient_content_parsing": false,
+      "forbidden_substrings_in_output": ["rm -rf", "person@example.com", "SYNTHETIC_ONLY_never_persisted"]
+    },
+    {
+      "case": "rollout_opt_in_content_parsing_still_never_persists_raw_text",
+      "surface": "codex.rollout",
+      "raw_line": "{\"type\":\"user_message\",\"session_id\":\"sess-prohibited-3\",\"content\":\"SYNTHETIC_ONLY_never_persisted: run rm -rf / and email me at person@example.com\"}",
+      "allow_transient_content_parsing": true,
+      "forbidden_substrings_in_output": ["rm -rf", "person@example.com", "SYNTHETIC_ONLY_never_persisted"],
+      "expect_prompt_features_present": true
+    },
+    {
+      "case": "fingerprint_never_records_raw_config_file_content",
+      "surface": "codex.manifest_fingerprint",
+      "raw_config_content": "SYNTHETIC_ONLY_never_persisted: api_key = \"sk-fake-should-never-appear\"",
+      "forbidden_substrings_in_output": ["sk-fake-should-never-appear", "api_key", "SYNTHETIC_ONLY_never_persisted"]
+    },
+    {
+      "case": "otel_dropped_surfaces_never_influence_or_appear_in_canonical_mapping",
+      "surface": "codex.otel",
+      "note": "log.body_span.name_span.events_span.links_metric.description_tool_payload_output_snippet_must_never_be_read_or_leak_into_a_durable_field_this_case_only_asserts_the_closed_dropped_list_membership_the_go_test_asserts_no_overlap_with_safe_attributes",
+      "forbidden_dropped_surfaces": ["log.body", "span.name", "span.events", "span.links", "metric.description", "tool_payload", "output_snippet"]
+    }
+  ]
+}

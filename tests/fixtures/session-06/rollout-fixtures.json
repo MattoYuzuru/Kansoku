@@ -1,0 +1,110 @@
+{
+  "schema_version": "kansoku.codex-rollout-fixtures/1",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "purpose": "sanitized_rollout_fixtures_for_at_least_two_declared_codex_versions_and_event_variants_plus_offset_rotation_truncation_replay_crash_importer_scenarios_required_by_skill-evidence-and-reconciliation.yaml_required_tests",
+  "versions": [
+    {
+      "compatibility_version": "codex-compat/1",
+      "codex_release": "1.2.3",
+      "note": "baseline_release_all_five_declared_rollout_record_kinds_present",
+      "jsonl_lines": [
+        "{\"type\":\"session_meta\",\"session_id\":\"sess-v1-1\"}",
+        "{\"type\":\"user_message\",\"session_id\":\"sess-v1-1\",\"turn_id\":\"t1\"}",
+        "{\"type\":\"tool_call\",\"session_id\":\"sess-v1-1\",\"tool_id\":\"shell\",\"turn_id\":\"t1\"}",
+        "{\"type\":\"tool_result\",\"session_id\":\"sess-v1-1\",\"tool_id\":\"shell\",\"turn_id\":\"t1\"}",
+        "{\"type\":\"subagent_event\",\"session_id\":\"sess-v1-1\"}"
+      ],
+      "expected_kinds": ["session_meta", "user_message", "tool_call", "tool_result", "subagent_event"],
+      "expected_accepted_count": 5,
+      "expected_quarantined_count": 0
+    },
+    {
+      "compatibility_version": "codex-compat/1",
+      "codex_release": "1.5.0",
+      "note": "later_point_release_adds_an_mcp-flavored_tool_call_and_a_second_turn_still_the_same_five_declared_kinds_but_a_different_event_variant_shape_per_record_proving_the_importer_does_not_depend_on_a_fixed_record_count_or_ordering_beyond_type",
+      "jsonl_lines": [
+        "{\"type\":\"session_meta\",\"session_id\":\"sess-v2-1\"}",
+        "{\"type\":\"user_message\",\"session_id\":\"sess-v2-1\",\"turn_id\":\"t1\"}",
+        "{\"type\":\"tool_call\",\"session_id\":\"sess-v2-1\",\"tool_id\":\"kansoku-canary-echo-mcp.echo\",\"turn_id\":\"t1\",\"model_id\":\"model-a\"}",
+        "{\"type\":\"tool_result\",\"session_id\":\"sess-v2-1\",\"tool_id\":\"kansoku-canary-echo-mcp.echo\",\"turn_id\":\"t1\"}",
+        "{\"type\":\"user_message\",\"session_id\":\"sess-v2-1\",\"turn_id\":\"t2\"}",
+        "{\"type\":\"subagent_event\",\"session_id\":\"sess-v2-1\",\"turn_id\":\"t2\"}"
+      ],
+      "expected_kinds": ["session_meta", "user_message", "tool_call", "tool_result", "user_message", "subagent_event"],
+      "expected_accepted_count": 6,
+      "expected_quarantined_count": 0
+    }
+  ],
+  "quarantine_scenario": {
+    "compatibility_version": "codex-compat/1",
+    "codex_release": "1.2.3",
+    "note": "corrupt_and_unknown_schema_lines_must_be_quarantined_as_metadata-only_incidents_never_silently_dropped_and_never_fatal_to_the_rest_of_the_stream",
+    "jsonl_lines": [
+      "{\"type\":\"session_meta\",\"session_id\":\"sess-q-1\"}",
+      "not even json",
+      "{\"type\":\"totally_unknown_future_type\",\"session_id\":\"sess-q-1\"}",
+      "{\"type\":\"user_message\",\"session_id\":\"sess-q-1\",\"unexpected_field_from_a_future_codex_release\":true}",
+      "{\"type\":\"user_message\"}"
+    ],
+    "expected_accepted_count": 1,
+    "expected_quarantined_count": 4
+  },
+  "offset_resume_scenario": {
+    "note": "first_pass_imports_from_scratch_second_pass_resumes_from_the_committed_checkpoint_and_must_accept_only_newly_appended_records",
+    "initial_lines": [
+      "{\"type\":\"session_meta\",\"session_id\":\"sess-offset-1\"}"
+    ],
+    "appended_lines": [
+      "{\"type\":\"user_message\",\"session_id\":\"sess-offset-1\",\"turn_id\":\"t1\"}"
+    ],
+    "expected_initial_accepted_count": 1,
+    "expected_resume_accepted_count": 1,
+    "expected_resume_kind": "user_message"
+  },
+  "replay_idempotency_scenario": {
+    "note": "replaying_the_same_byte_range_twice_from_a_fresh_zero_offset_checkpoint_must_yield_byte_identical_accepted_records_and_first_last_record_fingerprints",
+    "jsonl_lines": [
+      "{\"type\":\"session_meta\",\"session_id\":\"sess-replay-1\"}",
+      "{\"type\":\"user_message\",\"session_id\":\"sess-replay-1\",\"turn_id\":\"t1\"}",
+      "{\"type\":\"tool_call\",\"session_id\":\"sess-replay-1\",\"tool_id\":\"shell\"}"
+    ],
+    "expected_accepted_count": 3
+  },
+  "rotation_scenario": {
+    "note": "a_checkpoint_whose_recorded_file_identity_pseudonym_no_longer_matches_the_file_at_the_same_path_must_be_treated_as_rotation_never_silently_accepted_as_a_continuation",
+    "jsonl_lines": [
+      "{\"type\":\"session_meta\",\"session_id\":\"sess-rotate-1\"}"
+    ],
+    "tampered_path_pseudonym": "hmac-sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "expect_error": "codex_rollout_source_identity_changed"
+  },
+  "truncation_scenario": {
+    "note": "a_file_shorter_than_the_checkpoints_recorded_byte_offset_is_truncation_it_must_degrade_only_codex.rollout_and_never_silently_rewind_and_reprocess",
+    "jsonl_lines": [
+      "{\"type\":\"session_meta\",\"session_id\":\"sess-trunc-1\"}",
+      "{\"type\":\"user_message\",\"session_id\":\"sess-trunc-1\"}"
+    ],
+    "truncate_to_bytes": 5,
+    "expect_error": "codex_rollout_invalid_checkpoint",
+    "expect_truncation_detected": true
+  },
+  "crash_mid_import_scenario": {
+    "note": "an_importer_that_crashes_or_is_killed_after_committing_a_checkpoint_for_n_records_but_before_processing_record_n_plus_1_must_resume_at_exactly_record_n_plus_1_on_restart_never_reprocessing_record_n_and_never_skipping_it",
+    "jsonl_lines": [
+      "{\"type\":\"session_meta\",\"session_id\":\"sess-crash-1\"}",
+      "{\"type\":\"user_message\",\"session_id\":\"sess-crash-1\",\"turn_id\":\"t1\"}",
+      "{\"type\":\"tool_call\",\"session_id\":\"sess-crash-1\",\"tool_id\":\"shell\"}",
+      "{\"type\":\"tool_result\",\"session_id\":\"sess-crash-1\",\"tool_id\":\"shell\"}"
+    ],
+    "simulated_crash_after_record_index": 1,
+    "expected_pre_crash_accepted_count": 2,
+    "expected_post_restart_accepted_count": 2,
+    "expected_total_accepted_count": 4
+  },
+  "prohibited_content_canary": {
+    "note": "user_message_records_carrying_content_must_never_leak_that_content_into_any_accepted_record_in_either_the_default_safe_mode_or_the_opt-in_transient_content_parsing_mode",
+    "raw_content_line": "{\"type\":\"user_message\",\"session_id\":\"sess-prohibited-1\",\"content\":\"SYNTHETIC_ONLY_never_persisted: sk-fake-secret-token and my home address is 123 Nowhere Lane\"}",
+    "forbidden_substrings": ["sk-fake-secret-token", "123 Nowhere Lane", "SYNTHETIC_ONLY_never_persisted"]
+  }
+}

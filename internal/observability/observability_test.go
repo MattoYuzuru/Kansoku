@@ -880,8 +880,8 @@ func TestOTLPHTTPRejectsJSONCompressionAndOversizeWithoutDurability(t *testing.T
 	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
 	for _, item := range []struct {
 		name, method, contentType, encoding string
-		body                        []byte
-		want                        int
+		body                                []byte
+		want                                int
 	}{
 		{"method", http.MethodGet, otlpContentType, "", []byte{}, http.StatusMethodNotAllowed},
 		{"json", http.MethodPost, "application/json", "", []byte("{}"), http.StatusUnsupportedMediaType},

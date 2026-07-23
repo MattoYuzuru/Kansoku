@@ -1,0 +1,10 @@
+{
+  "schema_version": "kansoku.codex-policy-locks/1",
+  "effective_at": "2026-07-22",
+  "locks": [
+    {"policy_version": "codex.manifest/1", "registry": "contracts/codex/manifest.yaml", "semantic_sha256": "2c7f28afd7abf6304cb8808e30638d6eb9941a018fa91f558698d092543341f7"},
+    {"policy_version": "codex.hooks-and-otel/1", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "ba6529160f7a4faf02c38e903cdd5ff3677d49da247408198e97c00354182923"},
+    {"policy_version": "codex.rollout-and-inventory/1", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "2b15fcc0995bc773abe09f934cd622948b04d23bd788e92fb4340ead78e782ad"},
+    {"policy_version": "codex.skill-evidence-and-reconciliation/1", "registry": "contracts/codex/skill-evidence-and-reconciliation.yaml", "semantic_sha256": "4a6d25ef8da0197171ab711bd241068aa660db0fe5afb1906487b375a6a85521"}
+  ]
+}

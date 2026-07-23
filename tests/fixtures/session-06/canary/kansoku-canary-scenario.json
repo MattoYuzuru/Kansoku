@@ -1,0 +1,64 @@
+{
+  "schema_version": "kansoku.codex-canary-scenario/1",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "purpose": "proves_the_session_06_exit_gate_canary_chain_requirement_a_canary_session_produces_the_expected_session_prompt_tool_mcp_chain_on_every_supported_codex_version",
+  "execution_constraints": {
+    "non_interactive_only": true,
+    "requires_explicit_consent": true,
+    "requires_bounded_budget": true,
+    "budget": {"max_turns": 3, "max_wall_clock_seconds": 120, "max_tool_calls": 5},
+    "never_uses_a_real_user_repository": true,
+    "generated_workspace_lifecycle": "separately_controlled_temp_lifecycle_the_canary_workspace_directory_is_created_and_deleted_by_a_lifecycle_distinct_from_the_canary_run_itself_never_by_the_run_being_measured"
+  },
+  "fixture_project": {
+    "name": "kansoku-canary-fixture-project",
+    "layout": {
+      "root_relpath": "kansoku-canary-fixture-project",
+      "skill_relpath": "kansoku-canary-fixture-project/.codex/skills/kansoku-canary-skill/SKILL.md",
+      "skill_name": "kansoku-canary-skill",
+      "skill_description": "A harmless canary skill used only to prove Kansoku's Codex adapter reconciliation chain end to end. It never touches real user data.",
+      "mcp_config_relpath": "kansoku-canary-fixture-project/.codex/mcp/echo-mcp.json",
+      "mcp_server_name": "kansoku-canary-echo-mcp",
+      "mcp_tool_name": "echo",
+      "task_relpath": "kansoku-canary-fixture-project/CANARY_TASK.md",
+      "task_description": "read_one_harmless_generated_file_and_echo_its_contents_back_through_the_local_echo_mcp_tool_no_shell_command_beyond_a_bounded_read_is_ever_required"
+    }
+  },
+  "compatibility_versions_covered": ["codex-compat/1"],
+  "expected_chain": {
+    "codex-compat/1": [
+      {"step": 1, "canonical_event_type": "session.started", "tier": "native", "source_lanes": ["codex.hook", "codex.otel", "codex.rollout"]},
+      {"step": 2, "canonical_event_type": "prompt.submitted", "tier": "native", "source_lanes": ["codex.hook", "codex.otel", "codex.rollout"]},
+      {"step": 3, "canonical_event_type": "component.invoked", "tier": "native", "evidence_kind": "explicit_user_invocation", "component": "kansoku-canary-skill", "source_labels_native": true},
+      {"step": 4, "canonical_event_type": "tool.called", "tier": "native", "component": "kansoku-canary-echo-mcp", "tool": "echo", "source_lanes": ["codex.hook", "codex.otel", "codex.rollout"]},
+      {"step": 5, "canonical_event_type": "session.stopped", "tier": "native", "source_lanes": ["codex.hook", "codex.otel", "codex.rollout"]}
+    ]
+  },
+  "reconciliation_expectation": {
+    "lanes_expected_complete": [
+      "hook_prompt_events_vs_otel_prompt_events_vs_rollout_user_messages",
+      "hook_tool_terminal_events_vs_otel_results_vs_rollout_calls_and_outputs",
+      "session_start_stop_resume_vs_rollout_lifecycle",
+      "mcp_call_counts_vs_configured_and_advertised_tools",
+      "component_explicit_load_execute_evidence_compared_without_forcing_equality"
+    ],
+    "lanes_expected_not_applicable": [
+      "subagent_lifecycle_vs_parent_transcript_evidence"
+    ],
+    "not_applicable_reason": "the_canary_scenario_never_spawns_a_subagent_this_lane_is_supplied_with_present_true_count_zero_on_every_source_to_distinguish_no_subagents_happened_from_we_did_not_check"
+  },
+  "prohibited_content_canary": {
+    "raw_fields_that_must_never_appear_durably": ["prompt", "tool_input", "tool_output", "response", "source_code"],
+    "sample_raw_hook_stdin": {
+      "hook_event_name": "UserPromptSubmit",
+      "session_id": "canary-sess-1",
+      "prompt": "SYNTHETIC_ONLY_never_persisted: $kansoku-canary-skill please read canary.txt and echo it back"
+    },
+    "sample_raw_rollout_line": {
+      "type": "user_message",
+      "session_id": "canary-sess-1",
+      "content": "SYNTHETIC_ONLY_never_persisted: $kansoku-canary-skill please read canary.txt and echo it back"
+    }
+  }
+}

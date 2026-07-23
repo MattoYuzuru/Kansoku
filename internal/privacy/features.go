@@ -6,7 +6,15 @@ import (
 	"unicode/utf8"
 )
 
-func extractPromptFeatures(prompt string, attachmentCount int) PromptFeatures {
+// ExtractPromptFeatures computes the closed PromptFeatures shape for one raw
+// prompt string, in memory only. It is exported so any other package that
+// needs to compute the identical, already-audited feature shape (for example
+// internal/codexadapter's hook helper, which must derive prompt features
+// in-process without ever persisting the raw prompt) reuses this single
+// implementation instead of hand-rolling a second one; it is not a second
+// sanitizer, only the one feature-extraction routine internal/privacy's own
+// DecodeAndExtract already uses.
+func ExtractPromptFeatures(prompt string, attachmentCount int) PromptFeatures {
 	features := PromptFeatures{
 		State:              CompletenessComplete,
 		ByteCount:          len([]byte(prompt)),

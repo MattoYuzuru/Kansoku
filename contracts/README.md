@@ -12,6 +12,7 @@ python3 scripts/validate_privacy.py
 python3 scripts/validate_observability.py
 python3 scripts/validate_data_platform.py
 python3 scripts/validate_adapter_sdk.py
+python3 scripts/validate_codex.py
 python3 -m unittest discover -s tests -v
 python3 scripts/run_go_tests.py
 python3 scripts/run_privacy_canary.py
@@ -90,3 +91,22 @@ optionally build/vet/test that package inside the same pinned, offline Go image
 routing never branches on an adapter/agent name, and lists external-process/Wasm adapter execution,
 the compatibility registry's live version-drift enforcement and the `kansoku doctor`/`configure`/
 `adapter verify` CLI surface as explicit downstream gaps.
+
+Session 06 adds four closed registries under `contracts/codex/`: adapter manifest/discovery, hooks-
+and-OTel source mapping, rollout-and-inventory, and skill-evidence-and-reconciliation. Their versioned
+semantic digests live in `contracts/codex-policy-locks.yaml`, following the identical append-only lock
+structure `contracts/adapter-sdk-policy-locks.yaml` established. Codex is the first real
+`internal/adaptersdk` registration: it reuses the existing `codex.user_otel` installer target from
+`contracts/privacy/installer.yaml` verbatim rather than redefining it, adds only a new
+`codex.user_hook` installer target for the observer hook, and routes every Codex hook event through
+the already-generic `/v1/hooks/{adapter}/{event}` ingress declared in
+`contracts/observability/ingress.yaml` instead of a parallel ingress mechanism. Independent exact
+invariants prevent a coherent lock edit from weakening the hook trust/enabled-state audit-only rule,
+the never-scan-the-home-directory and no-code-execution discovery safety rules carried over from
+Session 05, the requirement that every source (`codex.hook`, `codex.otel`, `codex.rollout`,
+`codex.inventory`) fail visibly and independently rather than reporting a silent zero, or the
+prohibition on ever representing inferred or reconstructed-tier Codex skill evidence as a native exact
+activation. `scripts/validate_codex.py` cross-checks `internal/observability`'s Codex adapter
+registration and its fixtures against these registries. ADR 0009 records the sequential checkpointed
+build order this session used and lists the concrete evidence, canary and CLI gaps this stage leaves
+open.

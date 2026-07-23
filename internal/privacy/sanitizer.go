@@ -183,7 +183,7 @@ func (s *IngressSanitizer) extractObject(object map[string]any, schema SourceSch
 		if !valid {
 			return SafeRecord{}, s.safeError(schema.ID, fingerprint, "$.prompt", "invalid_field_type", totalBytes, 1, observedAt, receivedAt)
 		}
-		promptFeatures = extractPromptFeatures(prompt, attachmentCount)
+		promptFeatures = ExtractPromptFeatures(prompt, attachmentCount)
 	}
 
 	mentions := make([]string, 0, len(schema.Components))

@@ -1,0 +1,15 @@
+{
+  "schema_version": "kansoku.codex-canary-mcp-config/1",
+  "synthetic": true,
+  "mcp_server_name": "kansoku-canary-echo-mcp",
+  "note": "a_local_only_loopback_echo_mcp_server_used_solely_by_the_kansoku_canary_run_never_a_real_network_endpoint_and_never_installed_outside_the_canary_workspace",
+  "transport": "stdio",
+  "command": "kansoku-canary-echo-mcp-fixture",
+  "args": [],
+  "advertised_tools": [
+    {
+      "name": "echo",
+      "description": "Echoes back the bytes of one harmless generated file. Synthetic canary tool only."
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "schema_version": "kansoku.codex-hook-otel-golden-map/1",
+  "fixture_version": "1.0.0",
+  "synthetic": true,
+  "purpose": "hook_and_otel_golden_maps_required_by_skill-evidence-and-reconciliation.yaml_required_tests_source_event_mapping_and_the_never-by-name-alone_schema_fingerprint_guarantee",
+  "hook_golden_map": [
+    {"hook_event_name": "SessionStart", "expected_canonical_event_type": "session.started", "expected_tier": "native"},
+    {"hook_event_name": "UserPromptSubmit", "expected_canonical_event_type": "prompt.submitted", "expected_tier": "native"},
+    {"hook_event_name": "PreToolUse", "expected_canonical_event_type": "tool.called", "expected_tier": "native"},
+    {"hook_event_name": "PostToolUse", "expected_canonical_event_type": "tool.called", "expected_tier": "native"},
+    {"hook_event_name": "SubagentStart", "expected_canonical_event_type": "subagent.started", "expected_tier": "native"},
+    {"hook_event_name": "SubagentStop", "expected_canonical_event_type": "subagent.completed", "expected_tier": "native"},
+    {"hook_event_name": "Stop", "expected_canonical_event_type": "session.stopped", "expected_tier": "native"},
+    {"hook_event_name": "SomeFutureHookEventNotYetManifested", "expect_unsupported": true}
+  ],
+  "hook_sample_inputs": [
+    {
+      "case": "session_start",
+      "stdin_json": {"hook_event_name": "SessionStart", "session_id": "sess-golden-1", "surface_id": "codex-cli", "installation_id": "inst-1"},
+      "expected_event_type": "session.started",
+      "expected_prompt_features_present": false
+    },
+    {
+      "case": "user_prompt_submit",
+      "stdin_json": {"hook_event_name": "UserPromptSubmit", "session_id": "sess-golden-1", "turn_id": "t1", "prompt": "please read the canary file and echo it"},
+      "expected_event_type": "prompt.submitted",
+      "expected_prompt_features_present": true
+    },
+    {
+      "case": "pre_tool_use",
+      "stdin_json": {"hook_event_name": "PreToolUse", "session_id": "sess-golden-1", "turn_id": "t1", "tool_id": "shell"},
+      "expected_event_type": "tool.called",
+      "expected_prompt_features_present": false
+    },
+    {
+      "case": "post_tool_use",
+      "stdin_json": {"hook_event_name": "PostToolUse", "session_id": "sess-golden-1", "turn_id": "t1", "tool_id": "shell", "tool_status": "ok"},
+      "expected_event_type": "tool.called",
+      "expected_prompt_features_present": false
+    },
+    {
+      "case": "subagent_start",
+      "stdin_json": {"hook_event_name": "SubagentStart", "session_id": "sess-golden-1", "turn_id": "t2"},
+      "expected_event_type": "subagent.started",
+      "expected_prompt_features_present": false
+    },
+    {
+      "case": "subagent_stop",
+      "stdin_json": {"hook_event_name": "SubagentStop", "session_id": "sess-golden-1", "turn_id": "t2"},
+      "expected_event_type": "subagent.completed",
+      "expected_prompt_features_present": false
+    },
+    {
+      "case": "stop",
+      "stdin_json": {"hook_event_name": "Stop", "session_id": "sess-golden-1"},
+      "expected_event_type": "session.stopped",
+      "expected_prompt_features_present": false
+    }
+  ],
+  "otel_golden_map": [
+    {
+      "otel_event_name": "codex.conversation_starts",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type"],
+      "expected_canonical_event_type": "session.started",
+      "expect_error": null
+    },
+    {
+      "otel_event_name": "codex.user_prompt",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type"],
+      "expected_canonical_event_type": "prompt.submitted",
+      "expect_error": null
+    },
+    {
+      "otel_event_name": "codex.tool_decision",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id"],
+      "expected_canonical_event_type": "tool.called",
+      "expect_error": null
+    },
+    {
+      "otel_event_name": "codex.tool_result",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome"],
+      "expected_canonical_event_type": "tool.called",
+      "expect_error": null
+    },
+    {
+      "otel_event_name": "codex.api_request",
+      "attribute_shape": [],
+      "expected_canonical_event_type": null,
+      "expect_error": "codex_otel_event_not_mapped_in_active_version_manifest",
+      "note": "documented_but_intentionally_unmapped_a_documented_name_must_never_be_silently_assumed_to_map"
+    },
+    {
+      "otel_event_name": "codex.sse_event",
+      "attribute_shape": [],
+      "expected_canonical_event_type": null,
+      "expect_error": "codex_otel_event_not_mapped_in_active_version_manifest"
+    },
+    {
+      "otel_event_name": "codex.model_token_usage",
+      "attribute_shape": [],
+      "expected_canonical_event_type": null,
+      "expect_error": "codex_otel_event_not_mapped_in_active_version_manifest"
+    },
+    {
+      "otel_event_name": "codex.not_a_real_future_event",
+      "attribute_shape": [],
+      "expected_canonical_event_type": null,
+      "expect_error": "codex_otel_event_not_documented"
+    },
+    {
+      "otel_event_name": "codex.tool_result",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id"],
+      "expected_canonical_event_type": null,
+      "expect_error": "codex_otel_schema_fingerprint_mismatch",
+      "note": "same_documented_and_mapped_name_but_missing_required_attribute_keys_must_never_be_trusted_by_name_alone"
+    },
+    {
+      "otel_event_name": "codex.conversation_starts",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "tool_payload", "log.body"],
+      "expected_canonical_event_type": "session.started",
+      "expect_error": null,
+      "note": "unsafe_dropped_surfaces_present_alongside_the_required_keys_must_never_change_whether_a_documented_event_resolves"
+    }
+  ]
+}

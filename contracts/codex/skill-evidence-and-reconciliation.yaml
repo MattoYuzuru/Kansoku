@@ -1,0 +1,67 @@
+{
+  "schema_version": "kansoku.codex-skill-evidence-and-reconciliation/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "skill_evidence_model": {
+    "evidence_tiers_reused_from": "contracts/observability/lifecycles.yaml_evidence_tiers_verbatim_corroborated_native_reconstructed_inferred_no_new_tier_is_invented",
+    "evidence_kinds": [
+      {"kind": "explicit_user_invocation", "description": "user_typed_$name_or_equivalent_safe_native_field_or_ephemeral_in_memory_prompt_analysis_matched_against_inventory", "canonical_event_type": "component.invoked", "tier": "native_when_source_labels_it_reconstructed_otherwise"},
+      {"kind": "skill_md_load_evidence", "description": "bounded_evidence_that_a_SKILL.md_file_was_loaded_or_read_when_observable", "canonical_event_type": "component.loaded", "tier": "reconstructed"},
+      {"kind": "agent_declared_use", "description": "agent_declares_skill_use_in_a_structured_or_transcript_event", "canonical_event_type": "component.invoked", "tier": "reconstructed"},
+      {"kind": "uniquely_owned_helper_execution", "description": "execution_of_a_helper_or_mcp_dependency_uniquely_owned_by_one_skill_identity", "canonical_event_type": "component.executed", "tier": "reconstructed"},
+      {"kind": "semantic_opportunity_classifier", "description": "inferred_opportunity_that_a_skill_could_have_applied_never_promoted_to_actual_invocation", "canonical_event_type": "component.opportunity", "tier": "inferred"}
+    ],
+    "no_false_exact_count": "the_dashboard_never_combines_these_evidence_kinds_into_a_single_false_exact_activation_count_it_displays_an_evidence_breakdown_by_tier_and_a_best_supported_lifecycle_stage",
+    "ambiguous_ownership_rule": "no_rule_converts_a_helper_or_mcp_call_into_component.invoked_evidence_when_ownership_across_multiple_candidate_skill_identity_nodes_is_ambiguous_it_remains_component.executed_with_plural_candidates",
+    "native_exact_activation_prohibition": "the_adapter_never_represents_component.opportunity_or_reconstructed_tier_evidence_as_a_component.invoked_native_exact_activation_this_is_the_session_06_exit_gate_invariant_and_is_enforced_independently_of_dashboard_rendering"
+  },
+  "source_to_canonical_mapping": [
+    {"source_evidence": "SessionStart_or_conversation_start", "canonical_event_type": "session.started", "tier": "native"},
+    {"source_evidence": "user_prompt_hook_or_otel_metadata", "canonical_event_type": "prompt.submitted", "tier": "native"},
+    {"source_evidence": "tool_pre_post_or_result", "canonical_event_type": "tool.called_plus_terminal", "tier": "native"},
+    {"source_evidence": "mcp_tool_name", "canonical_event_type": "tool.*_with_mcp_component_relation", "tier": "native"},
+    {"source_evidence": "$skill_explicit_mention_safely_matched_to_inventory", "canonical_event_type": "component.invoked_explicit", "tier": "reconstructed_or_native_when_source_labels_it"},
+    {"source_evidence": "bounded_skill_md_load_evidence", "canonical_event_type": "component.loaded", "tier": "reconstructed"},
+    {"source_evidence": "uniquely_owned_helper_call", "canonical_event_type": "component.executed", "tier": "reconstructed"},
+    {"source_evidence": "semantic_opportunity_classifier", "canonical_event_type": "component.opportunity", "tier": "inferred"}
+  ],
+  "reconciliation": {
+    "per_session_comparisons": [
+      "hook_prompt_events_vs_otel_prompt_events_vs_rollout_user_messages",
+      "hook_tool_terminal_events_vs_otel_results_vs_rollout_calls_and_outputs",
+      "session_start_stop_resume_vs_rollout_lifecycle",
+      "subagent_lifecycle_vs_parent_transcript_evidence",
+      "mcp_call_counts_vs_configured_and_advertised_tools",
+      "component_explicit_load_execute_evidence_compared_without_forcing_equality"
+    ],
+    "tolerance": "tolerance_for_batching_and_terminal_delay_is_versioned_per_compatibility_registry_entry_not_hardcoded",
+    "missing_source_rule": "missing_one_expected_source_marks_only_that_sources_own_capabilities_and_reconciliation_interval_degraded_it_never_silently_reports_zero_usage_for_the_whole_session",
+    "expected_lanes_reused_from": "contracts/observability/reconciliation.yaml_expected_lanes_shape_hook_http_otlp_transcript_jsonl_mapped_onto_codex.hook_codex.otel_codex.rollout",
+    "one_fact_rule_reused": "contracts/observability/reconciliation.yaml_one_fact_rule_logical_identity_is_lane_independent_each_lane_keeps_a_distinct_evidence_identity"
+  },
+  "canary": {
+    "fixture_project": "kansoku-canary-skill_local_echo_mcp_and_a_harmless_shell_or_read_task",
+    "expected_chain": "versioned_per_compatibility_registry_entry_session_prompt_tool_mcp_chain",
+    "execution_constraints": ["non_interactive_only", "requires_explicit_consent_and_a_bounded_budget", "never_uses_a_real_user_repository", "generated_workspace_is_deleted_through_a_separately_controlled_temp_lifecycle"],
+    "purpose": "proves_the_compatibility_matrix_with_live_evidence_not_only_fixtures_reused_by_the_session_06_exit_gate"
+  },
+  "required_tests": [
+    "sanitized_rollout_fixtures_for_each_declared_compatibility_version_and_event_variant",
+    "hook_and_otel_golden_maps",
+    "offset_rotation_truncation_replay_crash_importer_tests",
+    "skill_collision_and_ambiguous_ownership_tests",
+    "codex_home_multi_surface_and_project_scope_inventory_layout_tests",
+    "configuration_concurrent_change_and_rollback_tests",
+    "cross_source_mismatch_and_inactive_source_logic_tests",
+    "prohibited_content_canaries"
+  ],
+  "exit_gate": {
+    "compatibility_matrix_backed_by": "fixtures_and_live_evidence_both_required_neither_alone_is_sufficient",
+    "independent_visible_degradation": "every_source_codex.hook_codex.otel_codex.rollout_codex.inventory_can_fail_visibly_and_independently_degrading_only_its_own_capability_ids_never_silently_reporting_plausible_looking_zero_usage",
+    "no_inferred_promoted_to_native": "the_adapter_never_represents_inferred_or_reconstructed_tier_codex_skill_use_as_a_native_exact_activation",
+    "canary_chain": "a_canary_session_produces_the_expected_session_prompt_tool_mcp_chain_on_every_supported_codex_version",
+    "inventory_correct": true,
+    "raw_prompt_absent_from_every_durable_path": true,
+    "replay_idempotent": true
+  }
+}

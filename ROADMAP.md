@@ -50,8 +50,18 @@
   built-in adapter would use, with zero agent-name branch in core code. ADR 0008 records
   external-process/Wasm adapter execution, compatibility-registry persistence and the
   `kansoku doctor`/`configure`/`adapter verify` CLI as explicit downstream gaps.
-- **06 — next:** Codex adapter (hooks, OTel, sessions, skills/plugins/MCP inventory and
-  reconciliation).
+- **06 — complete (2026-07-22):** closed manifest/discovery, hooks-and-otel, rollout-and-inventory
+  and skill-evidence-and-reconciliation registries and a typed `internal/codexadapter` package
+  deliver the first real `internal/adaptersdk` registration: Codex. Four independently-degrading
+  sources (`codex.hook`, `codex.otel`, `codex.rollout`, `codex.inventory`) reconcile into one session
+  view without ever fabricating a whole-session zero, and the five-tier skill-evidence model never
+  promotes inferred or reconstructed evidence to a native exact activation. The adapter reuses the
+  existing `codex.user_otel` installer target and the generic `/v1/hooks/{adapter}/{event}` ingress
+  route verbatim, adding only a new `codex.user_hook` target. ADR 0009 records the sequential
+  checkpointed build order and lists live-CLI canary evidence and CLI surface as explicit
+  downstream gaps.
+- **07 — next:** Claude, Gemini and next agents (dual-adapter portability without agent-specific
+  core schema).
 
 ## Dependency graph
 

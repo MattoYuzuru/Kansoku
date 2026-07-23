@@ -1,0 +1,48 @@
+{
+  "schema_version": "kansoku.codex-rollout-and-inventory/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "rollout_source": {
+    "source_id": "codex.rollout",
+    "source_kind": "transcript_jsonl",
+    "route": "read_only_file",
+    "route_reuse": "reuses_contracts/observability/ingress.yaml_transcript_jsonl_protocol_verbatim_one_bounded_json_record_per_line_never_a_second_file_ingestion_mechanism",
+    "state_root": "resolved_CODEX_HOME_rollout_directory_only_never_a_speculative_home_directory_scan",
+    "checkpoint_fields": ["file_identity", "inode_or_file_id_where_available", "byte_offset", "first_record_fingerprint", "last_record_fingerprint", "rotation_generation", "truncation_detected"],
+    "parsing": "streams_jsonl_records_one_bounded_record_at_a_time_extracts_only_canonical_metadata_never_writes_to_the_codex_session_tree",
+    "historical_content_mode": {
+      "default": "safe_structured_fields_only_may_report_lower_skill_coverage",
+      "opt_in": "historical_content_feature_extraction_examines_content_bearing_records_transiently_in_memory_only_emits_approved_sanitized_features_and_evidence_and_discards_the_line_afterward_raw_content_is_never_written_to_a_durable_path",
+      "user_disable": "users_may_disable_historical_content_parsing_entirely_falling_back_to_the_default_safe_structured_mode"
+    },
+    "corrupt_or_unknown_schema": {
+      "handling": "quarantined_as_a_metadata_only_incident_reusing_contracts/observability/ingress.yaml_unknown_schema_durable_fields",
+      "raw_bytes_durable": false
+    },
+    "replay_and_crash": {
+      "offset_resume": "reopens_at_the_last_committed_byte_offset_checkpoint",
+      "rotation_truncation": "detected_via_file_identity_and_first_last_record_fingerprint_mismatch_and_opens_a_degraded_incident_scoped_to_codex.rollout_only",
+      "idempotency": "replaying_the_same_byte_range_twice_yields_the_same_fact_and_evidence_identities_never_a_duplicate_fact"
+    }
+  },
+  "inventory_source": {
+    "source_id": "codex.inventory",
+    "scopes_inventoried": ["system", "user", "repository", "admin", "marketplace", "plugin_cache"],
+    "scopes_reused_from": "contracts/adapter-sdk/inventory-graph.yaml_source_scopes_verbatim_no_new_scope_is_invented",
+    "components_inventoried": ["documented_system_admin_user_repository_skills", "enabled_disabled_skill_config", "plugins", "marketplaces_and_cache", "hooks", "mcp_servers"],
+    "repository_scan_bound": "repository_roots_are_scanned_only_for_known_active_projects_or_an_explicit_user_target_never_a_speculative_recursive_filesystem_walk",
+    "cache_rule": "cache_packages_are_never_considered_enabled_a_plugin_cache_artifact_node_requires_an_explicit_enabled_for_edge_to_an_active_installation_before_it_is_reported_as_enabled_reusing_contracts/adapter-sdk/inventory-graph.yaml_cache_separation_verbatim",
+    "node_kinds_used": ["agent_installation", "agent_surface", "agent_version", "plugin_package", "plugin_version", "skill_identity", "mcp_server_instance", "mcp_tool", "hook_definition", "custom_command_definition", "cache_artifact"],
+    "node_kinds_source": "reused_verbatim_from_contracts/adapter-sdk/inventory-graph.yaml_node_kinds_no_codex_specific_node_kind_is_invented",
+    "edge_kinds_used": ["bundles", "provides", "configured_in", "enabled_for", "shadows", "collides_with", "depends_on", "observed_using"],
+    "collision_rule": "two_skill_identity_or_mcp_server_instance_nodes_sharing_a_declared_name_across_scopes_are_never_merged_they_remain_distinct_nodes_linked_by_a_shadows_or_collides_with_edge_reusing_contracts/adapter-sdk/inventory-graph.yaml_identity_rule_verbatim"
+  },
+  "discoverability_pressure": {
+    "computed_fields": ["description_byte_total", "description_character_total", "scope_precedence_rank", "duplicate_name_flag", "disabled_flag", "catalog_pressure_risk_estimate"],
+    "catalog_budget_note": "codex_limits_the_initial_skills_catalog_the_adapter_estimates_whether_the_documented_catalog_budget_may_be_exceeded_it_never_asserts_this_as_a_certainty",
+    "exposed_vs_inferred": {
+      "exposed": "a_skill_is_labeled_exposed_only_when_actual_session_or_source_evidence_shows_it_reached_model_context",
+      "inferred_risk": "a_catalog_pressure_or_inclusion_risk_estimate_without_direct_evidence_is_always_labeled_inferred_never_promoted_to_exposed"
+    }
+  }
+}

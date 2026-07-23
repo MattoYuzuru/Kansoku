@@ -22,10 +22,24 @@ permission-bound tests) через те же `Registry`/`CapabilityMatrix`/`Host
 будущий built-in адаптер — без единого agent-name branch в core коде за пределами регистрации
 самого адаптера. `ChangePlan` не изобретает второй apply/rollback механизм: он переиспользует
 `internal/installer`'s `Plan`/`Approval`/`SimulateApply`/`SimulateRollback`/`SimulateRemove`/
-`PlanSHA256` через `PlanSHA256`-binding. Automated Session 01–05 gates проходят; следующая
-реализационная сессия — Session 06 (Codex adapter). Реализация использует только synthetic fixture
+`PlanSHA256` через `PlanSHA256`-binding. Реализация использует только synthetic fixture
 agent и не повышает ни один реальный адаптер выше Experimental: для публичного Supported/Beta
 по-прежнему нужны version-bounded agent fixtures/evidence и два независимых human review.
+
+Session 06 / фаза 006 выполнена 2026-07-22: закрытые manifest/discovery, hooks-and-otel,
+rollout-and-inventory и skill-evidence-and-reconciliation registries под `contracts/codex/` и
+Go-пакет `internal/codexadapter` формализуют первый реальный `internal/adaptersdk`-адаптер — Codex.
+Четыре независимо деградирующих источника (`codex.hook`, `codex.otel`, `codex.rollout`,
+`codex.inventory`) сверяются в едином reconciliation без единого silent-zero для всей сессии;
+пятиуровневая skill-evidence модель никогда не повышает inferred/reconstructed доказательство до
+native exact activation. Hook ingress переиспользует общий `/v1/hooks/{adapter}/{event}` route из
+Session 03 без параллельного механизма; OTel план переиспользует существующий `codex.user_otel`
+installer target из Session 02 verbatim, добавляя только новый `codex.user_hook` target. Canary
+fixture project (`kansoku-canary-skill` + local echo MCP) проходит ожидаемую session/prompt/tool/MCP
+цепочку на materialized fixture, а не на живом Codex CLI. Automated Session 01–06 gates проходят;
+следующая реализационная сессия — Session 07 (Claude, Gemini и next agents). Codex остаётся
+Experimental: публичный Supported/Beta по-прежнему требует version-bounded live evidence и два
+независимых human review.
 
 Проект по-прежнему строится десятью последовательными сессиями, каждая из которых имеет продуктовый
 proposal и парный technical design document. Переход к следующей сессии допускается только после
@@ -72,6 +86,10 @@ proposal и парный technical design document. Переход к следу
   fake "Loomwright" conformance evidence и явные downstream-gaps.
 - [Adapter SDK ADR](adr/0008-session-05-adapter-sdk-and-inventory.md) — Adapter interface/HostView/
   inventory-graph/ChangePlan decisions, `internal/installer` reuse и rejected alternatives.
+- [Session 06 reconciliation](reports/session-06-reconciliation.md) — Codex adapter exit gate,
+  four-source reconciliation/skill-evidence evidence, canary fixture chain и явные downstream-gaps.
+- [Codex adapter ADR](adr/0009-session-06-codex-adapter.md) — sequential checkpointed build order,
+  installer/ingress/sanitizer reuse decisions и rejected alternatives.
 
 ## Принятый технологический baseline
 

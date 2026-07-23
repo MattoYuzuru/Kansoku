@@ -1,0 +1,63 @@
+{
+  "schema_version": "kansoku.codex-hooks-and-otel/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-22",
+  "hook_source": {
+    "source_id": "codex.hook",
+    "source_kind": "hook_http",
+    "supported_events": ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "SubagentStart", "SubagentStop", "Stop"],
+    "event_availability": "exact_event_availability_is_version_manifested_per_codex_release_missing_an_event_degrades_only_its_own_capability",
+    "route": "/v1/hooks/codex/{event}",
+    "route_reuse": "reuses_the_generic_hook_http_route_template_/v1/hooks/{adapter}/{event}_already_declared_in_contracts/observability/ingress.yaml_no_parallel_ingress_route_is_declared_here",
+    "auth": "session02_loopback_bearer_reused_verbatim",
+    "helper_contract": {
+      "shape": "small_standalone_binary_or_script_installed_by_the_hook_installer_target",
+      "input": "reads_bounded_stdin_json_only",
+      "prompt_feature_computation": "prompt_features_are_computed_in_memory_for_prompt_events_the_raw_prompt_text_is_never_written_to_disk_or_sent",
+      "allowlisted_fields": ["session_id", "turn_id", "model_id", "tool_id", "tool_status", "timing_ms", "surface_id", "installation_id"],
+      "transport": "sends_to_http://127.0.0.1:<ingest_port>/v1/hooks/codex/<event>_with_the_local_loopback_bearer_secret",
+      "timeout": "short_bounded_timeout_the_helper_never_blocks_codex_if_kansoku_is_unreachable",
+      "spool": "unreachable_ingest_spools_only_already_sanitized_events_to_a_bounded_0600_file_reusing_contracts/observability/ingress.yaml_limits.max_spool_bytes_and_spool_mode",
+      "output": "emits_protocol_correct_neutral_output_expected_by_the_codex_hook_contract"
+    },
+    "hook_installer_target": {
+      "id": "codex.user_hook",
+      "agent_id": "codex",
+      "config_locator_kind": "codex_user_config",
+      "format": "toml",
+      "ownership": "plan_owned_hook_entries_only",
+      "forbidden_keys": ["remote_command", "raw_payload_log", "credential_forwarding", "project_local_hook"],
+      "default_scope": "user_level_only_project_local_codex_config_is_never_modified_unless_the_user_explicitly_selects_that_scope"
+    },
+    "trust_and_enabled_state": {
+      "audited": true,
+      "bypass_forbidden": "kansoku_never_bypasses_or_silently_repairs_codex_hook_trust_or_enabled_state_it_only_audits_and_surfaces_remediation",
+      "remediation_only": "an_untrusted_or_disabled_hook_opens_a_degraded_capability_incident_with_a_remediation_pointer_never_a_silent_repair"
+    }
+  },
+  "otel_source": {
+    "source_id": "codex.otel",
+    "source_kind": "otlp_log_span_metric",
+    "installer_target_reuse": "codex.user_otel_target_already_declared_in_contracts/privacy/installer.yaml_targets_reused_verbatim_endpoint_http://127.0.0.1:4318_environment_local_exporter_otlp-http_log_user_prompt_false",
+    "no_second_otel_target": "hooks-and-otel.yaml_declares_no_new_otel_installer_target_it_only_maps_documented_codex_otel_events_onto_the_existing_target",
+    "documented_events": ["codex.conversation_starts", "codex.api_request", "codex.sse_event", "codex.model_token_usage", "codex.user_prompt", "codex.tool_decision", "codex.tool_result"],
+    "event_availability": "mapping_only_applies_to_an_event_name_present_in_the_active_version_manifest_an_absent_documented_event_degrades_only_its_own_capability_rather_than_reporting_zero",
+    "otlp_safe_attributes_reuse": "reuses_contracts/observability/ingress.yaml_otlp_safe_attributes_allowlist_verbatim_no_codex_specific_attribute_bypasses_it",
+    "dropped_surfaces": ["log.body", "span.name", "span.events", "span.links", "metric.description", "tool_payload", "output_snippet"],
+    "log_user_prompt": false
+  },
+  "source_event_mapping": [
+    {"source_event": "SessionStart", "source_kind": "hook_http", "canonical_event_type": "session.started", "tier": "native"},
+    {"source_event": "codex.conversation_starts", "source_kind": "otlp_log_span_metric", "canonical_event_type": "session.started", "tier": "native"},
+    {"source_event": "UserPromptSubmit", "source_kind": "hook_http", "canonical_event_type": "prompt.submitted", "tier": "native"},
+    {"source_event": "codex.user_prompt", "source_kind": "otlp_log_span_metric", "canonical_event_type": "prompt.submitted", "tier": "native"},
+    {"source_event": "PreToolUse", "source_kind": "hook_http", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "PostToolUse", "source_kind": "hook_http", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "codex.tool_decision", "source_kind": "otlp_log_span_metric", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "codex.tool_result", "source_kind": "otlp_log_span_metric", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "SubagentStart", "source_kind": "hook_http", "canonical_event_type": "subagent.started", "tier": "native"},
+    {"source_event": "SubagentStop", "source_kind": "hook_http", "canonical_event_type": "subagent.completed", "tier": "native"},
+    {"source_event": "Stop", "source_kind": "hook_http", "canonical_event_type": "session.stopped", "tier": "native"}
+  ],
+  "independent_capability_degradation": "codex.hook_and_codex.otel_are_independently_capability_scoped_disabling_or_breaking_one_source_degrades_only_the_capability_ids_that_source_backs_it_never_zeroes_out_the_other_sources_evidence"
+}
