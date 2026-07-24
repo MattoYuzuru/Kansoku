@@ -82,7 +82,21 @@
   Session 08 can start now. It keeps the original TDD/proposal 07 content for Gemini/Cursor and is
   not cancelled, just decoupled from the 08-10 sequence — whoever picks it up later should re-verify
   it against whatever Sessions 08-10 have changed in the meantime.
-- **08 — next:** Integrity and drift detection.
+- **08 — implementation and bounded runtime validation complete; 2 fault claims pending (2026-07-24):** four locked integrity registries and `internal/integrity`
+  implement the durable 11-stage daily audit over the existing PostgreSQL pool and a session-scoped
+  advisory lock. Checks are source-aware and timeout-bounded; stale runs fail visibly, drift
+  fingerprints are structural-only and trigger targeted stages, incidents require later fresh
+  positive recovery, and the Health API exposes nine decomposed green/yellow/red/gray dimensions
+  without a magic score. The 21-entry fault catalog is evidence-partitioned: 17 component
+  classifiers (no end-to-end SLO claim), 2 measured PostgreSQL mutation integrations, and 2
+  runtime-required scenarios (DB restart and failed restore). The mutation integrations measure
+  scheduler/Stage-11/persistent-incident detection at durable `Incident.OpenedAt`; both passed in
+  the full pinned PostgreSQL 18 tagged suite. DB restart and failed restore remain unexecuted, so
+  there is no aggregate 21-fault runtime claim. Production assembly
+  and report signing fail closed; the synthetic probe uses the shared public-ingress-to-PostgreSQL
+  handoff and verifies rollups with exact cleanup. Live canary execution remains disabled and
+  simulation-only pending credentials plus explicit consent; Session 07b remains untouched backlog.
+- **09 — next:** Local runtime and backend.
 
 ## Dependency graph
 

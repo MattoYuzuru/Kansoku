@@ -14,11 +14,13 @@ python3 scripts/validate_data_platform.py
 python3 scripts/validate_adapter_sdk.py
 python3 scripts/validate_codex.py
 python3 scripts/validate_claude.py
+python3 scripts/validate_integrity.py
 python3 -m unittest discover -s tests -v
 python3 scripts/run_go_tests.py
 python3 scripts/run_privacy_canary.py
 python3 scripts/session03_supply_chain.py --verify
 python3 scripts/session04_supply_chain.py --verify
+python3 scripts/session08_supply_chain.py --verify
 ```
 
 Session 02 adds the closed privacy/security registry set under `contracts/privacy/`:
@@ -141,3 +143,45 @@ deferred to Session 07b; `contracts/cross-agent/` carries no Gemini or Cursor ma
 fixtures against these registries. ADR 0010 records the sequential checkpointed build order this session
 used, the scope narrowing that deferred Gemini/Cursor to Session 07b, and lists the concrete evidence,
 canary and CLI gaps this stage leaves open.
+
+Session 08 adds four closed registries under `contracts/integrity/`: audit-run state machine and
+schedule (`audit-run-and-schedule.yaml`), structural-only drift fingerprints
+(`drift-fingerprint-and-schema.yaml`), incident/health composition (`incident-and-health.yaml`), and
+the closed fault-injection catalog plus live-canary recipe schema
+(`fault-injection-and-live-canary.yaml`). Their versioned semantic digests live in
+`contracts/integrity-policy-locks.yaml`, following the identical append-only lock structure every
+earlier policy-lock file established; no prior trusted entry in any of the seven earlier lock files is
+edited. This is the first session that needs a durable scheduled job — the daily audit workflow is
+built on a PostgreSQL session-scoped advisory lock acquired through `internal/dataplatform`'s existing
+`*pgxpool.Pool`, never a new external job-scheduling dependency, so a crashed process releases the lock
+automatically and a stale `running` audit_run row is marked interrupted rather than silently resumed.
+The audit engine reuses, rather than reinvents, five prior boundaries: `internal/observability`'s
+existing `Watermark`/`Incident` types and silence classification (this is the ONE incident concept in
+the repository; Session 08 extends it with a keyed 1:1 detail record, never a second competing type),
+`internal/dataplatform`'s existing `ApplyRetention`/`CreateBackup`/`VerifyBackupChecksum`/`CountRows`/
+`RestoreBackup`/`RepairQueueDepth`/`BucketStart` functions for its storage/operations checks,
+`internal/adaptersdk`'s `Registry.IDs()`/`Get()`/`Manifest()`/`Adapter.Audit()` for driving every
+registered adapter generically with zero hardcoded agent-name branch in the engine's own core files,
+`internal/observability/routes.go`'s existing generic `/v1/hooks/{adapter}/{event}` ingress for the
+synthetic pipeline probe's uniquely tagged safe record, and `internal/privacy`'s `SafeRecord`/
+`SafeError` sanitizer as the only trust boundary any audit evidence or drift fingerprint may cross —
+drift fingerprints are computed from structural metadata (event/type names, field paths, primitive
+types) only, never sampled values. Nine independently-evidenced health dimensions
+(configuration/connectivity/event-freshness/schema-compatibility/parser-fixture-status/
+reconciliation-coverage/privacy-canary/live-canary-age-result/storage-rollup-health) are each
+green/yellow/red/gray, deriving from — never duplicating — `internal/adaptersdk`'s existing
+`CapabilityState`; gray is the mandatory default before any check has run, and green requires an
+actual runtime check, never an assumption. `contracts/integrity/fault-injection-and-live-canary.yaml`'s
+closed 21-entry catalog binds each claim to one explicit evidence level: 17 component classifiers
+that do not assert end-to-end SLO, 2 PostgreSQL-tagged deterministic mutation integrations that
+measure actual scheduler/Stage-11 persistence at `Incident.OpenedAt`, and 2 runtime-required
+scenarios (DB restart and failed restore). The catalog is not reported as an aggregate 21-fault
+runtime pass; both mutation integrations passed on pinned PostgreSQL 18, while the two
+runtime-required scenarios remain pending until their corresponding harness executes;
+its live-canary recipe schema is fully specified but ships disabled by default pending explicit
+credentials and consent, matching the Session 06/07 precedent that Codex/Claude ship fixture-based
+canaries rather than live-CLI execution. `scripts/validate_integrity.py` cross-checks
+`internal/integrity`'s scheduler, audit stages, health API and fault-injection suite against these
+registries. ADR 0011 records the PostgreSQL-advisory-lock scheduler decision, the sequential
+checkpointed build order this session uses, and the live-canary-disabled-by-default scope boundary
+explicitly.

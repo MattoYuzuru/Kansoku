@@ -1,0 +1,10 @@
+{
+  "schema_version": "kansoku.integrity-policy-locks/1",
+  "effective_at": "2026-07-23",
+  "locks": [
+    {"policy_version": "integrity.audit-run-and-schedule/1", "registry": "contracts/integrity/audit-run-and-schedule.yaml", "semantic_sha256": "09fc0db07cba190f1426533be16cc75e0edee651339975df63c95b23fc51b430"},
+    {"policy_version": "integrity.drift-fingerprint-and-schema/1", "registry": "contracts/integrity/drift-fingerprint-and-schema.yaml", "semantic_sha256": "2fd03b2dcbe841ff9ba9410a9784fcf695f681b4622aec52af192f6f7a26127c"},
+    {"policy_version": "integrity.incident-and-health/1", "registry": "contracts/integrity/incident-and-health.yaml", "semantic_sha256": "0a0dfec0a87022abf2c4d5a54480900d1bed3c82e9aa4c68fe65df7b2457b8ce"},
+    {"policy_version": "integrity.fault-injection-and-live-canary/1", "registry": "contracts/integrity/fault-injection-and-live-canary.yaml", "semantic_sha256": "e04cec8c81408be251d553572d6114b6778d9bf997bb851f7ab586f2fb2323ed"}
+  ]
+}

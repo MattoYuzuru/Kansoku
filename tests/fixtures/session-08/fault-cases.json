@@ -1,0 +1,29 @@
+{
+  "schema_version": "kansoku.integrity-fault-cases/1",
+  "synthetic": true,
+  "effective_at": "2026-07-23",
+  "cases": [
+    {"fault_id": "hook_removed_disabled_or_untrusted", "failure_class": "hook_removed_disabled_or_untrusted", "slo_seconds": 30, "stages": [2]},
+    {"fault_id": "otlp_wrong_port_protocol_or_auth", "failure_class": "otlp_misconfigured", "slo_seconds": 30, "stages": [2]},
+    {"fault_id": "transcript_truncate_rotate_schema_or_permission_change", "failure_class": "permission_denied", "slo_seconds": 60, "stages": [1, 4]},
+    {"fault_id": "active_process_with_absent_events", "failure_class": "watermark_stall", "slo_seconds": 90, "stages": [3]},
+    {"fault_id": "duplicate_and_stalled_watermarks", "failure_class": "duplicate_evidence_anomaly", "slo_seconds": 60, "stages": [3, 7]},
+    {"fault_id": "parser_panic_timeout_or_unknown_field", "failure_class": "parser_incompatibility", "slo_seconds": 60, "stages": [4]},
+    {"fault_id": "delayed_rollup", "failure_class": "rollup_stale", "slo_seconds": 60, "stages": [8]},
+    {"fault_id": "full_disk", "failure_class": "disk_budget_exceeded", "slo_seconds": 90, "stages": [9]},
+    {"fault_id": "db_restart", "failure_class": "db_integrity_violation", "slo_seconds": 90, "stages": [8]},
+    {"fault_id": "corrupt_spool", "failure_class": "db_integrity_violation", "slo_seconds": 90, "stages": [9]},
+    {"fault_id": "stale_backup", "failure_class": "backup_stale", "slo_seconds": 90, "stages": [9]},
+    {"fault_id": "failed_restore", "failure_class": "restore_test_failed", "slo_seconds": 90, "stages": [9]},
+    {"fault_id": "privacy_canary_violation", "failure_class": "privacy_canary_violation", "slo_seconds": 45, "stages": [9]},
+    {"fault_id": "live_canary_partial_dag", "failure_class": "live_canary_partial_dag", "slo_seconds": 300, "stages": [10]},
+    {"fault_id": "live_canary_provider_timeout", "failure_class": "live_canary_provider_timeout", "slo_seconds": 300, "stages": [10]},
+    {"fault_id": "endpoint_unreachable", "failure_class": "endpoint_unreachable", "slo_seconds": 30, "stages": [2]},
+    {"fault_id": "synthetic_pipeline_probe_failure", "failure_class": "synthetic_pipeline_probe_failed", "slo_seconds": 45, "stages": [5]},
+    {"fault_id": "unknown_schema_quarantine", "failure_class": "unknown_schema", "slo_seconds": 30, "stages": [7]},
+    {"fault_id": "cross_source_reconciliation_regression", "failure_class": "reconciliation_mismatch", "slo_seconds": 60, "stages": [6]},
+    {"fault_id": "ingest_lag", "failure_class": "ingest_lag", "slo_seconds": 60, "stages": [7]},
+    {"fault_id": "inventory_cache_miscount", "failure_class": "permission_denied", "slo_seconds": 30, "stages": [1]}
+  ],
+  "recovery_rule": "same incident key, later audit run, fresh pass observed strictly after detection"
+}

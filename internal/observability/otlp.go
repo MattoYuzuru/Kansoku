@@ -26,6 +26,23 @@ const (
 	maxOTLPFrameBytes = 1 << 20
 )
 
+// FixtureOTLPSchemaID, FixtureHookSchemaID, FixtureAdapterID and
+// FixtureAdapterVersion re-export the already contract-public identifiers
+// contracts/observability/ingress.yaml declares for the conformance
+// fixture-agent lane ("fixture.agent-otlp/1"/"fixture.agent-hook/1" source
+// schemas, "fixture-agent"/"1.0.0" resource identity). They are not secrets:
+// the values are the same literals ingress.yaml, otlp.go's knownResource and
+// privacy.FixtureSourceSchema already hardcode. Exporting them lets
+// internal/integrity's synthetic pipeline probe (stage_5) build a real OTLP
+// request accepted by this package's own knownResource check without
+// internal/integrity forking a second copy of these contract literals.
+const (
+	FixtureOTLPSchemaID   = fixtureOTLPSchema
+	FixtureHookSchemaID   = "fixture.agent-hook/1"
+	FixtureAdapterID      = "fixture-agent"
+	FixtureAdapterVersion = "1.0.0"
+)
+
 type OTLPReceiver struct {
 	ingestor *Ingestor
 	maxBytes int64

@@ -154,7 +154,18 @@ func (s *FileStore) Commit(request CommitRequest) (CommitResult, error) {
 		fact.Completeness = completenessForEvidence(fact.EvidenceIDs, next.Evidence, next.Watermarks)
 		next.Facts[key] = fact
 	}
-	next.Revision++
+	return s.persist(next, result)
+}
+
+// persist is the shared validate+fsync+rename transaction tail every mutating
+// entry point (Commit, PurgeFacts) uses: it never partially writes next, and
+// s.state only advances to next after the rename (and its containing
+// directory fsync) has actually completed, matching the exact
+// crash-injection semantics Commit already exercised before this was
+// extracted. Callers must hold s.mu and must have already produced a fully
+// self-consistent next (Revision NOT yet incremented) before calling this.
+func (s *FileStore) persist(next DurableState, result CommitResult) (CommitResult, error) {
+	next.Revision = s.state.Revision + 1
 	if err := ValidateState(next); err != nil {
 		return CommitResult{}, fmt.Errorf("store_invariant_failure:%w", err)
 	}
@@ -237,6 +248,65 @@ func (s *FileStore) Snapshot() DurableState {
 	return cloned
 }
 
+// PurgeFacts removes exactly the Facts named by factKeys, together with
+// every Evidence/Correlation row that exists ONLY to support one of those
+// Facts, and returns how many Facts were actually removed (a factKey absent
+// from the current state is simply not counted, never an error, so a
+// caller replaying an already-purged key is safe). This is the durable
+// "explicit test-namespace retention path" internal/integrity's stage_5
+// synthetic pipeline probe uses to expire its own uniquely-tagged records
+// after verifying their end-to-end appearance: it never deletes anything
+// the caller did not name explicitly by FactKey, so it cannot be used as a
+// generic bulk-delete of real usage data, and it goes through the exact
+// same validate+fsync+rename transaction (persist) every other durable
+// mutation in this package uses -- a purge is not a second, weaker
+// durability tier.
+//
+// Watermarks are deliberately left untouched: SourceKind-scoped watermark
+// counters (last_read_sequence, last_observed_at, ...) are shared
+// infrastructure-level liveness evidence for the whole hook_http/otlp_*
+// lane, not a namespaced fact a retention sweep should roll back; a
+// synthetic probe intentionally proves the lane is live, and that
+// liveness evidence is legitimate even after the probe's own facts expire.
+func (s *FileStore) PurgeFacts(factKeys []string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next, err := cloneState(s.state)
+	if err != nil {
+		return 0, errors.New("store_clone_failure")
+	}
+	removed := 0
+	for _, factKey := range factKeys {
+		fact, ok := next.Facts[factKey]
+		if !ok {
+			continue
+		}
+		for _, evidenceID := range fact.EvidenceIDs {
+			delete(next.Evidence, evidenceID)
+		}
+		for correlationID, correlation := range next.Correlations {
+			if correlation.EventID == fact.Event.EventID {
+				delete(next.Correlations, correlationID)
+			}
+		}
+		delete(next.Facts, factKey)
+		removed++
+	}
+	if removed == 0 {
+		return 0, nil
+	}
+	for key, remaining := range next.Facts {
+		remaining.Completeness = completenessForEvidence(remaining.EvidenceIDs, next.Evidence, next.Watermarks)
+		next.Facts[key] = remaining
+	}
+	result, err := s.persist(next, CommitResult{})
+	if err != nil {
+		return 0, err
+	}
+	_ = result
+	return removed, nil
+}
+
 type DurableSpool struct {
 	mu       sync.Mutex
 	path     string
@@ -305,6 +375,35 @@ func (s *DurableSpool) Replay(commit func(CommitRequest) error) error {
 	}
 	if err := drainSecureSpool(s.path); err != nil {
 		return errors.New("spool_drain_failure")
+	}
+	return nil
+}
+
+// CheckDurableSpool validates path security, framing, strict JSON shape and
+// every typed request without committing or draining anything. It is the
+// read-only stage-9 integrity probe for a corrupt spool.
+func CheckDurableSpool(path string, maxBytes int64) error {
+	if !filepath.IsAbs(path) || maxBytes < 1024 {
+		return errors.New("invalid_spool_configuration")
+	}
+	if err := validateSpoolPath(path); err != nil {
+		return errors.New("spool_path_unsafe")
+	}
+	raw, err := readSecureSpool(path, maxBytes)
+	if err != nil {
+		return errors.New("spool_open_failure")
+	}
+	if len(raw) == 0 {
+		return nil
+	}
+	if raw[len(raw)-1] != '\n' {
+		return errors.New("spool_decode_failure")
+	}
+	for _, encoded := range bytes.Split(raw[:len(raw)-1], []byte{'\n'}) {
+		var request CommitRequest
+		if len(encoded) == 0 || strictUnmarshal(encoded, &request) != nil || validateSpoolRequest(request) != nil {
+			return errors.New("spool_decode_failure")
+		}
 	}
 	return nil
 }

@@ -1,0 +1,49 @@
+{
+  "schema_version": "kansoku.integrity-drift-fingerprint-and-schema/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "structural_only_rule": "every fingerprint in this registry is computed from safe STRUCTURAL metadata only: event/type names, field paths and primitive types after the same prohibited-field categorization internal/privacy's SafeRecord/SafeError sanitizer already performs; sampling, storing or hashing any field VALUE is forbidden at every fingerprint layer defined here, including inside audit evidence or incident detail records",
+  "prohibited_field_categorization_reuse": "field values are never inspected; the categorization this registry reuses is the closed prohibited-field vocabulary already established by contracts/privacy/data-classes.yaml and enforced by internal/privacy -- a field either passes the sanitizer's existing allowlist (its NAME and primitive TYPE are safe to fingerprint) or it is already dropped before this registry ever sees it",
+  "fingerprint_kinds": [
+    {
+      "kind": "executable_version",
+      "inputs": ["adapter_id", "detected_agent_executable_version_string"],
+      "reused_from": "internal/adaptersdk manifest.yaml compatibility_registry_fields / agent_detection, never re-derived",
+      "change_trigger": "a version string outside every declared compatibility range fires version_change_detected and defaults the affected capability to degraded, matching adapter-sdk's any_to_degraded transition"
+    },
+    {
+      "kind": "config_recipe_fingerprint",
+      "inputs": ["installer_target_id", "applied_plan_sha256"],
+      "reused_from": "internal/installer's existing PlanSHA256, never a second config hashing mechanism",
+      "change_trigger": "applied config fingerprint no longer equal to the last-approved plan's PlanSHA256 fires stage_1_discovery_and_configuration's config-fingerprint check; the check either explains the drift (an approved newer plan exists) or opens an incident"
+    },
+    {
+      "kind": "adapter_version",
+      "inputs": ["adapter_id", "adapter_package_semantic_version"],
+      "reused_from": "internal/adaptersdk Registry.Get(adapter_id).Manifest() version field",
+      "change_trigger": "fires version_change_detected reduced-mode run scoped to that adapter_id's sources only"
+    },
+    {
+      "kind": "fixture_version",
+      "inputs": ["adapter_id", "bundled_fixture_set_sha256"],
+      "reused_from": "the same fixture bytes already committed under tests/fixtures/session-06 and tests/fixtures/session-07, never resampled from live data",
+      "change_trigger": "fires stage_4_parser_fixture_replay for that adapter_id on the next run, full or reduced"
+    },
+    {
+      "kind": "formula_registry_version",
+      "inputs": ["formula_id", "formula_version_integer"],
+      "reused_from": "contracts/formula-version-locks.yaml and internal/dataplatform.SeedFormulaVersion, never a second formula identity",
+      "change_trigger": "fires stage_8_rollup_formula_and_db_integrity's formula-version check"
+    },
+    {
+      "kind": "event_schema_fingerprint",
+      "inputs": ["source_schema_id (SourceRef.SchemaID)", "event_type_name", "sorted_field_path_list", "primitive_type_per_field_path"],
+      "reused_from": "internal/observability SourceRef.SchemaFingerprint field, never a parallel schema identity field",
+      "computation": "canonical JSON of {event_type_name, field_paths: [{path, primitive_type}]} sorted by path, sha256 of that canonical form; primitive_type is one of string|integer|number|boolean|null|array|object exactly as observed in the STRUCTURE, never a sampled value",
+      "change_trigger": "a computed event_schema_fingerprint not present in the compatibility registry for the current adapter_version opens an unknown_schema check finding in stage_7_unknown_schema_and_lag and is quarantined per lifecycles.yaml's terminal_failure=metadata_only_quarantine, never silently dropped or guessed into a known canonical type"
+    }
+  ],
+  "new_shape_counting_rule": "stage_4_parser_fixture_replay counts NEW fixture shapes and stage_7_unknown_schema_and_lag compares runtime event_schema_fingerprints against the compatibility registry; only counts and safe structural hashes are durable -- field VALUES are never stored. Zero new shapes remains distinct from no evidence",
+  "targeted_revalidation_rule": "any fingerprint_kind change triggers ONLY the stages whose change_trigger names it; a config_recipe_fingerprint change never forces a live_canary run, and a fixture_version change never forces stage_9's backup/restore checks -- this keeps the reduced-mode scope in audit-run-and-schedule.yaml exact rather than a blanket full re-audit",
+  "storage_boundary": "all fingerprint rows are content-addressed by hash/name/type metadata exclusively; the same durable-write boundary internal/privacy's SafeRecord/SafeError enforce for event facts applies identically here, and a fingerprint row is rejected before commit if any field name in the closed prohibited-field vocabulary of contracts/privacy/data-classes.yaml would otherwise be recorded as part of a field path"
+}

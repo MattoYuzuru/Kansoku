@@ -111,6 +111,54 @@ never stored as the only evidence. Dashboard can answer why and which metrics ar
 
 ## Exit gate
 
-Every advertised detection has a fault test and measured detection time; audit runs are durable and
-non-overlapping; incidents map to completeness intervals; canaries are bounded, excluded and private.
+Every advertised detection has evidence matching its declared level; only actual mutation/runtime
+tests may claim measured end-to-end detection time. Audit runs are durable and non-overlapping;
+incidents map to completeness intervals; canaries are bounded, excluded and private.
 
+Current reconciliation: 17 component classifiers pass without an end-to-end SLO claim; 2
+PostgreSQL-tagged deterministic mutation integrations passed on pinned PostgreSQL 18 and measured
+actual scheduler-to-durable incident detection at `Incident.OpenedAt`. DB restart and failed restore
+remain runtime-required. Therefore there is no aggregate 21-fault runtime claim and the complete
+fault-injection exit gate is not reported green.
+
+## Implemented design notes (2026-07-24)
+
+- `AuditCheckKey` is `(audit_run_id, check_id, capability_id, installation_id, source_id)`;
+  `source_id` is never encoded into the closed Adapter SDK capability vocabulary.
+- Every selected stage gets a real context deadline from the locked registry. A pending row is
+  written before evaluation; missing/unsupported evidence remains explicit rather than becoming a
+  pass. Stage 8 treats an aged `late_events_pending` watermark as actionable even when current queue
+  depth is zero; repair age remains conditional on non-zero depth.
+- Stage 9 forecasts crossing the configured disk budget (default `0.90`) rather than physical
+  exhaustion; the regression boundary is `0.89 -> 0.91` crossing `0.90`. Stage errors persist
+  bounded categories, never raw error strings.
+- Version-change runs use the union of per-fingerprint targeted stages: executable/adapter
+  `1,2,3,4,7`; config `1,2`; fixture `4`; formula registry `8`; event schema `4,7`.
+  Stages 9 and 10 are never silently pulled into reduced revalidation. Non-global changes also
+  filter targets by source, capability and adapter identity; the durable baseline advances only
+  after the targeted run passes.
+- Structural schema fingerprints accept only event name, sorted field paths and the seven primitive
+  types. The shared privacy categorizer rejects prohibited durable path segments before hashing.
+- The Health API derives all nine dimensions from latest per-check/per-source evidence plus open
+  incidents. Gray outranks green in the overall worst-applicable summary so missing evidence cannot
+  disappear behind one fresh pass.
+- Stage 10 contains no process-spawn or network client. Its fixture/simulation observer is the only
+  executable Session 08 path; it measures all declared budgets, bounds even a non-cooperative
+  observer, and stores credential confirmation, explicit consent and cooldown state in PostgreSQL.
+  Production wiring validates the recipe adapter/capability against the shared registry. A real
+  provider canary requires a future explicit opt-in.
+- Stage 11 canonicalizes a versioned metadata-only report and atomically stores its SHA-256 plus
+  device-local HMAC-SHA256 signature/key ID, Stage-11 check, incident reconciliation and terminal
+  run state. Strict report loading rejects unknown fields and mismatched duplicated DB envelope
+  columns. This proves local tamper detection, not public release signing.
+- `NewProductionAssembly` validates the dependency graph before applying migrations or starting
+  triggers. It rejects a FileStore-only synthetic check, a second PostgreSQL pool, incomplete
+  rollup/storage/privacy dependencies, an enabled live canary without durable state/cleanup, and
+  absent report signing.
+- Integrity migration tables are namespaced (`integrity_audit_runs` /
+  `integrity_audit_checks`) so an upgrade over the existing Session 04 schema cannot collide with
+  or delete Session 04's separate `audit_runs` / `audit_checks` history.
+- Parser replay is context-bounded and panic-contained. Structural shape collection deduplicates
+  array element paths, is cardinality/order independent, rejects heterogeneous path types, and
+  delegates to the same strict privacy-aware `EventSchemaFingerprint` function used by drift
+  tracking.

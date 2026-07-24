@@ -64,6 +64,28 @@ Session 01–07 gates проходят; Claude остаётся Experimental —
 JSONL importer для `claude.transcript`, нет live-CLI canary, `Audit` возвращает nil, `claude.user_hook`
 без filesystem writer) зафиксированы в `reports/session-07-reconciliation.md`.
 
+Session 08 / фаза 008 собрана и проверена 2026-07-24 на pinned PostgreSQL 18:
+`internal/integrity` добавляет первый durable daily
+audit из 11 timeout-bounded стадий поверх PostgreSQL session advisory lock, crash recovery,
+source-aware idempotent check rows, structural-only drift fingerprints и targeted revalidation.
+Пассивные endpoint/hook probes не меняют agent config; unknown schemas остаются видимыми и
+metadata-only quarantined. Health API возвращает девять независимых `green/yellow/red/gray`
+измерений без numeric score: gray — честный default, green требует свежего runtime pass, а
+открытый incident не может быть скрыт более поздним pass другого source. Live-canary machinery
+проверена только в bounded simulation: argv, disposable namespace, credentials+explicit consent,
+turn/token/cost/duration budgets, cooldown, exact DAG и deterministic cleanup; реальный agent
+process/аккаунт не запускался. Catalog содержит ровно 21 fault case с тремя явно разными уровнями
+доказательств: 17 component classifiers без end-to-end SLO claim, 2 PostgreSQL-tagged measured
+mutation integration (`corrupt_spool` и production synthetic handoff failure), и 2 runtime-required
+сценария (`db_restart` и `failed_restore`). Обе mutation-интеграции прошли на pinned PostgreSQL 18
+и измерили границу по фактическому durable `Incident.OpenedAt`; полный PostgreSQL-tagged suite,
+data-platform runtime validator и standalone privacy canary также прошли. `db_restart`,
+`failed_restore` и реальный provider canary по-прежнему не запускались, поэтому aggregate
+runtime-claim для всех 21 fault case не делается. Финальный audit report
+versioned и HMAC-signed внутри одной атомарной Stage 11
+транзакции. Session 07b
+по-прежнему остаётся отдельным backlog и не была возобновлена; следующая основная сессия — 09.
+
 Проект по-прежнему строится десятью последовательными сессиями (плюс Session 07b), каждая из которых
 имеет продуктовый
 proposal и парный technical design document. Переход к следующей сессии допускается только после
@@ -120,6 +142,11 @@ proposal и парный technical design document. Переход к следу
 - [Claude adapter and portability proof ADR](adr/0010-session-07-claude-adapter-and-portability-proof.md)
   — sequential checkpointed build order, Claude-only scope narrowing rationale, installer/ingress/
   sanitizer reuse decisions и rejected alternatives.
+- [Session 08 reconciliation](reports/session-08-reconciliation.md) — 11-stage scheduler,
+  PostgreSQL 18 lifecycle/mutation evidence, 17 component classifiers, 2 measured mutations,
+  health/drift/live-canary simulation и 2 явно незакрытых runtime fault case.
+- [Integrity and drift ADR](adr/0011-session-08-integrity-and-drift.md) — PostgreSQL advisory lock,
+  structural fingerprints, incident/health composition и disabled-by-default live canary.
 
 ## Принятый технологический baseline
 

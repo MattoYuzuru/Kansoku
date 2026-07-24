@@ -205,6 +205,24 @@ inventory rather than a signed release SBOM. Production image scanning/provenanc
 Session 09/10 gate. Compose documentation supports the static service/network/secret fields, but a
 successful `compose config` is not runtime reachability or soak evidence.
 
+## Session 08 integrity scheduler interfaces
+
+- PostgreSQL 18 advisory-lock functions:
+  <https://www.postgresql.org/docs/18/functions-admin.html#FUNCTIONS-ADVISORY-LOCKS>
+- pgx v5 `pgxpool` package:
+  <https://pkg.go.dev/github.com/jackc/pgx/v5/pgxpool>
+- Retrieved: 2026-07-23.
+- Relevant versions: PostgreSQL 18; the repository remains pinned to
+  `github.com/jackc/pgx/v5 v5.7.6` from Session 04.
+
+Design note: `pg_try_advisory_lock(bigint)` is an exclusive session-level, non-blocking lock.
+PostgreSQL releases session-level advisory locks when the session ends, including an ungraceful
+disconnect. Kansoku therefore holds the lock on one explicitly acquired `pgxpool.Conn` for the
+whole audit and releases that connection only after the run terminates; calling `Pool.Exec` for
+lock/unlock would be incorrect because two calls may use different pooled sessions. No agent
+interface changed in Session 08, so no Codex/Claude/Gemini/Cursor documentation was re-fetched.
+Live-canary execution stayed simulated and did not exercise a provider CLI or credential path.
+
 ## Source maintenance policy
 
 For every supported agent release:

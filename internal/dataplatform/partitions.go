@@ -72,6 +72,28 @@ func EnsureCurrentAndNextPartitions(ctx context.Context, pool *pgxpool.Pool, now
 // row-by-row DELETE against a partitioned fact table. Returns the dropped
 // partition names for audit logging.
 func DropPartitionsOlderThan(ctx context.Context, pool *pgxpool.Pool, table string, horizon time.Time) ([]string, error) {
+	names, err := PreviewPartitionsOlderThan(ctx, pool, table, horizon)
+	if err != nil {
+		return nil, err
+	}
+	var dropped []string
+	for _, name := range names {
+		if _, err := pool.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", pgIdent(name))); err != nil {
+			return dropped, fmt.Errorf("drop partition %s: %w", name, err)
+		}
+		dropped = append(dropped, name)
+	}
+	return dropped, nil
+}
+
+// PreviewPartitionsOlderThan enumerates exactly the monthly partitions of
+// table that DropPartitionsOlderThan would drop for the same horizon,
+// WITHOUT dropping them: a read-only preview a caller (e.g. Session 08's
+// stage_9 retention audit check) can use to report retention-eligible
+// partitions on every routine run without ever mutating them. This is the
+// same pg_inherits/pg_get_expr enumeration DropPartitionsOlderThan itself
+// uses; the two functions never diverge in what counts as "eligible".
+func PreviewPartitionsOlderThan(ctx context.Context, pool *pgxpool.Pool, table string, horizon time.Time) ([]string, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT c.relname
 		FROM pg_inherits i
@@ -92,22 +114,17 @@ func DropPartitionsOlderThan(ctx context.Context, pool *pgxpool.Pool, table stri
 		names = append(names, name)
 	}
 	rows.Close()
-	var dropped []string
+	var eligible []string
 	for _, name := range names {
-		var upperBound time.Time
-		bound, err := partitionUpperBound(ctx, pool, name)
+		upperBound, err := partitionUpperBound(ctx, pool, name)
 		if err != nil {
-			return dropped, err
+			return eligible, err
 		}
-		upperBound = bound
 		if !upperBound.After(horizon) {
-			if _, err := pool.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", pgIdent(name))); err != nil {
-				return dropped, fmt.Errorf("drop partition %s: %w", name, err)
-			}
-			dropped = append(dropped, name)
+			eligible = append(eligible, name)
 		}
 	}
-	return dropped, nil
+	return eligible, nil
 }
 
 // partitionBoundPattern matches PostgreSQL's pg_get_expr rendering of a

@@ -1,0 +1,19 @@
+{
+  "schema_version": "kansoku.integrity-live-canary-simulation/1",
+  "synthetic": true,
+  "recipe_id": "fixture-canary-v1",
+  "enabled": false,
+  "command": ["fixture-agent", "--non-interactive"],
+  "fixture_workspace_ref": "kansoku-canary-fixture",
+  "expected_event_dag": [
+    "session.started",
+    "prompt.submitted",
+    "component.invoked(canary)",
+    "tool.called(mcp.echo)",
+    "tool.succeeded",
+    "component.succeeded",
+    "session.stopped"
+  ],
+  "budgets": {"max_turns": 2, "max_tokens": 128, "max_cost_usd": 0.01, "max_duration_seconds": 30, "cooldown_seconds": 3600},
+  "execution": "simulation_only_no_process_no_network"
+}

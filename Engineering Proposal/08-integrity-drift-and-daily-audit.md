@@ -82,3 +82,30 @@ watermark, parser, rollup and storage. Each failure is detected within its SLO, 
 affected metric interval, never leaks canary content and automatically records recovery only after
 fresh evidence.
 
+## Implementation reconciliation (2026-07-24)
+
+Session 08 is implemented in `internal/integrity` with four locked registries under
+`contracts/integrity/`. The executable 21-fault catalog is split into 17 component classifiers,
+2 PostgreSQL-tagged deterministic mutation integrations (`corrupt_spool` and production synthetic
+handoff failure), and 2 runtime-required scenarios (`db_restart` and `failed_restore`). Component
+tests prove classification, interval and recovery semantics but make no end-to-end SLO claim.
+Mutation integrations route the actual mutation through the real scheduler and atomic Stage 11,
+measure detection at the persisted incident's `OpenedAt`, and require a later scheduler pass before
+recovery. Both passed in the full pinned PostgreSQL 18 tagged suite. The DB restart and failed
+restore scenarios remain pending, so no aggregate 21-fault runtime exit gate is claimed.
+
+The live-canary harness is intentionally simulation-only in this environment. It validates
+non-shell argv, a disposable namespaced workspace, credentials plus separately recorded explicit
+consent, measured turns/tokens/cost/duration budgets, PostgreSQL-persisted cooldown, exact DAG and
+bounded panic-safe cleanup. It does not spawn a real agent, copy credentials, access a user
+repository or create external egress. That scope is reported as gray rather than inferred green.
+
+The final production boundary is fail-closed: one assembly owns the shared PostgreSQL pool,
+scheduler and trigger coordinator; mandatory stages, report signing and concrete Stage 5/8/9
+dependencies are validated before a run exists. Stage 11 atomically reconciles incidents, persists
+the versioned HMAC-signed report and check, and transitions the run terminal. The synthetic probe
+traverses hook plus OTLP log/span/metric ingress through the same production PostgreSQL handoff,
+verifies the event/evidence and targeted rollup/query path, then removes only its exact reserved
+namespace.
+
+Session 07b remains a non-blocking backlog item and was not changed by this session.

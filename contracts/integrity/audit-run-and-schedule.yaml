@@ -1,0 +1,54 @@
+{
+  "schema_version": "kansoku.integrity-audit-run-and-schedule/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "workflow_name": "daily-integrity",
+  "single_writer_mechanism": {
+    "kind": "postgresql_advisory_lock",
+    "reuse": "internal/dataplatform's existing *pgxpool.Pool (internal/dataplatform/db.go Connect) is the only PostgreSQL handle this session opens; no second connection pool or external job-scheduling dependency is introduced",
+    "lock_key_derivation": "pg_try_advisory_lock keyed by a fixed 64-bit hash of the literal string kansoku.daily-integrity, one key for the whole workflow so at most one audit_run is running anywhere at a time",
+    "session_scoped": "the advisory lock is session-scoped (held for the lifetime of the acquiring connection), never transaction-scoped, so a crashed process releases it automatically on connection close rather than requiring a manual unlock",
+    "non_overlap_guarantee": "a second scheduler instance or a manual trigger that fails to acquire the lock must record a skipped attempt and never start a concurrent audit_run row"
+  },
+  "triggers": [
+    {"trigger": "scheduled_daily", "description": "configurable local time of day plus bounded random jitter, full 11-stage run"},
+    {"trigger": "startup", "description": "runs once shortly after process start in reduced mode, never full mode, to avoid duplicating a scheduled run that starts moments later"},
+    {"trigger": "version_change_detected", "description": "fires a reduced-mode run immediately after any executable/adapter/fixture/formula-registry drift fingerprint changes (see drift-fingerprint-and-schema.yaml), scoped to the affected stages only"},
+    {"trigger": "manual_operator_request", "description": "explicit operator-triggered run, always full mode, still subject to the single advisory lock"}
+  ],
+  "run_modes": ["full", "reduced"],
+  "reduced_mode_stage_scope": "startup runs stage_1_discovery_and_configuration, stage_2_endpoint_and_hook_verification and stage_3_watermark_vs_inactivity; version_change_detected runs only the union named by each changed fingerprint: executable_version/adapter_version -> stages 1,2,3,4,7; config_recipe_fingerprint -> stages 1,2; fixture_version -> stage 4; formula_registry_version -> stage 8; event_schema_fingerprint -> stages 4,7. It never runs stage_9_retention_disk_and_backup or stage_10_optional_live_canary",
+  "run_states": ["scheduled", "running", "passed", "degraded", "failed", "cancelled"],
+  "state_machine": {
+    "scheduled_to_running": "advisory lock acquired and an audit_run row inserted with a started_at timestamp",
+    "running_to_passed": "every eligible check for this run's mode completed with a pass or skipped_unsupported status and no check reported fail",
+    "running_to_degraded": "at least one check reported fail whose category maps to a yellow-tier health dimension, or a check could not run due to a benign precondition (e.g. live canary disabled by default) leaving evidence gray, but no red-tier failure was observed",
+    "running_to_failed": "at least one check reported fail whose category maps to a red-tier health dimension (observed breakage), or a stage exceeded its timeout bound and could not be safely retried within the same run",
+    "running_to_cancelled": "operator-issued cancellation or the process is shutting down cleanly before the run reached a terminal state; cancelled runs are never silently reinterpreted as passed",
+    "terminal_to_incident": "passed never opens an incident; degraded/failed evaluate the incident-and-health.yaml key/dedup rules and open or update exactly one incident per installation+source+capability+failure-class",
+    "no_backward_transition": "a run that reached passed, degraded, failed or cancelled never transitions again; a subsequent audit is always a new audit_run row"
+  },
+  "stage_registry": [
+    {"stage_id": "stage_1_discovery_and_configuration", "ordinal": 1, "idempotent": true, "timeout_seconds": 30, "mutates_target": false},
+    {"stage_id": "stage_2_endpoint_and_hook_verification", "ordinal": 2, "idempotent": true, "timeout_seconds": 30, "mutates_target": false},
+    {"stage_id": "stage_3_watermark_vs_inactivity", "ordinal": 3, "idempotent": true, "timeout_seconds": 15, "mutates_target": false},
+    {"stage_id": "stage_4_parser_fixture_replay", "ordinal": 4, "idempotent": true, "timeout_seconds": 60, "mutates_target": false},
+    {"stage_id": "stage_5_synthetic_pipeline_probe", "ordinal": 5, "idempotent": true, "timeout_seconds": 45, "mutates_target": false},
+    {"stage_id": "stage_6_cross_source_reconciliation", "ordinal": 6, "idempotent": true, "timeout_seconds": 60, "mutates_target": false},
+    {"stage_id": "stage_7_unknown_schema_and_lag", "ordinal": 7, "idempotent": true, "timeout_seconds": 30, "mutates_target": false},
+    {"stage_id": "stage_8_rollup_formula_and_db_integrity", "ordinal": 8, "idempotent": true, "timeout_seconds": 60, "mutates_target": false},
+    {"stage_id": "stage_9_retention_disk_and_backup", "ordinal": 9, "idempotent": true, "timeout_seconds": 90, "mutates_target": false},
+    {"stage_id": "stage_10_optional_live_canary", "ordinal": 10, "idempotent": true, "timeout_seconds": 300, "mutates_target": false, "disabled_by_default": true},
+    {"stage_id": "stage_11_persist_report_and_raise_incidents", "ordinal": 11, "idempotent": true, "timeout_seconds": 30, "mutates_target": false}
+  ],
+  "stage_ordinal_rule": "stages execute in ascending ordinal order within one audit_run; a reduced-mode run may skip non-selected stages entirely (recorded as skipped_unsupported, never as a failure) but never reorders the stages it does run",
+  "no_mutation_rule": "every stage in stage_registry has mutates_target=false: discovery, endpoint/hook verification, fixture replay and the synthetic pipeline probe use adaptersdk.HostView bounded reads, Adapter.Audit passive/fixture_replay/live_canary modes and the public /v1/hooks/{adapter}/{event} ingress exactly as an already-permitted caller would, never a write to a user's agent configuration",
+  "idempotency_rule": "each check row is keyed by (audit_run_id, check_id, capability_id, installation_id, source_id); source_id is explicit and never overloaded into capability_id, whose values remain the closed internal/adaptersdk CapabilityID vocabulary. Rerunning an interrupted stage recomputes the same key deterministically and upserts rather than duplicating a row",
+  "timeout_bound_rule": "a stage that exceeds its declared timeout_seconds is recorded as a failed check for that stage with category=stage_timeout, and the run continues to the next stage rather than hanging; a run whose failed checks are all stage_timeout on non-critical stages still evaluates degraded_vs_failed by the same category-to-health-tier mapping as any other check",
+  "crash_recovery": {
+    "stale_running_detection": "on process start, any audit_run row still in state running whose advisory lock is not currently held by a live session is marked interrupted, a terminal sub-state of failed with failure_reason=crash_recovery_stale_run",
+    "resume_rule": "an interrupted run is never resumed in place; the next eligible trigger starts a brand-new audit_run row and retries only the checks whose (check_id, capability_id, installation_id) key has no fresh passing evidence within its own freshness window, matching the health-model 'green requires a runtime check' rule rather than assuming the interrupted run's partial state was still valid",
+    "never_silent_resume": "no code path marks an interrupted run's incomplete checks as passed by inference; incomplete checks remain gray (no evidence) until a later run actually executes them"
+  },
+  "durable_state_validation": "audit_run and check rows are validated exhaustively on open and before commit using the same map-key/typed-enum/range/timestamp discipline internal/observability/reconciliation.yaml already requires for its DurableState, reusing that validation posture rather than declaring a second one"
+}

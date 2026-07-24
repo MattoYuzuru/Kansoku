@@ -1,0 +1,19 @@
+{
+  "schema_version": "kansoku.integrity-health-fixture/1",
+  "synthetic": true,
+  "installation_id": "fixture-installation",
+  "capability_id": "ingestion.live_stream",
+  "dimensions": [
+    "configuration",
+    "connectivity",
+    "event_freshness",
+    "schema_compatibility",
+    "parser_fixture_status",
+    "reconciliation_coverage",
+    "privacy_canary",
+    "live_canary_age_result",
+    "storage_rollup_health"
+  ],
+  "before_runtime_checks": "gray",
+  "numeric_score": null
+}

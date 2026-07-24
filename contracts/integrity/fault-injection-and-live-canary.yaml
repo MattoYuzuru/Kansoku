@@ -1,0 +1,219 @@
+{
+  "schema_version": "kansoku.integrity-fault-injection-and-live-canary/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "fault_injection_catalog": [
+    {
+      "fault_id": "hook_removed_disabled_or_untrusted",
+      "tdd_bullet": "remove/disable/untrust hook",
+      "target_detection_claim": "stage_2_endpoint_and_hook_verification detects a hook entry missing, disabled or untrusted for a configured adapter without mutating the target config",
+      "expected_detection_slo_seconds": 30,
+      "expected_incident_failure_class": "hook_removed_disabled_or_untrusted",
+      "reused_precedent": "Session 06/07's existing hook trust/enabled-state audit-only rule (contracts/codex/hooks-and-otel.yaml, contracts/claude/hooks-and-otel.yaml) is the exact detection this fault test exercises; this session adds the scheduled/injected test around it, not a new detection mechanism"
+    },
+    {
+      "fault_id": "otlp_wrong_port_protocol_or_auth",
+      "tdd_bullet": "wrong OTLP port/protocol/auth",
+      "target_detection_claim": "stage_2_endpoint_and_hook_verification's passive OTel endpoint probe detects a configured OTLP endpoint that no longer accepts the expected port/protocol/auth without sending any live agent traffic",
+      "expected_detection_slo_seconds": 30,
+      "expected_incident_failure_class": "otlp_misconfigured"
+    },
+    {
+      "fault_id": "transcript_truncate_rotate_schema_or_permission_change",
+      "tdd_bullet": "truncate/rotate/change transcript schema/permissions",
+      "target_detection_claim": "stage_1_discovery_and_configuration's state-root readability check plus stage_4_parser_fixture_replay's schema comparison detect a transcript file that is now unreadable, rotated without a recognized checkpoint, or carrying an unrecognized schema",
+      "expected_detection_slo_seconds": 60,
+      "expected_incident_failure_class": "permission_denied",
+      "note": "a schema change specifically routes to unknown_schema per drift-fingerprint-and-schema.yaml, not permission_denied; both are exercised as distinct fault tests"
+    },
+    {
+      "fault_id": "active_process_with_absent_events",
+      "tdd_bullet": "active process with absent events",
+      "target_detection_claim": "stage_3_watermark_vs_inactivity distinguishes eligible_activity-stalled (agent/session/process evidence exists but no events arrive) from true_inactivity, opening a watermark_stall incident only in the former case",
+      "expected_detection_slo_seconds": 90,
+      "expected_incident_failure_class": "watermark_stall",
+      "reused_precedent": "contracts/observability/reconciliation.yaml's silence classification (eligible_activity/true_inactivity/eligibility_unknown) is reused verbatim; this session adds the scheduled check and fixture, not a new classification"
+    },
+    {
+      "fault_id": "duplicate_and_stalled_watermarks",
+      "tdd_bullet": "duplicate and stalled watermarks",
+      "target_detection_claim": "stage_7_unknown_schema_and_lag detects duplicate evidence identity replay counted correctly (never inflating fact count) and stage_3 detects a watermark whose gap_count/expected_cadence_ms indicate a stall",
+      "expected_detection_slo_seconds": 60,
+      "expected_incident_failure_class": "duplicate_evidence_anomaly"
+    },
+    {
+      "fault_id": "parser_panic_timeout_or_unknown_field",
+      "tdd_bullet": "parser panic/timeout/unknown field",
+      "target_detection_claim": "stage_4_parser_fixture_replay recovers from a panic/timeout in the sanitizer/normalizer path for one fixture without aborting the whole audit run, and records an unknown field as a new-shape count rather than crashing or silently dropping it",
+      "expected_detection_slo_seconds": 60,
+      "expected_incident_failure_class": "parser_incompatibility"
+    },
+    {
+      "fault_id": "delayed_rollup",
+      "tdd_bullet": "delayed rollup",
+      "target_detection_claim": "stage_8_rollup_formula_and_db_integrity calls internal/dataplatform.RepairQueueDepth and flags a rollup watermark older than its freshness budget",
+      "expected_detection_slo_seconds": 60,
+      "expected_incident_failure_class": "rollup_stale",
+      "reused_precedent": "internal/dataplatform.RepairQueueDepth and the existing freshness.late_events_pending query-contract field are called directly, never reimplemented"
+    },
+    {
+      "fault_id": "full_disk",
+      "tdd_bullet": "full disk",
+      "target_detection_claim": "stage_9_retention_disk_and_backup's disk forecast check flags projected exhaustion before the configured budget threshold is reached",
+      "expected_detection_slo_seconds": 90,
+      "expected_incident_failure_class": "disk_budget_exceeded"
+    },
+    {
+      "fault_id": "db_restart",
+      "tdd_bullet": "DB restart",
+      "target_detection_claim": "stage_8_rollup_formula_and_db_integrity's connectivity/migration check detects a database that dropped and re-established its connection, and the audit_run's own crash-recovery rule marks any in-flight run interrupted rather than resuming from unknown state",
+      "expected_detection_slo_seconds": 90,
+      "expected_incident_failure_class": "db_integrity_violation"
+    },
+    {
+      "fault_id": "corrupt_spool",
+      "tdd_bullet": "corrupt spool",
+      "target_detection_claim": "stage_9_retention_disk_and_backup's queue/spool check detects a spool file that fails strict open validation, matching contracts/observability/reconciliation.yaml's corrupt_state rule (strict open fails visibly before rewrite and leaves bytes unchanged)",
+      "expected_detection_slo_seconds": 90,
+      "expected_incident_failure_class": "db_integrity_violation"
+    },
+    {
+      "fault_id": "stale_backup",
+      "tdd_bullet": "stale backup",
+      "target_detection_claim": "stage_9_retention_disk_and_backup flags a most-recent LogicalBackup older than its configured age budget",
+      "expected_detection_slo_seconds": 90,
+      "expected_incident_failure_class": "backup_stale",
+      "reused_precedent": "internal/dataplatform.CreateBackup/VerifyBackupChecksum manifest timestamps are read directly, never a second backup bookkeeping mechanism"
+    },
+    {
+      "fault_id": "failed_restore",
+      "tdd_bullet": "failed restore",
+      "target_detection_claim": "stage_9_retention_disk_and_backup periodically calls internal/dataplatform.RestoreBackup/CountRows against the latest backup and flags a restore-test failure or a row-count mismatch",
+      "expected_detection_slo_seconds": 90,
+      "expected_incident_failure_class": "restore_test_failed"
+    },
+    {
+      "fault_id": "privacy_canary_violation",
+      "tdd_bullet": "privacy canary",
+      "target_detection_claim": "stage_9_retention_disk_and_backup's raw-content canary detects any prohibited-content field value reaching a durable path (event fact, evidence, incident detail, audit report) and fails loudly rather than silently redacting after the fact",
+      "expected_detection_slo_seconds": 45,
+      "expected_incident_failure_class": "privacy_canary_violation"
+    },
+    {
+      "fault_id": "live_canary_partial_dag",
+      "tdd_bullet": "live canary partial DAG",
+      "target_detection_claim": "stage_10_optional_live_canary (when enabled) compares the observed event DAG against the expected canonical event DAG and fails on any missing/extra/misordered node, never on count alone",
+      "expected_detection_slo_seconds": 300,
+      "expected_incident_failure_class": "live_canary_partial_dag"
+    },
+    {
+      "fault_id": "live_canary_provider_timeout",
+      "tdd_bullet": "provider timeout",
+      "target_detection_claim": "stage_10_optional_live_canary (when enabled) enforces its max_duration budget and fails distinctly from a partial DAG when the provider never responds",
+      "expected_detection_slo_seconds": 300,
+      "expected_incident_failure_class": "live_canary_provider_timeout"
+    },
+    {
+      "fault_id": "endpoint_unreachable",
+      "tdd_bullet": "OTel exporter stopped, endpoint/protocol changed (unreachable case)",
+      "target_detection_claim": "stage_2_endpoint_and_hook_verification's passive endpoint probe fails distinctly from otlp_misconfigured when the endpoint does not respond at all",
+      "expected_detection_slo_seconds": 30,
+      "expected_incident_failure_class": "endpoint_unreachable"
+    },
+    {
+      "fault_id": "synthetic_pipeline_probe_failure",
+      "tdd_bullet": "canary succeeds at the agent but fails to reach one downstream stage (Kansoku-side, generic-source version)",
+      "target_detection_claim": "stage_5_synthetic_pipeline_probe sends a uniquely tagged safe record through the public /v1/hooks/{adapter}/{event} ingress and detects that it did not reach durable storage, evidence, rollup or query within its verification window",
+      "expected_detection_slo_seconds": 45,
+      "expected_incident_failure_class": "synthetic_pipeline_probe_failed"
+    },
+    {
+      "fault_id": "unknown_schema_quarantine",
+      "tdd_bullet": "parser silently ignores a new event type (must instead quarantine, not ignore)",
+      "target_detection_claim": "stage_7_unknown_schema_and_lag detects an event_schema_fingerprint absent from the compatibility registry and opens metadata_only_quarantine per contracts/observability/lifecycles.yaml's terminal_failure state, never silently drops it",
+      "expected_detection_slo_seconds": 30,
+      "expected_incident_failure_class": "unknown_schema"
+    },
+    {
+      "fault_id": "cross_source_reconciliation_regression",
+      "tdd_bullet": "source clocks drift or events arrive out of order (reconciliation-visible case)",
+      "target_detection_claim": "stage_6_cross_source_reconciliation flags a ratio/mismatch-class regression vs the previous adapter version for a reconciliation lane",
+      "expected_detection_slo_seconds": 60,
+      "expected_incident_failure_class": "reconciliation_mismatch"
+    },
+    {
+      "fault_id": "ingest_lag",
+      "tdd_bullet": "database/rollup/retention job falls behind (ingest-lag case)",
+      "target_detection_claim": "stage_7_unknown_schema_and_lag flags ingest lag exceeding its configured budget using the same freshness.late_events_pending signal RepairQueueDepth exposes",
+      "expected_detection_slo_seconds": 60,
+      "expected_incident_failure_class": "ingest_lag"
+    },
+    {
+      "fault_id": "inventory_cache_miscount",
+      "tdd_bullet": "inventory scanner counts cache versions as enabled components",
+      "target_detection_claim": "stage_1_discovery_and_configuration's plugin/skill/MCP inventory snapshot check reuses adaptersdk.NODE_KINDS cache-separation rule (a cache_artifact node never counts as enabled without an explicit enabled_for edge) and fails if a cached component is miscounted as active",
+      "expected_detection_slo_seconds": 30,
+      "expected_incident_failure_class": "permission_denied",
+      "note": "this fault maps to the closest existing failure_class (a discovery/config-scoped defect) rather than inventing a new one; a future contract revision may add a dedicated inventory_miscount class if evidence shows it recurs distinctly"
+    }
+  ],
+  "catalog_completeness_rule": "every bullet under TDD 08's 'Fault-injection tests' heading and every failure mode under the Engineering Proposal's 'Failure modes to detect' heading has exactly one fault_injection_catalog entry naming its target_detection_claim, expected_detection_slo_seconds and expected_incident_failure_class; evidence_classification_rule determines whether this session has classifier coverage, deterministic mutation integration, or an explicitly pending runtime requirement, and validators must reject any ID missing from or duplicated across those classes",
+  "evidence_classification_rule": {
+    "component_classifier": [
+      "hook_removed_disabled_or_untrusted",
+      "otlp_wrong_port_protocol_or_auth",
+      "transcript_truncate_rotate_schema_or_permission_change",
+      "active_process_with_absent_events",
+      "duplicate_and_stalled_watermarks",
+      "parser_panic_timeout_or_unknown_field",
+      "delayed_rollup",
+      "full_disk",
+      "stale_backup",
+      "privacy_canary_violation",
+      "live_canary_partial_dag",
+      "live_canary_provider_timeout",
+      "endpoint_unreachable",
+      "unknown_schema_quarantine",
+      "cross_source_reconciliation_regression",
+      "ingest_lag",
+      "inventory_cache_miscount"
+    ],
+    "deterministic_mutation_integration": [
+      "corrupt_spool",
+      "synthetic_pipeline_probe_failure"
+    ],
+    "runtime_required": [
+      "db_restart",
+      "failed_restore"
+    ]
+  },
+  "measured_detection_time_rule": "only deterministic mutation or real runtime tests may claim a measured detection SLO: they record wall-clock fault activation, execute the production check through the scheduler, and compare the later persisted Incident.OpenedAt with expected_detection_slo_seconds; component_classifier tests prove classification only and MUST NOT assert an end-to-end SLO, while runtime_required entries remain unclaimed until the named transition actually executes",
+  "live_canary_recipe_schema": {
+    "fields": {
+      "recipe_id": "string, unique per adapter, e.g. codex-canary-v1",
+      "adapter_id": "string, must match an internal/adaptersdk.Registry.IDs() entry",
+      "command": "array of non-empty strings, the exact non-interactive argv used against the fixture workspace; never a shell string and never evaluated by a shell",
+      "fixture_workspace": "string path, a uniquely named, disposable directory created fresh per run and destroyed on cleanup; never a user's real repository",
+      "canary_skill_name": "string, a uniquely namespaced skill/plugin identifier (e.g. kansoku-canary-<adapter_id>) that cannot collide with any real user-installed skill name",
+      "local_mcp_echo_tool": "string, the name of a local, harmless, bounded MCP echo tool the canary invokes; it performs no network egress and no filesystem write outside fixture_workspace",
+      "expected_event_dag": [
+        "session.started", "prompt.submitted", "component.invoked(canary)",
+        "tool.called(mcp.echo)", "tool.succeeded", "component.succeeded", "session.stopped"
+      ],
+      "adapter_specific_alternative_note": "capabilities without a native node in expected_event_dag substitute an adapter-specific expected alternative declared in that adapter's own contracts/<adapter>/*.yaml, never a silent skip",
+      "max_turns": "integer, hard upper bound on agent turns for one canary run",
+      "max_tokens": "integer, hard upper bound on tokens consumed",
+      "max_cost_usd": "number, hard upper bound on estimated cost",
+      "max_duration_seconds": "integer, matches stage_10_optional_live_canary's timeout_seconds in audit-run-and-schedule.yaml",
+      "cooldown_seconds": "integer, minimum time between two live canary runs for the same recipe_id, independent of the daily schedule",
+      "cleanup": "string, describes deterministic teardown of fixture_workspace and any spawned process after every run, success or failure",
+      "namespace_exclusion": "string, states the canary's session/event identifiers carry an explicit test namespace tag and are excluded from personal usage metrics and real activity counts by default, matching the synthetic-pipeline-probe namespace rule in audit-run-and-schedule.yaml"
+    },
+    "disabled_by_default_gate": {
+      "rule": "every live_canary_recipe entry has enabled=false until BOTH explicit_credentials_present=true (the target agent's normal auth path already has valid credentials, never copied or stored by Kansoku) AND explicit_user_consent_recorded=true (a durable, timestamped consent record distinct from general installer consent) are true",
+      "no_silent_enable": "no code path flips enabled to true automatically; version_change_detected and startup triggers never enable a previously-disabled recipe",
+      "scope_precedent": "this matches the Session 06/07 precedent that Codex/Claude adapters ship with fixture-based canaries (Adapter.Audit(mode=fixture_replay)), not live-CLI execution, as an explicit documented downstream gap -- this session builds the recipe/budget/cooldown/cleanup machinery structurally and exercises it in simulation/fixture form only; it does not spawn a real external agent process against a real account in this environment"
+    }
+  },
+  "expected_event_dag_precision_rule": "canary success requires the exact node set and edges of expected_event_dag, not merely a matching count; a missing node, an extra node, or a node observed out of the declared order each produce a distinct, precisely identified check failure (missing_node, extra_node, misordered_node) rather than one generic 'canary failed' result"
+}

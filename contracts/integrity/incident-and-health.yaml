@@ -1,0 +1,74 @@
+{
+  "schema_version": "kansoku.integrity-incident-and-health/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-23",
+  "one_incident_concept_rule": "internal/observability.Incident (IncidentID, Capability, Category, Completeness, OpenedAt, LastObserved, ResolvedAt *time.Time, OccurrenceCount uint64) remains the ONE Go incident concept. Session 08 aliases that exact type as IncidentBase and persists its scheduler-owned PostgreSQL projection plus a 1:1 detail row; it never defines a second overlapping Go struct or a competing state vocabulary",
+  "incident_key": {
+    "components": ["installation_id", "source_id", "capability_id", "failure_class"],
+    "reused_components": "installation_id and source_id reuse internal/adaptersdk.Installation and internal/observability.SourceRef identity fields verbatim; capability_id reuses contracts/adapter-sdk/capabilities.yaml's closed capability_ids list verbatim",
+    "failure_class_vocabulary": [
+      "endpoint_unreachable", "hook_removed_disabled_or_untrusted", "otlp_misconfigured",
+      "permission_denied", "watermark_stall", "true_inactivity_flagged", "eligibility_unknown",
+      "parser_incompatibility", "unknown_schema", "duplicate_evidence_anomaly", "ingest_lag",
+      "rollup_stale", "formula_version_mismatch", "db_integrity_violation",
+      "retention_job_failed", "disk_budget_exceeded", "backup_stale", "restore_test_failed",
+      "privacy_canary_violation", "synthetic_pipeline_probe_failed", "live_canary_partial_dag",
+      "live_canary_provider_timeout", "reconciliation_mismatch"
+    ],
+    "closed_vocabulary_rule": "failure_class values are drawn exclusively from failure_class_vocabulary; a check that does not fit an existing entry is a contract change (new fixture-and-lock-reviewed entry), never an ad hoc string at runtime"
+  },
+  "incident_field_extension": {
+    "base_fields_reused_verbatim": ["IncidentID", "Capability", "Category", "Completeness", "OpenedAt", "LastObserved", "ResolvedAt", "OccurrenceCount"],
+    "session_08_extension_fields": {
+      "installation_id": "string, added because Incident.Capability alone does not disambiguate two installations of the same adapter",
+      "source_id": "string, reuses Watermark.SourceID verbatim",
+      "failure_class": "string enum from incident_key.failure_class_vocabulary, stored alongside the existing free-text Category field rather than replacing it",
+      "first_seen_at": "time.Time, distinct from OpenedAt only if a prior occurrence of the identical key was resolved and reopened; equals OpenedAt on first creation",
+      "affected_interval": "{from: time.Time, to: time.Time}, the metric/completeness interval this incident's evidence implicates, reusing internal/dataplatform's bucket boundaries (BucketStart) so the interval aligns with rollup granularity",
+      "check_evidence_ref": "string, an audit_run/check row identity (audit_run_id, check_id) rather than a raw payload -- never a copy of any prohibited-content field",
+      "agent_or_adapter_version": "string, the executable_version or adapter_version fingerprint active when the incident was opened/last observed",
+      "recovery_criteria": "string, a human-readable description of what fresh positive evidence would close this incident, filled in per failure_class from fault-injection-and-live-canary.yaml's catalog",
+      "user_notes": "string, optional operator annotation, never containing prohibited content and validated against the same size bound as other durable text fields"
+    },
+    "extension_rule": "these fields live in a session-08-owned wrapper record (e.g. an IntegrityIncidentDetail keyed 1:1 by IncidentID) that references the original Incident by IncidentID rather than embedding a competing struct with overlapping semantics; a later Go stage must not fork Incident itself"
+  },
+  "dedup_and_lifecycle_rules": {
+    "dedup": "a new check finding with the same incident_key as an existing open incident increments OccurrenceCount and updates LastObserved/affected_interval; it never creates a second incident row for the same key",
+    "first_last_seen": "first_seen_at is set once at creation and never rewritten; LastObserved advances on every matching finding, matching Watermark's own last_observed_at semantics",
+    "affected_interval_tracking": "each matching finding extends affected_interval.to to the finding's observation time; affected_interval.from never moves once set, so the interval always represents the full duration incident evidence has been observed",
+    "recovery_requires_fresh_positive_evidence": "ResolvedAt is set only when a check for the SAME incident_key runs again (in a later audit_run, not the same one that raised it) and reports status=pass; the mere absence of a new failing check in a subsequent run is never sufficient, because absence of evidence often means the check did not run at all rather than that the condition recovered",
+    "no_deletion_on_recovery": "closing an incident sets ResolvedAt; the row and its OccurrenceCount/first_seen_at/affected_interval history are retained exactly as contracts/observability/reconciliation.yaml's recovery.source_return rule already states: health may recover but incident history remains",
+    "reopen_rule": "a new finding for a key whose prior incident has ResolvedAt set opens a genuinely new incident (new IncidentID) with first_seen_at set to the new occurrence, rather than clearing ResolvedAt on the old row, preserving the closed incident's history intact"
+  },
+  "health_dimensions": [
+    {"dimension": "configuration", "green_requires": "stage_1_discovery_and_configuration passed this run or a still-fresh prior run within its freshness window", "sourced_from_checks": ["stage_1_discovery_and_configuration"]},
+    {"dimension": "connectivity", "green_requires": "stage_2_endpoint_and_hook_verification passed without mutation this run or a still-fresh prior run", "sourced_from_checks": ["stage_2_endpoint_and_hook_verification"]},
+    {"dimension": "event_freshness", "green_requires": "stage_3_watermark_vs_inactivity resolved every source to complete/degraded-with-explained-gap rather than unknown, and no open watermark_stall incident exists for the source", "sourced_from_checks": ["stage_3_watermark_vs_inactivity"]},
+    {"dimension": "schema_compatibility", "green_requires": "stage_4_parser_fixture_replay's fingerprint comparison found the active event_schema_fingerprint set already known-compatible, with zero unresolved unknown_schema findings", "sourced_from_checks": ["stage_4_parser_fixture_replay", "stage_7_unknown_schema_and_lag"]},
+    {"dimension": "parser_fixture_status", "green_requires": "bundled fixture replay for the active adapter_version passed through sanitizer/normalizer this run or a still-fresh prior run", "sourced_from_checks": ["stage_4_parser_fixture_replay"]},
+    {"dimension": "reconciliation_coverage", "green_requires": "stage_6_cross_source_reconciliation completed for the terminal-delay window with a ratio/mismatch class inside its versioned tolerance and no regression vs the previous adapter version", "sourced_from_checks": ["stage_6_cross_source_reconciliation"]},
+    {"dimension": "privacy_canary", "green_requires": "stage_9's raw-content canary passed this run or a still-fresh prior run, proving no prohibited-content field reached a durable path", "sourced_from_checks": ["stage_9_retention_disk_and_backup"]},
+    {"dimension": "live_canary_age_result", "green_requires": "a live canary is enabled, has run within its configured cooldown, and its expected event DAG matched exactly; gray whenever the live canary remains disabled by default", "sourced_from_checks": ["stage_10_optional_live_canary"]},
+    {"dimension": "storage_rollup_health", "green_requires": "stage_8_rollup_formula_and_db_integrity and stage_9_retention_disk_and_backup both passed this run or a still-fresh prior run (migrations, rollup watermark, partitions, disk forecast, backup age, restore-test age all within budget)", "sourced_from_checks": ["stage_8_rollup_formula_and_db_integrity", "stage_9_retention_disk_and_backup"]}
+  ],
+  "failure_class_health_mapping": {
+    "configuration": ["permission_denied"],
+    "connectivity": ["endpoint_unreachable", "hook_removed_disabled_or_untrusted", "otlp_misconfigured", "synthetic_pipeline_probe_failed"],
+    "event_freshness": ["watermark_stall", "true_inactivity_flagged", "eligibility_unknown", "duplicate_evidence_anomaly", "ingest_lag"],
+    "schema_compatibility": ["parser_incompatibility", "unknown_schema"],
+    "parser_fixture_status": ["parser_incompatibility"],
+    "reconciliation_coverage": ["reconciliation_mismatch"],
+    "privacy_canary": ["privacy_canary_violation"],
+    "live_canary_age_result": ["live_canary_partial_dag", "live_canary_provider_timeout"],
+    "storage_rollup_health": ["rollup_stale", "formula_version_mismatch", "db_integrity_violation", "retention_job_failed", "disk_budget_exceeded", "backup_stale", "restore_test_failed"]
+  },
+  "failure_tier_rule": "true_inactivity_flagged and eligibility_unknown are yellow because they represent explained/insufficient evidence; every other failure_class is red observed breakage. stage_timeout is a red run failure reason. A skipped_unsupported live canary remains gray",
+  "state_colors": {
+    "green": "the sourced_from_checks for this dimension actually passed in this run or in a still-fresh prior run explicitly labeled with its age; green is never assigned from an assumption or from the mere absence of a contrary signal",
+    "yellow": "partial or stale evidence -- a check passed but its freshness window has expired, or some but not all sourced_from_checks passed, or the dimension is in a degraded run state per audit-run-and-schedule.yaml",
+    "red": "at least one sourced_from_checks entry reported an observed failure (status=fail on a red-tier failure_class) that has not yet recovered per dedup_and_lifecycle_rules.recovery_requires_fresh_positive_evidence",
+    "gray": "no supported evidence exists yet -- no check for this dimension has ever run, or the only check that could produce evidence (e.g. stage_10_optional_live_canary while disabled by default) has not executed; gray is always the honest default state before any check has run, and no code path may promote gray directly to green without an intervening runtime check"
+  },
+  "no_single_score_rule": "the Health API returns the full set of health_dimensions plus a derived 'worst applicable state' summary; it never persists or exposes one aggregate numeric score as the sole evidence, matching the Engineering Proposal's 'avoid one magic score' requirement",
+  "capability_state_relationship": "health_dimensions are DERIVED FROM internal/adaptersdk.CapabilityState (StateUnsupported/StateAvailable/StateConfigured/StateHealthy/StateDegraded) plus Watermark/Incident evidence; this registry never declares a second, competing green/yellow/red/gray-shaped enum that replaces CapabilityState -- CapabilityState continues to describe capability availability, while health_dimensions describes decomposed audit evidence about that capability, and the two are joined by capability_id, never merged into one type"
+}

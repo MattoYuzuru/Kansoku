@@ -1,0 +1,87 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "28ceb55a8b4683b8118edc53c4af161b12a3955e88663181ffe6d3da6e89ef55"
+        }
+      ],
+      "name": "kansoku-session08-source-manifest",
+      "type": "file"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "name": "kansoku-session08-integrity-drift-audit",
+      "type": "application",
+      "version": "0.8.0"
+    },
+    "timestamp": "2026-07-23T00:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "name": "Go",
+          "type": "application",
+          "version": "1.26.5"
+        },
+        {
+          "name": "PostgreSQL",
+          "type": "application",
+          "version": "18"
+        },
+        {
+          "name": "Python",
+          "type": "application",
+          "version": "3.14"
+        }
+      ]
+    }
+  },
+  "properties": [
+    {
+      "name": "kansoku:dependency-delta",
+      "value": "none_session08_adds_no_new_third_party_dependency"
+    },
+    {
+      "name": "kansoku:go-mod-sha256",
+      "value": "716f9585d010d6b8b5b3b565ddca2dc169fcf42bd3dee9a422562557084b1179"
+    },
+    {
+      "name": "kansoku:go-sum-sha256",
+      "value": "ea6a111b2b0a1e5ae698a6523cde0e353e5ceff2e430de3f68667a922eff7a3e"
+    },
+    {
+      "name": "kansoku:go-build-mode",
+      "value": "-mod=vendor"
+    },
+    {
+      "name": "kansoku:verification-network",
+      "value": "none_except_ephemeral_local_postgresql_when_available"
+    },
+    {
+      "name": "kansoku:session08-source-scope",
+      "value": "internal/integrity/**, internal/observability/{ingest,otlp,store}.go, internal/dataplatform/{observability_handoff,partitions}.go, internal/privacy/classification.go, contracts/integrity/**, contracts/integrity-policy-locks.yaml, tests/fixtures/session-08/**, tests/test_integrity_contracts.py, scripts/validate_integrity.py, scripts/session08_supply_chain.py"
+    },
+    {
+      "name": "kansoku:session08-source-manifest-sha256",
+      "value": "28ceb55a8b4683b8118edc53c4af161b12a3955e88663181ffe6d3da6e89ef55"
+    },
+    {
+      "name": "kansoku:live-canary-execution",
+      "value": "simulation_only_no_real_provider_process_credentials_or_network"
+    },
+    {
+      "name": "kansoku:excluded-backlog",
+      "value": "Session07b Gemini/Cursor remains explicitly deferred and untouched"
+    },
+    {
+      "name": "kansoku:provenance-scope",
+      "value": "unsigned source/module inventory; release artifact signing remains Session09/10"
+    }
+  ],
+  "serialNumber": "urn:uuid:7cbd8db5-6b90-4e38-98b6-64f8cf34f408",
+  "specVersion": "1.6",
+  "version": 1
+}

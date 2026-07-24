@@ -129,7 +129,7 @@
       "sha256": "9c655d4fc06910d5363039ceaa70f9a0baebff314cd588ebdbdf4993d7f131e9"
     }
   ],
-  "source_revision": "sha256:8a71d4e4079b7a605294fc54a49381d2c3309b00d6a23d563b956f3c3e0f63bd",
+  "source_revision": "sha256:b8d6edacb2025f1704546f5780eb1b85b6de731b4eff3fcc85ca83abc5b57e52",
   "status": "pass",
   "toolchain_digest": "sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651",
   "toolchain_image": "docker.io/library/golang:1.26.5-bookworm"

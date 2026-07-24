@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"kansoku.local/kansoku/internal/privacy"
@@ -18,7 +19,18 @@ type Ingestor struct {
 	capacity    chan struct{}
 	identityKey []byte
 	now         func() time.Time
+	sinkMu      sync.RWMutex
+	durableSink DurableFactSink
 }
+
+// DurableFactSink is the production handoff from the normalized ingress
+// pipeline into the system of record. The sink receives only the closed,
+// privacy-safe Event/Evidence pair; it never receives the raw request.
+type DurableFactSink interface {
+	PersistNormalizedFact(Event, Evidence) error
+}
+
+var ErrDurableFactSink = errors.New("durable_fact_sink_failed")
 
 func NewIngestor(store *FileStore, identityKey []byte, limits privacy.Limits, concurrent int) (*Ingestor, error) {
 	if store == nil || concurrent <= 0 || concurrent > 128 {
@@ -39,9 +51,48 @@ func (i *Ingestor) keyedIdentity(namespace, value string) string {
 	return hex.EncodeToString(digest.Sum(nil))
 }
 
+// SyntheticProbeIdentity is a minimal, read-only export of keyedIdentity so a
+// caller in the same process (internal/integrity's stage_5 synthetic
+// pipeline probe) can deterministically recompute the SAME pseudonymized
+// identity this Ingestor's sanitizer/normalizer would derive for a literal
+// tag value it controls (e.g. a reserved test-namespace session_id/event_id
+// string), without internal/integrity forking a second copy of the HMAC
+// derivation, the sanitizer's private key, or privacy.SafeRecord's
+// pseudonymization logic. It exposes no ingestion behavior, only the
+// identity function already used to key watermarks/idempotency internally.
+func (i *Ingestor) SyntheticProbeIdentity(namespace, value string) string {
+	// privacy.IngressSanitizer prefixes persisted pseudonyms with the
+	// algorithm identifier. Preserve that exact durable representation here
+	// so callers can select only records created from their reserved literal
+	// probe IDs.
+	return "hmac-sha256:" + i.keyedIdentity(namespace, value)
+}
+
 func (i *Ingestor) SetClockForTest(now func() time.Time) {
 	i.now = now
 	i.sanitizer.SetClockForTest(now)
+}
+
+// ConfigureDurableFactSink wires the production system-of-record handoff
+// exactly once. Refusing replacement prevents a test probe or late caller
+// from silently swapping out the sink used by public ingress.
+func (i *Ingestor) ConfigureDurableFactSink(sink DurableFactSink) error {
+	if sink == nil {
+		return errors.New("durable_fact_sink_required")
+	}
+	i.sinkMu.Lock()
+	defer i.sinkMu.Unlock()
+	if i.durableSink != nil {
+		return errors.New("durable_fact_sink_already_configured")
+	}
+	i.durableSink = sink
+	return nil
+}
+
+func (i *Ingestor) HasDurableFactSink() bool {
+	i.sinkMu.RLock()
+	defer i.sinkMu.RUnlock()
+	return i.durableSink != nil
 }
 
 func (i *Ingestor) acquire() bool {
@@ -116,7 +167,19 @@ func (i *Ingestor) ingestSafe(record privacy.SafeRecord, kind SourceKind, sequen
 		incident := NewIncident("evidence_contradiction", kind, now)
 		request.Incident = &incident
 	}
-	return i.store.Commit(request)
+	result, err := i.store.Commit(request)
+	if err != nil {
+		return result, err
+	}
+	i.sinkMu.RLock()
+	sink := i.durableSink
+	i.sinkMu.RUnlock()
+	if sink != nil {
+		if err := sink.PersistNormalizedFact(event, evidence); err != nil {
+			return result, ErrDurableFactSink
+		}
+	}
+	return result, nil
 }
 
 func (i *Ingestor) IngestUnknown(kind SourceKind, schemaFingerprint string, byteCount int64, recordCount int) error {
