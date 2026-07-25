@@ -87,21 +87,22 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 	api := &API{pool: pool, queue: queue, plans: plans, jobs: jobs, operations: operations, config: config}
 	mux := http.NewServeMux()
 	for route, handler := range map[string]http.HandlerFunc{
-		"/api/v1/inventory":               api.inventory,
-		"/api/v1/analytics":               api.analytics,
-		"/api/v1/health":                  api.health,
-		"/api/v1/incidents":               api.incidents,
-		"/api/v1/completeness":            api.completeness,
-		"/api/v1/operations/jobs":         api.jobRuns,
-		"/api/v1/components/mcp/topology": api.mcpTopology,
-		"/api/v1/activity":                api.activityTimeline,
-		"/api/v1/prompts/shape":           api.promptShape,
-		"/api/v1/models/usage":            api.modelUsage,
-		"/api/v1/tools/analytics":         api.toolAnalytics,
-		"/api/v1/components/mcp/uptime":   api.mcpUptime,
-		"/api/v1/reliability/counts":      api.reliabilityCounts,
-		"/api/v1/system/snapshot":         api.systemSnapshot,
-		"/api/v1/privacy/canary-history":  api.privacyCanaryHistory,
+		"/api/v1/inventory":                     api.inventory,
+		"/api/v1/analytics":                     api.analytics,
+		"/api/v1/health":                        api.health,
+		"/api/v1/incidents":                     api.incidents,
+		"/api/v1/completeness":                  api.completeness,
+		"/api/v1/operations/jobs":               api.jobRuns,
+		"/api/v1/components/mcp/topology":       api.mcpTopology,
+		"/api/v1/activity":                      api.activityTimeline,
+		"/api/v1/prompts/shape":                 api.promptShape,
+		"/api/v1/models/usage":                  api.modelUsage,
+		"/api/v1/tools/analytics":               api.toolAnalytics,
+		"/api/v1/components/mcp/uptime":         api.mcpUptime,
+		"/api/v1/reliability/counts":            api.reliabilityCounts,
+		"/api/v1/reliability/collection-health": api.collectionHealth,
+		"/api/v1/system/snapshot":               api.systemSnapshot,
+		"/api/v1/privacy/canary-history":        api.privacyCanaryHistory,
 	} {
 		mux.Handle(route, readGuard.Wrap(localhttp.RouteUIStream, handler))
 	}
@@ -119,6 +120,93 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 		mux.Handle(route, mutationGuard.Wrap(localhttp.RouteUIMutation, handler))
 	}
 	return mux, nil
+}
+
+type CollectionHealthSnapshot struct {
+	AcceptedEventCount     int64    `json:"accepted_event_count"`
+	QuarantinedRecordCount int64    `json:"quarantined_record_count"`
+	IngestLatencyP95MS     *float64 `json:"ingest_latency_p95_ms,omitempty"`
+	ActiveSourceCount      int64    `json:"active_source_count"`
+	SourceGapCount         int64    `json:"source_gap_count"`
+	OldestSourceAgeSeconds *float64 `json:"oldest_source_age_seconds,omitempty"`
+	PendingRollupCount     int64    `json:"pending_rollup_count"`
+	RollupAgeSeconds       *float64 `json:"rollup_age_seconds,omitempty"`
+	QueueDepth             int64    `json:"queue_depth"`
+	OldestQueueAgeSeconds  float64  `json:"oldest_queue_age_seconds"`
+	FormulaVersion         string   `json:"formula_version"`
+}
+
+func (a *API) collectionHealth(writer http.ResponseWriter, request *http.Request) {
+	from, fromErr := time.Parse(time.RFC3339, request.URL.Query().Get("from"))
+	to, toErr := time.Parse(time.RFC3339, request.URL.Query().Get("to"))
+	if fromErr != nil || toErr != nil || !to.After(from) || to.Sub(from) > 366*24*time.Hour {
+		a.writeError(writer, http.StatusBadRequest, "invalid_collection_health_range")
+		return
+	}
+	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
+	defer cancel()
+	var result CollectionHealthSnapshot
+	if err := a.pool.QueryRow(ctx, `
+		SELECT count(*),
+			percentile_cont(0.95) WITHIN GROUP (
+				ORDER BY extract(epoch FROM (ingested_at - observed_at)) * 1000
+			)
+		FROM events
+		WHERE observed_at >= $1 AND observed_at < $2
+	`, from, to).Scan(&result.AcceptedEventCount, &result.IngestLatencyP95MS); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "collection_health_unavailable")
+		return
+	}
+	if err := a.pool.QueryRow(ctx, `
+		SELECT coalesce(sum(record_count), 0)
+		FROM schema_quarantine_metadata
+		WHERE observed_at >= $1 AND observed_at < $2
+	`, from, to).Scan(&result.QuarantinedRecordCount); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "collection_health_unavailable")
+		return
+	}
+	if err := a.pool.QueryRow(ctx, `
+		SELECT count(*) FILTER (WHERE NOT inactivity), coalesce(sum(gap_count), 0),
+			max(extract(epoch FROM (now() - last_committed_at)))
+				FILTER (WHERE NOT inactivity AND last_committed_at IS NOT NULL)
+		FROM source_watermarks
+	`).Scan(&result.ActiveSourceCount, &result.SourceGapCount, &result.OldestSourceAgeSeconds); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "collection_health_unavailable")
+		return
+	}
+	if err := a.pool.QueryRow(ctx, `
+		SELECT coalesce(sum(late_events_pending), 0),
+			max(extract(epoch FROM (now() - rollup_watermark)))
+				FILTER (WHERE rollup_watermark IS NOT NULL)
+		FROM rollup_status
+	`).Scan(&result.PendingRollupCount, &result.RollupAgeSeconds); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "collection_health_unavailable")
+		return
+	}
+	queueMetrics, err := a.queue.Metrics()
+	if err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "collection_health_unavailable")
+		return
+	}
+	now := time.Now().UTC()
+	for source, depth := range queueMetrics.Depth {
+		result.QueueDepth += int64(depth)
+		if oldest := queueMetrics.OldestSpoolRecord[source]; !oldest.IsZero() {
+			if age := now.Sub(oldest).Seconds(); age > result.OldestQueueAgeSeconds {
+				result.OldestQueueAgeSeconds = age
+			}
+		}
+	}
+	result.FormulaVersion = "collection_health_snapshot/1"
+	denominator := result.AcceptedEventCount + result.QuarantinedRecordCount
+	completeness := "unknown"
+	if denominator > 0 {
+		completeness = "complete"
+	}
+	a.write(writer, http.StatusOK, result, map[string]any{
+		"numerator": result.AcceptedEventCount, "denominator": denominator,
+		"exclusions": []string{}, "completeness": completeness,
+	})
 }
 
 func (a *API) inventory(writer http.ResponseWriter, request *http.Request) {

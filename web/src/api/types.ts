@@ -226,6 +226,20 @@ export interface ReliabilityCountsResponse {
   // no freshness field on this endpoint
 }
 
+export interface CollectionHealthSnapshot {
+  accepted_event_count: number;
+  quarantined_record_count: number;
+  ingest_latency_p95_ms?: number | null;
+  active_source_count: number;
+  source_gap_count: number;
+  oldest_source_age_seconds?: number | null;
+  pending_rollup_count: number;
+  rollup_age_seconds?: number | null;
+  queue_depth: number;
+  oldest_queue_age_seconds: number;
+  formula_version: string;
+}
+
 /* ---- /api/v1/system/snapshot (flat, no `data` array, no from/to) ---- */
 export interface SystemSnapshotResponse {
   database_size_bytes: number;

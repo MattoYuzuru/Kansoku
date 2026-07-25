@@ -26,12 +26,13 @@ import { useMemo } from "react";
 import { KpiCard } from "../components/KpiCard";
 import { ChartContainer } from "../components/ChartContainer";
 import { DataTable, type Column } from "../components/DataTable";
-import { GapNote, Panel, UnsupportedPanel } from "../components/Panel";
+import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { StatusBadge } from "../components/StatusBadge";
 import { deriveViewState } from "../api/client";
 import {
   useIncidents,
+  useCollectionHealth,
   useReliabilityCounts,
   useReliabilityCoverageTimeline,
 } from "../api/queries";
@@ -46,6 +47,9 @@ export function Reliability() {
   const coverage = useReliabilityCoverageTimeline(rangeParams);
   const counts = useReliabilityCounts(rangeParams);
   const incidents = useIncidents();
+  const collectionHealth = useCollectionHealth(rangeParams);
+  const health = collectionHealth.data?.data;
+  const healthState = deriveViewState(collectionHealth.data, { isLoading: collectionHealth.isLoading });
 
   const coverageRows = coverage.data?.data?.data ?? [];
   const coverageState = deriveViewState(coverage.data, { isLoading: coverage.isLoading });
@@ -89,13 +93,39 @@ export function Reliability() {
         </p>
       </header>
 
-      <UnsupportedPanel
-        title="Collection health"
-        reason="Coverage ratio, completeness duration, active-source gap, ingest latency,
-        rollup freshness and acknowledged-durability ratio have no durable backing table in
-        this appliance (see internal/runtime/diagnostics.go) — none of these timers or
-        ratios are persisted anywhere, so no honest number can be shown here."
-      />
+      <Panel title="Collection health" actions={<RangeControl range={range} />}>
+        <div className="k-grid k-grid--kpis">
+          <KpiCard label="Accepted events" value={health?.accepted_event_count ?? null} state={healthState} />
+          <KpiCard
+            label="Quarantined records"
+            value={health?.quarantined_record_count ?? null}
+            state={healthState}
+          />
+          <KpiCard
+            label="Ingest latency p95"
+            value={health?.ingest_latency_p95_ms ?? null}
+            unit="ms"
+            precision={1}
+            state={health?.ingest_latency_p95_ms == null && health ? "not_observed" : healthState}
+          />
+          <KpiCard label="Active sources" value={health?.active_source_count ?? null} state={healthState} />
+          <KpiCard label="Sequence gaps" value={health?.source_gap_count ?? null} state={healthState} />
+          <KpiCard
+            label="Oldest source commit"
+            value={health?.oldest_source_age_seconds ?? null}
+            unit="s"
+            precision={1}
+            state={health?.oldest_source_age_seconds == null && health ? "not_observed" : healthState}
+          />
+          <KpiCard label="Queue depth" value={health?.queue_depth ?? null} state={healthState} />
+          <KpiCard label="Pending rollups" value={health?.pending_rollup_count ?? null} state={healthState} />
+        </div>
+        <GapNote>
+          These are durable range counts plus a current source/queue/rollup snapshot.
+          Historical coverage ratio, completeness duration and acknowledged-durability
+          ratio still require sampled interval history and are not inferred from this snapshot.
+        </GapNote>
+      </Panel>
 
       <Panel title="Source coverage timeline" actions={<RangeControl range={range} />}>
         <DataTable
@@ -119,17 +149,17 @@ export function Reliability() {
 
       <Panel title="Drift and mismatch">
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Unknown schema events" value={unknownSchemaTotal} state={countsState} />
+          <KpiCard label="Quarantined schema batches" value={unknownSchemaTotal} state={countsState} />
           <KpiCard label="Reconciliation mismatches" value={mismatchTotal} state={countsState} />
           <KpiCard label="Drift detection time" value={null} unit="s" state="unsupported" />
         </div>
         {countsRows.length > 0 ? (
           <ChartContainer
-            ariaLabel="Unknown schema and reconciliation mismatch counts per day"
+            ariaLabel="Quarantined schema batches and reconciliation mismatch counts per day"
             option={stackedBarOption(
               countsRows.map((r) => dayLabel(r.day)),
               [
-                { name: "Unknown schema", data: countsRows.map((r) => r.unknown_schema_count) },
+                { name: "Quarantined schema batch", data: countsRows.map((r) => r.unknown_schema_count) },
                 {
                   name: "Reconciliation mismatch",
                   data: countsRows.map((r) => r.reconciliation_mismatch_count),
@@ -144,7 +174,10 @@ export function Reliability() {
           </p>
         )}
         <GapNote>
-          Drift detection time has no durable timer anywhere in the schema — shown as{" "}
+          A quarantined schema batch means an OTLP log/span/metric shape did not match
+          the adapter's documented fingerprint; it was retained as safe structural
+          metadata rather than silently dropped. Drift detection time has no durable
+          timer anywhere in the schema — shown as{" "}
           <StatusBadge state="unsupported" glyphOnly /> rather than estimated.
         </GapNote>
       </Panel>

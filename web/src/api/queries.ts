@@ -19,6 +19,7 @@ import type {
   InventoryCounts,
   MCPUptimeResponse,
   ModelUsageResponse,
+  CollectionHealthSnapshot,
   PrivacyCanaryHistoryResponse,
   PromptShapeResponse,
   ReliabilityCountsResponse,
@@ -98,6 +99,18 @@ export function useReliabilityCounts(range: RangeParams) {
     queryKey: rk("reliability-counts", range),
     queryFn: ({ signal }) =>
       apiGet<ReliabilityCountsResponse>("/api/v1/reliability/counts", { ...range }, signal),
+  });
+}
+
+export function useCollectionHealth(range: RangeParams) {
+  return useQuery({
+    queryKey: rk("collection-health", range),
+    queryFn: ({ signal }) =>
+      apiGet<CollectionHealthSnapshot>(
+        "/api/v1/reliability/collection-health",
+        { ...range },
+        signal,
+      ),
   });
 }
 

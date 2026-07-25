@@ -34,7 +34,13 @@ func ReliabilityCounts(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		WITH schema_days AS (
+		WITH accepted_days AS (
+			SELECT date_trunc('day', observed_at) AS day, count(*) AS accepted_count
+			FROM events
+			WHERE observed_at >= $1 AND observed_at < $2
+			GROUP BY day
+		),
+		schema_days AS (
 			SELECT date_trunc('day', observed_at) AS day, count(*) AS unknown_schema_count
 			FROM schema_quarantine_metadata
 			WHERE observed_at >= $1 AND observed_at < $2
@@ -47,25 +53,29 @@ func ReliabilityCounts(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 			WHERE rr.started_at >= $1 AND rr.started_at < $2
 			GROUP BY day
 		)
-		SELECT coalesce(s.day, m.day) AS day,
+		SELECT coalesce(a.day, s.day, m.day) AS day,
+			coalesce(a.accepted_count, 0) AS accepted_count,
 			coalesce(s.unknown_schema_count, 0) AS unknown_schema_count,
 			coalesce(m.reconciliation_mismatch_count, 0) AS reconciliation_mismatch_count
-		FROM schema_days s
-		FULL OUTER JOIN mismatch_days m ON m.day = s.day
+		FROM accepted_days a
+		FULL OUTER JOIN schema_days s ON s.day = a.day
+		FULL OUTER JOIN mismatch_days m ON m.day = coalesce(a.day, s.day)
 		ORDER BY day
 	`, from, to)
 	if err != nil {
 		return ReliabilityCountsResponse{}, budgetOrErr(budget, started, err)
 	}
 	var response ReliabilityCountsResponse
-	var totalUnknownSchema, totalMismatches int64
+	var totalAccepted, totalUnknownSchema, totalMismatches int64
 	for rows.Next() {
 		var row ReliabilityCountsDayRow
-		if err := rows.Scan(&row.Day, &row.UnknownSchemaCount, &row.ReconciliationMismatchCount); err != nil {
+		var accepted int64
+		if err := rows.Scan(&row.Day, &accepted, &row.UnknownSchemaCount, &row.ReconciliationMismatchCount); err != nil {
 			rows.Close()
 			return ReliabilityCountsResponse{}, err
 		}
 		response.Data = append(response.Data, row)
+		totalAccepted += accepted
 		totalUnknownSchema += row.UnknownSchemaCount
 		totalMismatches += row.ReconciliationMismatchCount
 	}
@@ -83,7 +93,7 @@ func ReliabilityCounts(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 	// eligible population; both counts equal their own denominator, matching
 	// the same "data present" completeness convention used by
 	// ReliabilityCoverageTimeline for genuinely denominator-less counters.
-	total := totalUnknownSchema + totalMismatches
+	total := totalAccepted + totalUnknownSchema + totalMismatches
 	response.Population = Population{Numerator: total, Denominator: total}
 	response.Completeness = completenessFor(total, total)
 	return response, nil

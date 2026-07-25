@@ -185,6 +185,7 @@ func TestWave1bRoutesServeRealAggregationsWithEnvelopeIntact(t *testing.T) {
 		"/api/v1/tools/analytics",
 		"/api/v1/components/mcp/uptime",
 		"/api/v1/reliability/counts",
+		"/api/v1/reliability/collection-health",
 		"/api/v1/privacy/canary-history",
 	}
 	for _, route := range rangedRoutes {
@@ -260,6 +261,7 @@ func TestWave1bRoutesRejectInvalidRangeWith400Never500(t *testing.T) {
 		"/api/v1/tools/analytics",
 		"/api/v1/components/mcp/uptime",
 		"/api/v1/reliability/counts",
+		"/api/v1/reliability/collection-health",
 		"/api/v1/privacy/canary-history",
 	}
 	for _, route := range rangedRoutes {

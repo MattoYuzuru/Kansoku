@@ -640,6 +640,7 @@ func TestDurableQueueReserveCommitAgainstRealHandoff(t *testing.T) {
 func integrationFact(suffix string) (observability.Event, observability.Evidence) {
 	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
 	success := true
+	duration := int64(123)
 	event := observability.Event{
 		SpecVersion:      observability.EventSpecVersion,
 		EventID:          "evt_" + suffix,
@@ -655,7 +656,7 @@ func integrationFact(suffix string) (observability.Event, observability.Evidence
 			NativeEventID: "native_" + suffix, Sequence: 1,
 		},
 		Subject:           observability.Subject{Kind: "tool", ComponentID: "inventory/tool-safe"},
-		Measurements:      observability.Measurements{DurationMS: 123, Success: &success},
+		Measurements:      observability.Measurements{DurationMS: &duration, Success: &success},
 		ValueState:        "observed",
 		Outcome:           "succeeded",
 		CorrelationStatus: observability.CorrelationExact,
