@@ -9,6 +9,7 @@
     {"policy_version": "data-platform.query-contract/2", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "336d772904fa73064b67b06a0e566580c33e4c6794865945225f4251806e27c9"},
     {"policy_version": "data-platform.query-contract/3", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "dc0ae5581e828b0f644a881ebd71f0cae1b94ed75ab559a9a59ac3a2c58cb9c7"},
     {"policy_version": "data-platform.schema/2", "registry": "contracts/data-platform/schema.yaml", "semantic_sha256": "707a676c930c1d9e2b7dec83e4f26212181d662f8fc4de23fc5ab49228d78307"},
-    {"policy_version": "data-platform.query-contract/4", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "2697b825d18842f670b82b047d65ab899b097663eb4f60f571984376d911823e"}
+    {"policy_version": "data-platform.query-contract/4", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "2697b825d18842f670b82b047d65ab899b097663eb4f60f571984376d911823e"},
+    {"policy_version": "data-platform.query-contract/5", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "07729489c888747a55df8f3bdb0839a79a91fd54022847d211aa4b93a8214779"}
   ]
 }

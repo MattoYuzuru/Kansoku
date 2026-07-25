@@ -22,7 +22,7 @@ const (
 var (
 	inventoryIDPattern        = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:@/|-]{0,255}$`)
 	pathPseudonymPattern      = regexp.MustCompile(`^hmac-sha256:[0-9a-f]{64}$`)
-	inventoryFingerprintShape = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	inventoryFingerprintShape = regexp.MustCompile(`^(?:[0-9a-f]{32}|[0-9a-f]{64})$`)
 )
 
 // InventoryPersistResult exposes the exact projection cardinalities so a

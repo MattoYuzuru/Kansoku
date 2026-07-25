@@ -12,12 +12,14 @@
 import { useMemo } from "react";
 import { KpiCard } from "../components/KpiCard";
 import { ChartContainer } from "../components/ChartContainer";
+import { DataTable, type Column } from "../components/DataTable";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { deriveViewState, type ViewState } from "../api/client";
-import { useComponentLifecycleFunnel } from "../api/queries";
+import { useComponentInventory, useComponentLifecycleFunnel } from "../api/queries";
 import { useRange } from "../hooks/useRange";
 import { funnelBarOption } from "../components/chartOptions";
+import type { InventoryComponentRow } from "../api/types";
 
 const STAGE_LABELS: Record<string, string> = {
   opportunity_detected: "Opportunity detected",
@@ -47,6 +49,7 @@ export function ComponentLifecyclePage({
   const range = useRange();
   const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
   const funnel = useComponentLifecycleFunnel(rangeParams, componentKind);
+  const inventory = useComponentInventory(componentKind);
 
   const rows = funnel.data?.data?.data ?? [];
   const state = deriveViewState(funnel.data, { isLoading: funnel.isLoading });
@@ -60,6 +63,17 @@ export function ComponentLifecyclePage({
   const succeeded = succeededRow?.component_count ?? 0;
   const rowState = (valueState: string | undefined): ViewState =>
     funnel.isLoading ? "loading" : ((valueState as ViewState | undefined) ?? state);
+  const inventoryColumns: Column<InventoryComponentRow>[] = [
+    { key: "declared_name", header: "Component", render: (row) => row.declared_name },
+    { key: "agent_id", header: "Agent", render: (row) => row.agent_id },
+    { key: "source_scope", header: "Scope", render: (row) => row.source_scope },
+    {
+      key: "version",
+      header: "Version",
+      render: (row) => row.version_state === "observed" ? row.version : "Not observed",
+    },
+    { key: "enabled", header: "State", render: (row) => row.enabled ? "Enabled" : "Disabled" },
+  ];
 
   return (
     <section className="k-page">
@@ -102,11 +116,26 @@ export function ComponentLifecyclePage({
           snapshot in this range. Exposed, invoked, loaded, executed, and succeeded
           require runtime evidence; zero with “Not observed” means no qualifying
           native or reconstructed signal was seen, not that the component failed.{" "}
-          Cold/unused reason codes and a per-component evidence table are not shown: the
-          lifecycle funnel reports stage/component/event counts only, with no
-          reason-code or evidence-row dimension available to build either honestly.
+          Cold/unused reason codes are not shown: neither inventory nor native
+          lifecycle telemetry provides a bounded reason-code dimension.
           {extraGapNote ? ` ${extraGapNote}` : ""}
         </GapNote>
+      </Panel>
+
+      <Panel
+        title="Current inventory"
+        caption="Declared names and state from the latest bounded read-only scan; raw paths and manifest content are never retained."
+      >
+        <DataTable
+          columns={inventoryColumns}
+          rows={inventory.data?.data?.data ?? []}
+          rowKey={(row) => row.component_id}
+          emptyMessage={
+            inventory.isLoading
+              ? "Loading…"
+              : `No ${componentKind} components found by completed inventory targets.`
+          }
+        />
       </Panel>
     </section>
   );

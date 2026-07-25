@@ -16,6 +16,7 @@ import type {
   EntityBreakdownResponse,
   FunnelResponse,
   Incident,
+  InventoryComponentResponse,
   InventoryCounts,
   MCPUptimeResponse,
   ModelUsageResponse,
@@ -196,6 +197,18 @@ export function useComponentLifecycleFunnel(range: RangeParams, componentKind = 
       apiGet<FunnelResponse>(
         "/api/v1/analytics",
         { budget_id: "component_lifecycle_funnel", metric_family: componentKind, ...range },
+        signal,
+      ),
+  });
+}
+
+export function useComponentInventory(componentKind = "") {
+  return useQuery({
+    queryKey: rk("component-inventory", componentKind),
+    queryFn: ({ signal }) =>
+      apiGet<InventoryComponentResponse>(
+        "/api/v1/components/inventory",
+        { kind: componentKind },
         signal,
       ),
   });

@@ -187,6 +187,30 @@ type FunnelResponse struct {
 	Freshness      Freshness        `json:"freshness"`
 }
 
+// InventoryComponentRow is the privacy-safe current inventory projection
+// shown on component pages. It contains no raw path or manifest content.
+type InventoryComponentRow struct {
+	ComponentID         string    `json:"component_id"`
+	DeclaredName        string    `json:"declared_name"`
+	Kind                string    `json:"kind"`
+	SourceScope         string    `json:"source_scope"`
+	Version             string    `json:"version,omitempty"`
+	VersionState        string    `json:"version_state"`
+	Enabled             bool      `json:"enabled"`
+	AgentID             string    `json:"agent_id"`
+	AgentInstallationID string    `json:"agent_installation_id"`
+	FirstSeenAt         time.Time `json:"first_seen_at"`
+	LastSeenAt          time.Time `json:"last_seen_at"`
+}
+
+type InventoryComponentResponse struct {
+	Data           []InventoryComponentRow `json:"data"`
+	FormulaVersion string                  `json:"formula_version"`
+	Population     Population              `json:"population"`
+	Completeness   Completeness            `json:"completeness"`
+	Freshness      Freshness               `json:"freshness"`
+}
+
 // ReliabilityDayRow is one source's one calendar day of coverage inside a
 // ReliabilityTimelineResponse.
 type ReliabilityDayRow struct {

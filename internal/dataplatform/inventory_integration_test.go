@@ -80,6 +80,22 @@ func TestInventorySnapshotPersistsIdempotentlyAndBacksLifecycleFunnel(t *testing
 	if !lastSeen.Equal(replayed.ObservedAt) {
 		t.Fatalf("idempotent content replay must refresh current-state observation: %s", lastSeen)
 	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO inventory_collection_status (
+			target_id, adapter_id, agent_installation_id, state,
+			last_attempted_at, last_succeeded_at, snapshot_id, node_count, edge_count
+		) VALUES ('codex-test', 'codex', 'ain_inventory', 'complete', $1, $1, $2, 5, 2)
+	`, replayed.ObservedAt, replayed.SnapshotID); err != nil {
+		t.Fatal(err)
+	}
+	inventory, err := ComponentInventory(ctx, pool, "skill")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inventory.Data) != 1 || inventory.Data[0].DeclaredName != "kansoku-noop-canary" ||
+		!inventory.Data[0].Enabled || inventory.Completeness.Status != "complete" {
+		t.Fatalf("current inventory query mismatch: %+v", inventory)
+	}
 	funnel, err := ComponentLifecycleFunnel(ctx, pool, "", observedAt.Add(-time.Hour), observedAt.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)

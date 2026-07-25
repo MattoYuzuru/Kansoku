@@ -142,6 +142,7 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		"model_breakdown_range":         150,
 		"component_breakdown_range":     150,
 		"component_lifecycle_funnel":    150,
+		"component_inventory_current":   100,
 		"reliability_coverage_timeline": 150,
 		"mcp_topology":                  100,
 		// Wave 1b (Session 10 continuation) budgets -- see query.go's

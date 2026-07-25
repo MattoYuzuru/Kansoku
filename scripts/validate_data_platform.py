@@ -43,7 +43,8 @@ PERCENTILE_LEVELS = [0.5, 0.9, 0.95, 0.99]
 BUDGET_IDS = {
     "hourly_rollup_range_30d", "daily_rollup_range_1y", "session_drilldown", "percentile_recompute_bucket",
     "agent_breakdown_range", "model_breakdown_range", "component_breakdown_range",
-    "component_lifecycle_funnel", "reliability_coverage_timeline", "mcp_topology",
+    "component_lifecycle_funnel", "component_inventory_current",
+    "reliability_coverage_timeline", "mcp_topology",
 }
 COMPLETENESS_STATUSES = ["complete", "partial", "degraded", "unknown"]
 RESPONSE_FIELDS = ["data", "formula_version", "population", "completeness", "freshness"]

@@ -25,6 +25,7 @@ var Budgets = map[string]QueryBudget{
 	"model_breakdown_range":         {ID: "model_breakdown_range", MaxMS: 150},
 	"component_breakdown_range":     {ID: "component_breakdown_range", MaxMS: 150},
 	"component_lifecycle_funnel":    {ID: "component_lifecycle_funnel", MaxMS: 150},
+	"component_inventory_current":   {ID: "component_inventory_current", MaxMS: 100},
 	"reliability_coverage_timeline": {ID: "reliability_coverage_timeline", MaxMS: 150},
 	"mcp_topology":                  {ID: "mcp_topology", MaxMS: 100},
 	// Wave 1b (Session 10 continuation) budgets. Not yet mirrored into

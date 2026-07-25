@@ -100,6 +100,27 @@ export interface FunnelResponse {
   freshness: Freshness;
 }
 
+export interface InventoryComponentRow {
+  component_id: string;
+  declared_name: string;
+  kind: string;
+  source_scope: string;
+  version?: string;
+  version_state: "observed" | "not_observed";
+  enabled: boolean;
+  agent_id: string;
+  agent_installation_id: string;
+  first_seen_at: string;
+  last_seen_at: string;
+}
+export interface InventoryComponentResponse {
+  data: InventoryComponentRow[];
+  formula_version: string;
+  population: Population;
+  completeness: DataCompleteness;
+  freshness: Freshness;
+}
+
 /* ---- /api/v1/analytics?budget_id=reliability_coverage_timeline ---- */
 export interface ReliabilityDayRow {
   day: string;

@@ -94,6 +94,7 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 		"/api/v1/completeness":                  api.completeness,
 		"/api/v1/operations/jobs":               api.jobRuns,
 		"/api/v1/components/mcp/topology":       api.mcpTopology,
+		"/api/v1/components/inventory":          api.componentInventory,
 		"/api/v1/activity":                      api.activityTimeline,
 		"/api/v1/prompts/shape":                 api.promptShape,
 		"/api/v1/models/usage":                  api.modelUsage,
@@ -120,6 +121,24 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 		mux.Handle(route, mutationGuard.Wrap(localhttp.RouteUIMutation, handler))
 	}
 	return mux, nil
+}
+
+func (a *API) componentInventory(writer http.ResponseWriter, request *http.Request) {
+	kind := request.URL.Query().Get("kind")
+	switch kind {
+	case "", "skill", "plugin", "mcp", "hook", "command":
+	default:
+		a.writeError(writer, http.StatusBadRequest, "invalid_component_kind")
+		return
+	}
+	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
+	defer cancel()
+	result, err := dataplatform.ComponentInventory(ctx, a.pool, kind)
+	if err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "component_inventory_unavailable")
+		return
+	}
+	a.write(writer, http.StatusOK, result, entityCoverage(result.Population, result.Completeness))
 }
 
 type CollectionHealthSnapshot struct {

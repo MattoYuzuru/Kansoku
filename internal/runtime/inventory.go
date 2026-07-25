@@ -61,7 +61,7 @@ func NewInventoryCollector(
 func (c *InventoryCollector) ScanOnce(ctx context.Context) error {
 	for _, target := range c.targets {
 		if err := c.scanTarget(ctx, target); err != nil {
-			if statusErr := c.recordStatus(ctx, target, "", "degraded", "inventory_scan_failed", nil, 0, 0); statusErr != nil {
+			if statusErr := c.recordStatus(ctx, target, "", "degraded", err.Error(), nil, 0, 0); statusErr != nil {
 				return statusErr
 			}
 		}
@@ -72,42 +72,42 @@ func (c *InventoryCollector) ScanOnce(ctx context.Context) error {
 func (c *InventoryCollector) scanTarget(ctx context.Context, target InventoryTarget) error {
 	host, err := adaptersdk.NewHostView([]string{target.StateRoot}, nil, c.identityKey)
 	if err != nil {
-		return err
+		return errors.New("host_view_initialization_failed")
 	}
 	root, err := host.ReadProbe(target.StateRoot)
 	if err != nil {
-		return err
+		return errors.New("state_root_probe_failed")
 	}
 	if !root.Exists {
 		return c.recordStatus(ctx, target, "", "not_observed", "state_root_not_mounted", nil, 0, 0)
 	}
 	adapter, err := c.registry.Get(target.AdapterID)
 	if err != nil {
-		return err
+		return errors.New("adapter_not_registered")
 	}
 	installationID := target.InstallationID
 	if installationID == "" {
 		installationID, err = dataplatform.LatestInstallationForAdapter(ctx, c.pool, target.AdapterID)
 		if err != nil {
-			return err
+			return errors.New("installation_lookup_failed")
 		}
 	}
 	if installationID == "" {
 		installationID = normalizedInstallationID(target.AdapterID)
 	}
 	if err := dataplatform.EnsureInventoryInstallation(ctx, c.pool, installationID, target.AdapterID); err != nil {
-		return err
+		return errors.New("installation_projection_failed")
 	}
 	snapshot, err := adapter.Inventory(ctx, adaptersdk.Installation{
 		InstallationID: installationID, AdapterID: target.AdapterID,
 		SurfaceID: target.SurfaceID, StateRoot: target.StateRoot,
 	}, host)
 	if err != nil {
-		return err
+		return errors.New("adapter_inventory_failed")
 	}
 	result, err := dataplatform.PersistInventorySnapshot(ctx, c.pool, snapshot, "complete")
 	if err != nil {
-		return err
+		return errors.New("inventory_persistence_failed")
 	}
 	return c.recordStatus(
 		ctx, target, installationID, "complete", "", &snapshot,
