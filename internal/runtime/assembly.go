@@ -53,6 +53,7 @@ type Appliance struct {
 	Plans         *PlanManager
 	Jobs          *JobManager
 	Operations    *OperationsService
+	Inventory     *InventoryCollector
 	APIHandler    http.Handler
 	IngressHTTP   http.Handler
 	GRPCServer    *grpc.Server
@@ -124,6 +125,16 @@ func NewAppliance(ctx context.Context, config Config, secrets Secrets, integrity
 	}
 	if err := Migrate(ctx, pool); err != nil {
 		return nil, errors.New("runtime_migration_failed")
+	}
+	inventory, err := NewInventoryCollector(
+		pool, config.InventoryTargets, secrets.IdentityHMAC,
+		time.Duration(config.InventoryScanIntervalSeconds)*time.Second,
+	)
+	if err != nil {
+		return nil, errors.New("inventory_collector_initialization_failed")
+	}
+	if err := inventory.ScanOnce(ctx); err != nil {
+		return nil, errors.New("inventory_initial_scan_failed")
 	}
 	store, err := observability.OpenFileStore(filepath.Join(config.DataDir, "mirror", "state.json"), config.SpoolMaxBytes)
 	if err != nil {
@@ -245,7 +256,8 @@ func NewAppliance(ctx context.Context, config Config, secrets Secrets, integrity
 	appliance := &Appliance{
 		Config: config, Secrets: secrets, Pool: pool, Store: store,
 		Ingestor: ingestor, Queue: queue, Plans: plans, Jobs: jobs,
-		Operations: operations, APIHandler: composeAppHandler(api, dashboard),
+		Operations: operations, Inventory: inventory,
+		APIHandler:  composeAppHandler(api, dashboard),
 		IngressHTTP: ingressHTTP, GRPCServer: grpcServer, integrity: integrityRunner,
 	}
 	cleanupQueue = false
@@ -295,6 +307,7 @@ func (a *Appliance) Run(ctx context.Context) error {
 	schedulerCtx, schedulerCancel := context.WithCancel(ctx)
 	defer schedulerCancel()
 	go a.runJobScheduler(schedulerCtx, errorsOut)
+	go a.Inventory.Run(schedulerCtx)
 	if a.Config.IntegrityEnabled {
 		go func() {
 			if err := a.integrity.Run(schedulerCtx); err != nil && !errors.Is(err, context.Canceled) {

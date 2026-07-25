@@ -21,6 +21,10 @@
       "networks": ["kansoku-internal", "kansoku-bridge"],
       "volumes": [
         {"type": "bind", "source": "./runtime-config.json", "target": "/etc/kansoku/runtime-config.json", "read_only": true},
+        {"type": "bind", "source": "${KANSOKU_CODEX_HOME_PERSONAL:-./empty-agent-state}", "target": "/agent-state/codex/state/personal", "read_only": true},
+        {"type": "bind", "source": "${KANSOKU_CODEX_HOME_CORPORATE:-./empty-agent-state}", "target": "/agent-state/codex/state/corporate", "read_only": true},
+        {"type": "bind", "source": "${KANSOKU_CODEX_USER_SKILLS:-./empty-agent-state}", "target": "/agent-state/codex/skills/user", "read_only": true},
+        {"type": "bind", "source": "${KANSOKU_CODEX_SYSTEM_SKILLS:-./empty-agent-state}", "target": "/agent-state/codex/skills/system", "read_only": true},
         {"type": "volume", "source": "kansoku-data", "target": "/var/lib/kansoku"},
         {"type": "volume", "source": "kansoku-backups", "target": "/var/lib/kansoku-backups"}
       ],

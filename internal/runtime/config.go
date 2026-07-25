@@ -26,26 +26,38 @@ const (
 // contain file locators only; secret values are never decoded from config or
 // environment.
 type Config struct {
-	Version              string      `json:"version"`
-	AppVersion           string      `json:"app_version"`
-	HTTPListen           string      `json:"http_listen"`
-	OTLPHTTPListen       string      `json:"otlp_http_listen"`
-	OTLPGRPCListen       string      `json:"otlp_grpc_listen"`
-	ContainerMode        bool        `json:"container_mode"`
-	DataDir              string      `json:"data_dir"`
-	Database             DBConfig    `json:"database"`
-	Secrets              SecretFiles `json:"secret_files"`
-	QueueCapacity        int         `json:"queue_capacity"`
-	SpoolMaxBytes        int64       `json:"spool_max_bytes"`
-	ShutdownTimeoutMS    int64       `json:"shutdown_timeout_ms"`
-	QueryTimeoutMS       int64       `json:"query_timeout_ms"`
-	ResponseMaxBytes     int64       `json:"response_max_bytes"`
-	RetentionDays        int         `json:"retention_days"`
-	DiskBudgetFraction   float64     `json:"disk_budget_fraction"`
-	IntegrityEnabled     bool        `json:"integrity_enabled"`
-	PrivacyCanaryFixture string      `json:"privacy_canary_fixture"`
-	BackupDir            string      `json:"backup_dir"`
-	DiagnosticsMaxBytes  int64       `json:"diagnostics_max_bytes"`
+	Version                      string            `json:"version"`
+	AppVersion                   string            `json:"app_version"`
+	HTTPListen                   string            `json:"http_listen"`
+	OTLPHTTPListen               string            `json:"otlp_http_listen"`
+	OTLPGRPCListen               string            `json:"otlp_grpc_listen"`
+	ContainerMode                bool              `json:"container_mode"`
+	DataDir                      string            `json:"data_dir"`
+	Database                     DBConfig          `json:"database"`
+	Secrets                      SecretFiles       `json:"secret_files"`
+	QueueCapacity                int               `json:"queue_capacity"`
+	SpoolMaxBytes                int64             `json:"spool_max_bytes"`
+	ShutdownTimeoutMS            int64             `json:"shutdown_timeout_ms"`
+	QueryTimeoutMS               int64             `json:"query_timeout_ms"`
+	ResponseMaxBytes             int64             `json:"response_max_bytes"`
+	RetentionDays                int               `json:"retention_days"`
+	DiskBudgetFraction           float64           `json:"disk_budget_fraction"`
+	IntegrityEnabled             bool              `json:"integrity_enabled"`
+	PrivacyCanaryFixture         string            `json:"privacy_canary_fixture"`
+	BackupDir                    string            `json:"backup_dir"`
+	DiagnosticsMaxBytes          int64             `json:"diagnostics_max_bytes"`
+	InventoryTargets             []InventoryTarget `json:"inventory_targets,omitempty"`
+	InventoryScanIntervalSeconds int               `json:"inventory_scan_interval_seconds,omitempty"`
+}
+
+// InventoryTarget is one explicit, read-only adapter state root mounted into
+// the appliance. It contains no credential and grants no configuration write.
+type InventoryTarget struct {
+	TargetID       string `json:"target_id"`
+	AdapterID      string `json:"adapter_id"`
+	InstallationID string `json:"installation_id,omitempty"`
+	SurfaceID      string `json:"surface_id"`
+	StateRoot      string `json:"state_root"`
 }
 
 type DBConfig struct {
@@ -122,10 +134,46 @@ func (c Config) Validate() error {
 		c.DiskBudgetFraction != 0.90 || c.DiagnosticsMaxBytes != 1<<20 {
 		return errors.New("runtime_budget_invalid")
 	}
+	if len(c.InventoryTargets) > 32 {
+		return errors.New("inventory_targets_invalid")
+	}
+	seenTargets := map[string]bool{}
+	for _, target := range c.InventoryTargets {
+		if !safeInventoryConfigID(target.TargetID) ||
+			!safeInventoryConfigID(target.AdapterID) ||
+			(target.InstallationID != "" && !safeInventoryConfigID(target.InstallationID)) ||
+			!safeInventoryConfigID(target.SurfaceID) ||
+			!filepath.IsAbs(target.StateRoot) || target.StateRoot == "/" ||
+			seenTargets[target.TargetID] {
+			return errors.New("inventory_targets_invalid")
+		}
+		seenTargets[target.TargetID] = true
+	}
+	if len(c.InventoryTargets) == 0 {
+		if c.InventoryScanIntervalSeconds != 0 {
+			return errors.New("inventory_scan_interval_invalid")
+		}
+	} else if c.InventoryScanIntervalSeconds < 60 || c.InventoryScanIntervalSeconds > 3600 {
+		return errors.New("inventory_scan_interval_invalid")
+	}
 	if err := c.Secrets.ValidateLocators(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func safeInventoryConfigID(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for _, char := range value {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || strings.ContainsRune("._:@/-", char) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func validateListen(value string, containerMode bool) error {

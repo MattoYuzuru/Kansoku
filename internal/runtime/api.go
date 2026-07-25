@@ -213,13 +213,27 @@ func (a *API) inventory(writer http.ResponseWriter, request *http.Request) {
 	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
 	defer cancel()
 	counts := map[string]int64{}
-	for _, table := range []string{"agent_installations", "agent_surfaces", "projects", "sessions", "components", "adapter_versions", "source_instances"} {
+	for _, table := range []string{
+		"agent_installations", "agent_surfaces", "projects", "sessions",
+		"components", "component_installations", "inventory_snapshots",
+		"adapter_versions", "source_instances",
+	} {
 		var count int64
 		if err := a.pool.QueryRow(ctx, "SELECT count(*) FROM "+table).Scan(&count); err != nil {
 			a.writeError(writer, http.StatusServiceUnavailable, "inventory_unavailable")
 			return
 		}
 		counts[table] = count
+	}
+	for _, state := range []string{"complete", "partial", "degraded", "not_observed"} {
+		var count int64
+		if err := a.pool.QueryRow(ctx, `
+			SELECT count(*) FROM inventory_collection_status WHERE state = $1
+		`, state).Scan(&count); err != nil {
+			a.writeError(writer, http.StatusServiceUnavailable, "inventory_unavailable")
+			return
+		}
+		counts["inventory_targets_"+state] = count
 	}
 	a.write(writer, http.StatusOK, counts, map[string]any{"status": "complete", "exclusions": []string{}})
 }

@@ -33,5 +33,14 @@
   "integrity_enabled": true,
   "privacy_canary_fixture": "/usr/share/kansoku/privacy-canary.json",
   "backup_dir": "/var/lib/kansoku-backups",
-  "diagnostics_max_bytes": 1048576
+  "diagnostics_max_bytes": 1048576,
+  "inventory_targets": [
+    {
+      "target_id": "codex-local",
+      "adapter_id": "codex",
+      "surface_id": "cli",
+      "state_root": "/agent-state/codex"
+    }
+  ],
+  "inventory_scan_interval_seconds": 300
 }
