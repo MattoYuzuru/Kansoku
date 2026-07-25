@@ -34,12 +34,16 @@
 
 .k-switch__thumb {
   position: absolute;
-  top: 2px;
+  top: 50%;
   left: 2px;
   width: 14px;
   height: 14px;
   background: var(--text-muted);
   border-radius: var(--radius-1);
+  /* translateY(-50%) centers vertically regardless of border-box math;
+     translateX is listed alongside it so the :checked transform below
+     shares the same function list and interpolates smoothly. */
+  transform: translateX(0) translateY(-50%);
   transition: transform var(--motion-fast) var(--ease), background-color var(--motion-fast) var(--ease);
 }
 
@@ -48,7 +52,7 @@
   border-color: var(--accent-purple);
 }
 .k-switch__input:checked ~ .k-switch__track .k-switch__thumb {
-  transform: translateX(18px);
+  transform: translateX(18px) translateY(-50%);
   background: var(--text-on-accent);
 }
 
