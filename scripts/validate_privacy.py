@@ -95,6 +95,7 @@ EXPECTED_NESTED_TYPES = {
         "duration_ms": "nullable_nonnegative_integer",
         "prompt_character_count": "nullable_nonnegative_integer",
         "input_tokens": "nullable_nonnegative_integer",
+        "cached_input_tokens": "nullable_nonnegative_integer",
         "output_tokens": "nullable_nonnegative_integer",
         "provider_cost_micros": "nullable_nonnegative_integer",
     }, "closed": True},
@@ -177,7 +178,7 @@ EXPECTED_ROUTE_MODES = {
 EXPECTED_GO_SCHEMAS = {
     "CatalogObservation": {"state": "ObservationState", "id": "*string"},
     "PromptFeatures": {"state": "CompletenessState", "byte_count": "int", "character_count": "int", "word_count": "int", "line_count": "int", "coarse_script": "string", "code_fence_count": "int", "attachment_count": "int", "url_reference_count": "int", "file_reference_count": "int"},
-    "TelemetryMeasurements": {"duration_ms": "*int64", "prompt_character_count": "*int64", "input_tokens": "*int64", "output_tokens": "*int64", "provider_cost_micros": "*int64"},
+    "TelemetryMeasurements": {"duration_ms": "*int64", "prompt_character_count": "*int64", "input_tokens": "*int64", "cached_input_tokens": "*int64", "output_tokens": "*int64", "provider_cost_micros": "*int64"},
     "RedactionCounts": {"prompt_fields": "int", "attachment_fields": "int", "response_fields": "int", "source_fields": "int", "tool_io_fields": "int", "command_fields": "int", "path_fields": "int", "environment_fields": "int", "credential_fields": "int", "exception_fields": "int", "sensitive_identifier_fields": "int"},
     "Lineage": {"source_record_pseudonym": "string", "session_pseudonym": "string", "turn_pseudonym": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "sanitizer_version": "string", "contract_sha256": "string"},
     "SafeRecord": {"record_id": "string", "idempotency_key": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "observed_at": "time.Time", "received_at": "time.Time", "confidence": "float64", "event_type": "string", "outcome": "string", "value_state": "ValueState", "model": "CatalogObservation", "tool": "CatalogObservation", "component_kind": "string", "component_mentions": "[]string", "prompt_features": "PromptFeatures", "telemetry": "TelemetryMeasurements", "redaction_counts": "RedactionCounts", "lineage": "Lineage"},

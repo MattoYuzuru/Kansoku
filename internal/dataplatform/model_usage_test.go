@@ -87,6 +87,9 @@ func TestModelUsageAggregatesTokensCostAndMatchedLatencyWithinRangeAndBudget(t *
 	if day.EstimatedCostMicros != 1000+100 {
 		t.Fatalf("estimated_cost_micros = %d, want %d", day.EstimatedCostMicros, 1000+100)
 	}
+	if day.CostedRequestCount != 2 {
+		t.Fatalf("costed_request_count = %d, want 2", day.CostedRequestCount)
+	}
 	if day.MatchedEventCount != 1 {
 		t.Fatalf("matched_event_count = %d, want 1", day.MatchedEventCount)
 	}

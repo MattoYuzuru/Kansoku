@@ -62,6 +62,8 @@ export interface EntityRow {
   event_count: number;
   success_count: number;
   failure_count: number;
+  costed_count?: number;
+  estimated_cost_micros?: number;
   value?: number | null;
   percentiles?: Percentiles;
 }
@@ -164,6 +166,9 @@ export interface ModelUsageDayRow {
   request_count: number;
   total_tokens: number;
   estimated_cost_micros: number;
+  costed_request_count: number;
+  provider_cost_count: number;
+  upper_bound_cost_count: number;
   percentiles?: Percentiles;
   error_ratio?: number | null;
   matched_event_count: number;

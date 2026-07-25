@@ -16,7 +16,7 @@ const (
 	maxConfigEntries                = 256
 	maxConfigDepth                  = 8
 	maxConfigString                 = 4096
-	InstallerContractSemanticSHA256 = "aae9dd52465391d01140d2886430f3ae4b4af082de24e5359a2d8e8103d43fca"
+	InstallerContractSemanticSHA256 = "ed27bf4a45a4832be060a70e8709b3badab8b4e47b68fbcedac8bd2c573e70e7"
 )
 
 type Operation struct {

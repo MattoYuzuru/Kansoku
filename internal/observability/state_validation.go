@@ -152,6 +152,7 @@ func validateEvent(event Event, factKey string) error {
 		(event.Measurements.DurationMS != nil && *event.Measurements.DurationMS < 0) ||
 		(event.Measurements.PromptCharacterCount != nil && *event.Measurements.PromptCharacterCount < 0) ||
 		(event.Measurements.InputTokens != nil && *event.Measurements.InputTokens < 0) ||
+		(event.Measurements.CachedInputTokens != nil && *event.Measurements.CachedInputTokens < 0) ||
 		(event.Measurements.OutputTokens != nil && *event.Measurements.OutputTokens < 0) ||
 		(event.Measurements.ProviderCostMicros != nil && *event.Measurements.ProviderCostMicros < 0) ||
 		(event.Measurements.Count != nil && *event.Measurements.Count < 0) ||

@@ -70,7 +70,7 @@ func OTLPSafeAttributes() []string {
 		"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.outcome",
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
 		"kansoku.duration_ms", "kansoku.prompt_length_characters",
-		"kansoku.input_tokens", "kansoku.output_tokens",
+		"kansoku.input_tokens", "kansoku.cached_input_tokens", "kansoku.output_tokens",
 	}
 }
 
@@ -327,6 +327,7 @@ const (
 	NativeAttributeDuration       NativeOTLPAttribute = "duration_ms"
 	NativeAttributePromptLength   NativeOTLPAttribute = "prompt_length"
 	NativeAttributeInputTokens    NativeOTLPAttribute = "input_token_count"
+	NativeAttributeCachedTokens   NativeOTLPAttribute = "cached_token_count"
 	NativeAttributeOutputTokens   NativeOTLPAttribute = "output_token_count"
 )
 
@@ -349,6 +350,8 @@ func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
 		return "kansoku.prompt_length_characters", true
 	case NativeAttributeInputTokens:
 		return "kansoku.input_tokens", true
+	case NativeAttributeCachedTokens:
+		return "kansoku.cached_input_tokens", true
 	case NativeAttributeOutputTokens:
 		return "kansoku.output_tokens", true
 	default:

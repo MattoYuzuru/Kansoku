@@ -139,6 +139,48 @@ func TestObservabilityHandoffPersistsNativeTelemetryProjectionsIdempotently(t *t
 	}
 }
 
+func TestObservabilityHandoffCreatesVersionedPublicAPICostEstimate(t *testing.T) {
+	pool := freshSchema(t, testDSN(t))
+	handoff, err := NewObservabilityHandoff(pool, 5*time.Second)
+	if err != nil {
+		t.Fatalf("NewObservabilityHandoff: %v", err)
+	}
+
+	observedAt := time.Date(2026, 7, 25, 12, 0, 0, 0, time.UTC)
+	event := nativeProjectionEvent(
+		"evt_native_priced_model_01", "model.responded", observedAt,
+		"ses_native_priced_01", "trn_native_priced_01",
+	)
+	inputTokens := int64(100)
+	cachedTokens := int64(20)
+	outputTokens := int64(10)
+	event.Subject.ModelID = "gpt-5.6-terra"
+	event.Measurements.InputTokens = &inputTokens
+	event.Measurements.CachedInputTokens = &cachedTokens
+	event.Measurements.OutputTokens = &outputTokens
+	event.Outcome = "succeeded"
+
+	if err := handoff.PersistNormalizedFact(event, nativeProjectionEvidence(event)); err != nil {
+		t.Fatalf("PersistNormalizedFact: %v", err)
+	}
+
+	var costMicros int64
+	var method, sourceURL string
+	if err := pool.QueryRow(context.Background(), `
+		SELECT ce.cost_micros, ce.method, pcv.source_url
+		FROM cost_estimates ce
+		JOIN price_catalog_versions pcv
+		  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
+	`).Scan(&costMicros, &method, &sourceURL); err != nil {
+		t.Fatalf("read public API estimate: %v", err)
+	}
+	if costMicros != 355 || method != "public_api_token_rates" ||
+		sourceURL != "https://developers.openai.com/api/docs/models/gpt-5.6-terra" {
+		t.Fatalf("public API estimate = (%d,%q,%q), want (355,public_api_token_rates,official terra URL)",
+			costMicros, method, sourceURL)
+	}
+}
+
 func nativeProjectionEvent(eventID, eventType string, observedAt time.Time, sessionID, turnID string) observability.Event {
 	sequence := uint64(1)
 	switch eventType {

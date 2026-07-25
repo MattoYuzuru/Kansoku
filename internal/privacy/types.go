@@ -8,7 +8,7 @@ import (
 // PrivacyContractSemanticSHA256 is generated from the canonical JSON encoding
 // of every contracts/privacy registry, ordered by repository-relative path.
 // scripts/validate_privacy.py refuses a registry/runtime drift.
-const PrivacyContractSemanticSHA256 = "aae9dd52465391d01140d2886430f3ae4b4af082de24e5359a2d8e8103d43fca"
+const PrivacyContractSemanticSHA256 = "ed27bf4a45a4832be060a70e8709b3badab8b4e47b68fbcedac8bd2c573e70e7"
 
 type ValueState string
 
@@ -28,6 +28,7 @@ type TelemetryMeasurements struct {
 	DurationMS           *int64 `json:"duration_ms"`
 	PromptCharacterCount *int64 `json:"prompt_character_count"`
 	InputTokens          *int64 `json:"input_tokens"`
+	CachedInputTokens    *int64 `json:"cached_input_tokens"`
 	OutputTokens         *int64 `json:"output_tokens"`
 	ProviderCostMicros   *int64 `json:"provider_cost_micros"`
 }

@@ -51,10 +51,21 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 		),
 		cost_totals AS (
 			SELECT o.model_operation_id,
-				coalesce(o.provider_cost_micros, sum(ce.cost_micros), 0) AS total_cost_micros
+				coalesce(o.provider_cost_micros, max(ce.cost_micros), 0) AS total_cost_micros,
+				(o.provider_cost_micros IS NOT NULL OR count(ce.cost_estimate_id) > 0) AS is_costed,
+				(o.provider_cost_micros IS NOT NULL) AS is_provider_cost,
+				bool_or(ce.method = 'public_api_uncached_upper_bound') AS is_upper_bound
 			FROM ops o
 			LEFT JOIN token_usage tu ON tu.model_operation_id = o.model_operation_id AND tu.observed_at = o.observed_at
-			LEFT JOIN cost_estimates ce ON ce.token_usage_id = tu.token_usage_id
+			LEFT JOIN LATERAL (
+				SELECT ce.cost_estimate_id, ce.cost_micros, ce.method
+				FROM cost_estimates ce
+				JOIN price_catalog_versions pcv
+				  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
+				WHERE ce.token_usage_id = tu.token_usage_id
+				ORDER BY pcv.effective_at DESC
+				LIMIT 1
+			) ce ON TRUE
 			GROUP BY o.model_operation_id, o.provider_cost_micros
 		),
 		observations AS (
@@ -67,6 +78,9 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 			count(DISTINCT o.model_operation_id) AS request_count,
 			coalesce(sum(tt.total_tokens), 0) AS total_tokens,
 			coalesce(sum(ct.total_cost_micros), 0) AS total_cost_micros,
+			count(*) FILTER (WHERE ct.is_costed) AS costed_request_count,
+			count(*) FILTER (WHERE ct.is_provider_cost) AS provider_cost_count,
+			count(*) FILTER (WHERE ct.is_upper_bound) AS upper_bound_cost_count,
 			coalesce(max(obs.observation_count), 0) AS matched_event_count,
 			coalesce(max(obs.success_count), 0) AS success_count,
 			coalesce(max(obs.failure_count), 0) AS failure_count,
@@ -102,6 +116,7 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 		var successCount, failureCount int64
 		var p Percentiles
 		if err := rows.Scan(&row.Day, &row.RequestCount, &row.TotalTokens, &row.EstimatedCostMicros,
+			&row.CostedRequestCount, &row.ProviderCostCount, &row.UpperBoundCostCount,
 			&row.MatchedEventCount, &successCount, &failureCount, &p.P50, &p.P90, &p.P95, &p.P99); err != nil {
 			rows.Close()
 			return ModelUsageResponse{}, err

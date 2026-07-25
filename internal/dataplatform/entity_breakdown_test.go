@@ -182,6 +182,21 @@ func TestModelBreakdownSumsTokensAcrossModels(t *testing.T) {
 	insertOperation("mop_2", "model_sonnet", base.Add(2*time.Minute), 200, 75)
 	insertOperation("mop_3", "model_haiku", base.Add(3*time.Minute), 10, 5)
 	if _, err := pool.Exec(ctx, `
+		INSERT INTO price_catalog_versions (
+			price_catalog_version_id, model_id, effective_at,
+			input_price_micros, output_price_micros
+		) VALUES ('pcv_model_sonnet', 'model_sonnet', $1, 1, 1)
+	`, base); err != nil {
+		t.Fatalf("insert price catalog: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO cost_estimates (
+			cost_estimate_id, token_usage_id, price_catalog_version_id, cost_micros
+		) VALUES ('ce_mop_1', 'tu_mop_1', 'pcv_model_sonnet', 123)
+	`); err != nil {
+		t.Fatalf("insert cost estimate: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
 		INSERT INTO model_operations (
 			model_operation_id, observed_at, model_id, operation_kind, duration_ms
 		) VALUES ('mop_request_1', $1, 'model_sonnet', 'request', 125)
@@ -208,6 +223,10 @@ func TestModelBreakdownSumsTokensAcrossModels(t *testing.T) {
 	}
 	if sonnet.Value == nil || *sonnet.Value != float64(100+50+200+75) {
 		t.Fatalf("model_sonnet total tokens = %v, want %d", sonnet.Value, 100+50+200+75)
+	}
+	if sonnet.CostedCount != 1 || sonnet.EstimatedCostMicros != 123 {
+		t.Fatalf("model_sonnet cost = (%d,%d), want (1,123)",
+			sonnet.CostedCount, sonnet.EstimatedCostMicros)
 	}
 	haiku, ok := byID["model_haiku"]
 	if !ok {

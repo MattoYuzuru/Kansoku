@@ -253,6 +253,7 @@ func safeFields(attributes []*commonv1.KeyValue, timestamp uint64) (map[string]a
 		{"kansoku.duration_ms", "duration_ms"},
 		{"kansoku.prompt_length_characters", "prompt_character_count"},
 		{"kansoku.input_tokens", "input_tokens"},
+		{"kansoku.cached_input_tokens", "cached_input_tokens"},
 		{"kansoku.output_tokens", "output_tokens"},
 		{"kansoku.provider_cost_micros", "provider_cost_micros"},
 	} {

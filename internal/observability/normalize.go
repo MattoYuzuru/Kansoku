@@ -135,7 +135,8 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 		Measurements: Measurements{
 			DurationMS: record.Telemetry.DurationMS, Success: success,
 			PromptCharacterCount: record.Telemetry.PromptCharacterCount,
-			InputTokens:          record.Telemetry.InputTokens, OutputTokens: record.Telemetry.OutputTokens,
+			InputTokens:          record.Telemetry.InputTokens, CachedInputTokens: record.Telemetry.CachedInputTokens,
+			OutputTokens:       record.Telemetry.OutputTokens,
 			ProviderCostMicros: record.Telemetry.ProviderCostMicros,
 		},
 		ValueState: string(record.ValueState), Outcome: record.Outcome, CorrelationStatus: CorrelationExact,

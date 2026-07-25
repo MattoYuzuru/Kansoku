@@ -85,9 +85,23 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 	rows, err := conn.Query(ctx, `
 		SELECT mo.model_id,
 			count(DISTINCT mo.model_operation_id) AS event_count,
-			coalesce(sum(tu.input_tokens + tu.output_tokens), 0) AS total_tokens
+			coalesce(sum(tu.input_tokens + tu.output_tokens), 0) AS total_tokens,
+			count(*) FILTER (
+				WHERE mo.provider_cost_micros IS NOT NULL OR priced.cost_micros IS NOT NULL
+			) AS costed_count,
+			coalesce(sum(coalesce(mo.provider_cost_micros, priced.cost_micros, 0)), 0)
+				AS estimated_cost_micros
 		FROM model_operations mo
 		LEFT JOIN token_usage tu ON tu.model_operation_id = mo.model_operation_id AND tu.observed_at = mo.observed_at
+		LEFT JOIN LATERAL (
+			SELECT ce.cost_micros
+			FROM cost_estimates ce
+			JOIN price_catalog_versions pcv
+			  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
+			WHERE ce.token_usage_id = tu.token_usage_id
+			ORDER BY pcv.effective_at DESC
+			LIMIT 1
+		) priced ON TRUE
 		WHERE mo.observed_at >= $1 AND mo.observed_at < $2
 		  AND mo.operation_kind = 'response'
 		GROUP BY mo.model_id
@@ -102,7 +116,10 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 	for rows.Next() {
 		var row EntityRow
 		var totalTokens int64
-		if err := rows.Scan(&row.EntityID, &row.EventCount, &totalTokens); err != nil {
+		if err := rows.Scan(
+			&row.EntityID, &row.EventCount, &totalTokens,
+			&row.CostedCount, &row.EstimatedCostMicros,
+		); err != nil {
 			return EntityBreakdownResponse{}, err
 		}
 		value := float64(totalTokens)

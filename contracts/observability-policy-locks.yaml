@@ -7,6 +7,8 @@
     {"policy_version": "observability.lifecycles/1", "registry": "contracts/observability/lifecycles.yaml", "semantic_sha256": "4d927983377776b3fad2fcdd01bcbb3c7d1c29d94a0b3462808afa159ef5b329"},
     {"policy_version": "observability.reconciliation/1", "registry": "contracts/observability/reconciliation.yaml", "semantic_sha256": "b417b8a41a916f726859f33b32d1675392bca4af84beb52e73fead5c45fa12f4"},
     {"policy_version": "observability.envelope/2", "registry": "contracts/observability/envelope.yaml", "semantic_sha256": "e6ec61d0faf1a9602bc3f22e720e0ae393e8924c676836dafc6507c3566b3cee"},
-    {"policy_version": "observability.ingress/2", "registry": "contracts/observability/ingress.yaml", "semantic_sha256": "f548cc5de3b8123c7aab7020bba376efaae4e0d0bbe60aeafcd9665a5cbdcee3"}
+    {"policy_version": "observability.ingress/2", "registry": "contracts/observability/ingress.yaml", "semantic_sha256": "f548cc5de3b8123c7aab7020bba376efaae4e0d0bbe60aeafcd9665a5cbdcee3"},
+    {"policy_version": "observability.envelope/3", "registry": "contracts/observability/envelope.yaml", "semantic_sha256": "d85e6247a1f64c125149971489b21e5aec727e3730b599aadb03b546a721c95c"},
+    {"policy_version": "observability.ingress/3", "registry": "contracts/observability/ingress.yaml", "semantic_sha256": "28aabeb8b49cf978d05f3c154c095dd090079a52385b45e0556c8dc9f6ef451e"}
   ]
 }

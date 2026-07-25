@@ -106,6 +106,7 @@ type Measurements struct {
 	Count                *int64 `json:"count"`
 	PromptCharacterCount *int64 `json:"prompt_character_count"`
 	InputTokens          *int64 `json:"input_tokens"`
+	CachedInputTokens    *int64 `json:"cached_input_tokens"`
 	OutputTokens         *int64 `json:"output_tokens"`
 	ProviderCostMicros   *int64 `json:"provider_cost_micros"`
 }

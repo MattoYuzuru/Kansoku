@@ -35,6 +35,16 @@ export function Models() {
   const requestsTotal = sum(rows.map((r) => r.request_count));
   const tokensTotal = sum(rows.map((r) => r.total_tokens));
   const costTotalUsd = microsToUsd(sum(rows.map((r) => r.estimated_cost_micros)));
+  const costedTotal = sum(rows.map((r) => r.costed_request_count));
+  const providerCostTotal = sum(rows.map((r) => r.provider_cost_count));
+  const upperBoundCostTotal = sum(rows.map((r) => r.upper_bound_cost_count));
+  const costRows = rows.filter((r) => r.costed_request_count > 0);
+  const costState =
+    requestsTotal > 0 && costedTotal === 0
+      ? "not_observed"
+      : costedTotal < requestsTotal
+        ? "partial"
+        : state;
   const errorRows = rows.filter((r) => r.error_ratio != null);
   const latencyRows = rows.filter((r) => r.percentiles?.p95 != null);
 
@@ -48,6 +58,21 @@ export function Models() {
       header: "Tokens",
       align: "right",
       render: (r) => (r.value ?? 0).toLocaleString(),
+    },
+    {
+      key: "estimated_cost",
+      header: "API-equivalent cost",
+      align: "right",
+      render: (r) =>
+        (r.costed_count ?? 0) > 0
+          ? `$${microsToUsd(r.estimated_cost_micros ?? 0).toFixed(2)}`
+          : "Not observed",
+    },
+    {
+      key: "cost_coverage",
+      header: "Cost coverage",
+      align: "right",
+      render: (r) => `${(r.costed_count ?? 0).toLocaleString()} / ${r.event_count.toLocaleString()}`,
     },
   ];
 
@@ -112,19 +137,31 @@ export function Models() {
         </GapNote>
       </Panel>
 
-      <Panel title="Estimated cost">
+      <Panel title="API-equivalent estimated cost">
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Estimated cost" value={costTotalUsd} unit="USD" precision={2} state={state} />
+          <KpiCard
+            label="Estimated cost"
+            value={costedTotal > 0 ? costTotalUsd : null}
+            unit="USD"
+            precision={2}
+            state={costState}
+            stateReason={
+              costedTotal === 0
+                ? "No provider-reported cost or matching public API price was available."
+                : `${costedTotal} of ${requestsTotal} responses have cost evidence.`
+            }
+          />
+          <KpiCard label="Costed responses" value={costedTotal} state={costState} />
         </div>
-        {rows.length > 0 && (
+        {costRows.length > 0 && (
           <ChartContainer
-            ariaLabel="Estimated cost per day, in USD"
+            ariaLabel="API-equivalent estimated cost per day, in USD"
             option={timeSeriesOption(
-              rows.map((r) => dayLabel(r.day)),
+              costRows.map((r) => dayLabel(r.day)),
               [
                 {
                   name: "Cost (USD)",
-                  data: rows.map((r) => microsToUsd(r.estimated_cost_micros)),
+                  data: costRows.map((r) => microsToUsd(r.estimated_cost_micros)),
                   color: "var(--accent-gold)",
                   type: "bar",
                 },
@@ -132,6 +169,13 @@ export function Models() {
             )}
           />
         )}
+        <GapNote>
+          This is not a ChatGPT or Codex subscription invoice. Provider-reported cost
+          is used when present; otherwise Kansoku applies the versioned public API token
+          price. {upperBoundCostTotal} response{upperBoundCostTotal === 1 ? "" : "s"} use
+          an uncached-input upper bound because cached-token metadata was not observed;
+          {` ${providerCostTotal}`} use provider-reported cost.
+        </GapNote>
       </Panel>
 
       <Panel title="Per-model leaderboard">

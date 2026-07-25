@@ -140,13 +140,15 @@ type RollupPoint struct {
 // Percentiles is nil when the caller did not request a latency aggregate for
 // this entity kind (e.g. an agent breakdown has no latency dimension).
 type EntityRow struct {
-	EntityID     string       `json:"entity_id"`
-	AgentID      string       `json:"agent_id,omitempty"`
-	EventCount   int64        `json:"event_count"`
-	SuccessCount int64        `json:"success_count"`
-	FailureCount int64        `json:"failure_count"`
-	Value        *float64     `json:"value,omitempty"`
-	Percentiles  *Percentiles `json:"percentiles,omitempty"`
+	EntityID            string       `json:"entity_id"`
+	AgentID             string       `json:"agent_id,omitempty"`
+	EventCount          int64        `json:"event_count"`
+	SuccessCount        int64        `json:"success_count"`
+	FailureCount        int64        `json:"failure_count"`
+	CostedCount         int64        `json:"costed_count,omitempty"`
+	EstimatedCostMicros int64        `json:"estimated_cost_micros,omitempty"`
+	Value               *float64     `json:"value,omitempty"`
+	Percentiles         *Percentiles `json:"percentiles,omitempty"`
 }
 
 // EntityBreakdownResponse is the closed completeness-aware envelope for a
@@ -282,6 +284,9 @@ type ModelUsageDayRow struct {
 	RequestCount        int64        `json:"request_count"`
 	TotalTokens         int64        `json:"total_tokens"`
 	EstimatedCostMicros int64        `json:"estimated_cost_micros"`
+	CostedRequestCount  int64        `json:"costed_request_count"`
+	ProviderCostCount   int64        `json:"provider_cost_count"`
+	UpperBoundCostCount int64        `json:"upper_bound_cost_count"`
 	Percentiles         *Percentiles `json:"percentiles,omitempty"`
 	ErrorRatio          *float64     `json:"error_ratio,omitempty"`
 	MatchedEventCount   int64        `json:"matched_event_count"`

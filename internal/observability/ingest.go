@@ -311,7 +311,7 @@ func (i *Ingestor) IngestSafeFields(fields map[string]any, adapterID string, kin
 		"event_id": true, "session_id": true, "observed_at": true, "event_type": true,
 		"outcome": true, "value_state": true, "model": true, "tool_name": true,
 		"component_kind": true, "duration_ms": true, "prompt_character_count": true,
-		"input_tokens": true, "output_tokens": true, "provider_cost_micros": true,
+		"input_tokens": true, "cached_input_tokens": true, "output_tokens": true, "provider_cost_micros": true,
 		"turn_id": true,
 	}
 	for key := range fields {
@@ -382,12 +382,14 @@ func (i *Ingestor) IngestSafeFields(fields map[string]any, adapterID string, kin
 		DurationMS:           safeInt64Pointer(fields["duration_ms"]),
 		PromptCharacterCount: safeInt64Pointer(fields["prompt_character_count"]),
 		InputTokens:          safeInt64Pointer(fields["input_tokens"]),
+		CachedInputTokens:    safeInt64Pointer(fields["cached_input_tokens"]),
 		OutputTokens:         safeInt64Pointer(fields["output_tokens"]),
 		ProviderCostMicros:   safeInt64Pointer(fields["provider_cost_micros"]),
 	}
 	for _, value := range []*int64{
 		measurement.DurationMS, measurement.PromptCharacterCount,
-		measurement.InputTokens, measurement.OutputTokens, measurement.ProviderCostMicros,
+		measurement.InputTokens, measurement.CachedInputTokens,
+		measurement.OutputTokens, measurement.ProviderCostMicros,
 	} {
 		if value != nil && *value < 0 {
 			return CommitResult{}, errors.New("unsafe_otlp_field")

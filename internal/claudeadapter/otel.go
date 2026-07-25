@@ -88,7 +88,7 @@ func OTLPSafeAttributes() []string {
 		"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.outcome",
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
 		"kansoku.component.kind", "kansoku.duration_ms", "kansoku.prompt_length_characters",
-		"kansoku.input_tokens", "kansoku.output_tokens", "kansoku.provider_cost_micros",
+		"kansoku.input_tokens", "kansoku.cached_input_tokens", "kansoku.output_tokens", "kansoku.provider_cost_micros",
 		"kansoku.turn.id",
 	}
 }

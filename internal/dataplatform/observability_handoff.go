@@ -303,17 +303,34 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		if event.Measurements.InputTokens == nil || event.Measurements.OutputTokens == nil {
 			return nil
 		}
+		price, err := ensurePublicAPIPrice(ctx, h.pool, event.Subject.ModelID)
+		if err != nil {
+			return err
+		}
 		if err := EnsurePartition(ctx, h.pool, "token_usage", event.ObservedAt); err != nil {
 			return err
 		}
-		_, err := h.pool.Exec(ctx, `
+		tokenUsageID := handoffID("token-usage", event.EventID)
+		_, err = h.pool.Exec(ctx, `
 			INSERT INTO token_usage (
-				token_usage_id, observed_at, model_operation_id, input_tokens, output_tokens
-			) VALUES ($1,$2,$3,$4,$5)
+				token_usage_id, observed_at, model_operation_id, input_tokens,
+				cached_input_tokens, output_tokens
+			) VALUES ($1,$2,$3,$4,$5,$6)
 			ON CONFLICT (token_usage_id, observed_at) DO NOTHING
-		`, handoffID("token-usage", event.EventID), event.ObservedAt, operationID,
-			*event.Measurements.InputTokens, *event.Measurements.OutputTokens)
-		return err
+		`, tokenUsageID, event.ObservedAt, operationID,
+			*event.Measurements.InputTokens, event.Measurements.CachedInputTokens,
+			*event.Measurements.OutputTokens)
+		if err != nil {
+			return err
+		}
+		if event.Measurements.ProviderCostMicros == nil && price != nil {
+			return persistPublicAPICostEstimate(
+				ctx, h.pool, tokenUsageID, *price,
+				*event.Measurements.InputTokens, *event.Measurements.OutputTokens,
+				event.Measurements.CachedInputTokens,
+			)
+		}
+		return nil
 	default:
 		return nil
 	}
