@@ -58,6 +58,16 @@ const (
 	CapabilityIngestionLiveStream           CapabilityID = "ingestion.live_stream"
 	CapabilityConfigurationInstall          CapabilityID = "configuration.install"
 	CapabilityConfigurationLiveCanary       CapabilityID = "configuration.live_canary"
+	// CapabilityConfigurationHookInstall is a Session 11 addition (ADR 0014):
+	// codex.user_hook/claude.user_hook write into the *same physical file*
+	// configuration.install's codex.user_otel/claude.user_otel targets
+	// already own (config.toml / settings.json, different keys/tables). A
+	// distinct capability id -- rather than overloading
+	// CapabilityConfigurationInstall to somehow mean two different
+	// installer.Plan/ChangePlan pairs at once -- keeps PlanConfiguration's
+	// one-capability-to-one-ChangePlan shape intact and keeps the two
+	// targets' apply/rollback lifecycles independently observable.
+	CapabilityConfigurationHookInstall CapabilityID = "configuration.hook_install"
 )
 
 // CapabilityState is the lifecycle of one capability for one installation.

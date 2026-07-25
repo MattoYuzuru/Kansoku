@@ -1,0 +1,148 @@
+# TDD 11 — Real-agent gap closure (OTLP, hook installer, inventory)
+
+## Confirmed baseline (2026-07-25, live environment)
+
+- `docker compose ps` showed `kansoku`/`postgres` healthy; `sessions`/`events`/`source_instances`
+  tables empty; `schema_quarantine_metadata` held 3 rows and `incidents` held 2 `unknown_schema`
+  rows, both timestamped from real Claude Code + Codex CLI traffic received today.
+- `grep -rn "CanonicalEventForOTel(" internal/` matches only `*_test.go` files.
+- `grep -rn "codexadapter.Discover\|claudeadapter.Discover" internal/` (outside tests) matches
+  nothing — no production caller drives `Discover`/`Inventory`/`PlanConfiguration` today.
+- `contracts/privacy/installer.yaml`'s `targets` array has exactly four entries: `codex.user_otel`,
+  `claude.user_otel`, `gemini.user_otel`, `cursor.user_hooks`.
+
+## A. OTLP adapter-aware dispatch
+
+**Files:** `internal/observability/otlp.go`, `internal/observability/routes.go`,
+`internal/runtime/assembly.go`, `contracts/observability/ingress.yaml` and/or
+`contracts/codex/hooks-and-otel.yaml` / `contracts/claude/hooks-and-otel.yaml`,
+`contracts/observability-policy-locks.yaml` (and `contracts/codex-policy-locks.yaml` /
+`contracts/claude-policy-locks.yaml` if the schema lands in the adapter-owned files instead).
+
+1. Determine the real resource/attribute shape Codex and Claude Code's OTel exporters actually
+   send today — `SOURCES.md`'s Codex/Claude OTel sections plus the `otel_source.documented_events`
+   / `documented_attributes` blocks already in `contracts/codex/hooks-and-otel.yaml` /
+   `contracts/claude/hooks-and-otel.yaml` are the authoritative reference; do not guess a shape.
+2. Add a `knownResource`-equivalent per adapter (e.g. `codexadapter.MatchesOTLPResource(resource)`,
+   `claudeadapter.MatchesOTLPResource(resource)`) living beside each adapter's existing `otel.go`,
+   so the mapping/fingerprint logic that already exists there is reused, not duplicated inside
+   `internal/observability`.
+3. In `otlp.go`'s `ingestLogs`/`ingestMetrics`/`ingestTraces`, replace the single `knownResource`
+   call with a dispatch: fixture-agent check first (unchanged), then each registered adapter's
+   resource matcher, in the same spirit as `routes.go:hookAdapterHandler`'s adapter switch. A
+   resource matching none of them still calls `r.unknown(...)` exactly as today — no regression to
+   the quarantine safety net.
+4. Once a resource matches an adapter, call that adapter's `CanonicalEventForOTel(name, shape)` to
+   get the canonical event type, then extract only the attributes
+   `contracts/codex/hooks-and-otel.yaml` / `contracts/claude/hooks-and-otel.yaml` declare safe, and
+   route them into `IngestSafeFields`'s existing allowlist (extend the allowlist only with fields
+   those contracts already document as safe — never add a field ad hoc in Go without a matching
+   contract entry).
+5. `internal/runtime/assembly.go`'s `NewOTLPReceiver`/`NewIngressHTTPHandler` wiring needs no
+   signature change if the dispatch lives inside `otlp.go`; confirm this while implementing, and
+   only touch `assembly.go` if a genuinely new dependency (e.g. an adapter registry reference) must
+   be threaded through.
+6. Contract change: append the real resource identity + safe-attribute set as new entries (not
+   edits) via each registry's existing append-only lock mechanism
+   (`contracts/observability-policy-locks.yaml` and/or `contracts/codex-policy-locks.yaml` /
+   `contracts/claude-policy-locks.yaml`, whichever registry ends up owning the new schema). Update
+   `scripts/validate_observability.py` / `scripts/validate_codex.py` / `scripts/validate_claude.py`
+   only if their existing checks do not already generalize to the new entries.
+7. Tests: real (non-fixture) Codex OTel payload and real Claude OTel payload, built from the
+   documented shape, landing as real `events` rows end to end; a genuinely unknown resource/schema
+   still quarantines (regression test); the existing fixture-agent conformance path
+   (`internal/integrity`'s synthetic pipeline, `TestFixtureOTelGoldenMapMatchesCanonicalEventForOTel`
+   and siblings) passes unmodified.
+
+## B. Hook installer file-writer
+
+**Files:** `contracts/privacy/installer.yaml`, `contracts/privacy-policy-locks.yaml`,
+`internal/installer/protocol.go`, `internal/codexadapter/stage2_stub.go`,
+`internal/claudeadapter/stage2_stub.go`, `contracts/adapter-sdk/capabilities.yaml` (only if a new
+capability id is genuinely required — see design note below).
+
+1. Append `codex.user_hook` (`config_locator_kind: codex_user_config`, format `toml`) and
+   `claude.user_hook` (`config_locator_kind: claude_user_settings`, format `json`) to
+   `contracts/privacy/installer.yaml`'s `targets` list, matching each adapter contract's already-
+   declared `hook_installer_target` block exactly (`ownership`, `default_scope`, forbidden keys).
+   Add corresponding new entries to `contracts/privacy-policy-locks.yaml` — append-only, no
+   existing trusted entry touched.
+2. Add `targetSpecs["codex.user_hook"]` / `targetSpecs["claude.user_hook"]` to
+   `internal/installer/protocol.go` alongside the existing four, and
+   `BuildCodexHookPlan`/`BuildClaudeHookPlan` functions parallel to `BuildCodexPlan`/
+   `BuildClaudePlan`.
+3. **Design note — resolve during implementation, do not assume upfront:** Codex's hook and OTel
+   targets both live in `config.toml` (different tables); Claude's both live in `settings.json`
+   (different keys). Decide whether `PlanConfiguration`'s existing `configuration.install`
+   capability should return one merged plan touching both the OTel and hook portions of that single
+   file in one pass (no new capability id, `ownership` enforced per-key inside one plan), or whether
+   a new closed capability id (e.g. `configuration.hook_install`) should be added to
+   `contracts/adapter-sdk/capabilities.yaml` via its documented append-only extension path (schema
+   version bump + lock entry + proposal/TDD update, per `contracts/README.md`). Whichever is chosen,
+   the hard requirement is: applying or rolling back the hook plan must never touch already-applied
+   OTel keys or other pre-existing user content in that file, and vice versa. Prove this with a
+   round-trip test (apply OTel, then apply hook, then roll back hook, assert OTel keys and any
+   unrelated pre-existing content are byte-identical to before the hook was ever applied).
+4. `PlanConfiguration` in both `stage2_stub.go` files routes the resolved capability/target
+   combination to the new builder instead of `ErrNotImplementedYet`; the hook helper writes into
+   the target's notify/hook table for exactly the 7 supported events
+   `contracts/claude/hooks-and-otel.yaml` declares (`SessionStart`, `UserPromptSubmit`,
+   `PreToolUse`, `PostToolUse`, `SubagentStart`, `SubagentStop`, `Stop`) and Codex's documented
+   equivalent.
+5. The write stays gated behind `internal/installer`'s existing preview/consent/
+   `SimulateApply`/`SimulateRollback` machinery — Session 11 does not promote to a first real
+   unattended write; a human still explicitly approves and applies, exactly as every prior session's
+   installer scope requires (ADR 0002).
+6. Tests: full `ChangePlan` build + `SimulateApply` + `SimulateRollback` round trip for both hook
+   targets; the ownership-isolation round trip from step 3; a synthetic stdin payload sent to the
+   installed hook helper's config resulting in a real event through the existing
+   `codexHookHandler`/`claudeHookHandler` routes.
+7. README: add a "Connect via hooks" section mirroring the existing OTel section, generated from
+   whatever the implementation actually produces (exact config keys/table names), not written
+   speculatively before the code exists.
+
+## C. Host inventory scan
+
+**Files:** `internal/adaptersdk/adapter.go` (interface), `internal/adaptersdk/hostview.go`,
+`internal/codexadapter/stage2_stub.go`, `internal/claudeadapter/stage2_stub.go`,
+`internal/adaptersdk`'s `fakeadapter` (Loomwright) conformance implementation, cross-agent
+Wayfinder fixture, any call site constructing an `Adapter` value or calling `Inventory` directly.
+
+1. Change `Adapter.Inventory(ctx context.Context, target Installation) (InventorySnapshot, error)`
+   to also accept `host *HostView`, the same parameter `Discover` already receives — confirm via
+   `grep -rn "\.Inventory(" internal/` every call site before changing the signature, and update
+   every one (adapter implementations, conformance suites, any test harness) in the same change so
+   nothing is left calling the old signature.
+2. Implement the scan: read `~/.claude/settings.json`'s `enabledPlugins` and `mcpServers` keys and
+   Codex's `config.toml` MCP section through `HostView.ReadProbe` (bounded, already
+   permission-checked — never a raw unbounded filesystem read), inside `target.StateRoot`'s
+   `AllowedRoots`.
+3. Map each discovered entry onto `contracts/adapter-sdk/inventory-graph.yaml`'s closed vocabulary:
+   `plugin_package`/`plugin_version` nodes for plugins, `mcp_server_instance`/`mcp_tool` nodes for
+   MCP servers, `bundles`/`provides`/`enabled_for` edges connecting them to the
+   `agent_installation` node — no new node or edge kind invented; `path_pseudonym` fields use
+   `HostView.PseudonymizePath`, never a raw path.
+4. Populate `InventoryInput.Skills`/`Plugins`/`Hooks`/`MCPServers`/`RepositoryTargets` from the scan
+   before calling `BuildInventorySnapshot`, replacing today's always-empty `InventoryInput{
+   InstallationID: ...}`.
+5. An installation with zero configured plugins/MCP servers must report `Completeness: "unknown"`
+   (evidence absent), never a fabricated empty-but-complete snapshot — mirror the same rule
+   `stage2_stub.go`'s existing `Reconcile` already applies to an empty current snapshot.
+6. Tests: temp-directory synthetic `settings.json`/`config.toml` fixtures with known plugin/MCP
+   entries, proving the resulting graph's nodes/edges are correct; a zero-configured-plugin
+   fixture proving `Completeness: "unknown"`; the full Loomwright and Wayfinder conformance suites
+   passing against the new `Inventory` signature unmodified in behavior.
+
+## Verification
+
+`python3 scripts/validate_observability.py`, `scripts/validate_codex.py`, `scripts/validate_claude.py`,
+`scripts/validate_privacy.py`, `scripts/validate_adapter_sdk.py`, `scripts/run_go_tests.py`, and a
+manual end-to-end pass: rebuild the Docker image, bring the stack up, connect a real Codex and/or
+Claude Code CLI session per the (updated) README, and confirm real events/sessions/inventory nodes
+appear on the dashboard — not just that unit tests pass in isolation.
+
+## Exit gate
+
+Same as Engineering Proposal 11: real agent activity is visible end to end, all existing
+conformance suites remain green, and no gap is closed by weakening an existing privacy or
+"unknown is not zero" invariant.

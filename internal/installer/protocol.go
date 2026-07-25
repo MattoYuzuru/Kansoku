@@ -16,7 +16,7 @@ const (
 	maxConfigEntries                = 256
 	maxConfigDepth                  = 8
 	maxConfigString                 = 4096
-	InstallerContractSemanticSHA256 = "57af85c5fe779b6833d15bc9d62e2a9ec5550c58b7be3941bcbc152093c2cce7"
+	InstallerContractSemanticSHA256 = "e81482afd6005beb05eb3287397248367796adcbe2468132a960c5f3d608f974"
 )
 
 type Operation struct {
@@ -106,6 +106,34 @@ var targetSpecs = map[string]targetSpec{
 		required:  map[string]any{"hook.command": "kansoku hook --endpoint http://127.0.0.1:4318 --strict-privacy", "hook.role": "collection_only", "hook.privacy_boundary": "loopback_sanitizer", "hook.raw_persistence": false},
 		forbidden: []string{"remote_command", "raw_payload_log", "hook_as_privacy_enforcement", "credential_forwarding"},
 	},
+	// codex.user_hook and claude.user_hook are the Session 11 hook-installer
+	// targets contracts/codex/hooks-and-otel.yaml and
+	// contracts/claude/hooks-and-otel.yaml's hook_installer_target blocks
+	// declare. Each shares one physical file with its adapter's existing
+	// *.user_otel target (config.toml / settings.json respectively) but owns
+	// a disjoint key set: buildTargetPlan only ever reads/writes spec.required
+	// (here, notify.*/hooks.* keys) and only ever forbidden-scans for this
+	// spec's own forbidden list, so a hook plan never touches the sibling
+	// otel target's already-applied keys, and vice versa -- this is the
+	// concrete ownership-isolation mechanism the round-trip test proves.
+	"codex.user_hook": {
+		agent: "codex", format: "toml", locatorKind: "codex_user_config", ownership: "plan_owned_hook_entries_only",
+		required:  map[string]any{"notify.command": "kansoku-codex-hook", "notify.role": "collection_only"},
+		forbidden: []string{"remote_command", "raw_payload_log", "credential_forwarding", "project_local_hook"},
+	},
+	"claude.user_hook": {
+		agent: "claude", format: "json", locatorKind: "claude_user_settings", ownership: "plan_owned_hook_entries_only",
+		required: map[string]any{
+			"hooks.SessionStart":     "kansoku-claude-hook",
+			"hooks.UserPromptSubmit": "kansoku-claude-hook",
+			"hooks.PreToolUse":       "kansoku-claude-hook",
+			"hooks.PostToolUse":      "kansoku-claude-hook",
+			"hooks.SubagentStart":    "kansoku-claude-hook",
+			"hooks.SubagentStop":     "kansoku-claude-hook",
+			"hooks.Stop":             "kansoku-claude-hook",
+		},
+		forbidden: []string{"remote_command", "raw_payload_log", "credential_forwarding", "project_local_hook"},
+	},
 }
 
 func BuildCodexPlan(planID, locator, backup, rollback string, original map[string]any) (Plan, error) {
@@ -119,6 +147,24 @@ func BuildGeminiPlan(planID, locator, backup, rollback string, original map[stri
 }
 func BuildCursorPlan(planID, locator, backup, rollback string, original map[string]any) (Plan, error) {
 	return buildTargetPlan(planID, "cursor.user_hooks", locator, backup, rollback, original)
+}
+
+// BuildCodexHookPlan builds the codex.user_hook installer plan. original is
+// the full current config.toml content decoded as a generic map -- including
+// any already-applied codex.user_otel keys -- so the caller never has to
+// pre-strip the sibling target's keys; buildTargetPlan's ownership model
+// (only spec.required is written, only spec.forbidden is scanned) guarantees
+// those keys pass through planned unchanged.
+func BuildCodexHookPlan(planID, locator, backup, rollback string, original map[string]any) (Plan, error) {
+	return buildTargetPlan(planID, "codex.user_hook", locator, backup, rollback, original)
+}
+
+// BuildClaudeHookPlan builds the claude.user_hook installer plan. original is
+// the full current settings.json content decoded as a generic map --
+// including any already-applied claude.user_otel env.* keys -- for the same
+// ownership-isolation reason BuildCodexHookPlan documents.
+func BuildClaudeHookPlan(planID, locator, backup, rollback string, original map[string]any) (Plan, error) {
+	return buildTargetPlan(planID, "claude.user_hook", locator, backup, rollback, original)
 }
 
 func buildTargetPlan(planID, targetID, locator, backupLocator, rollbackCommand string, original map[string]any) (Plan, error) {

@@ -1,12 +1,14 @@
 package codexadapter_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
 
 	"kansoku.local/kansoku/internal/adaptersdk"
 	"kansoku.local/kansoku/internal/codexadapter"
+	"kansoku.local/kansoku/internal/installer"
 )
 
 // This file proves the gap a Session 06 review previously found is closed:
@@ -26,7 +28,7 @@ func TestAdapterInventoryForwardsToBuildInventorySnapshot(t *testing.T) {
 	}
 	snapshot, err := adapter.Inventory(context.Background(), adaptersdk.Installation{
 		InstallationID: "inst-wiring-1", AdapterID: codexadapter.AdapterID, StateRoot: "/tmp/does-not-matter",
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Adapter.Inventory must forward to BuildInventorySnapshot and succeed, got: %v", err)
 	}
@@ -43,7 +45,7 @@ func TestAdapterInventoryForwardsToBuildInventorySnapshot(t *testing.T) {
 
 func TestAdapterInventoryRejectsEmptyInstallationID(t *testing.T) {
 	adapter := codexadapter.New()
-	if _, err := adapter.Inventory(context.Background(), adaptersdk.Installation{}); err == nil {
+	if _, err := adapter.Inventory(context.Background(), adaptersdk.Installation{}, nil); err == nil {
 		t.Fatal("Inventory must fail closed on an empty InstallationID, never silently proceed")
 	}
 }
@@ -61,6 +63,96 @@ func TestAdapterPlanConfigurationReusesExistingCodexUserOTelTarget(t *testing.T)
 	}
 	if plan.PlanID == "" || plan.RollbackCommand == "" {
 		t.Fatal("a real ChangePlan must carry a non-empty PlanID and RollbackCommand")
+	}
+}
+
+// TestAdapterPlanConfigurationHookInstallRoutesToCodexUserHookTarget proves
+// ADR 0014/TDD 11.B step 4: CapabilityConfigurationHookInstall is no longer
+// ErrNotImplementedYet -- it produces a real ChangePlan bound to the
+// codex.user_hook installer target, distinct from and never colliding with
+// the codex.user_otel plan the same capability's sibling produces for the
+// same physical config.toml file.
+func TestAdapterPlanConfigurationHookInstallRoutesToCodexUserHookTarget(t *testing.T) {
+	adapter := codexadapter.New()
+	installation := adaptersdk.Installation{InstallationID: "inst-hook-1", AdapterID: codexadapter.AdapterID, StateRoot: "/tmp/codex-home"}
+
+	hookPlan, err := adapter.PlanConfiguration(context.Background(), installation, adaptersdk.CapabilityConfigurationHookInstall)
+	if err != nil {
+		t.Fatalf("PlanConfiguration must forward CapabilityConfigurationHookInstall to installer.BuildCodexHookPlan/adaptersdk.BuildChangePlan and succeed, got: %v", err)
+	}
+	if hookPlan.CapabilityID != adaptersdk.CapabilityConfigurationHookInstall {
+		t.Fatalf("expected capability %q, got %q", adaptersdk.CapabilityConfigurationHookInstall, hookPlan.CapabilityID)
+	}
+	if hookPlan.PlanID == "" || hookPlan.RollbackCommand == "" {
+		t.Fatal("a real hook ChangePlan must carry a non-empty PlanID and RollbackCommand")
+	}
+
+	otelPlan, err := adapter.PlanConfiguration(context.Background(), installation, adaptersdk.CapabilityConfigurationInstall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hookPlan.PlanID == otelPlan.PlanID {
+		t.Fatal("the hook and otel plans for the same config.toml must be distinct ChangePlans, never a shared or overwritten one")
+	}
+	if hookPlan.RollbackCommand == otelPlan.RollbackCommand {
+		t.Fatal("the hook and otel rollback commands must target their own installer target, never the sibling's")
+	}
+}
+
+// TestAdapterPlanConfigurationHookInstallFullSimulateApplyRollbackRoundTrip
+// proves TDD 11.B step 6's "full ChangePlan build + SimulateApply +
+// SimulateRollback round trip" requirement for the codex.user_hook target,
+// reconstructing the exact installer.Plan PlanConfiguration builds (same
+// target, locator, backup and rollback command it uses) so the round trip
+// exercises the same simulate-only apply/rollback machinery every other
+// installer target already uses -- never a second apply mechanism.
+func TestAdapterPlanConfigurationHookInstallFullSimulateApplyRollbackRoundTrip(t *testing.T) {
+	adapter := codexadapter.New()
+	installation := adaptersdk.Installation{InstallationID: "inst-hook-roundtrip", AdapterID: codexadapter.AdapterID, StateRoot: "/tmp/codex-home-roundtrip"}
+
+	changePlan, err := adapter.PlanConfiguration(context.Background(), installation, adaptersdk.CapabilityConfigurationHookInstall)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// PlanConfiguration always previews from an empty original config.toml
+	// (see stage2_stub.go's PlanConfiguration: map[string]any{}); reconstruct
+	// the identical installer.Plan shape (same target/locator/backup/
+	// rollback/original) so this round trip exercises exactly what
+	// PlanConfiguration itself builds. Its PlanID string differs (derived
+	// from an unexported stableHex(installationID, capability) this external
+	// test package cannot reproduce), but OriginalSHA256/PreconditionHash
+	// depend only on the original config content, so they must match.
+	original := map[string]any{}
+	installerPlan, err := installer.BuildCodexHookPlan(
+		"codexhookplan_probe", "/tmp/codex-home-roundtrip/config.toml", "/tmp/codex-home-roundtrip/.kansoku-backup/config.toml.hook",
+		"kansoku installer rollback --target codex.user_hook", original,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changePlan.PreconditionHash != installerPlan.OriginalSHA256 {
+		t.Fatalf("ChangePlan.PreconditionHash must equal the underlying installer.Plan.OriginalSHA256, got %s want %s", changePlan.PreconditionHash, installerPlan.OriginalSHA256)
+	}
+
+	approval, err := installer.Approve(installerPlan, "codex.user_hook", "roundtrip-nonce")
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditKey := bytes.Repeat([]byte{9}, 32)
+	applied, _, err := installer.SimulateApply(original, installerPlan, approval, auditKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied["notify.command"] != "kansoku-codex-hook" || applied["notify.role"] != "collection_only" {
+		t.Fatalf("SimulateApply must set the plan-owned notify.* keys, got %#v", applied)
+	}
+	restored, _, err := installer.SimulateRollback(applied, original, installerPlan, approval, auditKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, stillPresent := restored["notify.command"]; stillPresent {
+		t.Fatal("SimulateRollback must remove the plan-owned notify.command key it introduced")
 	}
 }
 

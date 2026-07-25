@@ -17,6 +17,7 @@
 | 08 | Integrity and drift detection | Daily audit, schema drift, watermarks, canaries и health scoring | Намеренная поломка каждого source обнаруживается в пределах SLO |
 | 09 | Local runtime and backend | API, Docker Compose, scheduler, backup/restore и resource controls | 7-day soak переживает restarts без silent loss и duplicate inflation |
 | 10 | Dashboard, hardening and release | Полный UX, accessibility, review, packaging и evolution loop | Privacy/reliability/performance gates зелёные; fresh install воспроизводим |
+| 11 | Real-agent gap closure | Adapter-aware OTLP dispatch, hook installer file-writer, host inventory scan | Реальная локальная сессия Codex/Claude Code даёт видимую активность на дашборде без ручных правок кода |
 
 ## Progress
 
@@ -96,12 +97,120 @@
   and report signing fail closed; the synthetic probe uses the shared public-ingress-to-PostgreSQL
   handoff and verifies rollups with exact cleanup. Live canary execution remains disabled and
   simulation-only pending credentials plus explicit consent; Session 07b remains untouched backlog.
-- **09 — next:** Local runtime and backend.
+- **09 — complete (2026-07-24):** four locked `contracts/runtime/*.yaml` registries and a typed
+  `internal/runtime` package assemble one `cmd/kansoku` appliance over a single `pgxpool.Pool`,
+  observability ingestor/OTLP receiver, runtime API, operations worker set and integrity assembly,
+  reusing Sessions 02–08 with no second event schema, store or installer protocol. Strict versioned
+  JSON config, file-only pairwise-distinct secrets, loopback/container-bridge HTTP policy, a
+  reservation-capable durable ingress queue (PostgreSQL-first acknowledgement with sanitized spool
+  fallback and replay), separated ingress/read/mutation bearers, PostgreSQL row-lease jobs with
+  bounded attempts, native `pg_dump`/`pg_restore` backup with isolated randomly-named restore
+  verification and drop-on-failure cleanup, deterministic forbidden-field-free diagnostics and
+  bounded `http.Server.Shutdown` were contract-locked; the registries and
+  `contracts/runtime-policy-locks.yaml` pass their authoritative semantic digests unchanged. The
+  closing pass replaced the two remaining fakes-only proofs with real evidence: a pinned-PostgreSQL 18
+  `internal/runtime/postgres_integration_test.go` (job-lease acquire/renew/`already_running`/stale
+  `RecoverInterrupted`, a full backup→restore-verify round trip through real pg tools with cleanup on
+  both success and injected pg_restore failure, and `DurableIngressQueue` reserve→commit against a
+  real `dataplatform.NewObservabilityHandoff` with zero duplicate inflation), run via
+  `scripts/validate_runtime.py --runtime-only` on the same isolated-network, deterministic-teardown
+  harness Sessions 04/08 use; and a real host-side `dockerSoakDriver` (`cmd/kansoku soak`) that makes
+  genuine `/api/v1` HTTP calls and issues real `docker`/`docker compose` process-restart,
+  database-restart and stop-the-world upgrade-boundary faults. `python3 scripts/validate_runtime.py
+  --soak` executed the accelerated soak for real against a live Compose stack: 168 logical cycles,
+  all three restart faults with real health-endpoint recovery, 168/168 acknowledged/unique facts,
+  all seven durability assertions green, ~2 minutes wall-clock, container restart timing independently
+  confirmed inside the soak window — the "7-day soak survives restarts without silent loss and
+  duplicate inflation" exit gate met as an explicitly accelerated logical-cycle harness (no seven-day
+  wall-clock claim). ADR 0012 records the appliance/durability/backup/soak decisions;
+  `reports/session-09-reconciliation.md` documents residual gaps (Docker Desktop harness attaches
+  kansoku to an extra host bridge so loopback ports forward locally while postgres stays internal-only;
+  aggregate rather than per-id durability probe; at-rest encryption and release image signing remain
+  Session 10). `deploy/compose.security-baseline.yaml` is left frozen as the Session 02 privacy static
+  placeholder; `deploy/compose.yaml` is the sole Session 09 Compose authority. Session 07b remains
+  untouched backlog.
+- **10 — complete (2026-07-25):** the first and only web UI. `contracts/dashboard.yaml`'s 14 routes
+  are built end to end: `/api/v1/analytics` extended plus 11 new `internal/dataplatform` aggregation
+  files (`activity_timeline`, `entity_breakdown`, `funnels`, `mcp_topology`, `mcp_uptime`,
+  `model_usage`, `prompt_shape`, `reliability_counts`, `reliability_timeline`, `system_snapshot`,
+  `tool_analytics`, `privacy_canary_history`) back every panel; a TypeScript/React 19.2.8/wouter/
+  TanStack Query v5 frontend (`web/`) renders all 8 formal view-states
+  (complete/partial/degraded/unsupported/not_observed/redacted/unknown/numeric_zero) with no silent
+  zero; `internal/webui` embeds the built SPA into the Go binary via `go:embed` and serves it
+  read-only on port 43100 — the browser only ever receives the read bearer, never the mutation
+  bearer (`POST /api/v1/admin/export` with the read bearer alone returns 403, confirmed live). The
+  hardening pass (ADR 0013 gate 4) found and fixed two real issues: a CSP `script-src` nonce that
+  `html/template` was HTML-entity-escaping (base64's `+` -> `&#43;`), fixed by switching to a
+  hex-encoded nonce so the header and the rendered attribute are byte-identical; and an eager-bundle
+  violation where all 14 pages shipped the ~381 KB gzip ECharts chunk regardless of use, fixed with
+  `React.lazy` route-level code splitting (main chunk 78.89->67.88 KB gzip; chart-free routes'
+  initial JS payload cut ~82%). `govulncheck` found two real, reachable dependency CVEs
+  (GO-2026-5004 pgx placeholder-confusion SQL-injection risk, GO-2026-5970 `x/text` DoS
+  infinite loop); with explicit user consent, `github.com/jackc/pgx/v5` was bumped 5.7.6->5.9.2 and
+  `golang.org/x/text` 0.36.0->0.39.0, re-vendored, re-tested, and `govulncheck` re-run clean. A live,
+  real end-to-end raw-content scan -- the Session 02 canary fixture POSTed through the real hook
+  ingress (port 4318, a separate listener from the dashboard's port 43100), landed in Postgres, then
+  all 15 GET `/api/v1/*` responses and the raw Postgres rows scanned for every canary marker --
+  found zero leaks. `reports/session-10-reconciliation.md` and `reports/session-10-sbom.json`
+  record full verification evidence and the honest list of hardening gates **not** executed this
+  session (no browser automation tool available for a real browser/visual-regression matrix;
+  7-day wall-clock soak, ARM64/x86_64 build matrix, disk-forecast/load-test-at-scale, and
+  signed release images all remain future work, several already covered at the runtime layer by
+  Session 09). `deploy/Dockerfile` needed no change: `internal/webui/dist` is a committed,
+  pre-built artifact embedded via `go:embed`, exactly like `vendor/` for Go dependencies.
+- **11 — implementation complete; live end-to-end pass not re-executed this session
+  (2026-07-25):** live testing with a real, locally-installed Claude Code session and a real Codex
+  CLI session found the dashboard showed zero activity despite real traffic arriving — confirmed
+  via Postgres showing `unknown_schema` incidents/quarantine rows from today while
+  `events`/`sessions` stayed empty. Investigation found three previously-unrecorded gaps, all now
+  closed. **Gap A (OTLP):** `internal/observability/otlp.go` gained an adapter-dispatch step
+  (`matchAdapterResource`) recognizing real Codex (`service.name == "codex_cli_rs"`) and Claude Code
+  (`service.name == "claude-code"`) OTel resources alongside the unchanged Session 03 fixture-agent
+  identity, wiring the already-tested `CanonicalEventForOTel` mapping to the live receiver for the
+  first time; a genuinely unrecognized resource still quarantines unchanged. Closing this also
+  surfaced and fixed a real, previously-latent bug it had never been exercised against:
+  `IngestSafeFields` round-tripped fields through the fixture-only sanitizer decode path, rejecting
+  every real dotted `event_type` (e.g. `session.started`) as `unknown_enum` and then mis-deriving a
+  malformed `QuarantineID` that tripped the durable-store invariant check
+  (`store_invariant_failure:invalid_quarantine:0`) instead of surfacing the real rejection —
+  `IngestSafeFields` was rebuilt to build a `privacy.SafeRecord` directly and reuse the existing
+  `ingestSafe` pipeline instead. New resource identities were appended (not edited) to
+  `contracts/codex/hooks-and-otel.yaml`/`contracts/claude/hooks-and-otel.yaml` (1.0.0 → 1.1.0) with
+  matching new policy-lock entries. **Gap B (hook installer):** `codex.user_hook`/`claude.user_hook`
+  were appended to `contracts/privacy/installer.yaml` (four targets → six) and a new closed
+  capability id `configuration.hook_install` was added to `contracts/adapter-sdk/capabilities.yaml`
+  (1.0.0 → 1.1.0); `installer.BuildCodexHookPlan`/`BuildClaudeHookPlan` and each adapter's
+  `PlanConfiguration` wiring reuse the existing `Plan`/`Approval`/`SimulateApply`/
+  `SimulateRollback`/`SimulateRemove`/`PlanSHA256` machinery with no second apply mechanism.
+  Ownership isolation (Codex's hook/OTel tables and Claude's hook/OTel keys sharing one physical
+  file each) is proven, not merely asserted, by `TestHookPlanOwnershipIsolationRoundTrip`. The write
+  stays simulate-only; `AuthorizeRealWrite` is unchanged. **Gap C (inventory):**
+  `Adapter.Inventory` gained a `*HostView` parameter (matching `Discover`'s existing pattern) across
+  every implementation (Codex, Claude, the Loomwright and Wayfinder conformance fixtures); each
+  adapter's new bounded `ScanHostInventory` reads Codex's `config.toml` `[mcp_servers.*]` tables and
+  Claude's `settings.json` `enabledPlugins`/`mcpServers` keys through `HostView.ReadConfigProbe`,
+  mapping results onto the existing closed inventory-graph vocabulary with no new node/edge kind;
+  zero configured components still reports `Completeness: "unknown"`, never a fabricated empty
+  snapshot. ADR 0014 records the decision to close all three gaps via an iterative developer/
+  reviewer/fixer agent loop; `reports/session-11-reconciliation.md` documents full verification
+  evidence. `go build`/`go vet`/`go test ./...` (17 packages) and every
+  `python3 scripts/validate_*.py` script pass, as does
+  `TestHookPlanOwnershipIsolationRoundTrip` and `python3 scripts/run_go_tests.py`'s pinned-Linux
+  suite (including `-race`). **What was not re-executed this session, per ADR 0014's exit gate:**
+  the live manual pass (rebuild the Docker image, connect a real Codex/Claude Code CLI session,
+  confirm dashboard activity) was not re-run here — this reconciliation pass verified the mechanism
+  via code inspection and the existing automated test suites, not a fresh live Docker session. A
+  known, still-open gap this session did **not** close: `ingestJSON`'s `hook_http` decode path
+  remains fixture-schema-only, so a real adapter's hook payload reaches the correct adapter-specific
+  handler but still quarantines rather than committing a fact — Gap A's OTLP generalization has no
+  hook-lane equivalent yet. `claude.transcript`, Session 07b (Gemini/Cursor), the `kansoku
+  doctor`/`configure` CLI, live-CLI canary automation and the DB-restart/failed-restore scenarios
+  (ADR 0011) remain out of scope, unchanged.
 
 ## Dependency graph
 
 ```text
-01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10
+01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11
                    \-----------------------> analytics/UI fixtures
                                  \-> 07b (Gemini/Cursor, backlog, non-blocking)
 ```

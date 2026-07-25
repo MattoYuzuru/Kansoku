@@ -45,6 +45,7 @@ type builder func(string, string, string, string, map[string]any) (Plan, error)
 var builders = map[string]builder{
 	"codex.user_otel": BuildCodexPlan, "claude.user_otel": BuildClaudePlan,
 	"gemini.user_otel": BuildGeminiPlan, "cursor.user_hooks": BuildCursorPlan,
+	"codex.user_hook": BuildCodexHookPlan, "claude.user_hook": BuildClaudeHookPlan,
 }
 
 func samplePlan(t *testing.T, target string) (Plan, map[string]any) {
@@ -191,6 +192,93 @@ func TestApplyRollbackAndApprovalRefuseEveryRevisionRace(t *testing.T) {
 	applied["later_user_change"] = true
 	if _, _, err := SimulateRollback(applied, original, plan, approval, bytes.Repeat([]byte{2}, 32)); err == nil || err.Error() != "config_race" {
 		t.Fatalf("err=%v", err)
+	}
+}
+
+// TestHookPlanOwnershipIsolationRoundTrip proves ADR 0014 decision 4's hard
+// requirement for both Codex (config.toml) and Claude (settings.json):
+// apply the *.user_otel plan, apply the sibling *.user_hook plan into the
+// same physical file, then roll back only the hook plan, and assert the
+// otel target's already-applied keys and any unrelated pre-existing user
+// content are byte-identical to their state immediately before the hook
+// plan was ever applied -- not merely equal by assertion, but recomputed
+// from the actual SimulateApply/SimulateRollback outputs.
+func TestHookPlanOwnershipIsolationRoundTrip(t *testing.T) {
+	cases := []struct {
+		name       string
+		otelTarget string
+		hookTarget string
+	}{
+		{"codex", "codex.user_otel", "codex.user_hook"},
+		{"claude", "claude.user_otel", "claude.user_hook"},
+	}
+	for _, item := range cases {
+		t.Run(item.name, func(t *testing.T) {
+			auditKey := bytes.Repeat([]byte{7}, 32)
+			original := map[string]any{"unrelated_user_setting": "keep-me", "another_block": map[string]any{"nested": "value"}}
+
+			otelPlan, err := builders[item.otelTarget]("otelplan", "/private/preview/otel-config", "/private/preview/otel-backup", "/usr/bin/kansoku rollback --target "+item.otelTarget, original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			otelApproval, err := Approve(otelPlan, item.otelTarget, "otel-nonce")
+			if err != nil {
+				t.Fatal(err)
+			}
+			afterOtelApply, _, err := SimulateApply(original, otelPlan, otelApproval, auditKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Snapshot of the file state immediately before the hook plan is
+			// ever applied -- this is the exact byte-identity baseline the
+			// rollback must restore for the otel keys and unrelated content.
+			beforeHookApply := cloneForTest(t, afterOtelApply)
+
+			hookPlan, err := builders[item.hookTarget]("hookplan", "/private/preview/hook-config", "/private/preview/hook-backup", "/usr/bin/kansoku rollback --target "+item.hookTarget, afterOtelApply)
+			if err != nil {
+				t.Fatal(err)
+			}
+			hookApproval, err := Approve(hookPlan, item.hookTarget, "hook-nonce")
+			if err != nil {
+				t.Fatal(err)
+			}
+			afterHookApply, _, err := SimulateApply(afterOtelApply, hookPlan, hookApproval, auditKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			otelSpec := targetSpecs[item.otelTarget]
+			for key, expected := range otelSpec.required {
+				if !equalCanonical(afterHookApply[key], expected) {
+					t.Fatalf("hook apply disturbed otel key %s: got %v want %v", key, afterHookApply[key], expected)
+				}
+			}
+			for key, expected := range beforeHookApply {
+				if _, isHookKey := targetSpecs[item.hookTarget].required[key]; isHookKey {
+					continue
+				}
+				if !equalCanonical(afterHookApply[key], expected) {
+					t.Fatalf("hook apply disturbed unrelated/otel key %s: got %v want %v", key, afterHookApply[key], expected)
+				}
+			}
+
+			restoredAfterHookRollback, _, err := SimulateRollback(afterHookApply, afterOtelApply, hookPlan, hookApproval, auditKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(normalizeMap(t, restoredAfterHookRollback), normalizeMap(t, beforeHookApply)) {
+				t.Fatalf("hook rollback did not byte-for-byte restore pre-hook state: got %#v want %#v", restoredAfterHookRollback, beforeHookApply)
+			}
+			for key, expected := range otelSpec.required {
+				if !equalCanonical(restoredAfterHookRollback[key], expected) {
+					t.Fatalf("hook rollback disturbed otel key %s: got %v want %v", key, restoredAfterHookRollback[key], expected)
+				}
+			}
+			for key, expected := range original {
+				if !equalCanonical(restoredAfterHookRollback[key], expected) {
+					t.Fatalf("hook rollback disturbed original unrelated key %s: got %v want %v", key, restoredAfterHookRollback[key], expected)
+				}
+			}
+		})
 	}
 }
 

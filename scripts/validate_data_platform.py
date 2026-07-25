@@ -40,7 +40,11 @@ COMPOSE_PATH = ROOT / "deploy" / "compose.security-baseline.yaml"
 FILES = ("schema.yaml", "rollups.yaml", "query-contract.yaml", "retention.yaml")
 GRANULARITIES = ["hourly", "daily"]
 PERCENTILE_LEVELS = [0.5, 0.9, 0.95, 0.99]
-BUDGET_IDS = {"hourly_rollup_range_30d", "daily_rollup_range_1y", "session_drilldown", "percentile_recompute_bucket"}
+BUDGET_IDS = {
+    "hourly_rollup_range_30d", "daily_rollup_range_1y", "session_drilldown", "percentile_recompute_bucket",
+    "agent_breakdown_range", "model_breakdown_range", "component_breakdown_range",
+    "component_lifecycle_funnel", "reliability_coverage_timeline", "mcp_topology",
+}
 COMPLETENESS_STATUSES = ["complete", "partial", "degraded", "unknown"]
 RESPONSE_FIELDS = ["data", "formula_version", "population", "completeness", "freshness"]
 FORBIDDEN_JSONB_KEYS = {"prompt", "response", "body", "content", "source_code", "tool_input", "tool_output", "command", "path", "environment", "credential", "exception", "attributes", "payload", "error_message"}
@@ -270,7 +274,7 @@ def validate_code_and_fixture() -> list[str]:
             errors.append(f"core schema must never declare a durable raw column named {forbidden}")
 
     go_mod = (ROOT / "go.mod").read_text(encoding="utf-8")
-    if not re.search(r"^\s*github\.com/jackc/pgx/v5\s+v5\.7\.6\s*$", go_mod, re.M):
+    if not re.search(r"^\s*github\.com/jackc/pgx/v5\s+v5\.9\.2\s*$", go_mod, re.M):
         errors.append("pgx/v5 driver must be pinned to an exact direct version")
     vendor_modules = ROOT / "vendor" / "modules.txt"
     if not vendor_modules.is_file() or "github.com/jackc/pgx/v5" not in vendor_modules.read_text(encoding="utf-8"):

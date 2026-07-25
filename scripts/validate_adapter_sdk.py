@@ -51,6 +51,7 @@ CAPABILITY_IDS = [
     "activity.token_model_cost", "components.skill_invocation", "components.plugin_and_custom_command",
     "components.mcp_lifecycle", "components.builtin_tool_calls_and_approvals", "components.subagents_and_compaction",
     "ingestion.historical_import", "ingestion.live_stream", "configuration.install", "configuration.live_canary",
+    "configuration.hook_install",
 ]
 CAPABILITY_STATES = ["unsupported", "available", "configured", "healthy", "degraded"]
 EVIDENCE_TIERS = ["corroborated", "native", "reconstructed", "inferred"]

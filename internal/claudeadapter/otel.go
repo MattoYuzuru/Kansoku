@@ -122,6 +122,45 @@ func ComponentAttributeSafeSlot(attribute ClaudeComponentAttribute) (string, boo
 	}
 }
 
+// NativeOTLPAttribute names one real, documented Claude Code OTel activity
+// attribute this recipe knows how to translate onto an existing
+// OTLPSafeAttributes() slot. These are the actual upstream attribute names
+// Claude Code's OTel exporter sends (contracts/claude/hooks-and-otel.yaml's
+// otel_source.documented_attributes.activity block, SOURCES.md's Claude Code
+// monitoring section, re-checked 2026-07-25) -- never a Kansoku-invented
+// name -- and every mapped slot below is already a member of
+// OTLPSafeAttributes(); no new raw attribute passthrough is declared.
+type NativeOTLPAttribute string
+
+const (
+	NativeAttributeSessionID NativeOTLPAttribute = "session.id"
+	NativeAttributeModel     NativeOTLPAttribute = "model"
+	NativeAttributeToolName  NativeOTLPAttribute = "tool_name"
+	NativeAttributeToolState NativeOTLPAttribute = "tool_status"
+)
+
+// NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
+// a real, documented Claude-native OTLP activity attribute name maps onto,
+// mirroring codexadapter.NativeOTLPAttributeSafeSlot's identical role for
+// Codex. tool_status maps onto kansoku.outcome (Claude's own hook helper
+// already treats tool_status as the outcome-shaped signal for a completed
+// tool call, per internal/claudeadapter/hook.go); it is never treated as a
+// second, independent outcome source.
+func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
+	switch attribute {
+	case NativeAttributeSessionID:
+		return "kansoku.session.id", true
+	case NativeAttributeModel:
+		return "kansoku.model.id", true
+	case NativeAttributeToolName:
+		return "kansoku.tool.id", true
+	case NativeAttributeToolState:
+		return "kansoku.outcome", true
+	default:
+		return "", false
+	}
+}
+
 // OTelAttributeShape is the schema-fingerprint input for one observed Claude
 // Code OTel record: only the closed set of already-safe attribute keys that
 // were actually present (never their values, and never a dropped surface),
@@ -231,6 +270,31 @@ func CanonicalEventForOTel(name OTelEventName, observed OTelAttributeShape) (str
 		return "", ErrOTelSchemaFingerprintMismatch
 	}
 	return canonical, nil
+}
+
+// OTLPResourceServiceName is the real, documented OTel resource
+// service.name value a locally-installed Claude Code CLI actually emits,
+// per contracts/claude/hooks-and-otel.yaml's otel_source.resource_identity
+// block and SOURCES.md's Claude Code OTel section (re-checked 2026-07-25):
+// Claude Code's own OpenTelemetry exporter stamps its resource
+// service.name as "claude-code" for every log/metric it emits. This is
+// never a Kansoku-invented literal: it is the real upstream value, distinct
+// from the Session 03 "fixture-agent" synthetic identity
+// internal/observability's otlp.go already recognizes, and distinct from
+// codexadapter.OTLPResourceServiceName.
+const OTLPResourceServiceName = "claude-code"
+
+// MatchesOTLPResource reports whether an observed OTLP resource
+// service.name value identifies a real, locally-installed Claude Code
+// process. Only service.name is checked (never a version, since Claude
+// Code's CLI version legitimately changes release to release and otel.go
+// must not treat an upgrade as an unrecognized resource) -- matching
+// internal/observability/otlp.go's dispatch, which tries the fixture-agent
+// literal first and then each registered adapter's own matcher in turn. A
+// service.name this function does not recognize must still fall through to
+// the existing unknown()/IngestUnknown quarantine path unchanged.
+func MatchesOTLPResource(serviceName string) bool {
+	return serviceName == OTLPResourceServiceName
 }
 
 // ResolveSkillComponent resolves an observed skill.name attribute value

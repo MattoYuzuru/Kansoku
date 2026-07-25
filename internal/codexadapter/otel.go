@@ -198,3 +198,71 @@ func CanonicalEventForOTel(name OTelEventName, observed OTelAttributeShape) (str
 // (added in a later stage) must build its ChangePlan against this exact
 // target id, never a new one.
 const OTelInstallerTargetID = "codex.user_otel"
+
+// OTLPResourceServiceName is the real, documented OTel resource
+// service.name value a locally-installed Codex CLI/app-server actually
+// emits, per contracts/codex/hooks-and-otel.yaml's otel_source.
+// resource_identity block and SOURCES.md's Codex OTel section (re-checked
+// 2026-07-25): Codex's own built-in resource attributes are exactly
+// service.name/service.version/env (and host.name for logs); service.name
+// carries the originator string, which is "codex_cli_rs" for the
+// interactive CLI (the only entry point contracts/codex/hooks-and-otel.yaml
+// documents kansoku.otel targets today). This is never a Kansoku-invented
+// literal: it is the real upstream value, distinct from the Session 03
+// "fixture-agent" synthetic identity internal/observability's otlp.go
+// already recognizes.
+const OTLPResourceServiceName = "codex_cli_rs"
+
+// MatchesOTLPResource reports whether an observed OTLP resource
+// service.name value identifies a real, locally-installed Codex process.
+// Only service.name is checked (never a version, since Codex's CLI version
+// legitimately changes release to release and otel.go must not treat an
+// upgrade as an unrecognized resource) -- matching
+// internal/observability/otlp.go's dispatch, which tries the fixture-agent
+// literal first and then each registered adapter's own matcher in turn. A
+// service.name this function does not recognize must still fall through to
+// the existing unknown()/IngestUnknown quarantine path unchanged.
+func MatchesOTLPResource(serviceName string) bool {
+	return serviceName == OTLPResourceServiceName
+}
+
+// OTelEventNameFromString resolves a raw OTLP-observed event/span/metric
+// name onto this recipe's closed OTelEventName vocabulary. A name outside
+// DocumentedOTelEvents() is never guessed at or coerced -- the caller must
+// treat a false result as "not a name this recipe recognizes," which is
+// distinct from (and upstream of) CanonicalEventForOTel's own
+// documented-but-unmapped/fingerprint-mismatch failure modes.
+func OTelEventNameFromString(name string) (OTelEventName, bool) {
+	candidate := OTelEventName(name)
+	if documentedOTelEvent(candidate) {
+		return candidate, true
+	}
+	return "", false
+}
+
+// NativeOTLPAttribute names one real, documented Codex OTel attribute this
+// recipe knows how to translate onto an existing OTLPSafeAttributes() slot.
+// These are the actual upstream attribute names Codex's OTel exporter sends
+// (SOURCES.md Codex OTel section, re-checked 2026-07-25) -- never a
+// Kansoku-invented name -- and every mapped slot below is already a member
+// of OTLPSafeAttributes(); no new raw attribute passthrough is declared.
+type NativeOTLPAttribute string
+
+const (
+	NativeAttributeConversationID NativeOTLPAttribute = "conversation.id"
+	NativeAttributeModel          NativeOTLPAttribute = "model"
+)
+
+// NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
+// a real, documented Codex-native OTLP attribute name maps onto, mirroring
+// claudeadapter.ComponentAttributeSafeSlot's identical role for Claude Code.
+func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
+	switch attribute {
+	case NativeAttributeConversationID:
+		return "kansoku.session.id", true
+	case NativeAttributeModel:
+		return "kansoku.model.id", true
+	default:
+		return "", false
+	}
+}

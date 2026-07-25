@@ -25,6 +25,7 @@ EXPECTED_SINKS = {
 }
 EXPECTED_TARGETS = {
     "codex.user_otel", "claude.user_otel", "gemini.user_otel", "cursor.user_hooks",
+    "codex.user_hook", "claude.user_hook",
 }
 EXPECTED_VALUE_STATES = ["unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]
 EXPECTED_RECORD_FIELDS = {
@@ -131,6 +132,14 @@ EXPECTED_INSTALLER_TARGET_POLICIES = {
     "cursor.user_hooks": {
         "required_settings": {"hook.command": "kansoku hook --endpoint http://127.0.0.1:4318 --strict-privacy", "hook.role": "collection_only", "hook.privacy_boundary": "loopback_sanitizer", "hook.raw_persistence": False},
         "forbidden_keys": ["remote_command", "raw_payload_log", "hook_as_privacy_enforcement", "credential_forwarding"],
+    },
+    "codex.user_hook": {
+        "required_settings": {"notify.command": "kansoku-codex-hook", "notify.role": "collection_only"},
+        "forbidden_keys": ["remote_command", "raw_payload_log", "credential_forwarding", "project_local_hook"],
+    },
+    "claude.user_hook": {
+        "required_settings": {"hooks.SessionStart": "kansoku-claude-hook", "hooks.UserPromptSubmit": "kansoku-claude-hook", "hooks.PreToolUse": "kansoku-claude-hook", "hooks.PostToolUse": "kansoku-claude-hook", "hooks.SubagentStart": "kansoku-claude-hook", "hooks.SubagentStop": "kansoku-claude-hook", "hooks.Stop": "kansoku-claude-hook"},
+        "forbidden_keys": ["remote_command", "raw_payload_log", "credential_forwarding", "project_local_hook"],
     },
 }
 EXPECTED_HOST_ACCESS = {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -320,6 +321,9 @@ func TestMissingStatesAreTypedAndNeverCatalogSentinels(t *testing.T) {
 }
 
 func TestKeyFileIsCreateOnceNoFollowAndMode0600(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skipf("secure_keyfile_backend_unsupported: no fd-relative openat/inode-binding keyfile backend outside linux (see keyfile_unsupported.go's //go:build !linux fallback); this is a pre-existing, intentional OS-gated limitation, not a regression, on GOOS=%s", runtime.GOOS)
+	}
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0o700); err != nil {
 		t.Fatal(err)

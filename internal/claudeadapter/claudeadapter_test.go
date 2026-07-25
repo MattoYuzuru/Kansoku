@@ -604,6 +604,17 @@ func TestOTelInstallerTargetReusesExistingUserOTelTargetVerbatim(t *testing.T) {
 	}
 }
 
+func TestMatchesOTLPResourceRecognizesRealClaudeServiceNameOnly(t *testing.T) {
+	if !claudeadapter.MatchesOTLPResource("claude-code") {
+		t.Fatal("expected the real, documented claude-code service.name to match")
+	}
+	for _, unrecognized := range []string{"", "claude", "codex_cli_rs", "fixture-agent", "claude-code-old", "Claude-Code"} {
+		if claudeadapter.MatchesOTLPResource(unrecognized) {
+			t.Fatalf("unrecognized service.name %q must never match", unrecognized)
+		}
+	}
+}
+
 func TestDroppedOTelSurfacesNeverIncludesASafeAttribute(t *testing.T) {
 	safe := map[string]bool{}
 	for _, attribute := range claudeadapter.OTLPSafeAttributes() {
