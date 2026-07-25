@@ -110,6 +110,10 @@
   background: var(--row-hover);
   color: var(--text-primary);
 }
+.k-nav__row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
 .k-nav__icon {
   display: inline-flex;
   align-items: center;
@@ -151,24 +155,6 @@
   margin-top: auto;
   border-top: 1px solid var(--hairline);
   padding-top: var(--space-1);
-}
-
-/* Shared travelling focus-ring (§4 #6) */
-.k-nav__focus-ring {
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  top: 0;
-  border: 2px solid var(--focus-ring);
-  border-radius: var(--radius-1);
-  box-shadow: 0 0 0 3px var(--focus-ring-halo);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 1;
-  transition: transform var(--motion-base) var(--ease), opacity var(--motion-fast) var(--ease);
-}
-.k-nav__focus-ring.is-visible {
-  opacity: 1;
 }
 
 /* ---- Sidebar footer (rail buttons) ---- */
@@ -213,6 +199,13 @@
   opacity: 0;
   visibility: hidden;
   width: 0;
+}
+
+/* The footer can't fit two 40px icon buttons in the 60px collapsed rail;
+ * keep only the collapse/expand toggle (needed to re-expand) and hide the
+ * theme toggle — it's still reachable from Settings. */
+.k-shell.is-collapsed .k-iconbtn--theme {
+  display: none;
 }
 
 /* ---- Content area (§10) ---- */

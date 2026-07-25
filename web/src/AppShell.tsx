@@ -8,11 +8,11 @@
  * Auto-collapses at <=1024px; manual toggle persists to localStorage via the
  * theme provider's `sidebarCollapsed`.
  *
- * Keyboard focus uses a single shared travelling focus-ring DOM node that
- * animates transform between focused nav rows (§2 / §4 #6).
+ * Keyboard focus uses per-element :focus-visible outlines (no shared node —
+ * see .k-nav__row:focus-visible / .k-iconbtn:focus-visible in AppShell.css).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FocusEvent as ReactFocusEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Icon } from "./ui/icons";
 import { NAV_GROUPS, SETTINGS_ITEM, activeNavPath, type NavItem } from "./nav";
@@ -37,23 +37,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
   const collapsed = narrow || appearance.sidebarCollapsed;
 
-  // Shared travelling focus-ring node.
-  const navRef = useRef<HTMLElement>(null);
-  const [ring, setRing] = useState<{ top: number; height: number; visible: boolean }>({
-    top: 0,
-    height: 0,
-    visible: false,
-  });
-  const onRowFocus = useCallback((e: ReactFocusEvent) => {
-    const nav = navRef.current;
-    if (!nav) return;
-    const target = e.currentTarget as HTMLElement;
-    const r = target.getBoundingClientRect();
-    const base = nav.getBoundingClientRect();
-    setRing({ top: r.top - base.top, height: r.height, visible: true });
-  }, []);
-  const onRowBlur = useCallback(() => setRing((s) => ({ ...s, visible: false })), []);
-
   const renderItem = (item: NavItem) => {
     const isActive = active === item.path;
     return (
@@ -62,8 +45,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           href={item.path}
           className={`k-nav__row${isActive ? " is-active" : ""}`}
           aria-current={isActive ? "page" : undefined}
-          onFocus={onRowFocus}
-          onBlur={onRowBlur}
           title={collapsed ? item.label : undefined}
         >
           <span className="k-nav__icon" aria-hidden="true">
@@ -89,13 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
         </div>
 
-        <nav className="k-nav" ref={navRef}>
-          {/* Shared travelling focus-ring (§4 #6) */}
-          <span
-            className={`k-nav__focus-ring${ring.visible ? " is-visible" : ""}`}
-            style={{ transform: `translateY(${ring.top}px)`, height: `${ring.height}px` }}
-            aria-hidden="true"
-          />
+        <nav className="k-nav">
           {NAV_GROUPS.map((group, gi) => (
             <div className="k-nav__group" key={group.label ?? `g${gi}`}>
               {group.label && <div className="k-nav__group-label t-section-header">{group.label}</div>}
@@ -118,8 +93,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-pressed={collapsed}
             disabled={narrow}
             onClick={() => setSidebarCollapsed(!appearance.sidebarCollapsed)}
-            onFocus={onRowFocus}
-            onBlur={onRowBlur}
           >
             <Icon
               name={collapsed ? "layout-sidebar-left-expand" : "layout-sidebar-left-collapse"}
@@ -128,11 +101,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <button
             type="button"
-            className="k-iconbtn"
+            className="k-iconbtn k-iconbtn--theme"
             aria-label={appearance.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             onClick={toggleTheme}
-            onFocus={onRowFocus}
-            onBlur={onRowBlur}
           >
             <Icon name={appearance.theme === "dark" ? "sun" : "moon"} size={20} />
           </button>
