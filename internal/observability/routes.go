@@ -19,6 +19,7 @@ import (
 	"kansoku.local/kansoku/internal/claudeadapter"
 	"kansoku.local/kansoku/internal/codexadapter"
 	"kansoku.local/kansoku/internal/localhttp"
+	"kansoku.local/kansoku/internal/privacy"
 )
 
 // maxHookBodyBytes bounds every hook_http request body, matching
@@ -46,7 +47,58 @@ func NewIngressHTTPHandler(guard *localhttp.Guard, ingestor *Ingestor, otlp *OTL
 	mux.HandleFunc("/v1/hooks/{adapter}/{event}", func(writer http.ResponseWriter, request *http.Request) {
 		hookAdapterHandler(writer, request, ingestor)
 	})
+	mux.HandleFunc("/v1/adapter-events/{adapter}", func(writer http.ResponseWriter, request *http.Request) {
+		adapterBatchHandler(writer, request, ingestor)
+	})
 	return guard.Wrap(localhttp.RouteHookOTLP, mux), nil
+}
+
+const adapterBatchVersion = "kansoku.adapter-event-batch/1"
+
+type adapterBatchRequest struct {
+	SchemaVersion string               `json:"schema_version"`
+	Records       []privacy.SafeRecord `json:"records"`
+}
+
+func adapterBatchHandler(writer http.ResponseWriter, request *http.Request, ingestor *Ingestor) {
+	decoder := json.NewDecoder(io.LimitReader(request.Body, maxHookBodyBytes+1))
+	decoder.DisallowUnknownFields()
+	var batch adapterBatchRequest
+	if err := decoder.Decode(&batch); err != nil {
+		http.Error(writer, "invalid_adapter_batch", http.StatusBadRequest)
+		return
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) ||
+		batch.SchemaVersion != adapterBatchVersion ||
+		len(batch.Records) == 0 || len(batch.Records) > 128 {
+		http.Error(writer, "invalid_adapter_batch", http.StatusBadRequest)
+		return
+	}
+	adapterID := request.PathValue("adapter")
+	for _, record := range batch.Records {
+		if record.AdapterID != adapterID || validateSanitizedAdapterRecord(record) != nil {
+			http.Error(writer, "invalid_adapter_batch", http.StatusBadRequest)
+			return
+		}
+	}
+	duplicates := 0
+	for index, record := range batch.Records {
+		result, err := ingestor.IngestSanitizedAdapterRecord(record, uint64(index+1))
+		if err != nil {
+			writeHookIngestResult(writer, result, err)
+			return
+		}
+		if result.DuplicateReplay {
+			duplicates++
+		}
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(writer).Encode(map[string]any{
+		"accepted": true, "accepted_count": len(batch.Records),
+		"duplicate_count": duplicates,
+	})
 }
 
 // hookAdapterHandler resolves the {adapter} path segment matched by the
@@ -180,7 +232,12 @@ func writeHookIngestResult(writer http.ResponseWriter, result CommitResult, err 
 	if err != nil {
 		if errors.Is(err, ErrBackpressure) {
 			writer.Header().Set("Retry-After", "1")
-			http.Error(writer, "backpressure_retryable", http.StatusServiceUnavailable)
+			http.Error(writer, "backpressure_retryable", http.StatusTooManyRequests)
+			return
+		}
+		if errors.Is(err, ErrDurabilityUnavailable) {
+			writer.Header().Set("Retry-After", "1")
+			http.Error(writer, "durability_unavailable_retryable", http.StatusServiceUnavailable)
 			return
 		}
 		http.Error(writer, "invalid_hook", http.StatusBadRequest)
@@ -195,10 +252,21 @@ func writeHookIngestResult(writer http.ResponseWriter, result CommitResult, err 
 // production OTLP/gRPC services. Authentication and both message ceilings are
 // inseparable from service registration.
 func NewIngressGRPCServer(receiver *OTLPReceiver, bearer []byte) (*grpc.Server, error) {
+	return newIngressGRPCServer(receiver, bearer, false)
+}
+
+// NewApplianceIngressGRPCServer permits an RFC1918 container-bridge peer only
+// in explicit appliance mode. Authentication and message ceilings remain
+// identical to the loopback-only constructor.
+func NewApplianceIngressGRPCServer(receiver *OTLPReceiver, bearer []byte, allowContainerBridge bool) (*grpc.Server, error) {
+	return newIngressGRPCServer(receiver, bearer, allowContainerBridge)
+}
+
+func newIngressGRPCServer(receiver *OTLPReceiver, bearer []byte, allowContainerBridge bool) (*grpc.Server, error) {
 	if receiver == nil || receiver.maxBytes != maxOTLPFrameBytes {
 		return nil, errors.New("invalid_grpc_server_configuration")
 	}
-	interceptor, err := grpcAuthUnary(bearer)
+	interceptor, err := grpcAuthUnaryMode(bearer, allowContainerBridge)
 	if err != nil {
 		return nil, err
 	}
@@ -212,13 +280,17 @@ func NewIngressGRPCServer(receiver *OTLPReceiver, bearer []byte) (*grpc.Server, 
 }
 
 func grpcAuthUnary(bearer []byte) (grpc.UnaryServerInterceptor, error) {
+	return grpcAuthUnaryMode(bearer, false)
+}
+
+func grpcAuthUnaryMode(bearer []byte, allowContainerBridge bool) (grpc.UnaryServerInterceptor, error) {
 	if len(bearer) < 32 {
 		return nil, errors.New("invalid_grpc_auth_configuration")
 	}
 	expected := sha256.Sum256(bearer)
 	return func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		remote, ok := peer.FromContext(ctx)
-		if !ok || !loopbackAddress(remote.Addr) {
+		if !ok || !allowedGRPCPeer(remote.Addr, allowContainerBridge) {
 			return nil, status.Error(codes.PermissionDenied, "forbidden_peer")
 		}
 		values := metadata.ValueFromIncomingContext(ctx, "authorization")
@@ -231,6 +303,21 @@ func grpcAuthUnary(bearer []byte) (grpc.UnaryServerInterceptor, error) {
 		}
 		return handler(ctx, request)
 	}, nil
+}
+
+func allowedGRPCPeer(address net.Addr, allowContainerBridge bool) bool {
+	if loopbackAddress(address) {
+		return true
+	}
+	if !allowContainerBridge {
+		return false
+	}
+	host, _, err := net.SplitHostPort(address.String())
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsPrivate()
 }
 
 func loopbackAddress(address net.Addr) bool {

@@ -1,0 +1,155 @@
+{
+  "name": "kansoku",
+  "services": {
+    "kansoku": {
+      "image": "${KANSOKU_IMAGE:?set KANSOKU_IMAGE to an immutable name@sha256 digest}",
+      "command": ["serve", "--config", "/etc/kansoku/runtime-config.json"],
+      "user": "65532:65532",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "always",
+      "init": true,
+      "pids_limit": 256,
+      "mem_limit": "768m",
+      "cpus": 1.5,
+      "ports": [
+        "127.0.0.1:43100:43100",
+        "127.0.0.1:4317:4317",
+        "127.0.0.1:4318:4318"
+      ],
+      "networks": ["kansoku-internal", "kansoku-bridge"],
+      "volumes": [
+        {"type": "bind", "source": "./runtime-config.json", "target": "/etc/kansoku/runtime-config.json", "read_only": true},
+        {"type": "volume", "source": "kansoku-data", "target": "/var/lib/kansoku"},
+        {"type": "volume", "source": "kansoku-backups", "target": "/var/lib/kansoku-backups"}
+      ],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=32m"],
+      "secrets": [
+        "ingress_bearer", "read_bearer", "mutation_bearer", "csrf",
+        "identity_hmac", "audit_hmac", "database_password"
+      ],
+      "depends_on": {
+        "postgres": {"condition": "service_healthy"}
+      },
+      "healthcheck": {
+        "test": ["CMD", "/kansoku", "health", "--self", "--config", "/etc/kansoku/runtime-config.json"],
+        "interval": "30s",
+        "timeout": "10s",
+        "retries": 5,
+        "start_period": "30s"
+      },
+      "logging": {
+        "driver": "json-file",
+        "options": {"max-size": "10m", "max-file": "3"}
+      }
+    },
+    "postgres": {
+      "image": "postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+      "user": "70:70",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "always",
+      "pids_limit": 256,
+      "mem_limit": "1g",
+      "cpus": 2.0,
+      "environment": {
+        "POSTGRES_DB": "kansoku",
+        "POSTGRES_USER": "kansoku",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/database_password",
+        "PGDATA": "/var/lib/postgresql/18/docker"
+      },
+      "networks": ["kansoku-internal"],
+      "volumes": [
+        {"type": "volume", "source": "postgres-data", "target": "/var/lib/postgresql"}
+      ],
+      "tmpfs": [
+        "/run/postgresql:rw,noexec,nosuid,nodev,size=16m",
+        "/tmp:rw,noexec,nosuid,nodev,size=32m"
+      ],
+      "secrets": ["database_password"],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "pg_isready -U kansoku -d kansoku"],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 10,
+        "start_period": "20s"
+      },
+      "logging": {
+        "driver": "json-file",
+        "options": {"max-size": "10m", "max-file": "3"}
+      }
+    },
+    "backup": {
+      "image": "${KANSOKU_IMAGE:?set KANSOKU_IMAGE to an immutable name@sha256 digest}",
+      "profiles": ["backup"],
+      "command": ["backup", "--config", "/etc/kansoku/runtime-config.json"],
+      "user": "65532:65532",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "no",
+      "pids_limit": 128,
+      "mem_limit": "512m",
+      "cpus": 1.0,
+      "networks": ["kansoku-internal"],
+      "volumes": [
+        {"type": "bind", "source": "./runtime-config.json", "target": "/etc/kansoku/runtime-config.json", "read_only": true},
+        {"type": "volume", "source": "kansoku-data", "target": "/var/lib/kansoku"},
+        {"type": "volume", "source": "kansoku-backups", "target": "/var/lib/kansoku-backups"}
+      ],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=32m"],
+      "secrets": [
+        "ingress_bearer", "read_bearer", "mutation_bearer", "csrf",
+        "identity_hmac", "audit_hmac", "database_password"
+      ],
+      "depends_on": {"postgres": {"condition": "service_healthy"}},
+      "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
+    },
+    "restore-verify": {
+      "image": "${KANSOKU_IMAGE:?set KANSOKU_IMAGE to an immutable name@sha256 digest}",
+      "profiles": ["restore-verify"],
+      "command": ["restore-verify", "--config", "/etc/kansoku/runtime-config.json", "--backup-id", "${KANSOKU_BACKUP_ID:-}"],
+      "user": "65532:65532",
+      "read_only": true,
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "no",
+      "pids_limit": 128,
+      "mem_limit": "512m",
+      "cpus": 1.0,
+      "networks": ["kansoku-internal"],
+      "volumes": [
+        {"type": "bind", "source": "./runtime-config.json", "target": "/etc/kansoku/runtime-config.json", "read_only": true},
+        {"type": "volume", "source": "kansoku-data", "target": "/var/lib/kansoku"},
+        {"type": "volume", "source": "kansoku-backups", "target": "/var/lib/kansoku-backups"}
+      ],
+      "tmpfs": ["/tmp:rw,noexec,nosuid,nodev,size=32m"],
+      "secrets": [
+        "ingress_bearer", "read_bearer", "mutation_bearer", "csrf",
+        "identity_hmac", "audit_hmac", "database_password"
+      ],
+      "depends_on": {"postgres": {"condition": "service_healthy"}},
+      "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
+    }
+  },
+  "networks": {
+    "kansoku-internal": {"internal": true},
+    "kansoku-bridge": {}
+  },
+  "volumes": {
+    "postgres-data": {},
+    "kansoku-data": {},
+    "kansoku-backups": {}
+  },
+  "secrets": {
+    "ingress_bearer": {"file": "./secrets/ingress_bearer"},
+    "read_bearer": {"file": "./secrets/read_bearer"},
+    "mutation_bearer": {"file": "./secrets/mutation_bearer"},
+    "csrf": {"file": "./secrets/csrf"},
+    "identity_hmac": {"file": "./secrets/identity_hmac"},
+    "audit_hmac": {"file": "./secrets/audit_hmac"},
+    "database_password": {"file": "./secrets/database_password"}
+  }
+}

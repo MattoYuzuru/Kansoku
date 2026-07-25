@@ -5,3 +5,18 @@ benchmarks/session-01/frontend/dist/
 .gocache/
 .gohome/
 .gopath/
+.session09-soak-run/
+
+# Session 10 dashboard frontend.
+# node_modules is never committed; web/dist and internal/webui/dist ARE
+# committed (the Go binary embeds internal/webui/dist via go:embed).
+web/node_modules/
+web/.vite/
+
+# Local deployment secrets
+deploy/secrets/
+deploy/.env
+
+# OS / editor junk
+.DS_Store
+.idea/

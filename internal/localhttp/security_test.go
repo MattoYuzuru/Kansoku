@@ -1,6 +1,7 @@
 package localhttp
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -197,5 +198,34 @@ func TestPayloadAndRateLimits(t *testing.T) {
 	}
 	if response := serve(t, guard, RouteUIStream, makeRequest("GET", "127.0.0.1:3000", "127.0.0.1:44", "", "")); response.Code != http.StatusTooManyRequests {
 		t.Fatalf("rate=%d", response.Code)
+	}
+}
+
+func TestApplianceGuardAllowsPrivateBridgeOnlyInExplicitModeWithLoopbackHostAndAuth(t *testing.T) {
+	applianceBearer := bytes.Repeat([]byte("b"), 32)
+	applianceCSRF := bytes.Repeat([]byte("c"), 32)
+	handler := http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusNoContent)
+	})
+	for _, item := range []struct {
+		container bool
+		want      int
+	}{
+		{container: false, want: http.StatusForbidden},
+		{container: true, want: http.StatusNoContent},
+	} {
+		guard, err := NewApplianceGuard(applianceBearer, applianceCSRF, 1<<20, 120, time.Minute, item.container)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:43100/api/v1/health", nil)
+		request.Host = "127.0.0.1:43100"
+		request.RemoteAddr = "172.20.0.2:43210"
+		request.Header.Set("Authorization", "Bearer "+string(applianceBearer))
+		response := httptest.NewRecorder()
+		guard.Wrap(RouteUIStream, handler).ServeHTTP(response, request)
+		if response.Code != item.want {
+			t.Fatalf("container=%v status=%d want=%d", item.container, response.Code, item.want)
+		}
 	}
 }

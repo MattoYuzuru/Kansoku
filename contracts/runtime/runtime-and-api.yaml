@@ -1,0 +1,96 @@
+{
+  "schema_version": "kansoku.runtime-and-api/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-24",
+  "appliance": {
+    "binary": "cmd/kansoku",
+    "app_version": "0.9.0",
+    "config_version": "kansoku.runtime-config/1",
+    "single_process_roles": ["api", "hook_otlp_ingress", "scheduler", "bounded_workers"],
+    "shared_components": [
+      "internal/observability",
+      "internal/dataplatform",
+      "internal/integrity",
+      "internal/adaptersdk",
+      "internal/installer",
+      "internal/localhttp"
+    ],
+    "parallel_fake_ingress_or_store_forbidden": true
+  },
+  "listeners": {
+    "http": {"container": "0.0.0.0:43100", "published": "127.0.0.1:43100", "protocols": ["api_v1"]},
+    "otlp_http": {"container": "0.0.0.0:4318", "published": "127.0.0.1:4318", "protocols": ["hooks", "otlp_http"]},
+    "otlp_grpc": {"container": "0.0.0.0:4317", "published": "127.0.0.1:4317", "protocols": ["otlp_grpc"]},
+    "database_host_port_published": false,
+    "container_bridge_rule": "the process may accept a container-bridge peer only in explicit appliance mode where the Compose publication is loopback-only, the network is internal, forwarded headers are rejected, exact Host is loopback, and route authentication still succeeds"
+  },
+  "startup": {
+    "order": ["strict_config_decode", "secret_file_validation", "database_connect", "compatibility_preflight", "dataplatform_migrate", "integrity_migrate", "runtime_migrate", "spool_replay", "start_workers", "start_listeners", "start_integrity_scheduler"],
+    "unknown_config_fields": "reject",
+    "secret_values_in_environment": "forbidden",
+    "secrets_from_files_only": true,
+    "migration_checksum_mismatch": "fail_closed",
+    "destructive_or_long_migration": "explicit_upgrade_command_plus_verified_backup_required",
+    "supported_upgrade_boundary": "stop_the_world_local_upgrade_only"
+  },
+  "shutdown": {
+    "order": ["stop_accepting", "http_server_shutdown", "grpc_graceful_stop_with_deadline", "drain_ingress_lanes", "persist_remaining_sanitized_work", "flush_internal_telemetry", "stop_scheduler", "close_database"],
+    "default_timeout_seconds": 30,
+    "on_timeout": "return_nonzero_after_durable_spool_attempt",
+    "active_request_interruption_before_deadline": false
+  },
+  "api": {
+    "version_prefix": "/api/v1",
+    "read_routes": [
+      "GET /api/v1/inventory",
+      "GET /api/v1/analytics",
+      "GET /api/v1/health",
+      "GET /api/v1/incidents",
+      "GET /api/v1/completeness",
+      "GET /api/v1/operations/jobs"
+    ],
+    "mutation_routes": [
+      "POST /api/v1/plans/preview",
+      "POST /api/v1/plans/apply",
+      "POST /api/v1/admin/retention/preview",
+      "POST /api/v1/admin/retention/apply",
+      "POST /api/v1/admin/export",
+      "POST /api/v1/admin/import",
+      "POST /api/v1/admin/backup",
+      "POST /api/v1/admin/restore-verify",
+      "POST /api/v1/admin/diagnostics"
+    ],
+    "ingress_routes": [
+      "POST /v1/hooks/{adapter}/{event}",
+      "POST /v1/logs",
+      "POST /v1/metrics",
+      "POST /v1/traces",
+      "POST /v1/adapter-events/{adapter}"
+    ],
+    "response_envelope_fields": ["api_version", "request_id", "data", "completeness", "error"],
+    "request_max_bytes": 1048576,
+    "response_max_bytes": 1048576,
+    "list_max_items": 500,
+    "query_timeout_ms": 500,
+    "analytics_query_budget_ids": ["hourly_rollup_range_30d", "daily_rollup_range_1y"],
+    "raw_field_names_forbidden_recursively": [
+      "prompt",
+      "response",
+      "content",
+      "source_code",
+      "tool_input",
+      "tool_output",
+      "environment",
+      "credential",
+      "raw_path",
+      "sql_parameters"
+    ],
+    "percentages_require": ["numerator", "denominator", "exclusions", "completeness"],
+    "unknown_not_zero": true
+  },
+  "cli": {
+    "commands": ["serve", "health --self", "config check", "migrate", "backup", "restore-verify", "export", "import", "diagnostics", "soak"],
+    "health_self_checks": ["config", "secret_files", "database", "migration_ledgers", "spool", "workers"],
+    "health_self_outputs_safe_categories_only": true
+  }
+}

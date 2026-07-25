@@ -1,0 +1,55 @@
+{
+  "schema_version": "kansoku.runtime-queue-and-durability/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-24",
+  "lanes": [
+    {"source": "hook_http", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
+    {"source": "otlp_log", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
+    {"source": "otlp_span", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
+    {"source": "otlp_metric", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
+    {"source": "transcript_jsonl", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864},
+    {"source": "adapter_batch", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864}
+  ],
+  "admission": {
+    "reservation_before_filestore_acceptance": true,
+    "per_source_capacity_independent": true,
+    "global_noisy_source_starvation": "forbidden",
+    "full_lane_response": {"http_status": 429, "grpc_code": "RESOURCE_EXHAUSTED", "retry_after_seconds": 1},
+    "durability_unavailable_response": {"http_status": 503, "grpc_code": "UNAVAILABLE", "retry_after_seconds": 1},
+    "payload_rejection_before_reservation": true
+  },
+  "acknowledgement": {
+    "success_rule": "return success only after the normalized event is durable in PostgreSQL or its source lane sanitized spool",
+    "filestore_alone_is_not_production_acknowledgement": true,
+    "postgres_first": true,
+    "spool_fallback_on_retryable_postgres_failure": true,
+    "both_fail": "safe_retryable_error_no_success",
+    "unknown_schema": "metadata_only_quarantine_is_durable_before_error_response"
+  },
+  "spool": {
+    "format": "strict_jsonl_typed_observability_commit_request",
+    "contains": ["normalized_event", "normalized_evidence"],
+    "forbidden": ["raw_request", "prompt", "response", "tool_input", "tool_output", "source_code", "environment", "credential", "unredacted_path"],
+    "permissions": "0600_with_safe_parent_chain",
+    "append": "bounded_append_plus_fsync_before_success",
+    "corruption": "fail_visible_leave_bytes_unchanged",
+    "replay": "strict_decode_then_postgresql_idempotent_insert_then_atomic_drain",
+    "replay_order": "per_source_fifo",
+    "restart": "replay_before_listener_readiness"
+  },
+  "metrics": {
+    "per_lane": ["queue_depth", "oldest_queued_age_seconds", "spool_depth", "oldest_spooled_age_seconds", "accepted_total", "spooled_total", "replayed_total", "backpressure_total", "durability_failure_total"],
+    "bounded_cardinality": true,
+    "source_ids_from_closed_lane_vocabulary": true
+  },
+  "shutdown": {
+    "stop_new_reservations_first": true,
+    "drain_deadline_seconds": 20,
+    "unfinished_work_must_reach_spool_before_exit": true
+  },
+  "idempotency": {
+    "postgres_key": ["source_instance_id", "source_native_event_id", "observed_at"],
+    "duplicate_replay_increments_evidence_replay_count": true,
+    "duplicate_replay_never_inflates_facts": true
+  }
+}

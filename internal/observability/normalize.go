@@ -27,8 +27,28 @@ func stableID(namespace string, values ...string) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
+// resolveCanonicalEventType maps one privacy.SafeRecord.EventType onto the
+// closed canonical (dotted) event type vocabulary validEventType enforces.
+// The fixture-agent lane's wire records always carry an underscore-shaped
+// name (session_started/user_prompt/tool_finished/session_finished) that
+// canonicalEventTypes translates; a real adapter's OTLP-sourced safe record
+// (built by IngestSafeFields, never routed through the fixture sanitizer's
+// DecodeAndExtract) instead already carries the final canonical type
+// (codexadapter/claudeadapter's CanonicalEventForOTel already resolved it),
+// so it is accepted as-is once validEventType confirms it is a real member
+// of the closed vocabulary -- never a second, looser acceptance path.
+func resolveCanonicalEventType(recordEventType string) (string, bool) {
+	if eventType, ok := canonicalEventTypes[recordEventType]; ok {
+		return eventType, true
+	}
+	if validEventType(recordEventType) {
+		return recordEventType, true
+	}
+	return "", false
+}
+
 func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uint64, now time.Time) (Event, Evidence, error) {
-	eventType, ok := canonicalEventTypes[record.EventType]
+	eventType, ok := resolveCanonicalEventType(record.EventType)
 	if !ok {
 		return Event{}, Evidence{}, errors.New("unsupported_normalized_event_type")
 	}
@@ -61,6 +81,8 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 		schemaID = "fixture.agent-transcript/1"
 	case SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric:
 		schemaID = fixtureOTLPSchema
+	case SourceAdapterBatch:
+		schemaID = record.SourceSchemaID
 	}
 	schemaFingerprint := stableID("lane-schema/1", schemaID, record.SchemaFingerprint)
 	now = now.UTC()

@@ -18,7 +18,7 @@ const (
 	RouteUIStream                    RouteMode = "ui_stream"
 	RouteHookOTLP                    RouteMode = "hook_otlp"
 	RouteUIMutation                  RouteMode = "ui_mutation"
-	DeploymentContractSemanticSHA256           = "57af85c5fe779b6833d15bc9d62e2a9ec5550c58b7be3941bcbc152093c2cce7"
+	DeploymentContractSemanticSHA256           = "e81482afd6005beb05eb3287397248367796adcbe2468132a960c5f3d608f974"
 )
 
 var canonicalHosts = map[string]struct{}{"127.0.0.1": {}, "::1": {}, "localhost": {}}
@@ -26,16 +26,19 @@ var canonicalOrigins = map[string]struct{}{"http://127.0.0.1:3000": {}, "http://
 var forwardedHeaders = []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-IP"}
 
 type Guard struct {
-	allowedHosts   map[string]struct{}
-	allowedOrigins map[string]struct{}
-	bearerDigest   [sha256.Size]byte
-	csrfDigest     [sha256.Size]byte
-	maxBodyBytes   int64
-	requests       int
-	window         time.Duration
-	now            func() time.Time
-	mu             sync.Mutex
-	counters       map[string]counter
+	allowedHosts         map[string]struct{}
+	allowedOrigins       map[string]struct{}
+	bearerDigest         [sha256.Size]byte
+	csrfDigest           [sha256.Size]byte
+	maxBodyBytes         int64
+	requests             int
+	window               time.Duration
+	uiPort               string
+	ingressPort          string
+	allowContainerBridge bool
+	now                  func() time.Time
+	mu                   sync.Mutex
+	counters             map[string]counter
 }
 
 type counter struct {
@@ -52,7 +55,34 @@ func NewGuard(hosts, origins []string, bearer, csrf []byte, maxBodyBytes int64, 
 			return nil, errors.New("invalid_local_http_security_configuration")
 		}
 	}
-	return &Guard{allowedHosts: copySet(canonicalHosts), allowedOrigins: copySet(canonicalOrigins), bearerDigest: sha256.Sum256(bearer), csrfDigest: sha256.Sum256(csrf), maxBodyBytes: maxBodyBytes, requests: requests, window: window, now: time.Now, counters: map[string]counter{}}, nil
+	return newGuard(canonicalOrigins, bearer, csrf, maxBodyBytes, requests, window, "3000", "4318", false), nil
+}
+
+// NewApplianceGuard is the Session 09 construction path. Container bridge
+// peers are accepted only when the caller explicitly selects appliance mode;
+// Host remains an exact loopback name, forwarded headers remain forbidden,
+// and route credentials are still mandatory.
+func NewApplianceGuard(bearer, csrf []byte, maxBodyBytes int64, requests int, window time.Duration, allowContainerBridge bool) (*Guard, error) {
+	if len(bearer) < 32 || len(csrf) < 32 || subtle.ConstantTimeCompare(bearer, csrf) == 1 ||
+		maxBodyBytes != 1<<20 || requests != 120 || window != time.Minute {
+		return nil, errors.New("invalid_local_http_security_configuration")
+	}
+	origins := map[string]struct{}{
+		"http://127.0.0.1:43100": {},
+		"http://[::1]:43100":     {},
+		"http://localhost:43100": {},
+	}
+	return newGuard(origins, bearer, csrf, maxBodyBytes, requests, window, "43100", "4318", allowContainerBridge), nil
+}
+
+func newGuard(origins map[string]struct{}, bearer, csrf []byte, maxBodyBytes int64, requests int, window time.Duration, uiPort, ingressPort string, allowContainerBridge bool) *Guard {
+	return &Guard{
+		allowedHosts: copySet(canonicalHosts), allowedOrigins: copySet(origins),
+		bearerDigest: sha256.Sum256(bearer), csrfDigest: sha256.Sum256(csrf),
+		maxBodyBytes: maxBodyBytes, requests: requests, window: window,
+		uiPort: uiPort, ingressPort: ingressPort, allowContainerBridge: allowContainerBridge,
+		now: time.Now, counters: map[string]counter{},
+	}
 }
 
 func (g *Guard) SetClockForTest(now func() time.Time) { g.now = now }
@@ -65,12 +95,18 @@ func (g *Guard) Wrap(mode RouteMode, next http.Handler) http.Handler {
 			http.Error(writer, "method_not_allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		peer := canonicalPeerIP(request.RemoteAddr)
+		for _, header := range forwardedHeaders {
+			if request.Header.Get(header) != "" {
+				http.Error(writer, "forwarded_headers_rejected", http.StatusBadRequest)
+				return
+			}
+		}
+		peer := g.canonicalPeerIP(request.RemoteAddr)
 		if peer == "" {
 			http.Error(writer, "forbidden_peer", http.StatusForbidden)
 			return
 		}
-		host, ok := canonicalRequestHost(request.Host)
+		host, ok := g.canonicalRequestHost(request.Host)
 		if !ok {
 			http.Error(writer, "invalid_host", http.StatusMisdirectedRequest)
 			return
@@ -79,15 +115,9 @@ func (g *Guard) Wrap(mode RouteMode, next http.Handler) http.Handler {
 			http.Error(writer, "invalid_host", http.StatusMisdirectedRequest)
 			return
 		}
-		if !hostMatchesMode(mode, request.Host) {
+		if !g.hostMatchesMode(mode, request.Host) {
 			http.Error(writer, "invalid_route_host", http.StatusMisdirectedRequest)
 			return
-		}
-		for _, header := range forwardedHeaders {
-			if request.Header.Get(header) != "" {
-				http.Error(writer, "forwarded_headers_rejected", http.StatusBadRequest)
-				return
-			}
 		}
 		origin := request.Header.Get("Origin")
 		switch mode {
@@ -137,11 +167,11 @@ func (g *Guard) validOrigin(origin, requestHost string) bool {
 	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return false
 	}
-	originHost, ok := canonicalRequestHost(parsed.Host)
+	originHost, ok := g.canonicalRequestHost(parsed.Host)
 	if !ok {
 		return false
 	}
-	requestName, ok := canonicalRequestHost(requestHost)
+	requestName, ok := g.canonicalRequestHost(requestHost)
 	return ok && originHost == requestName && parsed.Host == requestHost
 }
 
@@ -195,6 +225,14 @@ func allowedMethods(mode RouteMode) string {
 }
 
 func canonicalRequestHost(value string) (string, bool) {
+	return canonicalRequestHostFor(value, map[string]bool{"3000": true, "4318": true})
+}
+
+func (g *Guard) canonicalRequestHost(value string) (string, bool) {
+	return canonicalRequestHostFor(value, map[string]bool{g.uiPort: true, g.ingressPort: true})
+}
+
+func canonicalRequestHostFor(value string, ports map[string]bool) (string, bool) {
 	if value == "" || strings.ContainsAny(value, "@/\\ \t\r\n") {
 		return "", false
 	}
@@ -205,7 +243,7 @@ func canonicalRequestHost(value string) (string, bool) {
 		return "::1", true
 	}
 	host, port, err := net.SplitHostPort(value)
-	if err != nil || port == "" || (port != "3000" && port != "4318") {
+	if err != nil || port == "" || !ports[port] {
 		return "", false
 	}
 	if host != "127.0.0.1" && host != "localhost" && host != "::1" {
@@ -218,9 +256,17 @@ func canonicalRequestHost(value string) (string, bool) {
 }
 
 func hostMatchesMode(mode RouteMode, host string) bool {
-	wantedPort := "3000"
+	return hostMatchesModeFor(mode, host, "3000", "4318")
+}
+
+func (g *Guard) hostMatchesMode(mode RouteMode, host string) bool {
+	return hostMatchesModeFor(mode, host, g.uiPort, g.ingressPort)
+}
+
+func hostMatchesModeFor(mode RouteMode, host, uiPort, ingressPort string) bool {
+	wantedPort := uiPort
 	if mode == RouteHookOTLP {
-		wantedPort = "4318"
+		wantedPort = ingressPort
 	}
 	parsedHost, port, err := net.SplitHostPort(host)
 	if err != nil || port != wantedPort {
@@ -238,6 +284,24 @@ func canonicalPeerIP(value string) string {
 		return ""
 	}
 	return host
+}
+
+func (g *Guard) canonicalPeerIP(value string) string {
+	host, port, err := net.SplitHostPort(value)
+	if err != nil || port == "" {
+		return ""
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return ""
+	}
+	if ip.IsLoopback() && (host == "127.0.0.1" || host == "::1") {
+		return host
+	}
+	if g.allowContainerBridge && ip.IsPrivate() {
+		return host
+	}
+	return ""
 }
 
 func canonicalOrigin(value string) bool { _, ok := canonicalOrigins[value]; return ok }

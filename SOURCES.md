@@ -223,6 +223,40 @@ lock/unlock would be incorrect because two calls may use different pooled sessio
 interface changed in Session 08, so no Codex/Claude/Gemini/Cursor documentation was re-fetched.
 Live-canary execution stayed simulated and did not exercise a provider CLI or credential path.
 
+## Session 09 local runtime and operations
+
+- Docker Compose services reference (ports, healthchecks, restart, read-only root filesystem,
+  capability drops and immutable image references):
+  <https://docs.docker.com/reference/compose-file/services/>
+- Docker Compose secrets:
+  <https://docs.docker.com/compose/how-tos/use-secrets/>
+- PostgreSQL 18 backup and restore overview:
+  <https://www.postgresql.org/docs/18/backup.html>
+- PostgreSQL 18 `pg_dump`:
+  <https://www.postgresql.org/docs/18/app-pgdump.html>
+- PostgreSQL 18 `pg_restore`:
+  <https://www.postgresql.org/docs/18/app-pgrestore.html>
+- Go `net/http`, including `http.Server.Shutdown`:
+  <https://pkg.go.dev/net/http>
+- Retrieved: 2026-07-24.
+- Relevant versions: Docker Compose specification current on the retrieval date; PostgreSQL 18;
+  Go standard library for the repository's `go 1.26` module/toolchain baseline.
+
+Design note: Compose short-syntax ports without a host IP bind to all interfaces, so the production
+file names `127.0.0.1` for every published application port and publishes no database port.
+Compose secrets are granted per service and mounted as files under `/run/secrets`; Session 09
+therefore passes only secret file locators through environment/config, never secret values.
+`read_only`, `cap_drop`, `security_opt`, healthchecks and restart policy are validated from the
+fully rendered `docker compose config`, not inferred from prose. PostgreSQL documents SQL dumps,
+filesystem backups and continuous archiving as distinct approaches; the local appliance uses
+PostgreSQL 18 custom-format `pg_dump`/`pg_restore` for its native logical backup job, with checksum
+manifest and an isolated restore verification rather than treating a successful dump command as
+restore evidence. Go `http.Server.Shutdown` closes listeners, closes idle connections and waits for
+active connections until the supplied context expires; the appliance therefore waits for Shutdown,
+then drains bounded ingress lanes and attempts durable spool persistence before closing the shared
+database pool. Session 09 changes no agent interface, so Codex/Claude/Gemini/Cursor documentation
+was not re-fetched and no adapter support claim changes.
+
 ## Source maintenance policy
 
 For every supported agent release:

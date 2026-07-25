@@ -1,0 +1,37 @@
+{
+  "version": "kansoku.runtime-config/1",
+  "app_version": "0.9.0",
+  "http_listen": "0.0.0.0:43100",
+  "otlp_http_listen": "0.0.0.0:4318",
+  "otlp_grpc_listen": "0.0.0.0:4317",
+  "container_mode": true,
+  "data_dir": "/var/lib/kansoku",
+  "database": {
+    "host": "postgres",
+    "port": 5432,
+    "name": "kansoku",
+    "user": "kansoku",
+    "ssl_mode": "disable",
+    "connect_timeout_seconds": 10
+  },
+  "secret_files": {
+    "ingress_bearer": "/run/secrets/ingress_bearer",
+    "read_bearer": "/run/secrets/read_bearer",
+    "mutation_bearer": "/run/secrets/mutation_bearer",
+    "csrf": "/run/secrets/csrf",
+    "identity_hmac": "/run/secrets/identity_hmac",
+    "audit_hmac": "/run/secrets/audit_hmac",
+    "database_password": "/run/secrets/database_password"
+  },
+  "queue_capacity": 64,
+  "spool_max_bytes": 67108864,
+  "shutdown_timeout_ms": 30000,
+  "query_timeout_ms": 500,
+  "response_max_bytes": 1048576,
+  "retention_days": 400,
+  "disk_budget_fraction": 0.9,
+  "integrity_enabled": true,
+  "privacy_canary_fixture": "/usr/share/kansoku/privacy-canary.json",
+  "backup_dir": "/var/lib/kansoku-backups",
+  "diagnostics_max_bytes": 1048576
+}

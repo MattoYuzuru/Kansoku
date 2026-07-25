@@ -285,6 +285,11 @@ func LoadFingerprints(ctx context.Context, pool *pgxpool.Pool) ([]DriftFingerpri
 	return out, rows.Err()
 }
 
+// fingerprintIdentity joins fields with ASCII unit separator 0x1F, not a NUL
+// byte: this identity is used as a map key in inputs_version_ref, which is
+// json.Marshal'ed into a JSONB column, and Postgres's jsonb input rejects a
+// literal NUL byte escape sequence (it cannot be represented in its
+// C-string storage).
 func fingerprintIdentity(row DriftFingerprint) string {
-	return string(row.Kind) + "\x00" + row.SubjectID + "\x00" + row.SourceID + "\x00" + row.CapabilityID
+	return string(row.Kind) + "\x1f" + row.SubjectID + "\x1f" + row.SourceID + "\x1f" + row.CapabilityID
 }

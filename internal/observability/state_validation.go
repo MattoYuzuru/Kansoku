@@ -17,7 +17,7 @@ var (
 
 func validSourceKind(kind SourceKind) bool {
 	switch kind {
-	case SourceHook, SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric, SourceTranscript:
+	case SourceHook, SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric, SourceTranscript, SourceAdapterBatch:
 		return true
 	default:
 		return false
@@ -80,7 +80,16 @@ func validValueState(value string) bool {
 
 func validEventType(value string) bool {
 	switch value {
-	case "session.started", "prompt.submitted", "component.executed", "session.stopped":
+	case "session.started", "prompt.submitted", "component.executed", "session.stopped",
+		// "tool.called" is appended (never replacing component.executed) for
+		// Gap A: it is the real, already-tested canonical event type both
+		// codexadapter.CanonicalEventForOTel and
+		// claudeadapter.CanonicalEventForOTel resolve codex.tool_decision/
+		// codex.tool_result and Claude's tool_result OTel events onto
+		// (internal/codexadapter/otel.go, internal/claudeadapter/otel.go).
+		// The fixture-agent lane's own tool_finished -> component.executed
+		// mapping (normalize.go's canonicalEventTypes) is untouched.
+		"tool.called":
 		return true
 	default:
 		return false
@@ -101,10 +110,17 @@ func expectedSourceSchema(kind SourceKind) string {
 }
 
 func validSource(source SourceRef) bool {
-	return source.AdapterID == "fixture-agent" && source.AdapterVersion == "1.0.0" &&
-		validSourceKind(source.Kind) && source.SchemaID == expectedSourceSchema(source.Kind) &&
-		fingerprintPattern.MatchString(source.SchemaFingerprint) && source.InstallationID == "ain_fixture" &&
-		pseudonymPattern.MatchString(source.NativeEventID)
+	if !safeIDPattern.MatchString(source.AdapterID) ||
+		!safeIDPattern.MatchString(source.AdapterVersion) ||
+		!safeIDPattern.MatchString(source.SchemaID) ||
+		!validSourceKind(source.Kind) ||
+		!fingerprintPattern.MatchString(source.SchemaFingerprint) ||
+		source.InstallationID != "ain_fixture" ||
+		!pseudonymPattern.MatchString(source.NativeEventID) {
+		return false
+	}
+	expected := expectedSourceSchema(source.Kind)
+	return source.Kind == SourceAdapterBatch || source.SchemaID == expected
 }
 
 func validateEvent(event Event, factKey string) error {

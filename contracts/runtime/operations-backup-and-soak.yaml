@@ -1,0 +1,76 @@
+{
+  "schema_version": "kansoku.runtime-operations-backup-and-soak/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-24",
+  "job_state": {
+    "jobs": ["daily_integrity", "rollup_repair", "retention", "backup", "restore_verify", "export", "import"],
+    "states": ["scheduled", "running", "passed", "failed", "cancelled", "interrupted", "already_running"],
+    "lease": {"mechanism": "postgres_row_lease", "owner_id_required": true, "expires_at_required": true, "renewal_before_fraction": 0.5},
+    "attempt_policy": {"maximum_attempts": 3, "external_agent_mutations": 1},
+    "terminal_error_fields": ["error_class", "detail_ref"],
+    "raw_error_text_persisted": false
+  },
+  "retention_and_resources": {
+    "preview_before_apply": true,
+    "partition_drop_only": true,
+    "default_horizon_days": 400,
+    "disk_budget_fraction": 0.90,
+    "forecast_before_next_daily_cycle": true,
+    "resource_metrics": ["process_cpu_seconds", "process_rss_bytes", "goroutines", "db_pool_acquired", "db_pool_idle", "queue_depth", "oldest_queue_age_seconds"],
+    "log_fields": ["timestamp", "level", "event_name", "request_id", "job_run_id", "duration_ms", "count", "error_class"],
+    "log_forbidden": ["payload", "sql_parameters", "path", "environment", "credential", "prompt", "response", "tool_input", "tool_output"]
+  },
+  "native_backup": {
+    "tooling": ["PostgreSQL18 pg_dump custom format", "PostgreSQL18 pg_restore"],
+    "pg_dump_argv_required": ["--format=custom", "--no-owner", "--no-acl"],
+    "shell": false,
+    "destination_local_only": true,
+    "manifest_fields": ["backup_version", "app_version", "dataplatform_schema_version", "integrity_schema_version", "runtime_schema_version", "formula_registry_version", "adapter_versions", "privacy_policy_sha256", "archive_sha256", "created_at", "table_counts"],
+    "covered_table_groups": {
+      "dataplatform": ["devices", "agent_installations", "agent_surfaces", "projects", "sessions", "turns", "components", "adapter_versions", "source_instances", "events", "event_evidence", "metric_rollups_hourly", "metric_rollups_daily", "rollup_status", "formula_versions", "retention_policies"],
+      "integrity": ["integrity_audit_attempts", "integrity_audit_runs", "integrity_audit_checks", "integrity_incidents", "integrity_incident_details", "integrity_schema_compatibility", "integrity_live_canary_state", "integrity_backup_status", "integrity_fingerprints", "integrity_audit_reports"],
+      "runtime": ["runtime_job_runs", "runtime_operation_approvals", "runtime_import_receipts"],
+      "migration_ledgers": ["schema_migrations", "integrity_schema_migrations", "runtime_schema_migrations"]
+    },
+    "isolated_restore_verification": ["archive_checksum", "all_table_counts", "constraints", "migration_ledgers", "sample_formula_results", "formula_version_lineage"],
+    "restore_target": "new_randomly_named_temporary_database",
+    "cleanup": "drop_temporary_database_even_on_failure"
+  },
+  "portable_export_import": {
+    "format": "kansoku.privacy-safe-ndjson/1",
+    "export_includes": ["normalized_safe_facts", "safe_evidence", "rollups", "inventory_ids", "completeness", "formula_version_references", "adapter_schema_version_references"],
+    "export_excludes": ["raw_content", "credentials", "paths", "environment", "user_notes", "secret_hashes"],
+    "manifest_checksum_required": true,
+    "import_idempotency_key_required": true,
+    "import_never_trusts": ["formula_definition", "schema_definition", "migration_sql", "executable_command"],
+    "unknown_formula_or_schema": "reject_before_write",
+    "partial_import": "single_transaction_rollback"
+  },
+  "diagnostics": {
+    "format": "kansoku.diagnostics/1",
+    "allowed": ["app_version", "schema_versions", "migration_status", "health_dimensions", "incident_counts_by_class", "table_counts", "queue_metrics", "job_states", "backup_status", "resource_metrics", "config_fingerprint"],
+    "forbidden": ["event_rows", "prompts", "responses", "tool_input", "tool_output", "source_code", "paths", "environment", "credentials", "SQL", "user_notes"],
+    "maximum_bytes": 1048576,
+    "deterministic": true
+  },
+  "compose_policy": {
+    "services": ["kansoku", "postgres"],
+    "optional_profiles": ["backup", "restore-verify"],
+    "loopback_only_published_ports": ["127.0.0.1:43100:43100", "127.0.0.1:4317:4317", "127.0.0.1:4318:4318"],
+    "database_host_port_published": false,
+    "database_image": "postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+    "application_release_image_digest_required": true,
+    "required_controls": ["nonroot", "read_only", "cap_drop_ALL", "no-new-privileges", "internal_network", "named_volumes", "secrets", "healthchecks", "restart_always", "pids_limit", "memory_limit", "cpu_limit", "bounded_json_file_logging"],
+    "forbidden": ["privileged", "docker_socket", "broad_host_mount", "host_network", "external_network", "secret_value_environment"]
+  },
+  "accelerated_soak": {
+    "logical_days": 7,
+    "cycles_per_day": 24,
+    "acknowledged_event_ledger": true,
+    "faults_executed": ["process_restart", "database_restart", "stop_the_world_upgrade_boundary"],
+    "concurrent_work": ["ingest", "rollup_query", "backup_count_snapshot"],
+    "assertions": ["acknowledged_equals_durable_or_spooled", "event_fact_count_no_inflation", "replay_count_tracks_duplicates", "backup_counts_match_source_snapshot", "all_spools_empty_after_recovery", "all_jobs_terminal", "no_prohibited_diagnostics_fields"],
+    "unexecuted_faults_must_not_be_claimed": true,
+    "wall_clock_seven_day_claim": false
+  }
+}

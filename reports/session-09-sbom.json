@@ -1,0 +1,92 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a8a7ce72cbe2e39b9a404ba835821e0c54cd0707fd4792c60432b7ac227478a0"
+        }
+      ],
+      "name": "kansoku-session09-source-manifest",
+      "type": "file"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "name": "kansoku-session09-local-runtime-and-operations",
+      "type": "application",
+      "version": "0.9.0"
+    },
+    "timestamp": "2026-07-24T00:00:00Z",
+    "tools": {
+      "components": [
+        {
+          "name": "Go",
+          "type": "application",
+          "version": "1.26.5"
+        },
+        {
+          "name": "PostgreSQL",
+          "type": "application",
+          "version": "18"
+        },
+        {
+          "name": "Python",
+          "type": "application",
+          "version": "3.14"
+        },
+        {
+          "name": "Docker",
+          "type": "application",
+          "version": "29"
+        }
+      ]
+    }
+  },
+  "properties": [
+    {
+      "name": "kansoku:dependency-delta",
+      "value": "none_session09_adds_no_new_third_party_dependency"
+    },
+    {
+      "name": "kansoku:go-mod-sha256",
+      "value": "716f9585d010d6b8b5b3b565ddca2dc169fcf42bd3dee9a422562557084b1179"
+    },
+    {
+      "name": "kansoku:go-sum-sha256",
+      "value": "ea6a111b2b0a1e5ae698a6523cde0e353e5ceff2e430de3f68667a922eff7a3e"
+    },
+    {
+      "name": "kansoku:go-build-mode",
+      "value": "-mod=vendor"
+    },
+    {
+      "name": "kansoku:verification-network",
+      "value": "none_except_ephemeral_local_postgresql_and_compose_stack_when_available"
+    },
+    {
+      "name": "kansoku:session09-source-scope",
+      "value": "internal/runtime/**, cmd/kansoku/**, contracts/runtime/**, contracts/runtime-policy-locks.yaml, deploy/{Dockerfile,compose.yaml,runtime-config.json}, tests/fixtures/session-09/**, tests/test_runtime_contracts.py, scripts/validate_runtime.py, scripts/session09_supply_chain.py, adr/0012-session-09-local-runtime-and-operations.md"
+    },
+    {
+      "name": "kansoku:session09-source-manifest-sha256",
+      "value": "a8a7ce72cbe2e39b9a404ba835821e0c54cd0707fd4792c60432b7ac227478a0"
+    },
+    {
+      "name": "kansoku:accelerated-soak-execution",
+      "value": "real_docker_compose_appliance_driver_168_cycles_three_restart_faults_all_assertions_passed"
+    },
+    {
+      "name": "kansoku:release-artifact-signing",
+      "value": "not_included_image_signing_and_vulnerability_attestation_remain_session10"
+    },
+    {
+      "name": "kansoku:excluded-backlog",
+      "value": "Session07b Gemini/Cursor remains explicitly deferred and untouched"
+    }
+  ],
+  "serialNumber": "urn:uuid:2b8c7a4e-0d19-4a8f-9d21-0b6f5b3e9a09",
+  "specVersion": "1.6",
+  "version": 1
+}

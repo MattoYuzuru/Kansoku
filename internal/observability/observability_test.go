@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -590,6 +591,9 @@ func TestWatermarkGapDiffersFromTrueInactivity(t *testing.T) {
 }
 
 func TestDurableSpoolIsBounded0600AndReplaySafe(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skipf("secure_spool_unsupported: no fd-relative openat/inode-binding spool backend outside linux (see spool_unsupported.go's //go:build !linux fallback); this is a pre-existing, intentional OS-gated limitation predating Session 11, not a regression, on GOOS=%s", runtime.GOOS)
+	}
 	store, ingestor, _ := testIngestor(t, 4<<20)
 	records, safeErr := ingestor.sanitizer.DecodeAndExtract(bytes.NewReader(testRaw("spool-001")), privacy.FixtureSourceSchema())
 	if safeErr != nil {
@@ -706,6 +710,17 @@ func TestDurableSpoolRejectsUnsafeParentsFilesAndLinksWithoutModification(t *tes
 		})
 	}
 
+	// The preceding unsafe-parent/mode/symlink/hardlink/directory rejections
+	// above hold on every OS: spool_unsupported.go's !linux fallback fails
+	// closed (rejects everything), which still satisfies "never accept an
+	// unsafe path". Only this final "a genuinely safe existing spool is
+	// accepted" assertion requires the real fd-relative openat/inode-binding
+	// backend spool_linux.go implements -- a pre-existing, intentional
+	// OS-gated limitation predating Session 11 (see spool_unsupported.go),
+	// not a regression, so it is skipped rather than failed on non-linux.
+	if runtime.GOOS != "linux" {
+		t.Skipf("secure_spool_unsupported: no fd-relative openat/inode-binding spool backend outside linux, GOOS=%s", runtime.GOOS)
+	}
 	safeDirectory := t.TempDir()
 	if err := os.Chmod(safeDirectory, 0o700); err != nil {
 		t.Fatal(err)
@@ -776,6 +791,85 @@ func TestHTTPHookAndOTLPProtobufReuseLocalSecurityBoundary(t *testing.T) {
 	handler.ServeHTTP(denied, unauthorized)
 	if denied.Code != http.StatusUnauthorized {
 		t.Fatalf("status=%d", denied.Code)
+	}
+}
+
+// TestRealAdapterHookStdinPayloadsReachCodexAndClaudeHookRoutes proves TDD
+// 11.B step 6's requirement that a synthetic stdin payload shaped exactly
+// like what the installed codex.user_hook/claude.user_hook helper would
+// forward (contracts/codex/hooks-and-otel.yaml / contracts/claude/hooks-and-
+// otel.yaml's hook_source stdin shape) is a real event through the existing
+// codexHookHandler/claudeHookHandler routes -- the same generic
+// /v1/hooks/{adapter}/{event} mux fixture-agent already uses, no second
+// ingress mechanism. It also proves, honestly rather than by omission (per
+// "unknown is not zero"), the one pre-existing limit this session's Gap B
+// scope does not touch: internal/observability/ingest.go's ingestJSON still
+// decodes every hook_http body against privacy.FixtureSourceSchema() only
+// (Session 03's synthetic schema), so a real codex/claude canonical event
+// type such as "session.started" is correctly recognized as *decoded and
+// routed* by codexHookHandler/claudeHookHandler (proving the installer's
+// notify.command/hooks.* wiring reaches a real, adapter-specific handler,
+// not a stub) but still quarantines as unknown_schema rather than committing
+// a fact -- generalizing ingestJSON's schema dispatch for hook_http the way
+// ADR 0014 Gap A generalizes it for OTLP is explicitly a different gap
+// (adapter-aware ingestion dispatch), never silently folded into the
+// installer file-writer this test's own task scopes.
+func TestRealAdapterHookStdinPayloadsReachCodexAndClaudeHookRoutes(t *testing.T) {
+	store, ingestor, _ := testIngestor(t, 4<<20)
+	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
+	bearer := bytes.Repeat([]byte("b"), 32)
+	guard, err := localhttp.NewGuard([]string{"127.0.0.1", "::1", "localhost"}, []string{"http://127.0.0.1:3000", "http://[::1]:3000", "http://localhost:3000"}, bearer, bytes.Repeat([]byte("c"), 32), 1<<20, 120, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := NewIngressHTTPHandler(guard, ingestor, receiver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	send := func(path string, body []byte, remote string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:4318"+path, bytes.NewReader(body))
+		request.Host, request.RemoteAddr = "127.0.0.1:4318", remote
+		request.Header.Set("Authorization", "Bearer "+string(bearer))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	// A hook payload for an event outside the closed vocabulary is rejected
+	// by codexadapter/claudeadapter's own DecodeHookInput before it ever
+	// reaches the Ingestor -- this is the real per-adapter handler running,
+	// not a generic passthrough.
+	unsupportedCodex, _ := json.Marshal(map[string]any{"hook_event_name": "SomeFutureEvent", "session_id": "codex-real-session-1"})
+	unsupportedResponse := send("/v1/hooks/codex/SomeFutureEvent", unsupportedCodex, "127.0.0.1:52012")
+	if unsupportedResponse.Code != http.StatusBadRequest {
+		t.Fatalf("an event outside codexadapter's closed hook vocabulary must be rejected by the real handler, status=%d body=%s", unsupportedResponse.Code, unsupportedResponse.Body.String())
+	}
+
+	// A well-formed, documented SessionStart payload for both adapters is
+	// decoded, mapped to its canonical event type and allowlist-validated by
+	// the real codexHookHandler/claudeHookHandler -- proving the installed
+	// hook helper's payload genuinely drives that adapter-specific code path
+	// end to end -- but still quarantines (never silently drops or fakes a
+	// commit) because ingestJSON's schema recognition has not yet been
+	// generalized past the Session 03 fixture-agent schema; that
+	// generalization is ADR 0014 Gap A's stated territory, not this gap's.
+	codexStdin, _ := json.Marshal(map[string]any{"hook_event_name": "SessionStart", "session_id": "codex-real-session-1"})
+	codexResponse := send("/v1/hooks/codex/SessionStart", codexStdin, "127.0.0.1:52010")
+	if codexResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected the real codex hook route to reach ingestJSON's schema quarantine (status 400), got status=%d body=%s -- if this now succeeds, ingestJSON has been generalized and this test's documented limitation should be updated to assert a committed fact instead", codexResponse.Code, codexResponse.Body.String())
+	}
+
+	claudeStdin, _ := json.Marshal(map[string]any{"hook_event_name": "SessionStart", "session_id": "claude-real-session-1"})
+	claudeResponse := send("/v1/hooks/claude/SessionStart", claudeStdin, "127.0.0.1:52011")
+	if claudeResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected the real claude hook route to reach ingestJSON's schema quarantine (status 400), got status=%d body=%s -- if this now succeeds, ingestJSON has been generalized and this test's documented limitation should be updated to assert a committed fact instead", claudeResponse.Code, claudeResponse.Body.String())
+	}
+
+	// Neither the unsupported-event rejection nor the schema quarantine ever
+	// fabricates a committed fact.
+	if len(store.Snapshot().Facts) != 0 {
+		t.Fatalf("neither an unsupported hook event nor a schema-quarantined one may ever produce a fact, got %d", len(store.Snapshot().Facts))
 	}
 }
 

@@ -23,6 +23,7 @@ type ObservabilityHandoff struct {
 }
 
 var _ observability.DurableFactSink = (*ObservabilityHandoff)(nil)
+var _ observability.DurableMetadataSink = (*ObservabilityHandoff)(nil)
 
 func NewObservabilityHandoff(pool *pgxpool.Pool, timeout time.Duration) (*ObservabilityHandoff, error) {
 	if pool == nil {
@@ -184,4 +185,37 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		AssertValueState:  evidence.Assertion.ValueState,
 	})
 	return err
+}
+
+func (h *ObservabilityHandoff) PersistQuarantineMetadata(quarantine observability.Quarantine, incident observability.Incident) error {
+	if h == nil || h.pool == nil {
+		return errors.New("observability_handoff_not_configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), h.timeout)
+	defer cancel()
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO schema_quarantine_metadata (
+			quarantine_id,source_kind,schema_fingerprint,category,
+			byte_count,record_count,observed_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7)
+		ON CONFLICT (quarantine_id) DO NOTHING
+	`, quarantine.QuarantineID, quarantine.SourceKind, quarantine.SchemaFingerprint,
+		quarantine.Category, quarantine.ByteCount, quarantine.RecordCount,
+		quarantine.ObservedAt); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO incidents (incident_id,category,opened_at,resolved_at)
+		VALUES ($1,$2,$3,$4)
+		ON CONFLICT (incident_id) DO UPDATE SET
+			category=EXCLUDED.category
+	`, incident.IncidentID, incident.Category, incident.OpenedAt, incident.ResolvedAt); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

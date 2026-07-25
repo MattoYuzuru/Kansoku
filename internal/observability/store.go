@@ -313,6 +313,11 @@ type DurableSpool struct {
 	maxBytes int64
 }
 
+type SpoolStats struct {
+	Depth    int
+	OldestAt time.Time
+}
+
 func NewDurableSpool(path string, maxBytes int64) (*DurableSpool, error) {
 	if !filepath.IsAbs(path) || maxBytes < 1024 {
 		return nil, errors.New("invalid_spool_configuration")
@@ -377,6 +382,34 @@ func (s *DurableSpool) Replay(commit func(CommitRequest) error) error {
 		return errors.New("spool_drain_failure")
 	}
 	return nil
+}
+
+// Stats returns framing and age metadata without exposing any persisted fact.
+func (s *DurableSpool) Stats() (SpoolStats, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	raw, err := readSecureSpool(s.path, s.maxBytes)
+	if err != nil {
+		return SpoolStats{}, errors.New("spool_open_failure")
+	}
+	if len(raw) == 0 {
+		return SpoolStats{}, nil
+	}
+	if raw[len(raw)-1] != '\n' {
+		return SpoolStats{}, errors.New("spool_decode_failure")
+	}
+	stats := SpoolStats{}
+	for _, encoded := range bytes.Split(raw[:len(raw)-1], []byte{'\n'}) {
+		var request CommitRequest
+		if len(encoded) == 0 || strictUnmarshal(encoded, &request) != nil || validateSpoolRequest(request) != nil {
+			return SpoolStats{}, errors.New("spool_decode_failure")
+		}
+		stats.Depth++
+		if stats.OldestAt.IsZero() || request.Event.IngestedAt.Before(stats.OldestAt) {
+			stats.OldestAt = request.Event.IngestedAt
+		}
+	}
+	return stats, nil
 }
 
 // CheckDurableSpool validates path security, framing, strict JSON shape and

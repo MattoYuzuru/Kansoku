@@ -1,0 +1,10 @@
+.git
+.agents
+.codex
+.session09-review-runtime
+benchmarks
+reports
+**/*_test.go
+
+# Local deployment secrets
+deploy/secrets/

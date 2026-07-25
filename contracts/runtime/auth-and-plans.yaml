@@ -1,0 +1,48 @@
+{
+  "schema_version": "kansoku.runtime-auth-and-plans/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-24",
+  "secret_files": {
+    "required": ["ingress_bearer", "read_bearer", "mutation_bearer", "csrf", "identity_hmac", "audit_hmac", "database_password"],
+    "minimum_bytes": 32,
+    "all_values_pairwise_distinct": true,
+    "file_mode": "0600_or_compose_secret",
+    "regular_file_no_symlink": true,
+    "maximum_bytes": 4096,
+    "trim_one_trailing_newline": true,
+    "forbidden_locations": ["url_query", "committed_compose_value", "log", "diagnostics", "api_response", "process_argument"],
+    "environment_may_contain_only_file_locator": true
+  },
+  "route_authorization": {
+    "ingress": {"credential": "ingress_bearer", "csrf": false, "origin": "reject", "methods": ["POST"]},
+    "read": {"credential": "read_bearer", "csrf": false, "origin": "same_origin_when_present", "methods": ["GET", "HEAD"]},
+    "mutation": {"credential": "mutation_bearer", "csrf": true, "origin": "required_same_origin", "methods": ["POST", "PUT", "PATCH", "DELETE"]},
+    "admin": {"credential": "mutation_bearer", "csrf": true, "origin": "required_same_origin", "methods": ["POST"], "separate_from_ingress_and_read": true},
+    "comparison": "sha256_then_constant_time_fixed_length",
+    "forwarded_headers": "reject",
+    "wildcard_cors": "forbidden"
+  },
+  "plan_preview": {
+    "reuses": ["internal/installer.Plan", "internal/installer.PlanSHA256"],
+    "required_response_fields": ["plan_id", "target_id", "plan_sha256", "original_sha256", "planned_sha256", "exact_operations", "privacy_tradeoffs", "expires_at"],
+    "stores_raw_config": false,
+    "ttl_seconds": 600,
+    "maximum_outstanding": 32,
+    "does_not_write": true
+  },
+  "plan_apply": {
+    "reuses": ["internal/installer.Approval", "internal/installer.SimulateApply"],
+    "required_request_fields": ["plan_id", "plan_sha256", "target_id", "original_sha256", "planned_sha256", "approval_nonce"],
+    "approval_binding": ["plan_sha256", "target_id", "original_sha256", "planned_sha256", "approval_nonce"],
+    "rejects": ["expired_preview", "unknown_preview", "replay_nonce", "config_race", "target_mismatch", "hash_mismatch"],
+    "write_boundary": "the API may return an approved materialized result and audit receipt, but no agent configuration file is written unless a separately supplied target-specific writer performs an atomic backup-bound write; Session09 default Compose mounts no agent configuration",
+    "automatic_retry": false,
+    "receipt_fields": ["plan_sha256", "target_id", "operation", "result", "before_sha256", "after_sha256"]
+  },
+  "admin_mutation": {
+    "request_binding_fields": ["request_id", "operation", "parameters_sha256", "approval_nonce"],
+    "preview_required_for": ["retention_apply", "import"],
+    "approval_nonce_single_use": true,
+    "external_agent_mutations_automatic_retry": false
+  }
+}
