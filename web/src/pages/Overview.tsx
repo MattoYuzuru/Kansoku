@@ -16,7 +16,7 @@ import { GapNote, Panel } from "../components/Panel";
 import { PercentageDisplay } from "../components/PercentageDisplay";
 import { RangeControl } from "../components/RangeControl";
 import { StatusBadge } from "../components/StatusBadge";
-import { deriveViewState } from "../api/client";
+import { deriveViewState, type ViewState } from "../api/client";
 import {
   useActivityTimeline,
   useCompletenessSummary,
@@ -71,10 +71,16 @@ export function Overview() {
 
   const funnelRows = funnel.data?.data?.data ?? [];
   const funnelState = deriveViewState(funnel.data, { isLoading: funnel.isLoading });
-  const installed = funnelRows.find((r) => r.stage === "installed")?.component_count ?? 0;
-  const enabled = funnelRows.find((r) => r.stage === "enabled")?.component_count ?? 0;
-  const invoked = funnelRows.find((r) => r.stage === "invoked")?.component_count ?? 0;
-  const succeeded = funnelRows.find((r) => r.stage === "succeeded")?.component_count ?? 0;
+  const installedRow = funnelRows.find((r) => r.stage === "installed");
+  const enabledRow = funnelRows.find((r) => r.stage === "enabled");
+  const executedRow = funnelRows.find((r) => r.stage === "executed");
+  const succeededRow = funnelRows.find((r) => r.stage === "succeeded");
+  const installed = installedRow?.component_count ?? 0;
+  const enabled = enabledRow?.component_count ?? 0;
+  const executed = executedRow?.component_count ?? 0;
+  const succeeded = succeededRow?.component_count ?? 0;
+  const funnelRowState = (valueState: string | undefined): ViewState =>
+    funnel.isLoading ? "loading" : ((valueState as ViewState | undefined) ?? funnelState);
 
   const incidentColumns: Column<Incident>[] = [
     { key: "incident_id", header: "Incident", render: (r) => r.incident_id },
@@ -149,18 +155,22 @@ export function Overview() {
 
       <Panel title="Component lifecycle funnel (all kinds)">
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Installed" value={installed} state={funnelState} />
           <KpiCard
-            label="Activation ratio"
+            label="Installed"
+            value={installed}
+            state={funnelRowState(installedRow?.value_state)}
+          />
+          <KpiCard
+            label="Enablement ratio"
             value={installed > 0 ? Math.round((100 * enabled) / installed) : null}
             unit="%"
-            state={funnelState}
+            state={installed > 0 ? funnelRowState(enabledRow?.value_state) : "not_observed"}
           />
           <KpiCard
             label="Success ratio"
-            value={invoked > 0 ? Math.round((100 * succeeded) / invoked) : null}
+            value={executed > 0 ? Math.round((100 * succeeded) / executed) : null}
             unit="%"
-            state={funnelState}
+            state={executed > 0 ? funnelRowState(succeededRow?.value_state) : "not_observed"}
           />
         </div>
         {funnelRows.length > 0 ? (
@@ -176,6 +186,11 @@ export function Overview() {
             {funnel.isLoading ? "Loading…" : "No component lifecycle events observed in this range."}
           </p>
         )}
+        <GapNote>
+          Installed and enabled are current inventory observations. Later stages
+          require runtime lifecycle evidence and remain “Not observed” when the
+          active agent interface emits no qualifying signal.
+        </GapNote>
       </Panel>
 
       <Panel title="Incidents & drift">

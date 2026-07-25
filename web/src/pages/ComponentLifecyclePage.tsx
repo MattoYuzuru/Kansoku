@@ -14,7 +14,7 @@ import { KpiCard } from "../components/KpiCard";
 import { ChartContainer } from "../components/ChartContainer";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
-import { deriveViewState } from "../api/client";
+import { deriveViewState, type ViewState } from "../api/client";
 import { useComponentLifecycleFunnel } from "../api/queries";
 import { useRange } from "../hooks/useRange";
 import { funnelBarOption } from "../components/chartOptions";
@@ -50,10 +50,16 @@ export function ComponentLifecyclePage({
 
   const rows = funnel.data?.data?.data ?? [];
   const state = deriveViewState(funnel.data, { isLoading: funnel.isLoading });
-  const installed = rows.find((r) => r.stage === "installed")?.component_count ?? 0;
-  const enabled = rows.find((r) => r.stage === "enabled")?.component_count ?? 0;
-  const invoked = rows.find((r) => r.stage === "invoked")?.component_count ?? 0;
-  const succeeded = rows.find((r) => r.stage === "succeeded")?.component_count ?? 0;
+  const installedRow = rows.find((r) => r.stage === "installed");
+  const enabledRow = rows.find((r) => r.stage === "enabled");
+  const executedRow = rows.find((r) => r.stage === "executed");
+  const succeededRow = rows.find((r) => r.stage === "succeeded");
+  const installed = installedRow?.component_count ?? 0;
+  const enabled = enabledRow?.component_count ?? 0;
+  const executed = executedRow?.component_count ?? 0;
+  const succeeded = succeededRow?.component_count ?? 0;
+  const rowState = (valueState: string | undefined): ViewState =>
+    funnel.isLoading ? "loading" : ((valueState as ViewState | undefined) ?? state);
 
   return (
     <section className="k-page">
@@ -64,18 +70,18 @@ export function ComponentLifecyclePage({
 
       <Panel title="Lifecycle funnel" actions={<RangeControl range={range} />}>
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Installed" value={installed} state={state} />
+          <KpiCard label="Installed" value={installed} state={rowState(installedRow?.value_state)} />
           <KpiCard
-            label="Activation ratio"
+            label="Enablement ratio"
             value={installed > 0 ? Math.round((100 * enabled) / installed) : null}
             unit="%"
-            state={installed > 0 ? state : "not_observed"}
+            state={installed > 0 ? rowState(enabledRow?.value_state) : "not_observed"}
           />
           <KpiCard
             label="Success ratio"
-            value={invoked > 0 ? Math.round((100 * succeeded) / invoked) : null}
+            value={executed > 0 ? Math.round((100 * succeeded) / executed) : null}
             unit="%"
-            state={invoked > 0 ? state : "not_observed"}
+            state={executed > 0 ? rowState(succeededRow?.value_state) : "not_observed"}
           />
         </div>
         {rows.length > 0 ? (
@@ -92,6 +98,10 @@ export function ComponentLifecyclePage({
           </p>
         )}
         <GapNote>
+          Installed and enabled come from the latest bounded, read-only inventory
+          snapshot in this range. Exposed, invoked, loaded, executed, and succeeded
+          require runtime evidence; zero with “Not observed” means no qualifying
+          native or reconstructed signal was seen, not that the component failed.{" "}
           Cold/unused reason codes and a per-component evidence table are not shown: the
           lifecycle funnel reports stage/component/event counts only, with no
           reason-code or evidence-row dimension available to build either honestly.
