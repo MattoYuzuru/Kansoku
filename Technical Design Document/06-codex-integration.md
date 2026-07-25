@@ -114,3 +114,10 @@ deletes its generated workspace through a separately controlled temp lifecycle.
 The compatibility matrix is backed by fixtures and live evidence, every source can fail visibly,
 and the adapter never represents inferred Codex skill use as a native exact activation.
 
+## Codex OTel mapping (reconciled 2026-07-25)
+
+Recognized resources are `codex_cli_rs`, `codex_exec`, `codex_mcp_server` and
+`codex-app-server`. `codex.user_prompt` maps source-reported character length,
+`codex.tool_result` maps tool/duration/success, and token-bearing `codex.sse_event` maps
+model/input/output tokens. `codex.tool_decision`, API records, token summary records and
+non-terminal SSE records use `source.observed` and have no component/model projection.

@@ -106,6 +106,9 @@ func TestActivityTimelineAggregatesSessionsAndPromptsWithinRangeAndBudget(t *tes
 	if day.ActiveDurationSeconds == nil {
 		t.Fatalf("expected a non-nil active_duration_seconds when sessions are present")
 	}
+	if got, want := *day.ActiveDurationSeconds, 120.0; got != want {
+		t.Fatalf("active_duration_seconds = %v, want %v (one span per session, not one span per event)", got, want)
+	}
 	if response.Population.Denominator == 0 {
 		t.Fatalf("expected a nonzero denominator when activity is present: %+v", response.Population)
 	}

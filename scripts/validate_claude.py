@@ -320,7 +320,7 @@ def validate_claude(
         errors.append("hook/OTel/transcript independent capability degradation guarantee weakened")
 
     mapping = hooks_and_otel.get("source_event_mapping", [])
-    if len(mapping) != 11:
+    if len(mapping) != 15:
         errors.append("hooks-and-otel.yaml source_event_mapping row count changed")
 
     # -- transcript-and-inventory.yaml --

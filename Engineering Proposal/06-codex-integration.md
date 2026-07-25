@@ -79,3 +79,9 @@ chain, inventory is correct, raw prompt content is absent, replay is idempotent,
 breaking any source yields a capability-specific degraded incident rather than plausible-looking
 zero usage.
 
+## 2026-07-25 live-shape correction
+
+Codex surfaces use their real `service.name` values and the record’s `event.name`. A completed SSE
+record supplies the model/token projection, `tool_result` supplies the single tool-call projection,
+and decisions/non-terminal SSE/API records remain `source.observed` metadata so normal exporter
+traffic does not create false schema-drift incidents.

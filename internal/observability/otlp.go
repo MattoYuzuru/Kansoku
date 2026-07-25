@@ -242,8 +242,21 @@ func safeFields(attributes []*commonv1.KeyValue, timestamp uint64) (map[string]a
 	for _, optional := range []struct{ attr, field string }{
 		{"kansoku.outcome", "outcome"}, {"kansoku.value_state", "value_state"},
 		{"kansoku.model.id", "model"}, {"kansoku.tool.id", "tool_name"},
+		{"kansoku.component.kind", "component_kind"},
+		{"kansoku.turn.id", "turn_id"},
 	} {
 		if value := stringAttribute(attributes, optional.attr); value != "" {
+			fields[optional.field] = value
+		}
+	}
+	for _, optional := range []struct{ attr, field string }{
+		{"kansoku.duration_ms", "duration_ms"},
+		{"kansoku.prompt_length_characters", "prompt_character_count"},
+		{"kansoku.input_tokens", "input_tokens"},
+		{"kansoku.output_tokens", "output_tokens"},
+		{"kansoku.provider_cost_micros", "provider_cost_micros"},
+	} {
+		if value, ok := int64Attribute(attributes, optional.attr); ok {
 			fields[optional.field] = value
 		}
 	}
@@ -312,7 +325,15 @@ func translateToSafeAttributes(kind otlpAdapterKind, attributes []*commonv1.KeyV
 			continue
 		}
 		if slot, ok := nativeAttributeSafeSlot(kind, key); ok {
-			translated = append(translated, &commonv1.KeyValue{Key: slot, Value: attribute.GetValue()})
+			value := attribute.GetValue()
+			if slot == "kansoku.outcome" {
+				if outcome, ok := outcomeValue(value); ok {
+					value = &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: outcome}}
+				} else {
+					continue
+				}
+			}
+			translated = append(translated, &commonv1.KeyValue{Key: slot, Value: value})
 		}
 	}
 	return translated
@@ -332,11 +353,44 @@ func translateToSafeAttributes(kind otlpAdapterKind, attributes []*commonv1.KeyV
 func syntheticEventID(kind otlpAdapterKind, scopeName string, timestamp uint64, safeAttributes []*commonv1.KeyValue) string {
 	pairs := make([]string, 0, len(safeAttributes))
 	for _, attribute := range safeAttributes {
-		pairs = append(pairs, attribute.GetKey()+"="+attribute.GetValue().GetStringValue())
+		pairs = append(pairs, attribute.GetKey()+"="+canonicalScalar(attribute.GetValue()))
 	}
 	sort.Strings(pairs)
 	values := append([]string{strconv.Itoa(int(kind)), scopeName, strconv.FormatUint(timestamp, 10)}, pairs...)
 	return "otel-synthetic-record/1:" + stableID("otel-synthetic-record/1", values...)
+}
+
+func outcomeValue(value *commonv1.AnyValue) (string, bool) {
+	switch typed := value.GetValue().(type) {
+	case *commonv1.AnyValue_BoolValue:
+		if typed.BoolValue {
+			return "succeeded", true
+		}
+		return "failed", true
+	case *commonv1.AnyValue_StringValue:
+		switch strings.ToLower(typed.StringValue) {
+		case "true", "success", "succeeded", "ok":
+			return "succeeded", true
+		case "false", "failure", "failed", "error":
+			return "failed", true
+		}
+	}
+	return "", false
+}
+
+func canonicalScalar(value *commonv1.AnyValue) string {
+	switch typed := value.GetValue().(type) {
+	case *commonv1.AnyValue_StringValue:
+		return "s:" + typed.StringValue
+	case *commonv1.AnyValue_IntValue:
+		return "i:" + strconv.FormatInt(typed.IntValue, 10)
+	case *commonv1.AnyValue_BoolValue:
+		return "b:" + strconv.FormatBool(typed.BoolValue)
+	case *commonv1.AnyValue_DoubleValue:
+		return "d:" + strconv.FormatFloat(typed.DoubleValue, 'g', -1, 64)
+	default:
+		return "unsupported"
+	}
 }
 
 func stringAttribute(attributes []*commonv1.KeyValue, name string) string {
@@ -354,6 +408,26 @@ func intAttribute(attributes []*commonv1.KeyValue, name string) int64 {
 		}
 	}
 	return 0
+}
+
+func int64Attribute(attributes []*commonv1.KeyValue, name string) (int64, bool) {
+	for _, attribute := range attributes {
+		if attribute.GetKey() != name {
+			continue
+		}
+		switch typed := attribute.GetValue().GetValue().(type) {
+		case *commonv1.AnyValue_IntValue:
+			return typed.IntValue, true
+		case *commonv1.AnyValue_StringValue:
+			value, err := strconv.ParseInt(typed.StringValue, 10, 64)
+			return value, err == nil
+		case *commonv1.AnyValue_DoubleValue:
+			if typed.DoubleValue >= 0 && typed.DoubleValue <= float64(^uint64(0)>>1) {
+				return int64(typed.DoubleValue), typed.DoubleValue == float64(int64(typed.DoubleValue))
+			}
+		}
+	}
+	return 0, false
 }
 
 func knownResource(resource *resourcev1.Resource) bool {
@@ -401,24 +475,50 @@ func matchAdapterResource(resource *resourcev1.Resource) otlpAdapterKind {
 // canonicalEventTypeForAdapter resolves one observed OTLP record's
 // canonical event type for a real (non-fixture) adapter match, by calling
 // that adapter's own already-implemented, already-unit-tested
-// CanonicalEventForOTel with the record's instrumentation scope name as the
-// documented OTel event name and the closed set of already-safe attribute
-// keys actually present on the record as the schema-fingerprint input. The
-// fixture-agent lane never calls this: its canonical event_type continues
-// to come straight from the trusted kansoku.event.type attribute exactly as
-// before.
-func canonicalEventTypeForAdapter(kind otlpAdapterKind, scopeName string, attributes []*commonv1.KeyValue) (string, error) {
+// CanonicalEventForOTel with the record's real per-record event name (see
+// nativeEventName) as the documented OTel event name and the closed set of
+// already-safe attribute keys actually present on the record as the
+// schema-fingerprint input. eventName is also fed into
+// OTelAttributeShape.InstrumentationScope: despite that field's name, both
+// adapters' ExpectedOTelAttributeFingerprint/CanonicalEventForOTel require it
+// to hold the same value as the OTelEventName being checked, so passing
+// anything else here would make the fingerprint check fail even for a
+// correctly-shaped record. The fixture-agent lane never calls this: its
+// canonical event_type continues to come straight from the trusted
+// kansoku.event.type attribute exactly as before.
+func canonicalEventTypeForAdapter(kind otlpAdapterKind, eventName string, attributes []*commonv1.KeyValue) (string, error) {
 	presentKeys := presentSafeAttributeKeys(attributes)
 	switch kind {
 	case adapterCodex:
-		shape := codexadapter.OTelAttributeShape{InstrumentationScope: scopeName, PresentAttributeKeys: presentKeys}
-		return codexadapter.CanonicalEventForOTel(codexadapter.OTelEventName(scopeName), shape)
+		shape := codexadapter.OTelAttributeShape{InstrumentationScope: eventName, PresentAttributeKeys: presentKeys}
+		return codexadapter.CanonicalEventForOTel(codexadapter.OTelEventName(eventName), shape)
 	case adapterClaude:
-		shape := claudeadapter.OTelAttributeShape{InstrumentationScope: scopeName, PresentAttributeKeys: presentKeys}
-		return claudeadapter.CanonicalEventForOTel(claudeadapter.OTelEventName(scopeName), shape)
+		shape := claudeadapter.OTelAttributeShape{InstrumentationScope: eventName, PresentAttributeKeys: presentKeys}
+		return claudeadapter.CanonicalEventForOTel(claudeadapter.OTelEventName(eventName), shape)
 	default:
 		return "", errors.New("otlp_adapter_not_recognized")
 	}
+}
+
+// nativeEventName resolves the real, per-record event name for one observed
+// OTLP record. Both Codex and Claude Code stamp the OTel instrumentation
+// scope name with a single fixed string shared across every record a given
+// exporter sends (for example "codex_otel.log_only" or
+// "com.anthropic.claude_code.events") -- it is never the per-record event
+// identity. The actual per-record event name both products send is a plain
+// OTLP attribute literally named "event.name" (not the OTLP LogRecord
+// EventName protobuf field, which both products leave empty or fill with an
+// unrelated tracing-bridge-generated value). A record with no "event.name"
+// attribute -- the fixture-agent lane, or a real record predating this
+// attribute -- falls back to scopeName, preserving prior behavior exactly.
+func nativeEventName(kind otlpAdapterKind, scopeName string, attributes []*commonv1.KeyValue) string {
+	if kind == adapterFixture || kind == adapterNone {
+		return scopeName
+	}
+	if name := stringAttribute(attributes, "event.name"); name != "" {
+		return name
+	}
+	return scopeName
 }
 
 // presentSafeAttributeKeys returns the closed set of already-safe
@@ -447,6 +547,7 @@ func presentSafeAttributeKeys(attributes []*commonv1.KeyValue) []string {
 // safeFields/IngestSafeFields's existing allowlist -- never a second,
 // parallel allowlist and never a raw native attribute name passed through.
 func (r *OTLPReceiver) ingestOneRecord(kind otlpAdapterKind, scopeName string, attributes []*commonv1.KeyValue, timestamp uint64, sourceKind SourceKind) error {
+	eventName := nativeEventName(kind, scopeName, attributes)
 	safeAttributes := translateToSafeAttributes(kind, attributes)
 	if kind != adapterFixture && kind != adapterNone {
 		if stringAttribute(safeAttributes, "kansoku.event.id") == "" {
@@ -456,7 +557,7 @@ func (r *OTLPReceiver) ingestOneRecord(kind otlpAdapterKind, scopeName string, a
 			})
 		}
 		// A real Codex/Claude record declares its event type through its
-		// OTel instrumentation scope/event name, never through a
+		// real per-record event name (see nativeEventName), never through a
 		// kansoku.event.type-shaped attribute (that is a fixture-agent-only
 		// wire convention). codexadapter/claudeadapter's schema-fingerprint
 		// mechanism (ExpectedOTelAttributeFingerprint) nonetheless expects
@@ -465,28 +566,74 @@ func (r *OTLPReceiver) ingestOneRecord(kind otlpAdapterKind, scopeName string, a
 		// fixture-agent lane always sends it. The marker's value is never
 		// trusted -- canonicalEventTypeForAdapter below always overwrites
 		// event_type with the value CanonicalEventForOTel actually derives
-		// from the scope name and schema fingerprint, so a wrong or absent
+		// from the event name and schema fingerprint, so a wrong or absent
 		// marker value can never smuggle a fabricated event type through.
 		if stringAttribute(safeAttributes, "kansoku.event.type") == "" {
 			safeAttributes = append(safeAttributes, &commonv1.KeyValue{
 				Key:   "kansoku.event.type",
-				Value: &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: scopeName}},
+				Value: &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: eventName}},
 			})
 		}
 	}
+	addAdapterEventDefaults(kind, eventName, &safeAttributes)
 	fields, sequence, err := safeFields(safeAttributes, timestamp)
 	if err != nil {
 		return err
 	}
 	if kind != adapterFixture {
-		canonical, err := canonicalEventTypeForAdapter(kind, scopeName, safeAttributes)
+		canonical, err := canonicalEventTypeForAdapter(kind, eventName, safeAttributes)
+		if err != nil && kind == adapterCodex &&
+			eventName == string(codexadapter.OTelSSEEvent) &&
+			!hasCompletedSSETokens(safeAttributes) {
+			// codex.sse_event is an event family. Only response.completed
+			// carries the model/token shape projected as model.responded;
+			// other documented stream records remain durable source
+			// activity and are not schema-drift incidents.
+			canonical, err = "source.observed", nil
+		}
 		if err != nil {
-			return err
+			keys := make([]string, 0, len(attributes))
+			for _, attribute := range attributes {
+				keys = append(keys, attribute.GetKey())
+			}
+			sort.Strings(keys)
+			fingerprint := stableID("unsupported-adapter-event/1", append([]string{adapterIdentity(kind), eventName}, keys...)...)
+			return r.ingestor.IngestUnknown(sourceKind, fingerprint, 0, 1)
 		}
 		fields["event_type"] = canonical
 	}
 	_, err = r.ingestor.IngestSafeFields(fields, adapterIdentity(kind), sourceKind, sequence)
 	return err
+}
+
+func hasCompletedSSETokens(attributes []*commonv1.KeyValue) bool {
+	_, hasInput := int64Attribute(attributes, "kansoku.input_tokens")
+	_, hasOutput := int64Attribute(attributes, "kansoku.output_tokens")
+	return hasInput && hasOutput
+}
+
+func addAdapterEventDefaults(kind otlpAdapterKind, eventName string, attributes *[]*commonv1.KeyValue) {
+	addString := func(key, value string) {
+		if stringAttribute(*attributes, key) == "" {
+			*attributes = append(*attributes, &commonv1.KeyValue{
+				Key: key, Value: &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: value}},
+			})
+		}
+	}
+	switch {
+	case kind == adapterCodex && eventName == string(codexadapter.OTelSSEEvent) && hasCompletedSSETokens(*attributes):
+		addString("kansoku.outcome", "succeeded")
+	case kind == adapterClaude && eventName == string(claudeadapter.OTelAPIRequest):
+		addString("kansoku.outcome", "succeeded")
+	case kind == adapterClaude && eventName == string(claudeadapter.OTelAPIError):
+		addString("kansoku.outcome", "failed")
+	case kind == adapterClaude && eventName == string(claudeadapter.OTelSkillActivated):
+		addString("kansoku.component.kind", "skill")
+		addString("kansoku.outcome", "succeeded")
+	case kind == adapterClaude && (eventName == string(claudeadapter.OTelPluginInstalled) || eventName == string(claudeadapter.OTelPluginLoaded)):
+		addString("kansoku.component.kind", "plugin")
+		addString("kansoku.outcome", "succeeded")
+	}
 }
 
 // adapterIdentity maps a resolved otlpAdapterKind onto the stable adapter

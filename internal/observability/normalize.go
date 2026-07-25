@@ -63,14 +63,35 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 			confidence = 0.95
 		}
 	}
-	success := record.Outcome == "succeeded"
+	var success *bool
+	switch record.Outcome {
+	case "succeeded":
+		value := true
+		success = &value
+	case "failed":
+		value := false
+		success = &value
+	}
 	componentID := ""
-	if record.Tool.ID != nil {
-		componentID = *record.Tool.ID
-	} else if len(record.ComponentMentions) > 0 {
-		mentions := append([]string(nil), record.ComponentMentions...)
-		sort.Strings(mentions)
-		componentID = mentions[0]
+	if eventCarriesComponent(eventType) {
+		if record.Tool.ID != nil {
+			componentID = *record.Tool.ID
+		} else if len(record.ComponentMentions) > 0 {
+			mentions := append([]string(nil), record.ComponentMentions...)
+			sort.Strings(mentions)
+			componentID = mentions[0]
+		}
+	}
+	modelID := ""
+	if record.Model.ID != nil {
+		modelID = *record.Model.ID
+	}
+	subjectKind := record.ComponentKind
+	if subjectKind == "" && eventType == "tool.called" {
+		subjectKind = "tool"
+	}
+	if subjectKind == "" && record.AdapterID == "fixture-agent" {
+		subjectKind = "component"
 	}
 	factKey := stableID("fact/1", record.RecordID, eventType)
 	eventID := "evt_" + factKey[:32]
@@ -80,7 +101,9 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 	case SourceTranscript:
 		schemaID = "fixture.agent-transcript/1"
 	case SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric:
-		schemaID = fixtureOTLPSchema
+		if record.AdapterID == FixtureAdapterID {
+			schemaID = fixtureOTLPSchema
+		}
 	case SourceAdapterBatch:
 		schemaID = record.SourceSchemaID
 	}
@@ -90,15 +113,31 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 	if delta := record.ObservedAt.UTC().Sub(now); delta > 5*time.Minute || delta < -5*time.Minute {
 		timestampQuality = "source_clock_skewed"
 	}
+	installationID := "ain_fixture"
+	deviceID := "dev_fixture"
+	if record.AdapterID != FixtureAdapterID {
+		installationID = "ain_" + stableID("agent-installation/1", record.AdapterID)[:32]
+		deviceID = "dev_" + stableID("device/1", record.AdapterID)[:32]
+	}
+	turnID := ""
+	if len(record.Lineage.TurnPseudonym) >= 24 {
+		turnID = "trn_" + record.Lineage.TurnPseudonym[:24]
+	}
 	event := Event{
 		SpecVersion: EventSpecVersion, EventID: eventID, FactKey: factKey, EventType: eventType,
 		EmittedAt: record.ObservedAt.UTC(), ObservedAt: record.ObservedAt.UTC(), IngestedAt: now,
 		TimestampQuality: timestampQuality, Source: SourceRef{
 			AdapterID: record.AdapterID, AdapterVersion: record.AdapterVersion, Kind: kind,
 			SchemaID: schemaID, SchemaFingerprint: schemaFingerprint,
-			InstallationID: "ain_fixture", NativeEventID: record.Lineage.SourceRecordPseudonym, Sequence: sequence,
-		}, Scope: Scope{DeviceID: "dev_fixture", AgentInstallationID: "ain_fixture", SessionID: "ses_" + record.Lineage.SessionPseudonym[:24]},
-		Subject: Subject{Kind: "component", ComponentID: componentID}, Measurements: Measurements{Success: &success},
+			InstallationID: installationID, NativeEventID: record.Lineage.SourceRecordPseudonym, Sequence: sequence,
+		}, Scope: Scope{DeviceID: deviceID, AgentInstallationID: installationID, SessionID: "ses_" + record.Lineage.SessionPseudonym[:24], TurnID: turnID},
+		Subject: Subject{Kind: subjectKind, ComponentID: componentID, ModelID: modelID},
+		Measurements: Measurements{
+			DurationMS: record.Telemetry.DurationMS, Success: success,
+			PromptCharacterCount: record.Telemetry.PromptCharacterCount,
+			InputTokens:          record.Telemetry.InputTokens, OutputTokens: record.Telemetry.OutputTokens,
+			ProviderCostMicros: record.Telemetry.ProviderCostMicros,
+		},
 		ValueState: string(record.ValueState), Outcome: record.Outcome, CorrelationStatus: CorrelationExact,
 		Lifecycle: []EventStage{StageReceived, StageSanitized, StageValidated, StageNormalized},
 	}
@@ -109,6 +148,15 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 		Assertion: EvidenceAssertion{EventType: eventType, Outcome: record.Outcome, ValueState: string(record.ValueState)},
 	}
 	return event, evidence, nil
+}
+
+func eventCarriesComponent(eventType string) bool {
+	switch eventType {
+	case "tool.called", "component.installed", "component.loaded", "component.invoked", "component.executed":
+		return true
+	default:
+		return false
+	}
 }
 
 func Correlate(event Event, candidates []Candidate) Correlation {

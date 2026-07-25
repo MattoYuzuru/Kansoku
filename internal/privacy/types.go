@@ -8,17 +8,29 @@ import (
 // PrivacyContractSemanticSHA256 is generated from the canonical JSON encoding
 // of every contracts/privacy registry, ordered by repository-relative path.
 // scripts/validate_privacy.py refuses a registry/runtime drift.
-const PrivacyContractSemanticSHA256 = "e81482afd6005beb05eb3287397248367796adcbe2468132a960c5f3d608f974"
+const PrivacyContractSemanticSHA256 = "aae9dd52465391d01140d2886430f3ae4b4af082de24e5359a2d8e8103d43fca"
 
 type ValueState string
 
 const (
+	ValueObserved    ValueState = "observed"
 	ValueUnsupported ValueState = "unsupported"
 	ValueNotObserved ValueState = "not_observed"
 	ValueRedacted    ValueState = "redacted"
 	ValueUnknown     ValueState = "unknown"
 	ValueNumericZero ValueState = "numeric_zero"
 )
+
+// TelemetryMeasurements is the closed, content-free numeric subset accepted
+// from native agent telemetry. Pointers preserve not-observed separately
+// from a genuine numeric zero.
+type TelemetryMeasurements struct {
+	DurationMS           *int64 `json:"duration_ms"`
+	PromptCharacterCount *int64 `json:"prompt_character_count"`
+	InputTokens          *int64 `json:"input_tokens"`
+	OutputTokens         *int64 `json:"output_tokens"`
+	ProviderCostMicros   *int64 `json:"provider_cost_micros"`
+}
 
 type ObservationState string
 
@@ -154,6 +166,7 @@ type RedactionCounts struct {
 type Lineage struct {
 	SourceRecordPseudonym string `json:"source_record_pseudonym"`
 	SessionPseudonym      string `json:"session_pseudonym"`
+	TurnPseudonym         string `json:"turn_pseudonym"`
 	AdapterID             string `json:"adapter_id"`
 	AdapterVersion        string `json:"adapter_version"`
 	SourceSchemaID        string `json:"source_schema_id"`
@@ -165,24 +178,26 @@ type Lineage struct {
 // SafeRecord is an explicit persistence allowlist. It deliberately has no
 // generic payload/attributes map.
 type SafeRecord struct {
-	RecordID          string             `json:"record_id"`
-	IdempotencyKey    string             `json:"idempotency_key"`
-	AdapterID         string             `json:"adapter_id"`
-	AdapterVersion    string             `json:"adapter_version"`
-	SourceSchemaID    string             `json:"source_schema_id"`
-	SchemaFingerprint string             `json:"schema_fingerprint"`
-	ObservedAt        time.Time          `json:"observed_at"`
-	ReceivedAt        time.Time          `json:"received_at"`
-	Confidence        float64            `json:"confidence"`
-	EventType         string             `json:"event_type"`
-	Outcome           string             `json:"outcome"`
-	ValueState        ValueState         `json:"value_state"`
-	Model             CatalogObservation `json:"model"`
-	Tool              CatalogObservation `json:"tool"`
-	ComponentMentions []string           `json:"component_mentions"`
-	PromptFeatures    PromptFeatures     `json:"prompt_features"`
-	RedactionCounts   RedactionCounts    `json:"redaction_counts"`
-	Lineage           Lineage            `json:"lineage"`
+	RecordID          string                `json:"record_id"`
+	IdempotencyKey    string                `json:"idempotency_key"`
+	AdapterID         string                `json:"adapter_id"`
+	AdapterVersion    string                `json:"adapter_version"`
+	SourceSchemaID    string                `json:"source_schema_id"`
+	SchemaFingerprint string                `json:"schema_fingerprint"`
+	ObservedAt        time.Time             `json:"observed_at"`
+	ReceivedAt        time.Time             `json:"received_at"`
+	Confidence        float64               `json:"confidence"`
+	EventType         string                `json:"event_type"`
+	Outcome           string                `json:"outcome"`
+	ValueState        ValueState            `json:"value_state"`
+	Model             CatalogObservation    `json:"model"`
+	Tool              CatalogObservation    `json:"tool"`
+	ComponentKind     string                `json:"component_kind"`
+	ComponentMentions []string              `json:"component_mentions"`
+	PromptFeatures    PromptFeatures        `json:"prompt_features"`
+	Telemetry         TelemetryMeasurements `json:"telemetry"`
+	RedactionCounts   RedactionCounts       `json:"redaction_counts"`
+	Lineage           Lineage               `json:"lineage"`
 }
 
 // SafeError contains structural metadata only. Error intentionally returns

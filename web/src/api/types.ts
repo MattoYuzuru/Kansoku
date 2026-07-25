@@ -147,6 +147,7 @@ export interface PromptShapeDayRow {
   day: string;
   prompt_count: number;
   percentiles?: Percentiles;
+  character_percentiles?: Percentiles;
 }
 export interface PromptShapeResponse {
   data: PromptShapeDayRow[];

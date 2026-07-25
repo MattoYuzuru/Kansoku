@@ -59,6 +59,7 @@
     }
   ],
   "value_state_cases": [
+    {"input": "source_supplied_safe_value", "expected": "observed"},
     {"input": "capability_has_no_reliable_source", "expected": "unsupported"},
     {"input": "source_healthy_but_no_event", "expected": "not_observed"},
     {"input": "field_intentionally_removed", "expected": "redacted"},

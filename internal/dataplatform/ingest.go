@@ -22,6 +22,9 @@ type DimensionRefs struct {
 	SessionID           string
 	TurnID              string
 	ComponentID         string
+	ComponentKind       string
+	ModelID             string
+	ProviderID          string
 	AdapterVersionID    string
 	AdapterID           string
 	AdapterVersion      string
@@ -33,22 +36,29 @@ type DimensionRefs struct {
 // on via foreign keys (ON CONFLICT DO NOTHING keeps repeated fixture setup
 // calls safe).
 func EnsureDimensions(ctx context.Context, pool *pgxpool.Pool, refs DimensionRefs) error {
+	componentKind := refs.ComponentKind
+	if componentKind == "" {
+		componentKind = "skill"
+	}
 	statements := []struct {
-		sql  string
-		args []any
+		optional bool
+		sql      string
+		args     []any
 	}{
-		{`INSERT INTO devices (device_id) VALUES ($1) ON CONFLICT DO NOTHING`, []any{refs.DeviceID}},
-		{`INSERT INTO agent_installations (agent_installation_id, device_id, agent_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, []any{refs.AgentInstallationID, refs.DeviceID, refs.AgentID}},
-		{`INSERT INTO agent_surfaces (surface_id, agent_installation_id, surface_kind) VALUES ($1, $2, 'cli') ON CONFLICT DO NOTHING`, []any{refs.SurfaceID, refs.AgentInstallationID}},
-		{`INSERT INTO projects (project_id) VALUES ($1) ON CONFLICT DO NOTHING`, []any{refs.ProjectID}},
-		{`INSERT INTO sessions (session_id, project_id, started_at) VALUES ($1, $2, now()) ON CONFLICT DO NOTHING`, []any{refs.SessionID, refs.ProjectID}},
-		{`INSERT INTO turns (turn_id, session_id, started_at) VALUES ($1, $2, now()) ON CONFLICT DO NOTHING`, []any{refs.TurnID, refs.SessionID}},
-		{`INSERT INTO components (component_id, kind) VALUES ($1, 'skill') ON CONFLICT DO NOTHING`, []any{refs.ComponentID}},
-		{`INSERT INTO adapter_versions (adapter_version_id, adapter_id, version) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, []any{refs.AdapterVersionID, refs.AdapterID, refs.AdapterVersion}},
-		{`INSERT INTO source_instances (source_instance_id, adapter_version_id, source_kind) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, []any{refs.SourceInstanceID, refs.AdapterVersionID, refs.SourceKind}},
+		{false, `INSERT INTO devices (device_id) VALUES ($1) ON CONFLICT DO NOTHING`, []any{refs.DeviceID}},
+		{false, `INSERT INTO agent_installations (agent_installation_id, device_id, agent_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, []any{refs.AgentInstallationID, refs.DeviceID, refs.AgentID}},
+		{false, `INSERT INTO agent_surfaces (surface_id, agent_installation_id, surface_kind) VALUES ($1, $2, 'cli') ON CONFLICT DO NOTHING`, []any{refs.SurfaceID, refs.AgentInstallationID}},
+		{false, `INSERT INTO projects (project_id) VALUES ($1) ON CONFLICT DO NOTHING`, []any{refs.ProjectID}},
+		{false, `INSERT INTO sessions (session_id, project_id, started_at) VALUES ($1, $2, now()) ON CONFLICT DO NOTHING`, []any{refs.SessionID, refs.ProjectID}},
+		{refs.TurnID == "", `INSERT INTO turns (turn_id, session_id, started_at) VALUES ($1, $2, now()) ON CONFLICT DO NOTHING`, []any{refs.TurnID, refs.SessionID}},
+		{refs.ComponentID == "", `INSERT INTO components (component_id, kind) VALUES ($1, $2) ON CONFLICT DO NOTHING`, []any{refs.ComponentID, componentKind}},
+		{refs.ModelID == "", `INSERT INTO providers (provider_id) VALUES ($1) ON CONFLICT DO NOTHING`, []any{refs.ProviderID}},
+		{refs.ModelID == "", `INSERT INTO models (model_id, provider_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, []any{refs.ModelID, refs.ProviderID}},
+		{false, `INSERT INTO adapter_versions (adapter_version_id, adapter_id, version) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, []any{refs.AdapterVersionID, refs.AdapterID, refs.AdapterVersion}},
+		{false, `INSERT INTO source_instances (source_instance_id, adapter_version_id, source_kind) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, []any{refs.SourceInstanceID, refs.AdapterVersionID, refs.SourceKind}},
 	}
 	for _, statement := range statements {
-		if refs.ComponentID == "" && statement.sql[:len("INSERT INTO components")] == "INSERT INTO components" {
+		if statement.optional {
 			continue
 		}
 		if _, err := pool.Exec(ctx, statement.sql, statement.args...); err != nil {

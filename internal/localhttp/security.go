@@ -18,7 +18,7 @@ const (
 	RouteUIStream                    RouteMode = "ui_stream"
 	RouteHookOTLP                    RouteMode = "hook_otlp"
 	RouteUIMutation                  RouteMode = "ui_mutation"
-	DeploymentContractSemanticSHA256           = "e81482afd6005beb05eb3287397248367796adcbe2468132a960c5f3d608f974"
+	DeploymentContractSemanticSHA256           = "aae9dd52465391d01140d2886430f3ae4b4af082de24e5359a2d8e8103d43fca"
 )
 
 var canonicalHosts = map[string]struct{}{"127.0.0.1": {}, "::1": {}, "localhost": {}}
@@ -89,51 +89,54 @@ func (g *Guard) SetClockForTest(now func() time.Time) { g.now = now }
 
 func (g *Guard) Wrap(mode RouteMode, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		reject := func(reason string, status int) {
+			http.Error(writer, reason, status)
+		}
 		setSecurityHeaders(writer.Header())
 		if !validModeMethod(mode, request.Method) {
 			writer.Header().Set("Allow", allowedMethods(mode))
-			http.Error(writer, "method_not_allowed", http.StatusMethodNotAllowed)
+			reject("method_not_allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		for _, header := range forwardedHeaders {
 			if request.Header.Get(header) != "" {
-				http.Error(writer, "forwarded_headers_rejected", http.StatusBadRequest)
+				reject("forwarded_headers_rejected", http.StatusBadRequest)
 				return
 			}
 		}
 		peer := g.canonicalPeerIP(request.RemoteAddr)
 		if peer == "" {
-			http.Error(writer, "forbidden_peer", http.StatusForbidden)
+			reject("forbidden_peer", http.StatusForbidden)
 			return
 		}
 		host, ok := g.canonicalRequestHost(request.Host)
 		if !ok {
-			http.Error(writer, "invalid_host", http.StatusMisdirectedRequest)
+			reject("invalid_host", http.StatusMisdirectedRequest)
 			return
 		}
 		if _, allowed := g.allowedHosts[host]; !allowed {
-			http.Error(writer, "invalid_host", http.StatusMisdirectedRequest)
+			reject("invalid_host", http.StatusMisdirectedRequest)
 			return
 		}
 		if !g.hostMatchesMode(mode, request.Host) {
-			http.Error(writer, "invalid_route_host", http.StatusMisdirectedRequest)
+			reject("invalid_route_host", http.StatusMisdirectedRequest)
 			return
 		}
 		origin := request.Header.Get("Origin")
 		switch mode {
 		case RouteHookOTLP:
 			if origin != "" {
-				http.Error(writer, "origin_not_allowed", http.StatusForbidden)
+				reject("origin_not_allowed", http.StatusForbidden)
 				return
 			}
 		case RouteUIMutation:
 			if !g.validOrigin(origin, request.Host) {
-				http.Error(writer, "invalid_origin", http.StatusForbidden)
+				reject("invalid_origin", http.StatusForbidden)
 				return
 			}
 		case RouteUIStream:
 			if origin != "" && !g.validOrigin(origin, request.Host) {
-				http.Error(writer, "invalid_origin", http.StatusForbidden)
+				reject("invalid_origin", http.StatusForbidden)
 				return
 			}
 		}
@@ -142,16 +145,16 @@ func (g *Guard) Wrap(mode RouteMode, next http.Handler) http.Handler {
 			writer.Header().Set("Vary", "Origin")
 		}
 		if !g.allow(peer) {
-			http.Error(writer, "rate_limited", http.StatusTooManyRequests)
+			reject("rate_limited", http.StatusTooManyRequests)
 			return
 		}
 		providedBearer, ok := bearerValue(request.Header.Get("Authorization"))
 		if !ok || !constantDigestEqual(providedBearer, g.bearerDigest) {
-			http.Error(writer, "authentication_required", http.StatusUnauthorized)
+			reject("authentication_required", http.StatusUnauthorized)
 			return
 		}
 		if mode == RouteUIMutation && !constantDigestEqual([]byte(request.Header.Get("X-Kansoku-CSRF")), g.csrfDigest) {
-			http.Error(writer, "csrf_required", http.StatusForbidden)
+			reject("csrf_required", http.StatusForbidden)
 			return
 		}
 		request.Body = http.MaxBytesReader(writer, request.Body, g.maxBodyBytes)

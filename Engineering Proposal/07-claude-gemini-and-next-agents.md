@@ -71,3 +71,8 @@ Claude and Gemini data coexist in one canonical model; native skill/plugin attri
 traceable to their source; unsupported fields render as unsupported rather than zero; adding Cursor
 inventory requires no core branch; privacy and reconciliation tests pass across all fixtures.
 
+## 2026-07-25 Claude OTel correction
+
+Claude’s short `event.name` values and typed bounded metadata now drive prompt, tool, model,
+skill and plugin facts. `tool_decision` is retained only as `source.observed`; `tool_result` is the
+single execution count. Prompt/response bodies and tool input/output remain unrepresentable.

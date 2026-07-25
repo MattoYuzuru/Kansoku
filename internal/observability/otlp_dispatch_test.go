@@ -32,6 +32,7 @@ func realResource(serviceName string) *resourcev1.Resource {
 // path this test exercises never depends on the adapter pre-translating its
 // own wire format into Kansoku's internal shape.
 func realLogRequest(serviceName, scopeName string, attributes []*commonv1.KeyValue) *collectorlogsv1.ExportLogsServiceRequest {
+	attributes = append([]*commonv1.KeyValue{stringKV("event.name", scopeName)}, attributes...)
 	record := &logsv1.LogRecord{ObservedTimeUnixNano: uint64(fixedTime.UnixNano()), Attributes: attributes}
 	scope := &logsv1.ScopeLogs{Scope: &commonv1.InstrumentationScope{Name: scopeName}, LogRecords: []*logsv1.LogRecord{record}}
 	return &collectorlogsv1.ExportLogsServiceRequest{ResourceLogs: []*logsv1.ResourceLogs{{Resource: realResource(serviceName), ScopeLogs: []*logsv1.ScopeLogs{scope}}}}
@@ -79,7 +80,8 @@ func TestRealClaudeOTelPayloadLandsAsRealEventEndToEnd(t *testing.T) {
 	attributes := []*commonv1.KeyValue{
 		stringKV(string(claudeadapter.NativeAttributeSessionID), "real-claude-session-001"),
 		stringKV(string(claudeadapter.NativeAttributeToolName), "Bash"),
-		stringKV(string(claudeadapter.NativeAttributeToolState), "succeeded"),
+		stringKV(string(claudeadapter.NativeAttributeToolState), "true"),
+		intKV(string(claudeadapter.NativeAttributeDuration), 42),
 	}
 	request := realLogRequest(claudeadapter.OTLPResourceServiceName, string(claudeadapter.OTelToolResult), attributes)
 	if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
@@ -118,9 +120,8 @@ func TestRealClaudeComponentAttributesTranslateOntoToolIDSlot(t *testing.T) {
 	attributes := []*commonv1.KeyValue{
 		stringKV(string(claudeadapter.NativeAttributeSessionID), "real-claude-session-002"),
 		stringKV(string(claudeadapter.AttributeSkillName), "commit-helper"),
-		stringKV(string(claudeadapter.NativeAttributeToolState), "succeeded"),
 	}
-	request := realLogRequest(claudeadapter.OTLPResourceServiceName, string(claudeadapter.OTelToolResult), attributes)
+	request := realLogRequest(claudeadapter.OTLPResourceServiceName, string(claudeadapter.OTelSkillActivated), attributes)
 	if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
 		t.Fatalf("real claude skill.name payload rejected: %v", err)
 	}
@@ -130,12 +131,36 @@ func TestRealClaudeComponentAttributesTranslateOntoToolIDSlot(t *testing.T) {
 	}
 	found := false
 	for _, fact := range state.Facts {
-		if fact.Event.Subject.ComponentID == "commit-helper" {
+		if fact.Event.Subject.ComponentID == "commit-helper" && fact.Event.Subject.Kind == "skill" {
 			found = true
 		}
 	}
 	if !found {
 		t.Fatal("skill.name did not translate onto the component/tool.id slot")
+	}
+}
+
+func TestDocumentedNonTerminalCodexSSEIsMetadataNotSchemaDrift(t *testing.T) {
+	store, ingestor, _ := testIngestor(t, 4<<20)
+	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
+	request := realLogRequest(
+		codexadapter.OTLPResourceServiceName,
+		string(codexadapter.OTelSSEEvent),
+		[]*commonv1.KeyValue{
+			stringKV(string(codexadapter.NativeAttributeConversationID), "real-codex-conversation-002"),
+		},
+	)
+	if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
+		t.Fatalf("documented non-terminal SSE rejected: %v", err)
+	}
+	state := store.Snapshot()
+	if len(state.Facts) != 1 || len(state.Quarantine) != 0 || len(state.Incidents) != 0 {
+		t.Fatalf("state=%+v", state)
+	}
+	for _, fact := range state.Facts {
+		if fact.Event.EventType != "source.observed" {
+			t.Fatalf("event_type=%s, want source.observed", fact.Event.EventType)
+		}
 	}
 }
 

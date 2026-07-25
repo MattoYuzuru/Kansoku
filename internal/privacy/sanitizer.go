@@ -20,7 +20,7 @@ const sanitizerVersion = "kansoku.ingress-sanitizer/1"
 
 var (
 	outcomes       = stringSet("succeeded", "failed", "cancelled", "interrupted", "timed_out", "abandoned", "unknown")
-	valueStates    = stringSet(string(ValueUnsupported), string(ValueNotObserved), string(ValueRedacted), string(ValueUnknown), string(ValueNumericZero))
+	valueStates    = stringSet(string(ValueObserved), string(ValueUnsupported), string(ValueNotObserved), string(ValueRedacted), string(ValueUnknown), string(ValueNumericZero))
 	rawFieldGroups = map[string]string{
 		"prompt": "prompt", "response": "response", "source_code": "source", "tool_input": "tool_io",
 		"tool_output": "tool_io", "command": "command", "path": "path", "environment": "environment",

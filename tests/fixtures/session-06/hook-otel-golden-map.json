@@ -66,40 +66,41 @@
     },
     {
       "otel_event_name": "codex.user_prompt",
-      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type"],
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.prompt_length_characters"],
       "expected_canonical_event_type": "prompt.submitted",
       "expect_error": null
     },
     {
-      "otel_event_name": "codex.tool_decision",
-      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id"],
-      "expected_canonical_event_type": "tool.called",
-      "expect_error": null
-    },
-    {
       "otel_event_name": "codex.tool_result",
-      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome"],
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"],
       "expected_canonical_event_type": "tool.called",
       "expect_error": null
     },
     {
       "otel_event_name": "codex.api_request",
-      "attribute_shape": [],
-      "expected_canonical_event_type": null,
-      "expect_error": "codex_otel_event_not_mapped_in_active_version_manifest",
-      "note": "documented_but_intentionally_unmapped_a_documented_name_must_never_be_silently_assumed_to_map"
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type"],
+      "expected_canonical_event_type": "source.observed",
+      "expect_error": null,
+      "note": "documented_metadata_only_event_is_durable_but_does_not_create_a_second_model_operation"
     },
     {
       "otel_event_name": "codex.sse_event",
-      "attribute_shape": [],
-      "expected_canonical_event_type": null,
-      "expect_error": "codex_otel_event_not_mapped_in_active_version_manifest"
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.input_tokens", "kansoku.output_tokens"],
+      "expected_canonical_event_type": "model.responded",
+      "expect_error": null
     },
     {
       "otel_event_name": "codex.model_token_usage",
-      "attribute_shape": [],
-      "expected_canonical_event_type": null,
-      "expect_error": "codex_otel_event_not_mapped_in_active_version_manifest"
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type"],
+      "expected_canonical_event_type": "source.observed",
+      "expect_error": null
+    },
+    {
+      "otel_event_name": "codex.tool_decision",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type"],
+      "expected_canonical_event_type": "source.observed",
+      "expect_error": null,
+      "note": "tool_result_is_the_single_counted_execution"
     },
     {
       "otel_event_name": "codex.not_a_real_future_event",

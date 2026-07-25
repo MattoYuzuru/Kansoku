@@ -31,10 +31,11 @@
       "advertised": true
     },
     "model_tokens": {
-      "otel_event_name": "codex.model_token_usage",
+      "otel_event_name": "codex.sse_event",
       "documented": true,
-      "expect_unmapped": true,
-      "note": "codex.model_token_usage/codex.api_request are documented but not yet in codex's active canonical mapping table; activity.token_model_cost renders degraded/unsupported for this fixture, never a fabricated model.responded event"
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.input_tokens", "kansoku.output_tokens"],
+      "expected_canonical_event_type": "model.responded",
+      "note": "only the documented token-bearing response.completed SSE shape backs activity.token_model_cost; metadata-only SSE records remain source.observed"
     },
     "extra_agent_specific_event": {
       "field": "rollout_file_id",
@@ -63,8 +64,8 @@
       "advertised": true
     },
     "model_tokens": {
-      "otel_event_name": "claude_code.api_request",
-      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id"],
+      "otel_event_name": "api_request",
+      "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"],
       "expected_canonical_event_type": "model.responded"
     },
     "extra_agent_specific_event": {

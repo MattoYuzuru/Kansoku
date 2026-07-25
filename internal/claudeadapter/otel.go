@@ -30,11 +30,23 @@ const (
 // never by name alone.
 type OTelEventName string
 
+// These are the real, short-form values Claude Code stamps on its "event.name"
+// attribute (never a "claude_code."-prefixed literal): confirmed both by a
+// live OTLP capture and by Anthropic's own monitoring-usage documentation
+// (code.claude.com/docs/en/monitoring-usage, re-checked 2026-07-25), which
+// documents user_prompt, api_request, api_error, tool_decision, tool_result,
+// and feature/version-dependent lifecycle events. Claude Code never emits a session-start OTel log
+// event at all (session start is hook-only, via the SessionStart hook); there
+// is deliberately no OTelSessionStarted constant here.
 const (
-	OTelSessionStarted OTelEventName = "claude_code.session.started"
-	OTelUserPrompt     OTelEventName = "claude_code.user_prompt"
-	OTelToolResult     OTelEventName = "claude_code.tool_result"
-	OTelAPIRequest     OTelEventName = "claude_code.api_request"
+	OTelUserPrompt      OTelEventName = "user_prompt"
+	OTelAPIRequest      OTelEventName = "api_request"
+	OTelAPIError        OTelEventName = "api_error"
+	OTelToolDecision    OTelEventName = "tool_decision"
+	OTelToolResult      OTelEventName = "tool_result"
+	OTelPluginInstalled OTelEventName = "plugin_installed"
+	OTelPluginLoaded    OTelEventName = "plugin_loaded"
+	OTelSkillActivated  OTelEventName = "skill_activated"
 )
 
 // DocumentedOTelEvents is the closed, documented Claude Code OTel event
@@ -42,17 +54,26 @@ const (
 // contracts/claude/hooks-and-otel.yaml's source_event_mapping
 // otlp_log_span_metric rows verbatim.
 func DocumentedOTelEvents() []OTelEventName {
-	return []OTelEventName{OTelSessionStarted, OTelUserPrompt, OTelToolResult, OTelAPIRequest}
+	return []OTelEventName{
+		OTelUserPrompt, OTelAPIRequest, OTelAPIError, OTelToolDecision, OTelToolResult,
+		OTelPluginInstalled, OTelPluginLoaded, OTelSkillActivated,
+	}
 }
 
 // otelEventCanonical is the subset of
 // contracts/claude/hooks-and-otel.yaml's source_event_mapping table whose
-// source_kind is otlp_log_span_metric.
+// source_kind is otlp_log_span_metric. Tool decisions are intentionally
+// absent because tool_result is the single counted tool execution; counting
+// both decision and result would double every call.
 var otelEventCanonical = map[OTelEventName]string{
-	OTelSessionStarted: "session.started",
-	OTelUserPrompt:     "prompt.submitted",
-	OTelToolResult:     "tool.called",
-	OTelAPIRequest:     "model.responded",
+	OTelUserPrompt:      "prompt.submitted",
+	OTelToolDecision:    "source.observed",
+	OTelToolResult:      "tool.called",
+	OTelAPIRequest:      "model.responded",
+	OTelAPIError:        "model.responded",
+	OTelPluginInstalled: "component.installed",
+	OTelPluginLoaded:    "component.loaded",
+	OTelSkillActivated:  "component.invoked",
 }
 
 // OTLPSafeAttributes is the exact, closed OTLP attribute allowlist reused
@@ -66,6 +87,9 @@ func OTLPSafeAttributes() []string {
 	return []string{
 		"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.outcome",
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
+		"kansoku.component.kind", "kansoku.duration_ms", "kansoku.prompt_length_characters",
+		"kansoku.input_tokens", "kansoku.output_tokens", "kansoku.provider_cost_micros",
+		"kansoku.turn.id",
 	}
 }
 
@@ -125,27 +149,34 @@ func ComponentAttributeSafeSlot(attribute ClaudeComponentAttribute) (string, boo
 // NativeOTLPAttribute names one real, documented Claude Code OTel activity
 // attribute this recipe knows how to translate onto an existing
 // OTLPSafeAttributes() slot. These are the actual upstream attribute names
-// Claude Code's OTel exporter sends (contracts/claude/hooks-and-otel.yaml's
-// otel_source.documented_attributes.activity block, SOURCES.md's Claude Code
-// monitoring section, re-checked 2026-07-25) -- never a Kansoku-invented
-// name -- and every mapped slot below is already a member of
-// OTLPSafeAttributes(); no new raw attribute passthrough is declared.
+// Claude Code's OTel exporter sends -- confirmed by Anthropic's own
+// monitoring-usage documentation (code.claude.com/docs/en/monitoring-usage,
+// re-checked 2026-07-25), which documents the tool_result event's outcome
+// attribute as "success": "true" or "false" (a string-valued attribute, never
+// a native OTLP bool) -- never a Kansoku-invented name -- and every mapped
+// slot below is already a member of OTLPSafeAttributes(); no new raw
+// attribute passthrough is declared.
 type NativeOTLPAttribute string
 
 const (
-	NativeAttributeSessionID NativeOTLPAttribute = "session.id"
-	NativeAttributeModel     NativeOTLPAttribute = "model"
-	NativeAttributeToolName  NativeOTLPAttribute = "tool_name"
-	NativeAttributeToolState NativeOTLPAttribute = "tool_status"
+	NativeAttributeSessionID    NativeOTLPAttribute = "session.id"
+	NativeAttributeModel        NativeOTLPAttribute = "model"
+	NativeAttributeToolName     NativeOTLPAttribute = "tool_name"
+	NativeAttributeToolState    NativeOTLPAttribute = "success"
+	NativeAttributeSequence     NativeOTLPAttribute = "event.sequence"
+	NativeAttributePromptID     NativeOTLPAttribute = "prompt.id"
+	NativeAttributeDuration     NativeOTLPAttribute = "duration_ms"
+	NativeAttributePromptLength NativeOTLPAttribute = "prompt_length"
+	NativeAttributeInputTokens  NativeOTLPAttribute = "input_tokens"
+	NativeAttributeOutputTokens NativeOTLPAttribute = "output_tokens"
+	NativeAttributeCostMicros   NativeOTLPAttribute = "cost_usd_micros"
 )
 
 // NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
 // a real, documented Claude-native OTLP activity attribute name maps onto,
 // mirroring codexadapter.NativeOTLPAttributeSafeSlot's identical role for
-// Codex. tool_status maps onto kansoku.outcome (Claude's own hook helper
-// already treats tool_status as the outcome-shaped signal for a completed
-// tool call, per internal/claudeadapter/hook.go); it is never treated as a
-// second, independent outcome source.
+// Codex. success maps onto kansoku.outcome; it is never treated as a second,
+// independent outcome source.
 func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
 	switch attribute {
 	case NativeAttributeSessionID:
@@ -156,6 +187,20 @@ func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
 		return "kansoku.tool.id", true
 	case NativeAttributeToolState:
 		return "kansoku.outcome", true
+	case NativeAttributeSequence:
+		return "kansoku.sequence", true
+	case NativeAttributePromptID:
+		return "kansoku.turn.id", true
+	case NativeAttributeDuration:
+		return "kansoku.duration_ms", true
+	case NativeAttributePromptLength:
+		return "kansoku.prompt_length_characters", true
+	case NativeAttributeInputTokens:
+		return "kansoku.input_tokens", true
+	case NativeAttributeOutputTokens:
+		return "kansoku.output_tokens", true
+	case NativeAttributeCostMicros:
+		return "kansoku.provider_cost_micros", true
 	default:
 		return "", false
 	}
@@ -207,10 +252,14 @@ func documentedOTelEvent(name OTelEventName) bool {
 // bypass it by influencing the fingerprint of an otherwise-recognized event.
 func ExpectedOTelAttributeFingerprint(name OTelEventName) (string, bool) {
 	requiredByEvent := map[OTelEventName][]string{
-		OTelSessionStarted: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
-		OTelUserPrompt:     {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
-		OTelToolResult:     {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome"},
-		OTelAPIRequest:     {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id"},
+		OTelUserPrompt:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.prompt_length_characters"},
+		OTelToolDecision:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelToolResult:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
+		OTelAPIRequest:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"},
+		OTelAPIError:        {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms"},
+		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
 	}
 	required, ok := requiredByEvent[name]
 	if !ok {
@@ -266,10 +315,38 @@ func CanonicalEventForOTel(name OTelEventName, observed OTelAttributeShape) (str
 	if !ok {
 		return "", ErrOTelEventNotMapped
 	}
-	if safeObservedFingerprint(observed) != expected {
+	required := requiredOTelKeys(name)
+	if expected == "" || observed.InstrumentationScope != string(name) || !containsEveryKey(observed.PresentAttributeKeys, required) {
 		return "", ErrOTelSchemaFingerprintMismatch
 	}
 	return canonical, nil
+}
+
+func requiredOTelKeys(name OTelEventName) []string {
+	requiredByEvent := map[OTelEventName][]string{
+		OTelUserPrompt:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.prompt_length_characters"},
+		OTelToolDecision:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelToolResult:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
+		OTelAPIRequest:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"},
+		OTelAPIError:        {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms"},
+		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+	}
+	return requiredByEvent[name]
+}
+
+func containsEveryKey(observed, required []string) bool {
+	present := map[string]bool{}
+	for _, key := range observed {
+		present[key] = true
+	}
+	for _, key := range required {
+		if !present[key] {
+			return false
+		}
+	}
+	return true
 }
 
 // OTLPResourceServiceName is the real, documented OTel resource
@@ -277,24 +354,45 @@ func CanonicalEventForOTel(name OTelEventName, observed OTelAttributeShape) (str
 // per contracts/claude/hooks-and-otel.yaml's otel_source.resource_identity
 // block and SOURCES.md's Claude Code OTel section (re-checked 2026-07-25):
 // Claude Code's own OpenTelemetry exporter stamps its resource
-// service.name as "claude-code" for every log/metric it emits. This is
-// never a Kansoku-invented literal: it is the real upstream value, distinct
-// from the Session 03 "fixture-agent" synthetic identity
+// service.name as "claude-code" for every log/metric a terminal session
+// emits. This is never a Kansoku-invented literal: it is the real upstream
+// value, distinct from the Session 03 "fixture-agent" synthetic identity
 // internal/observability's otlp.go already recognizes, and distinct from
-// codexadapter.OTLPResourceServiceName.
+// codexadapter.OTLPResourceServiceName. Kept as the exported primary
+// constant for backward compatibility; use MatchesOTLPResource (or
+// OTLPResourceServiceNames) rather than comparing against this single
+// literal, since real Claude Code has more than one surface with its own
+// service.name -- see OTLPResourceServiceNames below.
 const OTLPResourceServiceName = "claude-code"
+
+// OTLPResourceServiceNames is every real, upstream-confirmed OTel resource
+// service.name value a locally-installed Claude Code product can emit, per
+// Anthropic's own monitoring-usage documentation
+// (code.claude.com/docs/en/monitoring-usage, re-checked 2026-07-25):
+//   - "claude-code"         -- terminal/CLI sessions.
+//   - "claude-code-desktop" -- Claude Desktop's Code tab sessions.
+var OTLPResourceServiceNames = []string{
+	OTLPResourceServiceName,
+	"claude-code-desktop",
+}
 
 // MatchesOTLPResource reports whether an observed OTLP resource
 // service.name value identifies a real, locally-installed Claude Code
-// process. Only service.name is checked (never a version, since Claude
-// Code's CLI version legitimately changes release to release and otel.go
-// must not treat an upgrade as an unrecognized resource) -- matching
+// process, from any recognized surface (see OTLPResourceServiceNames). Only
+// service.name is checked (never a version, since Claude Code's version
+// legitimately changes release to release and otel.go must not treat an
+// upgrade as an unrecognized resource) -- matching
 // internal/observability/otlp.go's dispatch, which tries the fixture-agent
 // literal first and then each registered adapter's own matcher in turn. A
 // service.name this function does not recognize must still fall through to
 // the existing unknown()/IngestUnknown quarantine path unchanged.
 func MatchesOTLPResource(serviceName string) bool {
-	return serviceName == OTLPResourceServiceName
+	for _, known := range OTLPResourceServiceNames {
+		if serviceName == known {
+			return true
+		}
+	}
+	return false
 }
 
 // ResolveSkillComponent resolves an observed skill.name attribute value

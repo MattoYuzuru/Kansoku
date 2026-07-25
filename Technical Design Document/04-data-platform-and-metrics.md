@@ -117,3 +117,10 @@ verifies counts/constraints/sample formulas, then deletes the temporary target.
 Reference datasets reconcile exactly, common queries meet budget, late data repairs correctly,
 retention is bounded, and restore reproduces formula results with lineage.
 
+## Native telemetry projections (reconciled 2026-07-25)
+
+`ObservabilityHandoff` first commits the canonical fact/evidence, advances the source watermark,
+then idempotently writes the event-specific projection. Migration 0004 adds nullable
+`prompt_character_count` and `provider_cost_micros`. Prompt, tool, model/token and lifecycle
+queries consume those projections; a duplicate replay cannot add a second row. The projection
+phase is replay-healable but not yet transactionally atomic with the canonical fact.

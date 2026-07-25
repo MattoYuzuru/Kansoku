@@ -73,7 +73,7 @@ func TestRuntimeBoundaryMatchesAuthoritativeIngressContract(t *testing.T) {
 		fields []string
 	}{
 		"SafeRecord": {reflect.TypeOf(SafeRecord{}), contract.DurableRecordFields}, "SafeError": {reflect.TypeOf(SafeError{}), contract.SafeErrorFields}, "SafeLogEvent": {reflect.TypeOf(SafeLogEvent{}), contract.PrivacySafeLogFields},
-		"CatalogObservation": {reflect.TypeOf(CatalogObservation{}), mapKeys(contract.NestedTypes["CatalogObservation"].Fields)}, "PromptFeatures": {reflect.TypeOf(PromptFeatures{}), mapKeys(contract.NestedTypes["PromptFeatures"].Fields)}, "RedactionCounts": {reflect.TypeOf(RedactionCounts{}), mapKeys(contract.NestedTypes["RedactionCounts"].Fields)}, "Lineage": {reflect.TypeOf(Lineage{}), mapKeys(contract.NestedTypes["Lineage"].Fields)},
+		"CatalogObservation": {reflect.TypeOf(CatalogObservation{}), mapKeys(contract.NestedTypes["CatalogObservation"].Fields)}, "PromptFeatures": {reflect.TypeOf(PromptFeatures{}), mapKeys(contract.NestedTypes["PromptFeatures"].Fields)}, "TelemetryMeasurements": {reflect.TypeOf(TelemetryMeasurements{}), mapKeys(contract.NestedTypes["TelemetryMeasurements"].Fields)}, "RedactionCounts": {reflect.TypeOf(RedactionCounts{}), mapKeys(contract.NestedTypes["RedactionCounts"].Fields)}, "Lineage": {reflect.TypeOf(Lineage{}), mapKeys(contract.NestedTypes["Lineage"].Fields)},
 	}
 	for name, binding := range bindings {
 		if !reflect.DeepEqual(jsonFields(binding.typ), stringSliceSet(binding.fields)) {

@@ -66,10 +66,10 @@ const (
 // Never averaged across buckets: each value here is computed directly from
 // normalized facts inside its own bucket.
 type Percentiles struct {
-	P50 *float64
-	P90 *float64
-	P95 *float64
-	P99 *float64
+	P50 *float64 `json:"p50"`
+	P90 *float64 `json:"p90"`
+	P95 *float64 `json:"p95"`
+	P99 *float64 `json:"p99"`
 }
 
 // RollupRow is one hourly/daily aggregate for one metric family, bucket and
@@ -253,9 +253,10 @@ type ActivityTimelineResponse struct {
 // PromptShapeDayRow is one calendar day's submitted-prompt count and exact
 // byte-length percentiles inside a PromptShapeResponse.
 type PromptShapeDayRow struct {
-	Day         time.Time    `json:"day"`
-	PromptCount int64        `json:"prompt_count"`
-	Percentiles *Percentiles `json:"percentiles,omitempty"`
+	Day                  time.Time    `json:"day"`
+	PromptCount          int64        `json:"prompt_count"`
+	Percentiles          *Percentiles `json:"percentiles,omitempty"`
+	CharacterPercentiles *Percentiles `json:"character_percentiles,omitempty"`
 }
 
 // PromptShapeResponse is the closed completeness-aware envelope for the

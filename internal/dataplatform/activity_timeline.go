@@ -9,7 +9,7 @@ import (
 
 // FormulaVersionActivityTimeline1 is the registered formula version for the
 // activity timeline query.
-const FormulaVersionActivityTimeline1 = "activity_timeline/1"
+const FormulaVersionActivityTimeline1 = "activity_timeline/2"
 
 // ActivityTimeline executes the "activity_timeline_range" budgeted query:
 // one row per calendar day inside the half-open [from, to) range with
@@ -43,10 +43,10 @@ func ActivityTimeline(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 			coalesce(sum(active_seconds), 0) AS active_seconds
 		FROM (
 			SELECT date_trunc('day', observed_at) AS day, session_id,
-				extract(epoch FROM (max(observed_at) OVER (PARTITION BY session_id, date_trunc('day', observed_at)) -
-					min(observed_at) OVER (PARTITION BY session_id, date_trunc('day', observed_at)))) AS active_seconds
+				extract(epoch FROM (max(observed_at) - min(observed_at))) AS active_seconds
 			FROM events
 			WHERE observed_at >= $1 AND observed_at < $2 AND session_id IS NOT NULL
+			GROUP BY date_trunc('day', observed_at), session_id
 		) per_session
 		GROUP BY day
 	`, from, to)

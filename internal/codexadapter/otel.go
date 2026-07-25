@@ -46,16 +46,18 @@ func DocumentedOTelEvents() []OTelEventName {
 
 // otelEventCanonical is the subset of
 // contracts/codex/hooks-and-otel.yaml's source_event_mapping table whose
-// source_kind is otlp_log_span_metric. codex.api_request, codex.sse_event and
-// codex.model_token_usage are documented but intentionally absent here: the
-// registry does not yet map them onto any canonical event type, so an
-// unmapped documented name must never fall through to a plausible-looking
-// default -- it degrades only its own, still-unmapped capability.
+// source_kind is otlp_log_span_metric. Events that carry useful source
+// activity but no independently countable prompt/tool/model operation map
+// to source.observed, so they remain durable without double-counting a
+// projected operation or masquerading as schema drift.
 var otelEventCanonical = map[OTelEventName]string{
 	OTelConversationStarts: "session.started",
+	OTelAPIRequest:         "source.observed",
+	OTelModelTokenUsage:    "source.observed",
 	OTelUserPrompt:         "prompt.submitted",
-	OTelToolDecision:       "tool.called",
+	OTelToolDecision:       "source.observed",
 	OTelToolResult:         "tool.called",
+	OTelSSEEvent:           "model.responded",
 }
 
 // OTLPSafeAttributes is the exact, closed OTLP attribute allowlist reused
@@ -65,6 +67,8 @@ func OTLPSafeAttributes() []string {
 	return []string{
 		"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.outcome",
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
+		"kansoku.duration_ms", "kansoku.prompt_length_characters",
+		"kansoku.input_tokens", "kansoku.output_tokens",
 	}
 }
 
@@ -98,7 +102,7 @@ var ErrOTelEventNotDocumented = errors.New("codex_otel_event_not_documented")
 
 // ErrOTelEventNotMapped is returned when the event name is documented but the
 // active mapping table declares no canonical event type for it yet (for
-// example codex.api_request, codex.sse_event, codex.model_token_usage today).
+// example codex.api_request or codex.model_token_usage today).
 // The caller must treat this as a degraded-capability signal scoped only to
 // that event name, never as evidence the whole codex.otel source is silent.
 var ErrOTelEventNotMapped = errors.New("codex_otel_event_not_mapped_in_active_version_manifest")
@@ -128,9 +132,12 @@ func documentedOTelEvent(name OTelEventName) bool {
 func ExpectedOTelAttributeFingerprint(name OTelEventName) (string, bool) {
 	requiredByEvent := map[OTelEventName][]string{
 		OTelConversationStarts: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
-		OTelUserPrompt:         {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
-		OTelToolDecision:       {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id"},
-		OTelToolResult:         {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome"},
+		OTelAPIRequest:         {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelModelTokenUsage:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelUserPrompt:         {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.prompt_length_characters"},
+		OTelToolDecision:       {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelToolResult:         {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
+		OTelSSEEvent:           {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.input_tokens", "kansoku.output_tokens"},
 	}
 	required, ok := requiredByEvent[name]
 	if !ok {
@@ -186,10 +193,37 @@ func CanonicalEventForOTel(name OTelEventName, observed OTelAttributeShape) (str
 	if !ok {
 		return "", ErrOTelEventNotMapped
 	}
-	if safeObservedFingerprint(observed) != expected {
+	required := requiredOTelKeys(name)
+	if expected == "" || observed.InstrumentationScope != string(name) || !containsEveryKey(observed.PresentAttributeKeys, required) {
 		return "", ErrOTelSchemaFingerprintMismatch
 	}
 	return canonical, nil
+}
+
+func requiredOTelKeys(name OTelEventName) []string {
+	requiredByEvent := map[OTelEventName][]string{
+		OTelConversationStarts: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelAPIRequest:         {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelModelTokenUsage:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelUserPrompt:         {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.prompt_length_characters"},
+		OTelToolDecision:       {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelToolResult:         {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
+		OTelSSEEvent:           {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.input_tokens", "kansoku.output_tokens"},
+	}
+	return requiredByEvent[name]
+}
+
+func containsEveryKey(observed, required []string) bool {
+	present := map[string]bool{}
+	for _, key := range observed {
+		present[key] = true
+	}
+	for _, key := range required {
+		if !present[key] {
+			return false
+		}
+	}
+	return true
 }
 
 // OTelInstallerTargetID is the existing contracts/privacy/installer.yaml
@@ -199,23 +233,53 @@ func CanonicalEventForOTel(name OTelEventName, observed OTelAttributeShape) (str
 // target id, never a new one.
 const OTelInstallerTargetID = "codex.user_otel"
 
-// OTLPResourceServiceName is the real, documented OTel resource
-// service.name value a locally-installed Codex CLI/app-server actually
-// emits, per contracts/codex/hooks-and-otel.yaml's otel_source.
-// resource_identity block and SOURCES.md's Codex OTel section (re-checked
-// 2026-07-25): Codex's own built-in resource attributes are exactly
-// service.name/service.version/env (and host.name for logs); service.name
-// carries the originator string, which is "codex_cli_rs" for the
-// interactive CLI (the only entry point contracts/codex/hooks-and-otel.yaml
-// documents kansoku.otel targets today). This is never a Kansoku-invented
-// literal: it is the real upstream value, distinct from the Session 03
-// "fixture-agent" synthetic identity internal/observability's otlp.go
-// already recognizes.
+// OTLPResourceServiceName is the interactive-CLI OTel resource service.name
+// value: real Codex builds set service.name from the process "originator"
+// string unless a surface overrides it (codex-rs/core/src/otel_init.rs:
+// `service_name_override.unwrap_or(originator.value.as_str())`), and the
+// interactive TUI never overrides it (codex-rs/tui/src/lib.rs), so it falls
+// back to DEFAULT_ORIGINATOR = "codex_cli_rs"
+// (codex-rs/login/src/auth/default_client.rs:40). Kept as the exported
+// primary constant for backward compatibility; use MatchesOTLPResource (or
+// OTLPResourceServiceNames) rather than comparing against this single
+// literal, since real Codex has multiple surfaces with their own
+// service.name -- see OTLPResourceServiceNames below.
 const OTLPResourceServiceName = "codex_cli_rs"
 
+// OTLPResourceServiceNames is every real, upstream-confirmed OTel resource
+// service.name value a locally-installed Codex product can emit, one per
+// surface (each surface calls codex_core::otel_init::build_provider with its
+// own override, or none):
+//   - "codex_cli_rs" -- interactive TUI (`codex`); falls back to
+//     DEFAULT_ORIGINATOR, never overridden (codex-rs/tui/src/lib.rs).
+//   - "codex_exec"   -- `codex exec` (headless/scripted); overridden via
+//     set_default_originator("codex_exec") (codex-rs/exec/src/lib.rs:246).
+//     Confirmed live 2026-07-25 against real Codex CLI v0.145.0 via a
+//     temporary debug capture (see reports/2026-07-25-gap-inventory-and-fix-plan.md,
+//     "Live-test findings") -- this is what a real `codex exec` invocation
+//     actually sends, not "codex_cli_rs" as previously assumed.
+//   - "codex_mcp_server" -- `codex mcp-server` (codex-rs/mcp-server/src/lib.rs:55,
+//     OTEL_SERVICE_NAME constant).
+//   - "codex-app-server" -- `codex app-server` (codex-rs/app-server/src/lib.rs:136,
+//     OTEL_SERVICE_NAME constant; note the hyphen, not an underscore).
+//
+// Each literal was verified directly against openai/codex's main-branch
+// source (codex-rs/) on 2026-07-25, not merely documentation. Deliberately
+// excludes speculative surfaces never confirmed against this exact source
+// tree (e.g. a desktop app or VS Code extension originator) -- add a new
+// entry only once its literal is confirmed the same way, not by guessing
+// from a naming pattern.
+var OTLPResourceServiceNames = []string{
+	OTLPResourceServiceName,
+	"codex_exec",
+	"codex_mcp_server",
+	"codex-app-server",
+}
+
 // MatchesOTLPResource reports whether an observed OTLP resource
-// service.name value identifies a real, locally-installed Codex process.
-// Only service.name is checked (never a version, since Codex's CLI version
+// service.name value identifies a real, locally-installed Codex process,
+// from any recognized surface (see OTLPResourceServiceNames). Only
+// service.name is checked (never a version, since Codex's CLI version
 // legitimately changes release to release and otel.go must not treat an
 // upgrade as an unrecognized resource) -- matching
 // internal/observability/otlp.go's dispatch, which tries the fixture-agent
@@ -223,7 +287,12 @@ const OTLPResourceServiceName = "codex_cli_rs"
 // service.name this function does not recognize must still fall through to
 // the existing unknown()/IngestUnknown quarantine path unchanged.
 func MatchesOTLPResource(serviceName string) bool {
-	return serviceName == OTLPResourceServiceName
+	for _, known := range OTLPResourceServiceNames {
+		if serviceName == known {
+			return true
+		}
+	}
+	return false
 }
 
 // OTelEventNameFromString resolves a raw OTLP-observed event/span/metric
@@ -251,6 +320,12 @@ type NativeOTLPAttribute string
 const (
 	NativeAttributeConversationID NativeOTLPAttribute = "conversation.id"
 	NativeAttributeModel          NativeOTLPAttribute = "model"
+	NativeAttributeToolName       NativeOTLPAttribute = "tool_name"
+	NativeAttributeSuccess        NativeOTLPAttribute = "success"
+	NativeAttributeDuration       NativeOTLPAttribute = "duration_ms"
+	NativeAttributePromptLength   NativeOTLPAttribute = "prompt_length"
+	NativeAttributeInputTokens    NativeOTLPAttribute = "input_token_count"
+	NativeAttributeOutputTokens   NativeOTLPAttribute = "output_token_count"
 )
 
 // NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
@@ -262,6 +337,18 @@ func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
 		return "kansoku.session.id", true
 	case NativeAttributeModel:
 		return "kansoku.model.id", true
+	case NativeAttributeToolName:
+		return "kansoku.tool.id", true
+	case NativeAttributeSuccess:
+		return "kansoku.outcome", true
+	case NativeAttributeDuration:
+		return "kansoku.duration_ms", true
+	case NativeAttributePromptLength:
+		return "kansoku.prompt_length_characters", true
+	case NativeAttributeInputTokens:
+		return "kansoku.input_tokens", true
+	case NativeAttributeOutputTokens:
+		return "kansoku.output_tokens", true
 	default:
 		return "", false
 	}

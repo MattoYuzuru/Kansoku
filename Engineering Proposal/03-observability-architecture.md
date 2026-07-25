@@ -95,3 +95,11 @@ The automated gate is executable through `scripts/validate_observability.py`, Py
 and `internal/observability` Go tests. OTLP remains Experimental: uncompressed binary protobuf is
 implemented for logs, metrics and traces, while mandatory gzip support is deliberately blocked by
 the current reviewed privacy policy and is not overclaimed.
+
+## 2026-07-25 native OTel reconciliation
+
+Real adapters read per-record `event.name`, translate typed bounded attributes, and quarantine only
+genuinely unknown or drifted schemas. Documented metadata-only records use `source.observed`;
+they are not silently dropped, projected as a second tool/model operation, or reported as schema
+drift. Native prompt IDs are pseudonymized for turn correlation and safe values carry the explicit
+`observed` state.

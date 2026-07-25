@@ -497,14 +497,19 @@ func TestCanonicalEventForOTelRejectsUndocumentedEventName(t *testing.T) {
 	}
 }
 
-func TestCanonicalEventForOTelRejectsDocumentedButUnmappedEvent(t *testing.T) {
-	// codex.api_request, codex.sse_event and codex.model_token_usage are
-	// documented but intentionally unmapped; a documented name must never be
-	// silently assumed to map onto a canonical event.
-	for _, name := range []codexadapter.OTelEventName{codexadapter.OTelAPIRequest, codexadapter.OTelSSEEvent, codexadapter.OTelModelTokenUsage} {
-		_, err := codexadapter.CanonicalEventForOTel(name, codexadapter.OTelAttributeShape{})
-		if !errors.Is(err, codexadapter.ErrOTelEventNotMapped) {
-			t.Fatalf("expected ErrOTelEventNotMapped for documented-but-unmapped event %q, got %v", name, err)
+func TestCanonicalEventForOTelPreservesDocumentedMetadataOnlyEvents(t *testing.T) {
+	for _, name := range []codexadapter.OTelEventName{
+		codexadapter.OTelAPIRequest, codexadapter.OTelModelTokenUsage, codexadapter.OTelToolDecision,
+	} {
+		canonical, err := codexadapter.CanonicalEventForOTel(name, codexadapter.OTelAttributeShape{
+			InstrumentationScope: string(name),
+			PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		})
+		if err != nil {
+			t.Fatalf("documented metadata-only event %q: %v", name, err)
+		}
+		if canonical != "source.observed" {
+			t.Fatalf("documented metadata-only event %q = %q, want source.observed", name, canonical)
 		}
 	}
 }
@@ -554,10 +559,23 @@ func TestOTelInstallerTargetReusesExistingUserOTelTarget(t *testing.T) {
 }
 
 func TestMatchesOTLPResourceRecognizesRealCodexServiceNameOnly(t *testing.T) {
-	if !codexadapter.MatchesOTLPResource("codex_cli_rs") {
-		t.Fatal("expected the real, documented codex_cli_rs service.name to match")
+	// Each recognized literal corresponds to a distinct real Codex surface;
+	// see OTLPResourceServiceNames for the exact upstream source of each.
+	// "codex_exec" is the literal a real Codex CLI v0.145.0 `codex exec`
+	// invocation was observed sending live on 2026-07-25 -- previously this
+	// adapter only recognized "codex_cli_rs" (the interactive TUI's value)
+	// and unconditionally quarantined every real `codex exec` session.
+	for _, recognized := range []string{"codex_cli_rs", "codex_exec", "codex_mcp_server", "codex-app-server"} {
+		if !codexadapter.MatchesOTLPResource(recognized) {
+			t.Fatalf("expected the real, documented %q service.name to match", recognized)
+		}
 	}
-	for _, unrecognized := range []string{"", "codex", "claude-code", "fixture-agent", "codex_cli_rs_old", "CODEX_CLI_RS"} {
+	for _, unrecognized := range []string{
+		"", "codex", "claude-code", "fixture-agent",
+		"codex_cli_rs_old", "CODEX_CLI_RS",
+		"codex_exec_old", "CODEX_EXEC",
+		"codex_desktop", "codex_vscode", "codex-tui", "codex_sdk_ts",
+	} {
 		if codexadapter.MatchesOTLPResource(unrecognized) {
 			t.Fatalf("unrecognized service.name %q must never match", unrecognized)
 		}

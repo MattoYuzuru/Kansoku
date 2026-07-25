@@ -17,7 +17,7 @@
     "credential", "secret", "token_value", "api_key", "email", "account_id", "hostname"
   ],
   "state_invariants": {
-    "canonical_value_states": ["unsupported", "not_observed", "redacted", "unknown", "numeric_zero"],
+    "canonical_value_states": ["observed", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"],
     "rule": "A removed value is redacted; an unestablished value is unknown; an unobserved eligible event is not_observed; unsupported and numeric_zero remain distinct."
   }
 }

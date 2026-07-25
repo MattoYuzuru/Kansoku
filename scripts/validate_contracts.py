@@ -113,6 +113,7 @@ def validate_glossary() -> list[str]:
     errors = unique_ids(data.get("terms", []), "id", "glossary terms")
     term_ids = {term.get("id") for term in data.get("terms", [])}
     required = {
+        "observed",
         "unsupported",
         "not_observed",
         "redacted",
@@ -131,14 +132,15 @@ def validate_glossary() -> list[str]:
         if not item.get("use_instead"):
             errors.append(f"forbidden alias {item.get('alias')}: use_instead is required")
     states = data.get("state_registry", {})
-    expected_value_states = ["unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]
+    expected_value_states = ["observed", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]
     expected_completeness_states = ["complete", "partial", "degraded"]
     if states.get("value_states") != expected_value_states:
         errors.append(f"glossary: canonical value states must be {expected_value_states}")
     if states.get("completeness_states") != expected_completeness_states:
         errors.append(f"glossary: canonical completeness states must be {expected_completeness_states}")
-    if states.get("display_states") != expected_completeness_states + expected_value_states:
-        errors.append("glossary: display states must compose canonical completeness and value states")
+    expected_display_states = expected_completeness_states + [state for state in expected_value_states if state != "observed"]
+    if states.get("display_states") != expected_display_states:
+        errors.append("glossary: display states must compose completeness and user-visible value states")
     return errors
 
 
@@ -184,7 +186,7 @@ def validate_lifecycle() -> list[str]:
     errors.extend(unique_ids(value_states, "input", "value-state cases"))
     outputs = [case.get("expected") for case in value_states]
     if len(outputs) != len(set(outputs)):
-        errors.append("value-state fixtures must keep unsupported/not_observed/redacted/unknown/numeric_zero distinct")
+        errors.append("value-state fixtures must keep observed/unsupported/not_observed/redacted/unknown/numeric_zero distinct")
     return errors
 
 

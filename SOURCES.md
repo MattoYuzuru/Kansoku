@@ -31,6 +31,29 @@ overrides, trusted project layers, profile, user, system and built-ins; because 
 explicitly ignored, the effective OTel path skips that project layer. Managed requirements constrain
 otherwise resolved values and are checked separately.
 
+2026-07-25 correction (source: `openai/codex` main-branch code read, not documentation, plus a
+live debug capture against the locally-installed `codex-cli 0.145.0`): the OTel resource
+`service.name` is not a single fixed literal. Real Codex builds set it from the process
+"originator" string (`codex-rs/core/src/otel_init.rs`), which defaults to `codex_cli_rs`
+(`codex-rs/login/src/auth/default_client.rs`) for the interactive TUI, but is overridden per
+surface: `codex_exec` for `codex exec` (`codex-rs/exec/src/lib.rs`, confirmed live), `codex_mcp_server`
+for `codex mcp-server`, and `codex-app-server` for `codex app-server` (both `OTEL_SERVICE_NAME`
+constants in their respective `lib.rs`). `contracts/codex/hooks-and-otel.yaml`'s `resource_identity`
+and `internal/codexadapter/otel.go`'s `OTLPResourceServiceNames` were updated to recognize all four;
+the earlier `codex_cli_rs`-only match caused every real `codex exec` session to be quarantined as an
+unrecognized OTLP resource.
+
+2026-07-25 official-documentation re-check: the current Codex advanced-configuration reference
+states that OTel is disabled by default, `[otel]` exports asynchronously and flushes on shutdown,
+and prompt text stays redacted unless explicitly enabled. The documented event vocabulary includes
+`codex.conversation_starts`, `codex.api_request`, `codex.sse_event`, `codex.user_prompt`,
+`codex.tool_decision` and `codex.tool_result`. A live `codex-cli 0.145.0` capture established the
+typed attributes used by the implementation: `codex.tool_result` carries `tool_name`,
+`duration_ms` and boolean `success`; the `response.completed` SSE record carries model and
+input/output token counts. Kansoku counts `tool_result` as the execution and leaves
+`tool_decision` unmapped so one physical call is not counted twice. Retrieved 2026-07-25; relevant
+local version `codex-cli 0.145.0`.
+
 ## Anthropic Claude Code
 
 - Monitoring and OpenTelemetry: <https://code.claude.com/docs/en/monitoring-usage>
@@ -59,6 +82,18 @@ also contains transcript/current-working-directory paths and tool input/output, 
 defense in depth. Official settings precedence was re-checked as managed, command line, local,
 project, then user; process environment is additionally inspected as effective runtime state. No
 `.claude/settings.json` or environment was read or changed.
+
+2026-07-25 official-documentation re-check: Anthropic currently documents `service.name` values
+`claude-code` (terminal) and `claude-code-desktop` (desktop Code tab), a default log export
+interval of five seconds and a default metric interval of sixty seconds. Per-record
+`event.name` values are short forms such as `user_prompt`, `api_request`, `api_error`,
+`tool_decision`, `tool_result`, `plugin_installed`, `plugin_loaded` and `skill_activated`.
+`user_prompt` supplies `prompt_length` while prompt content remains gated; `tool_result` supplies
+`tool_name`, string-valued `success` and `duration_ms`; `api_request` supplies model,
+input/output/cache token counts, duration and `cost_usd_micros`. Kansoku maps only those bounded,
+non-content attributes and unconditionally drops bodies, prompt/response text, tool input/output
+and raw API data. Retrieved 2026-07-25; relevant local Claude Code version `2.1.197`, while
+documented availability remains version/feature dependent.
 
 ## Google Gemini CLI
 

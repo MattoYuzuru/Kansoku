@@ -9,7 +9,7 @@ import (
 
 // FormulaVersionComponentFunnel1 is the registered formula version for the
 // component lifecycle funnel query.
-const FormulaVersionComponentFunnel1 = "component_lifecycle_funnel/1"
+const FormulaVersionComponentFunnel1 = "component_lifecycle_funnel/2"
 
 // canonicalLifecycleStages mirrors contracts/capabilities.yaml
 // `lifecycle.canonical_progression` plus the parallel `opportunity_detected`
@@ -50,16 +50,34 @@ func ComponentLifecycleFunnel(ctx context.Context, pool *pgxpool.Pool, component
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		SELECT cle.lifecycle_stage,
-			count(DISTINCT c.component_id) AS component_count,
+		WITH observations AS (
+			SELECT cle.lifecycle_stage, c.component_id,
+				'cle:' || cle.component_lifecycle_event_id AS observation_id
+			FROM component_lifecycle_events cle
+			JOIN component_installations ci ON ci.component_installation_id = cle.component_installation_id
+			JOIN component_versions cv ON cv.component_version_id = ci.component_version_id
+			JOIN components c ON c.component_id = cv.component_id
+			WHERE cle.observed_at >= $1 AND cle.observed_at < $2
+				AND ($3 = '' OR c.kind = $3)
+			UNION ALL
+			SELECT CASE e.event_type
+					WHEN 'component.installed' THEN 'installed'
+					WHEN 'component.loaded' THEN 'loaded'
+					WHEN 'component.invoked' THEN 'invoked'
+					WHEN 'component.executed' THEN 'executed'
+				END AS lifecycle_stage,
+				c.component_id, 'evt:' || e.event_id AS observation_id
+			FROM events e
+			JOIN components c ON c.component_id = e.component_id
+			WHERE e.observed_at >= $1 AND e.observed_at < $2
+				AND e.event_type IN ('component.installed','component.loaded','component.invoked','component.executed')
+				AND ($3 = '' OR c.kind = $3)
+		)
+		SELECT lifecycle_stage,
+			count(DISTINCT component_id) AS component_count,
 			count(*) AS event_count
-		FROM component_lifecycle_events cle
-		JOIN component_installations ci ON ci.component_installation_id = cle.component_installation_id
-		JOIN component_versions cv ON cv.component_version_id = ci.component_version_id
-		JOIN components c ON c.component_id = cv.component_id
-		WHERE cle.observed_at >= $1 AND cle.observed_at < $2
-			AND ($3 = '' OR c.kind = $3)
-		GROUP BY cle.lifecycle_stage
+		FROM observations
+		GROUP BY lifecycle_stage
 	`, from, to, componentKind)
 	if err != nil {
 		return FunnelResponse{}, budgetOrErr(budget, started, err)

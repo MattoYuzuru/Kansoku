@@ -4,18 +4,15 @@
  * overview-collection-health, overview-activity, overview-component-funnel,
  * overview-incidents).
  *
- * overview-collection-health's 3 declared metrics (collection.coverage_ratio,
- * collection.completeness_duration_seconds, collection.acknowledged_durability_ratio)
- * have no durable backing table anywhere in the backend — rendered
- * unsupported. /api/v1/completeness's real known/unknown event ratio is
- * surfaced alongside it as a distinct, clearly-labeled figure (never
- * conflated with collection.coverage_ratio).
+ * Collection health leads with durable ingestion facts: accepted events,
+ * source-supplied values, and quarantined schema observations. It does not
+ * relabel event-value completeness as source coverage.
  */
 import { useMemo } from "react";
 import { KpiCard } from "../components/KpiCard";
 import { ChartContainer } from "../components/ChartContainer";
 import { DataTable, type Column } from "../components/DataTable";
-import { Panel, UnsupportedPanel } from "../components/Panel";
+import { GapNote, Panel } from "../components/Panel";
 import { PercentageDisplay } from "../components/PercentageDisplay";
 import { RangeControl } from "../components/RangeControl";
 import { StatusBadge } from "../components/StatusBadge";
@@ -65,6 +62,12 @@ export function Overview() {
     isEmptyMeasuredZero: activityData.length > 0 && sessionsTotal === 0,
   });
   const modelState = deriveViewState(modelUsage.data, { isLoading: modelUsage.isLoading });
+  const completenessState = deriveViewState(completeness.data, { isLoading: completeness.isLoading });
+  const knownEvents = completeness.data?.data?.numerator ?? 0;
+  const acceptedEvents = completeness.data?.data?.denominator ?? 0;
+  const unknownSchemaTotal = sum(
+    (reliabilityCounts.data?.data?.data ?? []).map((r) => r.unknown_schema_count),
+  );
 
   const funnelRows = funnel.data?.data?.data ?? [];
   const funnelState = deriveViewState(funnel.data, { isLoading: funnel.isLoading });
@@ -93,27 +96,32 @@ export function Overview() {
         </p>
       </header>
 
-      <UnsupportedPanel
+      <Panel
         title="Collection health"
-        reason={
-          <>
-            <code>collection.coverage_ratio</code>, <code>collection.completeness_duration_seconds</code> and{" "}
-            <code>collection.acknowledged_durability_ratio</code> have no durable backing table yet — see{" "}
-            <code>internal/runtime/diagnostics.go</code>. The figure below is a related but distinct real
-            signal: the share of ingested events with a known (non-<code>unknown</code>/
-            <code>not_observed</code>) value state, from <code>/api/v1/completeness</code>.
-          </>
-        }
-      />
-      {completeness.data?.data && (
-        <Panel title="Event completeness (distinct from collection.coverage_ratio)">
-          <PercentageDisplay
-            numerator={completeness.data.data.numerator}
-            denominator={completeness.data.data.denominator}
-            completeness={deriveViewState(completeness.data, { isLoading: completeness.isLoading }) as never}
+        caption="Durably accepted telemetry and schema evidence. Raw prompts, responses, tool payloads, and environment values are excluded."
+      >
+        <div className="k-grid k-grid--kpis">
+          <KpiCard label="Accepted events" value={acceptedEvents} state={completenessState} />
+          <KpiCard label="Source-supplied values" value={knownEvents} state={completenessState} />
+          <KpiCard
+            label="Unknown schema (range)"
+            value={unknownSchemaTotal}
+            state={deriveViewState(reliabilityCounts.data, { isLoading: reliabilityCounts.isLoading })}
           />
-        </Panel>
-      )}
+        </div>
+        {completeness.data?.data && (
+          <PercentageDisplay
+            numerator={knownEvents}
+            denominator={acceptedEvents}
+            completeness={completenessState as never}
+          />
+        )}
+        <GapNote>
+          Event completeness is the share of accepted events with a source-supplied value state. Source
+          coverage needs an independently observed expected-event population and is not inferred from this
+          ratio.
+        </GapNote>
+      </Panel>
 
       <Panel title="Activity & model usage" actions={<RangeControl range={range} />}>
         <div className="k-grid k-grid--kpis">
@@ -174,7 +182,7 @@ export function Overview() {
         <div className="k-grid k-grid--kpis">
           <KpiCard
             label="Unknown schema (range)"
-            value={sum((reliabilityCounts.data?.data?.data ?? []).map((r) => r.unknown_schema_count))}
+            value={unknownSchemaTotal}
             state={deriveViewState(reliabilityCounts.data, { isLoading: reliabilityCounts.isLoading })}
           />
           <KpiCard

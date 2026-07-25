@@ -261,7 +261,7 @@ func TestCanaryChainProducesExpectedSessionPromptToolMCPChain(t *testing.T) {
 			if strings.Contains(string(encoded), hookInput.Prompt) {
 				t.Fatalf("step %d: raw prompt text leaked into hook output", step.Step)
 			}
-			otelShape := codexadapter.OTelAttributeShape{InstrumentationScope: string(codexadapter.OTelUserPrompt), PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"}}
+			otelShape := codexadapter.OTelAttributeShape{InstrumentationScope: string(codexadapter.OTelUserPrompt), PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.prompt_length_characters"}}
 			otelCanonical, err := codexadapter.CanonicalEventForOTel(codexadapter.OTelUserPrompt, otelShape)
 			if err != nil || otelCanonical != step.CanonicalEventType {
 				t.Fatalf("step %d: otel lane failed: canonical=%q err=%v", step.Step, otelCanonical, err)
@@ -304,7 +304,7 @@ func TestCanaryChainProducesExpectedSessionPromptToolMCPChain(t *testing.T) {
 			}
 			otelShape := codexadapter.OTelAttributeShape{
 				InstrumentationScope: string(codexadapter.OTelToolResult),
-				PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome"},
+				PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
 			}
 			otelCanonical, err := codexadapter.CanonicalEventForOTel(codexadapter.OTelToolResult, otelShape)
 			if err != nil || otelCanonical != step.CanonicalEventType {

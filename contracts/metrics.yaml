@@ -10,6 +10,7 @@
   "state_contract": {
     "registry": "kansoku.glossary/1#state_registry",
     "value_states": [
+      "observed",
       "unsupported",
       "not_observed",
       "redacted",
@@ -21,7 +22,7 @@
       "partial",
       "degraded"
     ],
-    "policy": "Every metric may be not_observed when its declared source interval is healthy but its eligible population is empty. Redacted and unknown remain explicit even when a metric normally consumes metadata; neither is coerced to numeric_zero."
+    "policy": "Observed denotes a source-supplied qualifying non-content value before aggregation. Every metric may be not_observed when its declared source interval is healthy but its eligible population is empty. Redacted and unknown remain explicit even when a metric normally consumes metadata; neither is coerced to numeric_zero."
   },
   "formula_fixture_boundary": {
     "input_stage": "normalized_metric_records",

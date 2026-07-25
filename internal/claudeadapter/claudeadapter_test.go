@@ -541,15 +541,29 @@ func TestAllowlistedHookFieldsNeverIncludesPromptOrPathFields(t *testing.T) {
 
 func TestCanonicalEventForOTelRequiresDocumentedAndMappedEventPlusMatchingFingerprint(t *testing.T) {
 	shape := claudeadapter.OTelAttributeShape{
-		InstrumentationScope: string(claudeadapter.OTelSessionStarted),
-		PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		InstrumentationScope: string(claudeadapter.OTelUserPrompt),
+		PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.prompt_length_characters"},
 	}
-	canonical, err := claudeadapter.CanonicalEventForOTel(claudeadapter.OTelSessionStarted, shape)
+	canonical, err := claudeadapter.CanonicalEventForOTel(claudeadapter.OTelUserPrompt, shape)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if canonical != "session.started" {
-		t.Fatalf("expected session.started, got %q", canonical)
+	if canonical != "prompt.submitted" {
+		t.Fatalf("expected prompt.submitted, got %q", canonical)
+	}
+}
+
+func TestCanonicalEventForOTelPreservesToolDecisionWithoutCountingASecondCall(t *testing.T) {
+	name := claudeadapter.OTelToolDecision
+	canonical, err := claudeadapter.CanonicalEventForOTel(name, claudeadapter.OTelAttributeShape{
+		InstrumentationScope: string(name),
+		PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if canonical != "source.observed" {
+		t.Fatalf("tool_decision = %q, want source.observed", canonical)
 	}
 }
 
@@ -578,18 +592,18 @@ func TestCanonicalEventForOTelIgnoresUnsafeAttributesWhenFingerprinting(t *testi
 	// An attribute outside OTLPSafeAttributes() must never influence whether
 	// the fingerprint matches: it is filtered before comparison.
 	base := claudeadapter.OTelAttributeShape{
-		InstrumentationScope: string(claudeadapter.OTelSessionStarted),
-		PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		InstrumentationScope: string(claudeadapter.OTelUserPrompt),
+		PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.prompt_length_characters"},
 	}
 	withExtra := claudeadapter.OTelAttributeShape{
-		InstrumentationScope: string(claudeadapter.OTelSessionStarted),
+		InstrumentationScope: string(claudeadapter.OTelUserPrompt),
 		PresentAttributeKeys: append(append([]string(nil), base.PresentAttributeKeys...), "tool_payload", "prompt_text"),
 	}
-	first, err := claudeadapter.CanonicalEventForOTel(claudeadapter.OTelSessionStarted, base)
+	first, err := claudeadapter.CanonicalEventForOTel(claudeadapter.OTelUserPrompt, base)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := claudeadapter.CanonicalEventForOTel(claudeadapter.OTelSessionStarted, withExtra)
+	second, err := claudeadapter.CanonicalEventForOTel(claudeadapter.OTelUserPrompt, withExtra)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -604,9 +618,11 @@ func TestOTelInstallerTargetReusesExistingUserOTelTargetVerbatim(t *testing.T) {
 	}
 }
 
-func TestMatchesOTLPResourceRecognizesRealClaudeServiceNameOnly(t *testing.T) {
-	if !claudeadapter.MatchesOTLPResource("claude-code") {
-		t.Fatal("expected the real, documented claude-code service.name to match")
+func TestMatchesOTLPResourceRecognizesRealClaudeServiceNamesOnly(t *testing.T) {
+	for _, recognized := range []string{"claude-code", "claude-code-desktop"} {
+		if !claudeadapter.MatchesOTLPResource(recognized) {
+			t.Fatalf("expected the real, documented %q service.name to match", recognized)
+		}
 	}
 	for _, unrecognized := range []string{"", "claude", "codex_cli_rs", "fixture-agent", "claude-code-old", "Claude-Code"} {
 		if claudeadapter.MatchesOTLPResource(unrecognized) {

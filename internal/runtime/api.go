@@ -463,7 +463,13 @@ func (a *API) health(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	var openIncidents int64
-	if err := a.pool.QueryRow(ctx, `SELECT count(*) FROM integrity_incidents WHERE resolved_at IS NULL`).Scan(&openIncidents); err != nil {
+	if err := a.pool.QueryRow(ctx, `
+		SELECT count(*) FROM (
+			SELECT incident_id FROM integrity_incidents WHERE resolved_at IS NULL
+			UNION
+			SELECT incident_id FROM incidents WHERE resolved_at IS NULL
+		) open_incidents
+	`).Scan(&openIncidents); err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "integrity_health_unavailable")
 		return
 	}
@@ -502,6 +508,39 @@ func (a *API) incidents(writer http.ResponseWriter, request *http.Request) {
 			FailureClass: string(incident.FailureClass), FirstSeenAt: incident.FirstSeenAt,
 			RecoveryCriteria: incident.RecoveryCriteria,
 		})
+	}
+	// Unknown-schema records are durably quarantined by the observability
+	// ingress before the integrity audit runs. They therefore live in the
+	// original incidents table, while audit findings live in
+	// integrity_incidents + integrity_incident_details. Both are real open
+	// incidents and must be visible through the one public incident API.
+	rows, err := a.pool.Query(ctx, `
+		SELECT incident_id, category, opened_at
+		FROM incidents
+		WHERE resolved_at IS NULL
+		ORDER BY opened_at
+		LIMIT $1
+	`, 500-len(safe))
+	if err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "incidents_unavailable")
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var incident safeIncident
+		if err := rows.Scan(&incident.IncidentID, &incident.FailureClass, &incident.FirstSeenAt); err != nil {
+			a.writeError(writer, http.StatusServiceUnavailable, "incidents_unavailable")
+			return
+		}
+		incident.InstallationID = "not_observed"
+		incident.SourceID = "not_observed"
+		incident.CapabilityID = "core_ingestion"
+		incident.RecoveryCriteria = "ingest a supported schema and complete a successful replay"
+		safe = append(safe, incident)
+	}
+	if err := rows.Err(); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "incidents_unavailable")
+		return
 	}
 	a.write(writer, http.StatusOK, safe, map[string]any{"status": "complete", "exclusions": []string{"user_notes"}})
 }

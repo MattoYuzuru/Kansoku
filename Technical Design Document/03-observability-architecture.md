@@ -151,3 +151,12 @@ true inactivity; contradiction; unknown schema; poison/backpressure; durable spo
 atomicity; three crash stages; HTTP and real loopback gRPC protobuf routes for all three signals;
 and Session 02 ten-sink privacy regressions. Production rollups, PostgreSQL, backup/restore and
 adapter version support remain later-session gates.
+
+## Native adapter record path (reconciled 2026-07-25)
+
+For matched real resources, the receiver resolves the plain `event.name`, translates only the
+adapter’s closed safe slots, preserves integer/boolean types, and then invokes the shared
+sanitizer/normalizer/durable sink. Unsupported event names and incompatible countable-event shapes
+quarantine metadata. Documented metadata-only events become `source.observed`; non-terminal Codex
+SSE records follow that path, while a token-bearing completed record becomes `model.responded`.
+This prevents normal exporter chatter from inflating unknown-schema incidents.

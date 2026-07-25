@@ -3,7 +3,7 @@
   "contract_version": "1.0.0",
   "effective_at": "2026-07-21",
   "state_registry": {
-    "value_states": ["unsupported", "not_observed", "redacted", "unknown", "numeric_zero"],
+    "value_states": ["observed", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"],
     "completeness_states": ["complete", "partial", "degraded"],
     "display_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"],
     "measured_value_rule": "A non-zero measured value is carried with a completeness state; numeric_zero is the only zero display state."
@@ -27,6 +27,7 @@
     {"id": "experimental", "definition": "A documentation, inventory, or source probe exists without a completeness promise."},
     {"id": "unsupported", "definition": "No reliable source exists for the bounded capability/version scope, or the capability is explicitly out of scope."},
     {"id": "not_observed", "definition": "The capability is observable and the source interval is healthy, but no qualifying event was seen."},
+    {"id": "observed", "definition": "A source supplied a qualifying non-content value or identity and Kansoku preserved it without inference."},
     {"id": "redacted", "definition": "A value existed at the transient trust boundary and was intentionally removed by data policy."},
     {"id": "unknown", "definition": "The system cannot establish a value or denominator from available evidence."},
     {"id": "numeric_zero", "definition": "A complete eligible population was measured and its numeric result is exactly zero."},

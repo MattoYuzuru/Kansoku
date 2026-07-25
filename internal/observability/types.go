@@ -97,12 +97,17 @@ type Subject struct {
 	Kind               string `json:"kind"`
 	ComponentID        string `json:"component_id"`
 	ComponentVersionID string `json:"component_version_id"`
+	ModelID            string `json:"model_id"`
 }
 
 type Measurements struct {
-	DurationMS int64  `json:"duration_ms"`
-	Success    *bool  `json:"success"`
-	Count      *int64 `json:"count"`
+	DurationMS           *int64 `json:"duration_ms"`
+	Success              *bool  `json:"success"`
+	Count                *int64 `json:"count"`
+	PromptCharacterCount *int64 `json:"prompt_character_count"`
+	InputTokens          *int64 `json:"input_tokens"`
+	OutputTokens         *int64 `json:"output_tokens"`
+	ProviderCostMicros   *int64 `json:"provider_cost_micros"`
 }
 
 // Event is a closed durable allowlist. Raw payloads, generic attribute maps,

@@ -9,12 +9,13 @@ import (
 
 // FormulaVersionModelUsage1 is the registered formula version for the model
 // usage + cost time-series query.
-const FormulaVersionModelUsage1 = "model_usage/1"
+const FormulaVersionModelUsage1 = "model_usage/2"
 
 // ModelUsage executes the "model_usage_range" budgeted query: one row per
 // calendar day inside the half-open [from, to) range with model request
 // count, provider-reported token sum and estimated cost (all backed
-// directly by model_operations/token_usage/cost_estimates), plus a latency
+// directly by model_operations/token_usage and provider-reported cost, with
+// cost_estimates as a fallback), plus a latency
 // percentile and error ratio derived from an optional match to the events
 // table. Serves the /models "model-usage" and "model-cost" panels: the
 // time-series companion to ModelBreakdown's per-model leaderboard.
@@ -40,7 +41,7 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
 		WITH ops AS (
-			SELECT mo.model_operation_id, mo.observed_at, mo.event_id,
+			SELECT mo.model_operation_id, mo.observed_at, mo.event_id, mo.provider_cost_micros,
 				date_trunc('day', mo.observed_at) AS day
 			FROM model_operations mo
 			WHERE mo.observed_at >= $1 AND mo.observed_at < $2
@@ -54,11 +55,11 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 		),
 		cost_totals AS (
 			SELECT o.model_operation_id,
-				sum(ce.cost_micros) AS total_cost_micros
+				coalesce(o.provider_cost_micros, sum(ce.cost_micros), 0) AS total_cost_micros
 			FROM ops o
-			JOIN token_usage tu ON tu.model_operation_id = o.model_operation_id AND tu.observed_at = o.observed_at
-			JOIN cost_estimates ce ON ce.token_usage_id = tu.token_usage_id
-			GROUP BY o.model_operation_id
+			LEFT JOIN token_usage tu ON tu.model_operation_id = o.model_operation_id AND tu.observed_at = o.observed_at
+			LEFT JOIN cost_estimates ce ON ce.token_usage_id = tu.token_usage_id
+			GROUP BY o.model_operation_id, o.provider_cost_micros
 		),
 		matched AS (
 			SELECT o.model_operation_id, o.day, e.event_id, e.duration_ms, e.outcome

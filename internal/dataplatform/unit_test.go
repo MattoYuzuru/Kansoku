@@ -1,9 +1,28 @@
 package dataplatform
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestPercentilesJSONMatchesDashboardContract(t *testing.T) {
+	value := 42.0
+	encoded, err := json.Marshal(Percentiles{P50: &value, P90: &value, P95: &value, P99: &value})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(encoded)
+	for _, key := range []string{`"p50"`, `"p90"`, `"p95"`, `"p99"`} {
+		if !strings.Contains(text, key) {
+			t.Fatalf("percentile JSON %s missing %s", text, key)
+		}
+	}
+	if strings.Contains(text, `"P50"`) {
+		t.Fatalf("percentile JSON leaked Go field casing: %s", text)
+	}
+}
 
 func TestBucketStartHourlyDaily(t *testing.T) {
 	at := time.Date(2026, 3, 15, 13, 47, 9, 0, time.UTC)

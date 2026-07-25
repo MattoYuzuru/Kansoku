@@ -13,11 +13,62 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"kansoku.local/kansoku/internal/dataplatform"
 )
+
+// TestHealthAndIncidentRoutesIncludeIngressQuarantine proves metadata-only
+// schema quarantine is not hidden merely because it is written before the
+// integrity audit's richer incident-detail pipeline runs.
+func TestHealthAndIncidentRoutesIncludeIngressQuarantine(t *testing.T) {
+	dsn := testDSN(t)
+	handler, bearer, pool := newTestAPIForEntityBreakdown(t, dsn)
+
+	openedAt := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO incidents (incident_id, category, opened_at)
+		VALUES ('inc_ingress_quarantine', 'unknown_schema', $1)
+	`, openedAt); err != nil {
+		t.Fatalf("seed ingress incident: %v", err)
+	}
+
+	health := httptest.NewRecorder()
+	handler.ServeHTTP(health, entityBreakdownRequest("/api/v1/health", bearer))
+	if health.Code != http.StatusOK {
+		t.Fatalf("health status = %d, body=%s", health.Code, health.Body.String())
+	}
+	healthEnvelope := decodeEnvelope(t, health.Body.Bytes())
+	healthData, ok := healthEnvelope.Data.(map[string]any)
+	if !ok || healthData["open_incident_count"] != float64(1) {
+		t.Fatalf("health must count ingress quarantine: %#v", healthEnvelope.Data)
+	}
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, entityBreakdownRequest("/api/v1/incidents", bearer))
+	if response.Code != http.StatusOK {
+		t.Fatalf("incidents status = %d, body=%s", response.Code, response.Body.String())
+	}
+	envelope := decodeEnvelope(t, response.Body.Bytes())
+	data, err := json.Marshal(envelope.Data)
+	if err != nil {
+		t.Fatalf("remarshal incidents: %v", err)
+	}
+	var incidents []struct {
+		IncidentID   string `json:"incident_id"`
+		FailureClass string `json:"failure_class"`
+		CapabilityID string `json:"capability_id"`
+	}
+	if err := json.Unmarshal(data, &incidents); err != nil {
+		t.Fatalf("decode incidents: %v", err)
+	}
+	if len(incidents) != 1 || incidents[0].IncidentID != "inc_ingress_quarantine" ||
+		incidents[0].FailureClass != "unknown_schema" || incidents[0].CapabilityID != "core_ingestion" {
+		t.Fatalf("ingress quarantine missing from incident API: %+v", incidents)
+	}
+}
 
 // fixedSecret32 returns a deterministic >=32 byte secret distinct per label,
 // matching the minSecretBytes floor NewApplianceGuard enforces. The label is

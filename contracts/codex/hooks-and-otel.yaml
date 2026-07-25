@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.codex-hooks-and-otel/1",
-  "contract_version": "1.1.0",
+  "contract_version": "1.4.0",
   "effective_at": "2026-07-25",
   "hook_source": {
     "source_id": "codex.hook",
@@ -41,9 +41,14 @@
     "installer_target_reuse": "codex.user_otel_target_already_declared_in_contracts/privacy/installer.yaml_targets_reused_verbatim_endpoint_http://127.0.0.1:4318_environment_local_exporter_otlp-http_log_user_prompt_false",
     "no_second_otel_target": "hooks-and-otel.yaml_declares_no_new_otel_installer_target_it_only_maps_documented_codex_otel_events_onto_the_existing_target",
     "resource_identity": {
-      "source": "SOURCES.md_OpenAI_Codex_advanced_configuration_and_OpenTelemetry_reference_retrieved_2026-07-21_re-checked_2026-07-25",
+      "source": "openai/codex_main_branch_source_read_2026-07-25_codex-rs/core/src/otel_init.rs_codex-rs/login/src/auth/default_client.rs_codex-rs/exec/src/lib.rs_codex-rs/mcp-server/src/lib.rs_codex-rs/app-server/src/lib.rs_cross-checked_against_a_live_debug_capture_of_a_real_codex_exec_v0.145.0_invocation_supersedes_the_2026-07-21_documentation-only_SOURCES.md_citation_which_only_covered_the_interactive_surface",
       "matched_attribute": "service.name",
-      "matched_value": "codex_cli_rs",
+      "matched_values_by_surface": {
+        "codex_cli_rs": "interactive_TUI_codex_falls_back_to_DEFAULT_ORIGINATOR_never_overridden",
+        "codex_exec": "codex_exec_headless_scripted_overridden_via_set_default_originator_confirmed_live_2026-07-25",
+        "codex_mcp_server": "codex_mcp-server_OTEL_SERVICE_NAME_constant",
+        "codex-app-server": "codex_app-server_OTEL_SERVICE_NAME_constant_note_the_hyphen"
+      },
       "version_attribute_excluded": "service.version_is_never_part_of_the_match_a_codex_cli_upgrade_must_never_be_treated_as_an_unrecognized_resource",
       "distinct_from_fixture_agent": "distinct_from_the_session_03_synthetic_fixture-agent/1.0.0_resource_identity_internal/observability/otlp.go_already_recognizes_this_is_the_real_upstream_identity_not_a_kansoku-invented_literal"
     },
@@ -61,8 +66,11 @@
     {"source_event": "codex.user_prompt", "source_kind": "otlp_log_span_metric", "canonical_event_type": "prompt.submitted", "tier": "native"},
     {"source_event": "PreToolUse", "source_kind": "hook_http", "canonical_event_type": "tool.called", "tier": "native"},
     {"source_event": "PostToolUse", "source_kind": "hook_http", "canonical_event_type": "tool.called", "tier": "native"},
-    {"source_event": "codex.tool_decision", "source_kind": "otlp_log_span_metric", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "codex.tool_decision", "source_kind": "otlp_log_span_metric", "canonical_event_type": "source.observed", "tier": "native_metadata_only"},
     {"source_event": "codex.tool_result", "source_kind": "otlp_log_span_metric", "canonical_event_type": "tool.called", "tier": "native"},
+    {"source_event": "codex.api_request", "source_kind": "otlp_log_span_metric", "canonical_event_type": "source.observed", "tier": "native_metadata_only"},
+    {"source_event": "codex.sse_event", "source_kind": "otlp_log_span_metric", "canonical_event_type": "model.responded", "tier": "native_response_completed_shape_only"},
+    {"source_event": "codex.model_token_usage", "source_kind": "otlp_log_span_metric", "canonical_event_type": "source.observed", "tier": "native_metadata_only"},
     {"source_event": "SubagentStart", "source_kind": "hook_http", "canonical_event_type": "subagent.started", "tier": "native"},
     {"source_event": "SubagentStop", "source_kind": "hook_http", "canonical_event_type": "subagent.completed", "tier": "native"},
     {"source_event": "Stop", "source_kind": "hook_http", "canonical_event_type": "session.stopped", "tier": "native"}

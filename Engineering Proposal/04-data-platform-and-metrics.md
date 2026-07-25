@@ -91,3 +91,9 @@ A deterministic fixture and a million-event stress dataset produce verified coun
 percentiles, funnels and completeness states; restart/replay is idempotent; common dashboard queries
 meet the provisional budget; retention deletes only intended data.
 
+## 2026-07-25 projection reconciliation
+
+The production observability handoff now idempotently materializes prompt length, tool calls,
+model operations, tokens, provider cost, component lifecycle observations and source watermarks.
+Activity duration is aggregated once per session/day. Historical unknown telemetry is preserved;
+replay heals a missing projection without inflating counts.

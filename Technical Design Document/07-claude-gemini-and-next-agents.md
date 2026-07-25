@@ -97,3 +97,9 @@ Claude and Gemini reach declared support levels without core agent conditionals;
 only to proven capability; all content-rich fields are rejected before durable storage; the fake
 adapter validates future extensibility.
 
+## Claude OTel mapping (reconciled 2026-07-25)
+
+`user_prompt`, `tool_result`, `api_request`/`api_error`, `plugin_installed`, `plugin_loaded` and
+`skill_activated` map onto canonical facts using only documented bounded metadata. Prompt IDs are
+device-keyed turn pseudonyms. `tool_decision` becomes `source.observed` so it remains auditable
+without doubling the execution counted from `tool_result`.

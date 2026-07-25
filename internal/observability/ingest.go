@@ -307,7 +307,13 @@ func (i *Ingestor) IngestUnknown(kind SourceKind, schemaFingerprint string, byte
 // never merge across lanes -- exactly the regression
 // TestSharedLogicalFixtureAcrossHookOTLPAndTranscript guards against.
 func (i *Ingestor) IngestSafeFields(fields map[string]any, adapterID string, kind SourceKind, sequence uint64) (CommitResult, error) {
-	allowed := map[string]bool{"event_id": true, "session_id": true, "observed_at": true, "event_type": true, "outcome": true, "value_state": true, "model": true, "tool_name": true}
+	allowed := map[string]bool{
+		"event_id": true, "session_id": true, "observed_at": true, "event_type": true,
+		"outcome": true, "value_state": true, "model": true, "tool_name": true,
+		"component_kind": true, "duration_ms": true, "prompt_character_count": true,
+		"input_tokens": true, "output_tokens": true, "provider_cost_micros": true,
+		"turn_id": true,
+	}
 	for key := range fields {
 		if !allowed[key] {
 			return CommitResult{}, errors.New("unsafe_otlp_field")
@@ -333,7 +339,7 @@ func (i *Ingestor) IngestSafeFields(fields map[string]any, adapterID string, kin
 	}
 	valueState, _ := fields["value_state"].(string)
 	if valueState == "" {
-		valueState = string(privacy.ValueUnknown)
+		valueState = string(privacy.ValueObserved)
 	}
 	if !validValueState(valueState) {
 		return CommitResult{}, errors.New("unsafe_otlp_field")
@@ -348,6 +354,10 @@ func (i *Ingestor) IngestSafeFields(fields map[string]any, adapterID string, kin
 	now := i.now().UTC()
 	sourceRecordPseudonym := "hmac-sha256:" + i.keyedIdentity("source-record/1", adapterID+"\x00"+eventID)
 	sessionPseudonym := "hmac-sha256:" + i.keyedIdentity("session/1", adapterID+"\x00"+sessionID)
+	turnPseudonym := ""
+	if turnID, ok := fields["turn_id"].(string); ok && turnID != "" {
+		turnPseudonym = "hmac-sha256:" + i.keyedIdentity("turn/1", adapterID+"\x00"+sessionID+"\x00"+turnID)
+	}
 	idempotency := "hmac-sha256:" + i.keyedIdentity("idempotency/1", adapterID+"\x00"+string(kind)+"\x00"+eventID+"\x00"+observedText)
 	// index is always "0": IngestSafeFields ingests exactly one OTLP
 	// record/data point per call (see ingestOneRecord), unlike
@@ -367,21 +377,59 @@ func (i *Ingestor) IngestSafeFields(fields map[string]any, adapterID string, kin
 	} else {
 		model = privacy.CatalogObservation{State: privacy.ObservationNotObserved}
 	}
+	componentKind, _ := fields["component_kind"].(string)
+	measurement := privacy.TelemetryMeasurements{
+		DurationMS:           safeInt64Pointer(fields["duration_ms"]),
+		PromptCharacterCount: safeInt64Pointer(fields["prompt_character_count"]),
+		InputTokens:          safeInt64Pointer(fields["input_tokens"]),
+		OutputTokens:         safeInt64Pointer(fields["output_tokens"]),
+		ProviderCostMicros:   safeInt64Pointer(fields["provider_cost_micros"]),
+	}
+	for _, value := range []*int64{
+		measurement.DurationMS, measurement.PromptCharacterCount,
+		measurement.InputTokens, measurement.OutputTokens, measurement.ProviderCostMicros,
+	} {
+		if value != nil && *value < 0 {
+			return CommitResult{}, errors.New("unsafe_otlp_field")
+		}
+	}
+	sourceSchemaID := adapterID + ".otel/1"
+	if adapterID == FixtureAdapterID {
+		sourceSchemaID = fixtureOTLPSchema
+	}
 	record := privacy.SafeRecord{
 		RecordID: recordID, IdempotencyKey: idempotency,
 		AdapterID: adapterID, AdapterVersion: "1.0.0",
-		SourceSchemaID: string(kind), SchemaFingerprint: sourceRecordPseudonym,
+		SourceSchemaID: sourceSchemaID, SchemaFingerprint: sourceRecordPseudonym,
 		ObservedAt: observedAt.UTC(), ReceivedAt: now,
 		Confidence: 1, EventType: eventType, Outcome: outcome, ValueState: privacy.ValueState(valueState),
-		Model: model, Tool: tool,
+		Model: model, Tool: tool, ComponentKind: componentKind, Telemetry: measurement,
 		Lineage: privacy.Lineage{
 			SourceRecordPseudonym: sourceRecordPseudonym, SessionPseudonym: sessionPseudonym,
-			AdapterID: adapterID, AdapterVersion: "1.0.0", SourceSchemaID: string(kind),
+			TurnPseudonym: turnPseudonym,
+			AdapterID:     adapterID, AdapterVersion: "1.0.0", SourceSchemaID: sourceSchemaID,
 			SchemaFingerprint: sourceRecordPseudonym, SanitizerVersion: "kansoku.ingress-sanitizer/1",
 			ContractSHA256: privacy.PrivacyContractSemanticSHA256,
 		},
 	}
 	return i.ingestSafe(record, kind, sequence, nil)
+}
+
+func safeInt64Pointer(value any) *int64 {
+	switch typed := value.(type) {
+	case int64:
+		copy := typed
+		return &copy
+	case int:
+		copy := int64(typed)
+		return &copy
+	case uint64:
+		if typed <= uint64(^uint64(0)>>1) {
+			copy := int64(typed)
+			return &copy
+		}
+	}
+	return nil
 }
 
 // IngestSanitizedAdapterRecord is the external-adapter batch boundary. The

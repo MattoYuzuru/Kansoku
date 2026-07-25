@@ -12,7 +12,6 @@ package crossagent_test
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,9 +24,9 @@ import (
 const fixturePath = "../../tests/fixtures/session-07/cross-agent-invariant-scenario.json"
 
 type stageMappingRow struct {
-	Stage               string `json:"stage"`
-	CapabilityID        string `json:"capability_id"`
-	CanonicalEventType  string `json:"canonical_event_type"`
+	Stage              string `json:"stage"`
+	CapabilityID       string `json:"capability_id"`
+	CanonicalEventType string `json:"canonical_event_type"`
 }
 
 type hookEventFixture struct {
@@ -76,9 +75,9 @@ type agentScenarioFixture struct {
 }
 
 type crossAgentScenarioFixture struct {
-	ScenarioStageToCapabilityMapping []stageMappingRow     `json:"scenario_stage_to_capability_mapping"`
-	Codex                            agentScenarioFixture  `json:"codex"`
-	Claude                           agentScenarioFixture  `json:"claude"`
+	ScenarioStageToCapabilityMapping []stageMappingRow    `json:"scenario_stage_to_capability_mapping"`
+	Codex                            agentScenarioFixture `json:"codex"`
+	Claude                           agentScenarioFixture `json:"claude"`
 }
 
 func loadScenarioFixture(t *testing.T) crossAgentScenarioFixture {
@@ -299,16 +298,10 @@ func hasMCPPrefix(toolID string) bool {
 
 // --- Stage: model tokens -----------------------------------------------------------------
 
-// TestCrossAgentModelTokensStageRendersUnsupportedForCodexAndNativeForClaude
-// is the concrete proof of the unsupported_rendering_rule: Claude has a
-// native, mapped OTel event for this stage (claude_code.api_request ->
-// model.responded), while Codex's equivalent OTel event
-// (codex.model_token_usage) is documented but not yet present in Codex's
-// own active canonical mapping table -- so this stage renders degraded/
-// unmapped for Codex only, never a uniform zero forced onto Claude, and
-// never a fabricated model.responded event invented for Codex to make the
-// two agents look symmetrical.
-func TestCrossAgentModelTokensStageRendersUnsupportedForCodexAndNativeForClaude(t *testing.T) {
+// TestCrossAgentModelTokensStageUsesEachAgentsNativeCountableEvent proves
+// both agents can back the shared capability without pretending their
+// upstream event shapes are identical.
+func TestCrossAgentModelTokensStageUsesEachAgentsNativeCountableEvent(t *testing.T) {
 	fixture := loadScenarioFixture(t)
 	row := capabilityByStage(t, fixture.ScenarioStageToCapabilityMapping, "model_tokens")
 	if row.CapabilityID != string(adaptersdk.CapabilityActivityTokenModelCost) {
@@ -317,18 +310,18 @@ func TestCrossAgentModelTokensStageRendersUnsupportedForCodexAndNativeForClaude(
 
 	codexManifest := codexadapter.New().Manifest()
 	assertManifestDeclaresCapability(t, codexManifest, adaptersdk.CapabilityID(row.CapabilityID))
-	if !fixture.Codex.ModelTokens.ExpectUnmapped {
-		t.Fatal("this fixture must document codex's model-tokens stage as currently unmapped")
-	}
-	_, err := codexadapter.CanonicalEventForOTel(
+	codexCanonical, err := codexadapter.CanonicalEventForOTel(
 		codexadapter.OTelEventName(fixture.Codex.ModelTokens.OTelEventName),
-		codexadapter.OTelAttributeShape{InstrumentationScope: fixture.Codex.ModelTokens.OTelEventName},
+		codexadapter.OTelAttributeShape{
+			InstrumentationScope: fixture.Codex.ModelTokens.OTelEventName,
+			PresentAttributeKeys: fixture.Codex.ModelTokens.AttributeShape,
+		},
 	)
-	if err == nil {
-		t.Fatal("codex's model-tokens OTel event must not silently resolve to a canonical type while it remains unmapped in codex's active mapping table")
+	if err != nil {
+		t.Fatalf("codex's token-bearing completed SSE must resolve natively: %v", err)
 	}
-	if !errors.Is(err, codexadapter.ErrOTelEventNotMapped) {
-		t.Fatalf("expected ErrOTelEventNotMapped degrading only this capability, got %v", err)
+	if codexCanonical != row.CanonicalEventType || codexCanonical != fixture.Codex.ModelTokens.ExpectedCanonicalEventType {
+		t.Fatalf("expected codex model-tokens canonical event %q, got %q", row.CanonicalEventType, codexCanonical)
 	}
 
 	claudeManifest := claudeadapter.New().Manifest()
@@ -407,10 +400,11 @@ func TestAgentSpecificExtraEventSurvivesAsAllowlistedAttributeWithoutCoreChange(
 	if !found {
 		t.Fatalf("plugin.name's resolved slot %q must already be a member of OTLPSafeAttributes() -- no new raw attribute passthrough is declared for it", slot)
 	}
-	// The safe attribute allowlist itself is exactly the one Session 03
-	// ingress.yaml already declares; it gains no new member for plugin.name.
-	if len(claudeadapter.OTLPSafeAttributes()) != 8 {
-		t.Fatalf("claude.otel's safe attribute allowlist must stay the same closed 8-member set ingress.yaml declares, got %d members", len(claudeadapter.OTLPSafeAttributes()))
+	// The safe attribute allowlist itself is exactly the expanded,
+	// content-free list ingress.yaml declares; plugin.name still gains no
+	// raw passthrough member of its own.
+	if len(claudeadapter.OTLPSafeAttributes()) != 15 {
+		t.Fatalf("claude.otel's safe attribute allowlist must match the closed 15-member ingress registry, got %d members", len(claudeadapter.OTLPSafeAttributes()))
 	}
 }
 

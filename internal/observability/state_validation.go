@@ -8,11 +8,13 @@ import (
 )
 
 var (
-	hex64Pattern       = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	fingerprintPattern = regexp.MustCompile(`^(?:(?:sha256|hmac-sha256):)?[0-9a-f]{64}$`)
-	hex32IDPattern     = regexp.MustCompile(`^(?:evt|evd|cor|inc|qua)_[0-9a-f]{32}$`)
-	safeIDPattern      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$`)
-	pseudonymPattern   = regexp.MustCompile(`^hmac-sha256:[0-9a-f]{64}$`)
+	hex64Pattern        = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	fingerprintPattern  = regexp.MustCompile(`^(?:(?:sha256|hmac-sha256):)?[0-9a-f]{64}$`)
+	hex32IDPattern      = regexp.MustCompile(`^(?:evt|evd|cor|inc|qua)_[0-9a-f]{32}$`)
+	safeIDPattern       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$`)
+	pseudonymPattern    = regexp.MustCompile(`^hmac-sha256:[0-9a-f]{64}$`)
+	installationPattern = regexp.MustCompile(`^ain_(?:fixture|[0-9a-f]{32})$`)
+	devicePattern       = regexp.MustCompile(`^dev_(?:fixture|[0-9a-f]{32})$`)
 )
 
 func validSourceKind(kind SourceKind) bool {
@@ -71,7 +73,7 @@ func validOutcome(value string) bool {
 
 func validValueState(value string) bool {
 	switch value {
-	case "unsupported", "not_observed", "redacted", "unknown", "numeric_zero":
+	case "observed", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero":
 		return true
 	default:
 		return false
@@ -81,11 +83,13 @@ func validValueState(value string) bool {
 func validEventType(value string) bool {
 	switch value {
 	case "session.started", "prompt.submitted", "component.executed", "session.stopped",
+		"model.responded", "component.installed", "component.loaded", "component.invoked",
+		"source.observed",
 		// "tool.called" is appended (never replacing component.executed) for
 		// Gap A: it is the real, already-tested canonical event type both
 		// codexadapter.CanonicalEventForOTel and
-		// claudeadapter.CanonicalEventForOTel resolve codex.tool_decision/
-		// codex.tool_result and Claude's tool_result OTel events onto
+		// claudeadapter.CanonicalEventForOTel resolve codex.tool_result and
+		// Claude's tool_result OTel events onto
 		// (internal/codexadapter/otel.go, internal/claudeadapter/otel.go).
 		// The fixture-agent lane's own tool_finished -> component.executed
 		// mapping (normalize.go's canonicalEventTypes) is untouched.
@@ -115,12 +119,27 @@ func validSource(source SourceRef) bool {
 		!safeIDPattern.MatchString(source.SchemaID) ||
 		!validSourceKind(source.Kind) ||
 		!fingerprintPattern.MatchString(source.SchemaFingerprint) ||
-		source.InstallationID != "ain_fixture" ||
+		!installationPattern.MatchString(source.InstallationID) ||
 		!pseudonymPattern.MatchString(source.NativeEventID) {
 		return false
 	}
 	expected := expectedSourceSchema(source.Kind)
-	return source.Kind == SourceAdapterBatch || source.SchemaID == expected
+	if source.Kind == SourceAdapterBatch || source.SchemaID == expected {
+		return true
+	}
+	if source.Kind == SourceOTLPLog || source.Kind == SourceOTLPSpan || source.Kind == SourceOTLPMetric {
+		return source.SchemaID == "codex.otel/1" || source.SchemaID == "claude.otel/1"
+	}
+	return false
+}
+
+func validSubjectKind(kind string) bool {
+	switch kind {
+	case "", "component", "tool", "skill", "plugin", "mcp", "hook", "command", "agent":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateEvent(event Event, factKey string) error {
@@ -128,8 +147,14 @@ func validateEvent(event Event, factKey string) error {
 		event.EventID != "evt_"+event.FactKey[:32] || !hex32IDPattern.MatchString(event.EventID) || !validEventType(event.EventType) ||
 		event.EmittedAt.IsZero() || event.ObservedAt.IsZero() || event.IngestedAt.IsZero() ||
 		(event.TimestampQuality != "source_rfc3339" && event.TimestampQuality != "source_clock_skewed") || !validSource(event.Source) ||
-		event.Scope.DeviceID != "dev_fixture" || event.Scope.AgentInstallationID != "ain_fixture" || !safeIDPattern.MatchString(event.Scope.SessionID) ||
-		event.Subject.Kind != "component" || event.Measurements.DurationMS < 0 || event.Measurements.Success == nil ||
+		!devicePattern.MatchString(event.Scope.DeviceID) || event.Scope.AgentInstallationID != event.Source.InstallationID || !safeIDPattern.MatchString(event.Scope.SessionID) ||
+		!validSubjectKind(event.Subject.Kind) ||
+		(event.Measurements.DurationMS != nil && *event.Measurements.DurationMS < 0) ||
+		(event.Measurements.PromptCharacterCount != nil && *event.Measurements.PromptCharacterCount < 0) ||
+		(event.Measurements.InputTokens != nil && *event.Measurements.InputTokens < 0) ||
+		(event.Measurements.OutputTokens != nil && *event.Measurements.OutputTokens < 0) ||
+		(event.Measurements.ProviderCostMicros != nil && *event.Measurements.ProviderCostMicros < 0) ||
+		(event.Measurements.Count != nil && *event.Measurements.Count < 0) ||
 		!validValueState(event.ValueState) || !validOutcome(event.Outcome) || !validCorrelation(event.CorrelationStatus) {
 		return errors.New("invalid_event")
 	}

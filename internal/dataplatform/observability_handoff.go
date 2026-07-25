@@ -90,11 +90,11 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 		installationID, event.Source.NativeEventID,
 	)
 	projectID := firstOrStable(event.Scope.ProjectID, "project", sessionID)
-	turnID := firstOrStable(event.Scope.TurnID, "turn", sessionID, event.EventID)
-	componentID := firstOrStable(
-		event.Subject.ComponentID, "component",
-		event.Subject.Kind, event.EventType,
-	)
+	turnID := event.Scope.TurnID
+	if turnID == "" && eventCarriesTurn(event.EventType) {
+		turnID = handoffID("turn", sessionID, event.EventID)
+	}
+	componentID := event.Subject.ComponentID
 	adapterVersionID := handoffID(
 		"adapter-version", event.Source.AdapterID, event.Source.AdapterVersion,
 	)
@@ -117,6 +117,16 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 	}
 }
 
+func eventCarriesTurn(eventType string) bool {
+	switch eventType {
+	case "prompt.submitted", "tool.called", "model.responded",
+		"component.installed", "component.loaded", "component.invoked", "component.executed":
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, evidence observability.Evidence) error {
 	if h == nil || h.pool == nil {
 		return errors.New("observability_handoff_not_configured")
@@ -136,6 +146,9 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		SessionID:           scope.SessionID,
 		TurnID:              scope.TurnID,
 		ComponentID:         scope.ComponentID,
+		ComponentKind:       databaseComponentKind(event.Subject.Kind),
+		ModelID:             event.Subject.ModelID,
+		ProviderID:          providerForAdapter(event.Source.AdapterID),
 		AdapterVersionID:    scope.AdapterVersionID,
 		AdapterID:           event.Source.AdapterID,
 		AdapterVersion:      event.Source.AdapterVersion,
@@ -144,8 +157,7 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 	}); err != nil {
 		return err
 	}
-	duration := event.Measurements.DurationMS
-	_, err := InsertFact(ctx, h.pool, FactRow{
+	result, err := InsertFact(ctx, h.pool, FactRow{
 		EventID:             event.EventID,
 		FactKey:             event.FactKey,
 		EventType:           event.EventType,
@@ -161,7 +173,7 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		SessionID:           scope.SessionID,
 		TurnID:              scope.TurnID,
 		ComponentID:         scope.ComponentID,
-		DurationMS:          &duration,
+		DurationMS:          event.Measurements.DurationMS,
 		Success:             event.Measurements.Success,
 		Count:               event.Measurements.Count,
 		ValueState:          event.ValueState,
@@ -184,7 +196,119 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		AssertOutcome:     evidence.Assertion.Outcome,
 		AssertValueState:  evidence.Assertion.ValueState,
 	})
+	if err != nil {
+		return err
+	}
+	if !result.FactInserted && !result.DuplicateReplay {
+		return nil
+	}
+	if err := h.persistSourceWatermark(ctx, event, scope); err != nil {
+		return err
+	}
+	return h.persistProjections(ctx, event, scope)
+}
+
+func (h *ObservabilityHandoff) persistSourceWatermark(ctx context.Context, event observability.Event, scope ObservabilityFactScope) error {
+	_, err := h.pool.Exec(ctx, `
+		INSERT INTO source_watermarks (
+			source_instance_id, last_read_sequence, last_emitted_sequence,
+			last_observed_at, last_committed_at, gap_count, inactivity
+		) VALUES ($1,$2,$2,$3,$4,0,FALSE)
+		ON CONFLICT (source_instance_id) DO UPDATE SET
+			last_read_sequence = GREATEST(source_watermarks.last_read_sequence, EXCLUDED.last_read_sequence),
+			last_emitted_sequence = GREATEST(source_watermarks.last_emitted_sequence, EXCLUDED.last_emitted_sequence),
+			last_observed_at = GREATEST(source_watermarks.last_observed_at, EXCLUDED.last_observed_at),
+			last_committed_at = GREATEST(source_watermarks.last_committed_at, EXCLUDED.last_committed_at),
+			inactivity = FALSE
+	`, scope.SourceInstanceID, int64(event.Source.Sequence), event.ObservedAt.UTC(), event.IngestedAt.UTC())
 	return err
+}
+
+func databaseComponentKind(kind string) string {
+	switch kind {
+	case "skill", "plugin", "mcp", "hook", "command":
+		return kind
+	case "tool", "agent":
+		// The v1 component catalog has no generic tool/subagent kind.
+		// tool_calls still carries the exact safe tool identity; "command"
+		// is the closest declared executable-component class.
+		return "command"
+	default:
+		return "command"
+	}
+}
+
+func providerForAdapter(adapterID string) string {
+	switch adapterID {
+	case "claude":
+		return "anthropic"
+	case "codex":
+		return "openai"
+	default:
+		return adapterID
+	}
+}
+
+func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event observability.Event, scope ObservabilityFactScope) error {
+	switch event.EventType {
+	case "prompt.submitted":
+		_, err := h.pool.Exec(ctx, `
+			INSERT INTO prompt_features (
+				prompt_feature_id, turn_id, observed_at, prompt_size_bytes,
+				prompt_character_count, value_state
+			) VALUES ($1,$2,$3,NULL,$4,$5)
+			ON CONFLICT (prompt_feature_id) DO NOTHING
+		`, handoffID("prompt-feature", event.EventID), scope.TurnID, event.ObservedAt,
+			event.Measurements.PromptCharacterCount, event.ValueState)
+		return err
+	case "tool.called":
+		if err := EnsurePartition(ctx, h.pool, "tool_calls", event.ObservedAt); err != nil {
+			return err
+		}
+		_, err := h.pool.Exec(ctx, `
+			INSERT INTO tool_calls (
+				tool_call_id, observed_at, event_id, component_id, session_id,
+				duration_ms, outcome
+			) VALUES ($1,$2,$3,$4,$5,$6,$7)
+			ON CONFLICT (tool_call_id, observed_at) DO NOTHING
+		`, handoffID("tool-call", event.EventID), event.ObservedAt, event.EventID,
+			nullableString(scope.ComponentID), scope.SessionID, event.Measurements.DurationMS, event.Outcome)
+		return err
+	case "model.responded":
+		if event.Subject.ModelID == "" {
+			return nil
+		}
+		if err := EnsurePartition(ctx, h.pool, "model_operations", event.ObservedAt); err != nil {
+			return err
+		}
+		operationID := handoffID("model-operation", event.EventID)
+		if _, err := h.pool.Exec(ctx, `
+			INSERT INTO model_operations (
+				model_operation_id, observed_at, event_id, model_id, session_id,
+				provider_cost_micros
+			) VALUES ($1,$2,$3,$4,$5,$6)
+			ON CONFLICT (model_operation_id, observed_at) DO NOTHING
+		`, operationID, event.ObservedAt, event.EventID, event.Subject.ModelID,
+			scope.SessionID, event.Measurements.ProviderCostMicros); err != nil {
+			return err
+		}
+		if event.Measurements.InputTokens == nil || event.Measurements.OutputTokens == nil {
+			return nil
+		}
+		if err := EnsurePartition(ctx, h.pool, "token_usage", event.ObservedAt); err != nil {
+			return err
+		}
+		_, err := h.pool.Exec(ctx, `
+			INSERT INTO token_usage (
+				token_usage_id, observed_at, model_operation_id, input_tokens, output_tokens
+			) VALUES ($1,$2,$3,$4,$5)
+			ON CONFLICT (token_usage_id, observed_at) DO NOTHING
+		`, handoffID("token-usage", event.EventID), event.ObservedAt, operationID,
+			*event.Measurements.InputTokens, *event.Measurements.OutputTokens)
+		return err
+	default:
+		return nil
+	}
 }
 
 func (h *ObservabilityHandoff) PersistQuarantineMetadata(quarantine observability.Quarantine, incident observability.Incident) error {
