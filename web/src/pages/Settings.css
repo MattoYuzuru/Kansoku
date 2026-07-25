@@ -27,15 +27,3 @@
   color: var(--text-primary);
   font-family: inherit;
 }
-.k-link-button {
-  align-self: flex-start;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--accent-purple);
-  cursor: pointer;
-  text-decoration: underline;
-}
-.k-link-button:hover {
-  color: var(--accent-gold);
-}

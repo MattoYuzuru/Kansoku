@@ -92,7 +92,7 @@ function AccentField({
 }
 
 function AppearancePanel() {
-  const { appearance, setTheme, toggleTheme, setSidebarCollapsed, applyPreset } = useTheme();
+  const { appearance, setTheme, setSidebarCollapsed, applyPreset } = useTheme();
 
   return (
     <Panel title="Appearance" caption="Client-side preference only — never sent to the backend.">
@@ -127,9 +127,6 @@ function AppearancePanel() {
         onChange={setSidebarCollapsed}
         label="Collapse sidebar by default"
       />
-      <button type="button" className="k-link-button t-caption" onClick={toggleTheme}>
-        Toggle theme
-      </button>
     </Panel>
   );
 }
