@@ -18,7 +18,7 @@
  * collapse, and the two runtime-mutable accent tokens — persisted to
  * localStorage only, never sent to the backend.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GapNote, Panel } from "../components/Panel";
 import { StatusBadge } from "../components/StatusBadge";
 import { Dropdown } from "../components/Dropdown";
@@ -47,6 +47,14 @@ function AccentField({
         : appearance.accentGold;
   const [draft, setDraft] = useState(current);
   const [rejected, setRejected] = useState(false);
+
+  // Resync the draft when the source of truth changes from elsewhere (a
+  // preset switch, or a theme flip swapping which shade is "current") —
+  // useState(current) only seeds the initial value, it doesn't track updates.
+  useEffect(() => {
+    setDraft(current);
+    setRejected(false);
+  }, [current]);
 
   const ratio = contrastRatio(draft, THEME_BG[appearance.theme]);
 
