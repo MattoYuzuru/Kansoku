@@ -58,6 +58,7 @@ export interface QueryResponse {
 /* ---- /api/v1/analytics?budget_id=agent_breakdown_range|model_breakdown_range|component_breakdown_range ---- */
 export interface EntityRow {
   entity_id: string;
+  agent_id?: string;
   event_count: number;
   success_count: number;
   failure_count: number;

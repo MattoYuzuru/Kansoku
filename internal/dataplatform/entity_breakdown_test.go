@@ -110,6 +110,9 @@ func TestAgentBreakdownGroupsAcrossAgentsWithinRangeAndBudget(t *testing.T) {
 	if alpha.EventCount != 3 || alpha.SuccessCount != 2 || alpha.FailureCount != 1 {
 		t.Fatalf("ain_alpha row = %+v, want event=3 success=2 failure=1", alpha)
 	}
+	if alpha.AgentID != refsA.AgentID {
+		t.Fatalf("ain_alpha agent_id = %q, want %q", alpha.AgentID, refsA.AgentID)
+	}
 	bravo, ok := byID["ain_bravo"]
 	if !ok {
 		t.Fatalf("missing ain_bravo row: %+v", response.Data)

@@ -141,6 +141,7 @@ type RollupPoint struct {
 // this entity kind (e.g. an agent breakdown has no latency dimension).
 type EntityRow struct {
 	EntityID     string       `json:"entity_id"`
+	AgentID      string       `json:"agent_id,omitempty"`
 	EventCount   int64        `json:"event_count"`
 	SuccessCount int64        `json:"success_count"`
 	FailureCount int64        `json:"failure_count"`

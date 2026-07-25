@@ -24,7 +24,7 @@ const SPEC: Record<StatusState, StatusSpec> = {
   unsupported: { glyph: "○", label: "Unsupported", colorVar: "var(--status-unsupported)" }, // ○ hollow
   not_observed: { glyph: "◌", label: "Not observed", colorVar: "var(--status-not-observed)" }, // ◌ dotted
   redacted: { glyph: "▨", label: "Redacted", colorVar: "var(--status-redacted)" }, // ▨ cross-hatched
-  unknown: { glyph: "–", label: "Unknown", colorVar: "var(--status-unknown)" }, // – en-dash
+  unknown: { glyph: "?", label: "Unknown", colorVar: "var(--status-unknown)" }, // explicit unknown marker
   numeric_zero: { glyph: "0", label: "Zero", colorVar: "var(--status-zero)" }, // mono zero
 };
 
@@ -33,17 +33,31 @@ export interface StatusBadgeProps {
   /** Glyph-only mode (e.g. leading a table cell); still exposes the label to AT. */
   glyphOnly?: boolean;
   className?: string;
+  /** Concrete panel-specific explanation. Falls back to the glossary meaning. */
+  reason?: string;
 }
 
-export function StatusBadge({ state, glyphOnly = false, className }: StatusBadgeProps) {
+const DEFAULT_REASON: Record<StatusState, string> = {
+  complete: "All required evidence for this value is available.",
+  partial: "Some eligible evidence is available; a bounded portion is missing.",
+  degraded: "A known source, schema, parser, reconciliation, or freshness failure affects this value.",
+  unsupported: "The active source does not provide a reliable signal for this value.",
+  not_observed: "The signal is observable, but no qualifying event was seen in this range.",
+  redacted: "The source value was intentionally removed by the privacy policy.",
+  unknown: "Kansoku cannot establish the value or its denominator from the available evidence.",
+  numeric_zero: "A complete eligible population was measured and the result is exactly zero.",
+};
+
+export function StatusBadge({ state, glyphOnly = false, className, reason }: StatusBadgeProps) {
   const spec = SPEC[state];
+  const explanation = reason ?? DEFAULT_REASON[state];
   return (
     <span
       className={`k-status k-status--${state}${className ? " " + className : ""}`}
       style={{ color: spec.colorVar }}
       role="img"
-      aria-label={spec.label}
-      title={spec.label}
+      aria-label={`${spec.label}: ${explanation}`}
+      title={explanation}
     >
       <span className="k-status__glyph" aria-hidden="true">
         {spec.glyph}

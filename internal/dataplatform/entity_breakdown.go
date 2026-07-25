@@ -16,7 +16,9 @@ const FormulaVersionEntityBreakdown1 = "entity_breakdown/1"
 
 // AgentBreakdown executes the "agent_breakdown_range" budgeted query: one
 // row per agent_installation_id observed inside the partition-pruned
-// half-open [from, to) range, with total event count and outcome split.
+// half-open [from, to) range, with the installation's adapter-owned agent_id,
+// total event count and outcome split. agent_installation_id remains the
+// privacy-safe technical key; it is not a product display name.
 // Serves the /agents and /agents/:id "installation table; surface
 // activity" panels, which need a per-agent leaderboard the single-scope
 // RollupRange cannot produce.
@@ -30,26 +32,40 @@ func AgentBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		SELECT agent_installation_id,
+		SELECT e.agent_installation_id, ai.agent_id,
 			count(*) AS event_count,
 			count(*) FILTER (WHERE outcome = 'succeeded') AS success_count,
 			count(*) FILTER (WHERE outcome IN ('failed', 'timed_out', 'abandoned')) AS failure_count
-		FROM events
-		WHERE observed_at >= $1 AND observed_at < $2 AND agent_installation_id IS NOT NULL
-		GROUP BY agent_installation_id
-		ORDER BY event_count DESC, agent_installation_id
+		FROM events e
+		JOIN agent_installations ai ON ai.agent_installation_id = e.agent_installation_id
+		WHERE e.observed_at >= $1 AND e.observed_at < $2 AND e.agent_installation_id IS NOT NULL
+		GROUP BY e.agent_installation_id, ai.agent_id
+		ORDER BY event_count DESC, e.agent_installation_id
 	`, from, to)
 	if err != nil {
 		return EntityBreakdownResponse{}, budgetOrErr(budget, started, err)
 	}
-	response, err := scanEntityRows(rows)
-	if err != nil {
+	defer rows.Close()
+	var response EntityBreakdownResponse
+	var numerator, denominator int64
+	for rows.Next() {
+		var row EntityRow
+		if err := rows.Scan(&row.EntityID, &row.AgentID, &row.EventCount, &row.SuccessCount, &row.FailureCount); err != nil {
+			return EntityBreakdownResponse{}, err
+		}
+		response.Data = append(response.Data, row)
+		numerator += row.SuccessCount
+		denominator += row.SuccessCount + row.FailureCount
+	}
+	if err := rows.Err(); err != nil {
 		return EntityBreakdownResponse{}, err
 	}
 	if elapsed := time.Since(started).Milliseconds(); elapsed > budget.MaxMS {
 		return EntityBreakdownResponse{}, &ErrBudgetExceeded{BudgetID: budget.ID, MaxMS: budget.MaxMS, ActualMS: elapsed}
 	}
 	response.FormulaVersion = FormulaVersionEntityBreakdown1
+	response.Population = Population{Numerator: numerator, Denominator: denominator}
+	response.Completeness = completenessFor(numerator, denominator)
 	return response, nil
 }
 

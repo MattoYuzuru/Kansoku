@@ -29,6 +29,15 @@ import { useAgentBreakdown, useInventory } from "../api/queries";
 import { useRange } from "../hooks/useRange";
 import type { EntityRow } from "../api/types";
 
+function agentLabel(agentID?: string): string {
+  if (!agentID) return "Unknown agent";
+  return agentID
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export function Agents() {
   const range = useRange();
   const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
@@ -40,12 +49,21 @@ export function Agents() {
 
   const columns: Column<EntityRow>[] = [
     {
-      key: "entity_id",
-      header: "Agent installation",
+      key: "agent_id",
+      header: "Agent",
       render: (r) => (
         <Link href={`/agents/${encodeURIComponent(r.entity_id)}`} className="t-table-cell">
-          {r.entity_id}
+          {agentLabel(r.agent_id)}
         </Link>
+      ),
+    },
+    {
+      key: "entity_id",
+      header: "Installation",
+      render: (r) => (
+        <span className="t-caption" title={r.entity_id}>
+          {r.entity_id.length > 18 ? `${r.entity_id.slice(0, 14)}…` : r.entity_id}
+        </span>
       ),
     },
     { key: "event_count", header: "Events", align: "right", render: (r) => r.event_count.toLocaleString() },
@@ -64,7 +82,13 @@ export function Agents() {
     {
       key: "coverage",
       header: "Coverage",
-      render: () => <StatusBadge state="unsupported" glyphOnly />,
+      render: () => (
+        <StatusBadge
+          state="unknown"
+          glyphOnly
+          reason="No per-installation expected-event population has been persisted yet."
+        />
+      ),
     },
   ];
 
@@ -110,10 +134,10 @@ export function Agents() {
           </p>
         )}
         <GapNote>
-          A per-agent version table and capability support matrix are not shown: the
-          backend has no endpoint joining agent installations to adapter versions or
-          per-agent capability coverage — this event-activity leaderboard is the
-          closest real signal currently available.
+          The agent name comes from the adapter identity stored with the installation.
+          The shortened <code>ain_…</code> value is its privacy-safe technical key, not
+          the model or provider name. Per-installation capability coverage still needs
+          durable expected-event populations.
         </GapNote>
       </Panel>
     </section>

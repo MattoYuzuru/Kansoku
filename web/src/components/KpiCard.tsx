@@ -20,6 +20,8 @@ export interface KpiCardProps {
   state?: Exclude<ViewState, "loading"> | "loading";
   /** Decimal places for the displayed number. */
   precision?: number;
+  /** Why this KPI is not complete; exposed by the status badge tooltip. */
+  stateReason?: string;
 }
 
 const prefersReducedMotion = () =>
@@ -63,6 +65,7 @@ export function KpiCard({
   delta,
   state = "complete",
   precision = 0,
+  stateReason,
 }: KpiCardProps) {
   const display = useCountUp(value, precision);
   const loading = state === "loading";
@@ -87,7 +90,7 @@ export function KpiCard({
           </span>
         )}
         {state !== "complete" && state !== "loading" && (
-          <StatusBadge state={state} />
+          <StatusBadge state={state} reason={stateReason} />
         )}
       </div>
     </div>
