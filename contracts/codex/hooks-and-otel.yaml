@@ -68,7 +68,7 @@
     {"source_event": "PostToolUse", "source_kind": "hook_http", "canonical_event_type": "tool.called", "tier": "native"},
     {"source_event": "codex.tool_decision", "source_kind": "otlp_log_span_metric", "canonical_event_type": "source.observed", "tier": "native_metadata_only"},
     {"source_event": "codex.tool_result", "source_kind": "otlp_log_span_metric", "canonical_event_type": "tool.called", "tier": "native"},
-    {"source_event": "codex.api_request", "source_kind": "otlp_log_span_metric", "canonical_event_type": "source.observed", "tier": "native_metadata_only"},
+    {"source_event": "codex.api_request", "source_kind": "otlp_log_span_metric", "canonical_event_type": "model.requested", "tier": "native"},
     {"source_event": "codex.sse_event", "source_kind": "otlp_log_span_metric", "canonical_event_type": "model.responded", "tier": "native_response_completed_shape_only"},
     {"source_event": "codex.model_token_usage", "source_kind": "otlp_log_span_metric", "canonical_event_type": "source.observed", "tier": "native_metadata_only"},
     {"source_event": "SubagentStart", "source_kind": "hook_http", "canonical_event_type": "subagent.started", "tier": "native"},

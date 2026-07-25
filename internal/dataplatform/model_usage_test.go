@@ -11,29 +11,21 @@ import (
 )
 
 // TestModelUsageAggregatesTokensCostAndMatchedLatencyWithinRangeAndBudget
-// proves ModelUsage sums request/token/cost volume per calendar day across
-// multiple model_operations rows, that a row with a matched events row
-// contributes to Percentiles/ErrorRatio while an unmatched row does not
-// fabricate one, respects the half-open [from, to) boundary, and returns
-// within its registered budget.
+// proves ModelUsage sums response/token/cost volume per calendar day across
+// multiple model_operations rows, that a separate request phase contributes
+// to Percentiles/ErrorRatio without double-counting request volume, respects
+// the half-open [from, to) boundary, and returns within its registered budget.
 func TestModelUsageAggregatesTokensCostAndMatchedLatencyWithinRangeAndBudget(t *testing.T) {
 	dsn := testDSN(t)
 	pool := freshSchema(t, dsn)
 	ctx := context.Background()
 	base := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	for _, table := range []string{"model_operations", "token_usage", "events"} {
+	for _, table := range []string{"model_operations", "token_usage"} {
 		if err := EnsurePartition(ctx, pool, table, base); err != nil {
 			t.Fatalf("ensure partition %s: %v", table, err)
 		}
 	}
 	insertProviderAndModel(t, ctx, pool, "prov_model_usage", "model_usage_a")
-
-	sourceInstanceID := "src_model_usage"
-	refs := testDimensionRefs(sourceInstanceID)
-	refs.ComponentID = ""
-	if err := EnsureDimensions(ctx, pool, refs); err != nil {
-		t.Fatalf("ensure dimensions: %v", err)
-	}
 
 	insertOp := func(id string, observedAt time.Time, inputTokens, outputTokens, costMicros int64) {
 		if _, err := pool.Exec(ctx, `INSERT INTO model_operations (model_operation_id, observed_at, model_id) VALUES ($1, $2, 'model_usage_a')`, id, observedAt); err != nil {
@@ -53,19 +45,17 @@ func TestModelUsageAggregatesTokensCostAndMatchedLatencyWithinRangeAndBudget(t *
 		}
 	}
 
-	// Op 1: matched to a real event with duration/outcome.
+	// Two response phases are the volume/token denominator.
 	insertOp("mop_usage_1", base.Add(time.Minute), 100, 50, 1000)
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO events (event_id, fact_key, event_type, observed_at, source_instance_id, source_native_event_id, sequence, value_state, outcome, duration_ms, correlation_status)
-		VALUES ('evt_usage_1', 'evt_usage_1', 'model.request', $1, $2, 'evt_usage_1', 0, 'observed', 'succeeded', 250, 'exact')
-	`, base.Add(time.Minute), sourceInstanceID); err != nil {
-		t.Fatalf("insert matched event: %v", err)
-	}
-	if _, err := pool.Exec(ctx, `UPDATE model_operations SET event_id = 'evt_usage_1' WHERE model_operation_id = 'mop_usage_1'`); err != nil {
-		t.Fatalf("link model_operation to event: %v", err)
+		INSERT INTO model_operations (
+			model_operation_id, observed_at, model_id, operation_kind, duration_ms, outcome
+		) VALUES ('mop_usage_request_1', $1, 'model_usage_a', 'request', 250, 'succeeded')
+	`, base.Add(30*time.Second)); err != nil {
+		t.Fatalf("insert request observation: %v", err)
 	}
 
-	// Op 2: no event_id at all -- unmatched, must not fabricate latency/error.
+	// Op 2 has no corresponding duration observation.
 	insertOp("mop_usage_2", base.Add(2*time.Minute), 10, 5, 100)
 
 	// Outside range: must never leak in.
@@ -101,10 +91,10 @@ func TestModelUsageAggregatesTokensCostAndMatchedLatencyWithinRangeAndBudget(t *
 		t.Fatalf("matched_event_count = %d, want 1", day.MatchedEventCount)
 	}
 	if day.Percentiles == nil || day.Percentiles.P50 == nil {
-		t.Fatalf("expected computed percentiles from the one matched event, got %+v", day.Percentiles)
+		t.Fatalf("expected computed percentiles from the request observation, got %+v", day.Percentiles)
 	}
 	if *day.Percentiles.P50 != 250 {
-		t.Fatalf("p50 = %v, want 250 (the single matched event's duration)", *day.Percentiles.P50)
+		t.Fatalf("p50 = %v, want 250 (the single request observation's duration)", *day.Percentiles.P50)
 	}
 	if response.Population.Denominator == 0 {
 		t.Fatalf("expected a nonzero denominator when requests are present: %+v", response.Population)

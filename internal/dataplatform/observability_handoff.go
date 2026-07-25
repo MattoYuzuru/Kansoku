@@ -119,7 +119,7 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 
 func eventCarriesTurn(eventType string) bool {
 	switch eventType {
-	case "prompt.submitted", "tool.called", "model.responded",
+	case "prompt.submitted", "tool.called", "model.requested", "model.responded",
 		"component.installed", "component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
@@ -274,7 +274,7 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		`, handoffID("tool-call", event.EventID), event.ObservedAt, event.EventID,
 			nullableString(scope.ComponentID), scope.SessionID, event.Measurements.DurationMS, event.Outcome)
 		return err
-	case "model.responded":
+	case "model.requested", "model.responded":
 		if event.Subject.ModelID == "" {
 			return nil
 		}
@@ -282,15 +282,23 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			return err
 		}
 		operationID := handoffID("model-operation", event.EventID)
+		operationKind := "response"
+		if event.EventType == "model.requested" {
+			operationKind = "request"
+		}
 		if _, err := h.pool.Exec(ctx, `
 			INSERT INTO model_operations (
 				model_operation_id, observed_at, event_id, model_id, session_id,
-				provider_cost_micros
-			) VALUES ($1,$2,$3,$4,$5,$6)
+				provider_cost_micros, operation_kind, duration_ms, outcome
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 			ON CONFLICT (model_operation_id, observed_at) DO NOTHING
 		`, operationID, event.ObservedAt, event.EventID, event.Subject.ModelID,
-			scope.SessionID, event.Measurements.ProviderCostMicros); err != nil {
+			scope.SessionID, event.Measurements.ProviderCostMicros, operationKind,
+			event.Measurements.DurationMS, event.Outcome); err != nil {
 			return err
+		}
+		if operationKind == "request" {
+			return nil
 		}
 		if event.Measurements.InputTokens == nil || event.Measurements.OutputTokens == nil {
 			return nil

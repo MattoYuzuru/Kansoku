@@ -274,10 +274,9 @@ type PromptShapeResponse struct {
 }
 
 // ModelUsageDayRow is one calendar day's model-usage volume/cost inside a
-// ModelUsageResponse. Percentiles and ErrorRatio are nil when no
-// model_operations row in that day carries a matched events.event_id (the
-// only source of a duration/outcome signal for model_operations), which is
-// an honest "not observable" rather than a fabricated zero.
+// ModelUsageResponse. Percentiles and ErrorRatio are nil when no native
+// request/response observation in that day carries duration/outcome, which
+// is an honest "not observed" rather than a fabricated zero.
 type ModelUsageDayRow struct {
 	Day                 time.Time    `json:"day"`
 	RequestCount        int64        `json:"request_count"`

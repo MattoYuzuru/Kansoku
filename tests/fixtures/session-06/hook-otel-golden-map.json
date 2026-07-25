@@ -79,9 +79,9 @@
     {
       "otel_event_name": "codex.api_request",
       "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type"],
-      "expected_canonical_event_type": "source.observed",
+      "expected_canonical_event_type": "model.requested",
       "expect_error": null,
-      "note": "documented_metadata_only_event_is_durable_but_does_not_create_a_second_model_operation"
+      "note": "documented_request_phase_preserves_latency_without_counting_as_a_completed_response"
     },
     {
       "otel_event_name": "codex.sse_event",

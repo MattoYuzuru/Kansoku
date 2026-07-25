@@ -499,7 +499,7 @@ func TestCanonicalEventForOTelRejectsUndocumentedEventName(t *testing.T) {
 
 func TestCanonicalEventForOTelPreservesDocumentedMetadataOnlyEvents(t *testing.T) {
 	for _, name := range []codexadapter.OTelEventName{
-		codexadapter.OTelAPIRequest, codexadapter.OTelModelTokenUsage, codexadapter.OTelToolDecision,
+		codexadapter.OTelModelTokenUsage, codexadapter.OTelToolDecision,
 	} {
 		canonical, err := codexadapter.CanonicalEventForOTel(name, codexadapter.OTelAttributeShape{
 			InstrumentationScope: string(name),
@@ -511,6 +511,20 @@ func TestCanonicalEventForOTelPreservesDocumentedMetadataOnlyEvents(t *testing.T
 		if canonical != "source.observed" {
 			t.Fatalf("documented metadata-only event %q = %q, want source.observed", name, canonical)
 		}
+	}
+}
+
+func TestCanonicalEventForOTelPreservesAPIRequestPhase(t *testing.T) {
+	name := codexadapter.OTelAPIRequest
+	canonical, err := codexadapter.CanonicalEventForOTel(name, codexadapter.OTelAttributeShape{
+		InstrumentationScope: string(name),
+		PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+	})
+	if err != nil {
+		t.Fatalf("documented API request: %v", err)
+	}
+	if canonical != "model.requested" {
+		t.Fatalf("API request = %q, want model.requested", canonical)
 	}
 }
 

@@ -30,7 +30,8 @@ func TestObservabilityHandoffPersistsNativeTelemetryProjectionsIdempotently(t *t
 	events := []observability.Event{
 		nativeProjectionEvent("evt_native_prompt_01", "prompt.submitted", observedAt, sessionID, turnID),
 		nativeProjectionEvent("evt_native_tool_01", "tool.called", observedAt.Add(time.Second), sessionID, turnID),
-		nativeProjectionEvent("evt_native_model_01", "model.responded", observedAt.Add(2*time.Second), sessionID, turnID),
+		nativeProjectionEvent("evt_native_model_request_01", "model.requested", observedAt.Add(2*time.Second), sessionID, turnID),
+		nativeProjectionEvent("evt_native_model_01", "model.responded", observedAt.Add(3*time.Second), sessionID, turnID),
 	}
 	events[0].Measurements.PromptCharacterCount = &promptCharacters
 	events[1].Subject = observability.Subject{Kind: "tool", ComponentID: "exec_command"}
@@ -39,11 +40,13 @@ func TestObservabilityHandoffPersistsNativeTelemetryProjectionsIdempotently(t *t
 	events[1].Outcome = "succeeded"
 	events[2].Subject.ModelID = "gpt-5.6-terra"
 	events[2].Measurements.DurationMS = &duration
-	events[2].Measurements.InputTokens = &inputTokens
-	events[2].Measurements.OutputTokens = &outputTokens
-	events[2].Measurements.ProviderCostMicros = &costMicros
-	events[2].Measurements.Success = &success
 	events[2].Outcome = "succeeded"
+	events[3].Subject.ModelID = "gpt-5.6-terra"
+	events[3].Measurements.InputTokens = &inputTokens
+	events[3].Measurements.OutputTokens = &outputTokens
+	events[3].Measurements.ProviderCostMicros = &costMicros
+	events[3].Measurements.Success = &success
+	events[3].Outcome = "succeeded"
 
 	for _, event := range events {
 		evidence := nativeProjectionEvidence(event)
@@ -66,11 +69,11 @@ func TestObservabilityHandoffPersistsNativeTelemetryProjectionsIdempotently(t *t
 			t.Fatalf("%s count = %d, want %d", table, got, want)
 		}
 	}
-	assertCount("events", 3)
+	assertCount("events", 4)
 	assertCount("turns", 1)
 	assertCount("prompt_features", 1)
 	assertCount("tool_calls", 1)
-	assertCount("model_operations", 1)
+	assertCount("model_operations", 2)
 	assertCount("token_usage", 1)
 	assertCount("source_watermarks", 1)
 
@@ -110,6 +113,20 @@ func TestObservabilityHandoffPersistsNativeTelemetryProjectionsIdempotently(t *t
 			gotInput, gotOutput, gotCost, gotProvider, inputTokens, outputTokens, costMicros, "openai")
 	}
 
+	var gotModelDuration int64
+	var gotOperationKind string
+	if err := pool.QueryRow(ctx, `
+		SELECT duration_ms, operation_kind
+		FROM model_operations
+		WHERE operation_kind = 'request'
+	`).Scan(&gotModelDuration, &gotOperationKind); err != nil {
+		t.Fatalf("read model request projection: %v", err)
+	}
+	if gotModelDuration != duration || gotOperationKind != "request" {
+		t.Fatalf("model request projection = (%d,%q), want (%d,%q)",
+			gotModelDuration, gotOperationKind, duration, "request")
+	}
+
 	var lastSequence int64
 	var lastCommitted *time.Time
 	if err := pool.QueryRow(ctx, `
@@ -117,8 +134,8 @@ func TestObservabilityHandoffPersistsNativeTelemetryProjectionsIdempotently(t *t
 	`).Scan(&lastCommitted, &lastSequence); err != nil {
 		t.Fatalf("read watermark: %v", err)
 	}
-	if lastCommitted == nil || lastSequence != 3 {
-		t.Fatalf("watermark = (%v,%d), want committed timestamp and sequence 3", lastCommitted, lastSequence)
+	if lastCommitted == nil || lastSequence != 4 {
+		t.Fatalf("watermark = (%v,%d), want committed timestamp and sequence 4", lastCommitted, lastSequence)
 	}
 }
 
@@ -128,6 +145,8 @@ func nativeProjectionEvent(eventID, eventType string, observedAt time.Time, sess
 	case "tool.called":
 		sequence = 2
 	case "model.responded":
+		sequence = 4
+	case "model.requested":
 		sequence = 3
 	}
 	return observability.Event{

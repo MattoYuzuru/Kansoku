@@ -49,10 +49,12 @@ func DocumentedOTelEvents() []OTelEventName {
 // source_kind is otlp_log_span_metric. Events that carry useful source
 // activity but no independently countable prompt/tool/model operation map
 // to source.observed, so they remain durable without double-counting a
-// projected operation or masquerading as schema drift.
+// projected operation or masquerading as schema drift. API requests are a
+// distinct request phase: Codex reports their duration separately from the
+// response.completed SSE record that carries token usage.
 var otelEventCanonical = map[OTelEventName]string{
 	OTelConversationStarts: "session.started",
-	OTelAPIRequest:         "source.observed",
+	OTelAPIRequest:         "model.requested",
 	OTelModelTokenUsage:    "source.observed",
 	OTelUserPrompt:         "prompt.submitted",
 	OTelToolDecision:       "source.observed",

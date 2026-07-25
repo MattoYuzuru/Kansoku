@@ -181,6 +181,13 @@ func TestModelBreakdownSumsTokensAcrossModels(t *testing.T) {
 	insertOperation("mop_1", "model_sonnet", base.Add(time.Minute), 100, 50)
 	insertOperation("mop_2", "model_sonnet", base.Add(2*time.Minute), 200, 75)
 	insertOperation("mop_3", "model_haiku", base.Add(3*time.Minute), 10, 5)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO model_operations (
+			model_operation_id, observed_at, model_id, operation_kind, duration_ms
+		) VALUES ('mop_request_1', $1, 'model_sonnet', 'request', 125)
+	`, base.Add(30*time.Second)); err != nil {
+		t.Fatalf("insert request observation: %v", err)
+	}
 	// Outside range: must not leak in.
 	insertOperation("mop_4", "model_sonnet", base.AddDate(0, 0, 5), 999, 999)
 

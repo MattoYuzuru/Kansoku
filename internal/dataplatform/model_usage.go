@@ -15,21 +15,16 @@ const FormulaVersionModelUsage1 = "model_usage/2"
 // calendar day inside the half-open [from, to) range with model request
 // count, provider-reported token sum and estimated cost (all backed
 // directly by model_operations/token_usage and provider-reported cost, with
-// cost_estimates as a fallback), plus a latency
-// percentile and error ratio derived from an optional match to the events
-// table. Serves the /models "model-usage" and "model-cost" panels: the
+// cost_estimates as a fallback), plus latency percentiles and error ratio
+// derived from native request/response observations. Serves the /models
+// "model-usage" and "model-cost" panels: the
 // time-series companion to ModelBreakdown's per-model leaderboard.
 //
-// model_operations has no duration_ms/outcome column of its own (see
-// ModelBreakdown's doc comment in entity_breakdown.go). Unlike
-// ModelBreakdown, this query does attempt a LEFT JOIN to events via the
-// nullable model_operations.event_id/observed_at pair, because
-// model.request_latency_seconds/model.error_ratio are "must" metrics the
-// dashboard needs and events genuinely carries duration_ms/outcome for any
-// operation an adapter chose to correlate. When event_id is null or does
-// not match any events row (MatchedEventCount == 0 for that day),
-// Percentiles/ErrorRatio are left nil -- an honest "not observable" rather
-// than a fabricated zero latency or error rate.
+// Response rows are the request-volume/token denominator. Separate request
+// rows contribute latency without double-counting that volume; Claude's
+// combined api_request response row can carry both. When no operation has a
+// duration or terminal outcome, Percentiles/ErrorRatio remain nil -- an
+// honest "not observed" rather than a fabricated zero.
 func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (ModelUsageResponse, error) {
 	budget := Budgets["model_usage_range"]
 	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
@@ -41,10 +36,11 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
 		WITH ops AS (
-			SELECT mo.model_operation_id, mo.observed_at, mo.event_id, mo.provider_cost_micros,
+			SELECT mo.model_operation_id, mo.observed_at, mo.provider_cost_micros,
 				date_trunc('day', mo.observed_at) AS day
 			FROM model_operations mo
 			WHERE mo.observed_at >= $1 AND mo.observed_at < $2
+			  AND mo.operation_kind = 'response'
 		),
 		token_totals AS (
 			SELECT o.model_operation_id,
@@ -61,26 +57,38 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 			LEFT JOIN cost_estimates ce ON ce.token_usage_id = tu.token_usage_id
 			GROUP BY o.model_operation_id, o.provider_cost_micros
 		),
-		matched AS (
-			SELECT o.model_operation_id, o.day, e.event_id, e.duration_ms, e.outcome
-			FROM ops o
-			LEFT JOIN events e ON e.event_id = o.event_id AND e.observed_at = o.observed_at
+		observations AS (
+			SELECT date_trunc('day', mo.observed_at) AS day,
+				mo.duration_ms, mo.outcome
+			FROM model_operations mo
+			WHERE mo.observed_at >= $1 AND mo.observed_at < $2
 		)
 		SELECT o.day,
 			count(DISTINCT o.model_operation_id) AS request_count,
 			coalesce(sum(tt.total_tokens), 0) AS total_tokens,
 			coalesce(sum(ct.total_cost_micros), 0) AS total_cost_micros,
-			count(*) FILTER (WHERE m.event_id IS NOT NULL) AS matched_event_count,
-			count(*) FILTER (WHERE m.outcome = 'succeeded') AS success_count,
-			count(*) FILTER (WHERE m.outcome IN ('failed', 'timed_out', 'abandoned')) AS failure_count,
-			percentile_cont(0.50) WITHIN GROUP (ORDER BY m.duration_ms) FILTER (WHERE m.duration_ms IS NOT NULL) AS p50,
-			percentile_cont(0.90) WITHIN GROUP (ORDER BY m.duration_ms) FILTER (WHERE m.duration_ms IS NOT NULL) AS p90,
-			percentile_cont(0.95) WITHIN GROUP (ORDER BY m.duration_ms) FILTER (WHERE m.duration_ms IS NOT NULL) AS p95,
-			percentile_cont(0.99) WITHIN GROUP (ORDER BY m.duration_ms) FILTER (WHERE m.duration_ms IS NOT NULL) AS p99
+			coalesce(max(obs.observation_count), 0) AS matched_event_count,
+			coalesce(max(obs.success_count), 0) AS success_count,
+			coalesce(max(obs.failure_count), 0) AS failure_count,
+			max(obs.p50) AS p50,
+			max(obs.p90) AS p90,
+			max(obs.p95) AS p95,
+			max(obs.p99) AS p99
 		FROM ops o
 		LEFT JOIN token_totals tt ON tt.model_operation_id = o.model_operation_id
 		LEFT JOIN cost_totals ct ON ct.model_operation_id = o.model_operation_id
-		LEFT JOIN matched m ON m.model_operation_id = o.model_operation_id
+		LEFT JOIN (
+			SELECT day,
+				count(*) FILTER (WHERE duration_ms IS NOT NULL) AS observation_count,
+				count(*) FILTER (WHERE outcome = 'succeeded') AS success_count,
+				count(*) FILTER (WHERE outcome IN ('failed', 'timed_out', 'abandoned')) AS failure_count,
+				percentile_cont(0.50) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS p50,
+				percentile_cont(0.90) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS p90,
+				percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS p95,
+				percentile_cont(0.99) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS p99
+			FROM observations
+			GROUP BY day
+		) obs ON obs.day = o.day
 		GROUP BY o.day
 		ORDER BY o.day
 	`, from, to)

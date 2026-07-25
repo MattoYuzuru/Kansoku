@@ -89,6 +89,7 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 		FROM model_operations mo
 		LEFT JOIN token_usage tu ON tu.model_operation_id = mo.model_operation_id AND tu.observed_at = mo.observed_at
 		WHERE mo.observed_at >= $1 AND mo.observed_at < $2
+		  AND mo.operation_kind = 'response'
 		GROUP BY mo.model_id
 		ORDER BY event_count DESC, mo.model_id
 	`, from, to)

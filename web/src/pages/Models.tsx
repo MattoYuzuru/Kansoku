@@ -5,9 +5,9 @@
  *
  * model-usage + model-cost both come from /api/v1/models/usage
  * (ModelUsageResponse); cost = estimated_cost_micros / 1_000_000. Percentiles
- * and error_ratio are null on days with no model_operations row matched to
- * an events row (see ModelUsage's doc comment) — rendered not_observed for
- * those days rather than zero. A per-model leaderboard table is added from
+ * and error_ratio are null on days with no native request/response evidence
+ * carrying those measurements — rendered not_observed for those days rather
+ * than zero. A per-model leaderboard table is added from
  * model_breakdown_range. "Fallback markers" from the wireframe have no
  * backend signal (no fallback/retry-chain column anywhere) — noted as a gap.
  */
@@ -36,6 +36,7 @@ export function Models() {
   const tokensTotal = sum(rows.map((r) => r.total_tokens));
   const costTotalUsd = microsToUsd(sum(rows.map((r) => r.estimated_cost_micros)));
   const errorRows = rows.filter((r) => r.error_ratio != null);
+  const latencyRows = rows.filter((r) => r.percentiles?.p95 != null);
 
   const breakdownRows = breakdown.data?.data?.data ?? [];
   const breakdownState = deriveViewState(breakdown.data, { isLoading: breakdown.isLoading });
@@ -90,15 +91,15 @@ export function Models() {
             {usage.isLoading ? "Loading…" : "No model usage observed in this range."}
           </p>
         )}
-        {errorRows.length > 0 && (
+        {latencyRows.length > 0 && (
           <ChartContainer
-            ariaLabel="Model p95 latency in milliseconds, for days with a matched event"
+            ariaLabel="Model p95 request latency in milliseconds, for days with native duration observations"
             option={timeSeriesOption(
-              errorRows.map((r) => dayLabel(r.day)),
+              latencyRows.map((r) => dayLabel(r.day)),
               [
                 {
                   name: "p95 latency (ms)",
-                  data: errorRows.map((r) => r.percentiles?.p95 ?? null),
+                  data: latencyRows.map((r) => r.percentiles?.p95 ?? null),
                   color: "var(--status-degraded)",
                 },
               ],
