@@ -153,7 +153,7 @@ func TestDiscoveryNeverEscapesAllowedRoots(t *testing.T) {
 
 func TestInventoryUsesRecipeVocabularyNeverSkillOrThread(t *testing.T) {
 	adapter := wayfinder.New()
-	snapshot, err := adapter.Inventory(context.Background(), adaptersdk.Installation{InstallationID: "inst_1", AdapterID: wayfinder.AdapterID})
+	snapshot, err := adapter.Inventory(context.Background(), adaptersdk.Installation{InstallationID: "inst_1", AdapterID: wayfinder.AdapterID}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

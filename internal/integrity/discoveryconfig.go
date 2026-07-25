@@ -303,7 +303,7 @@ func (c *DiscoveryConfigCheck) checkConfigFingerprint(ctx context.Context, insta
 // bounds". The stage's own declared timeout_seconds bounds this call at the
 // Scheduler/stage-execution layer (ctx deadline), not inside this method.
 func (c *DiscoveryConfigCheck) checkInventorySnapshot(ctx context.Context, adapter adaptersdk.Adapter, installation adaptersdk.Installation) discoveryFinding {
-	snapshot, err := adapter.Inventory(ctx, installation)
+	snapshot, err := adapter.Inventory(ctx, installation, c.Host)
 	if err != nil {
 		return discoveryFinding{category: string(FailureClassEndpointUnreachable), failed: true, detail: "inventory_snapshot_failed"}
 	}

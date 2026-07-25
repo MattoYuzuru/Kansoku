@@ -110,7 +110,7 @@ func (a *Adapter) Discover(ctx context.Context, host *adaptersdk.HostView) ([]ad
 // "loom" (installation-equivalent surface). None of these names, nor the
 // event names in Normalize below, appear anywhere in a real adapter's
 // vocabulary; that is the point of this package.
-func (a *Adapter) Inventory(ctx context.Context, target adaptersdk.Installation) (adaptersdk.InventorySnapshot, error) {
+func (a *Adapter) Inventory(ctx context.Context, target adaptersdk.Installation, host *adaptersdk.HostView) (adaptersdk.InventorySnapshot, error) {
 	now := time.Now().UTC()
 	installationNode := adaptersdk.Node{
 		NodeID: "node_" + stableHex("installation", target.InstallationID), Kind: adaptersdk.NodeAgentInstallation,

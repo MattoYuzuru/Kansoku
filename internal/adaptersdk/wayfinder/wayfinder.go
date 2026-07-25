@@ -147,7 +147,7 @@ func (a *Adapter) Discover(ctx context.Context, host *adaptersdk.HostView) ([]ad
 // vocabulary: "recipe" (skill-equivalent component), "atlas" (plugin-
 // equivalent package), "wayctl-cli" (installation surface). None of these
 // names appear in any other adapter's vocabulary.
-func (a *Adapter) Inventory(ctx context.Context, target adaptersdk.Installation) (adaptersdk.InventorySnapshot, error) {
+func (a *Adapter) Inventory(ctx context.Context, target adaptersdk.Installation, host *adaptersdk.HostView) (adaptersdk.InventorySnapshot, error) {
 	now := time.Now().UTC()
 	installationNode := adaptersdk.Node{
 		NodeID: "node_" + stableHex("installation", target.InstallationID), Kind: adaptersdk.NodeAgentInstallation,

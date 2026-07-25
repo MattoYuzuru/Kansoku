@@ -189,7 +189,7 @@ func TestDiscoveryIsDeterministicAcrossRepeatedRuns(t *testing.T) {
 
 func TestInventorySnapshotUsesDistinctVocabularyAndPathPseudonyms(t *testing.T) {
 	adapter := fakeadapter.New()
-	snapshot, err := adapter.Inventory(context.Background(), adaptersdk.Installation{InstallationID: "inst_1", AdapterID: fakeadapter.AdapterID})
+	snapshot, err := adapter.Inventory(context.Background(), adaptersdk.Installation{InstallationID: "inst_1", AdapterID: fakeadapter.AdapterID}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

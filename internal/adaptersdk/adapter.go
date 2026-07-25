@@ -34,7 +34,7 @@ type CanonicalEvent = privacy.SafeRecord
 type Adapter interface {
 	Manifest() Manifest
 	Discover(ctx context.Context, host *HostView) ([]InstallationCandidate, error)
-	Inventory(ctx context.Context, target Installation) (InventorySnapshot, error)
+	Inventory(ctx context.Context, target Installation, host *HostView) (InventorySnapshot, error)
 	PlanConfiguration(ctx context.Context, target Installation, capability CapabilityID) (ChangePlan, error)
 	SourceSchemas() []privacy.SourceSchema
 	Normalize(ctx context.Context, source SafeSourceRecord) ([]CanonicalEvent, error)

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,6 +41,31 @@ type ExecProbeResult struct {
 }
 
 const maxExecProbeOutputBytes = 4096
+
+// maxConfigProbeBytes bounds ReadConfigProbe's content read exactly the way
+// maxExecProbeOutputBytes bounds ExecProbe's: a config file larger than this
+// ceiling is read only up to the ceiling (Truncated=true), never in full and
+// never via a second, unbounded os.ReadFile call anywhere else in an
+// adapter. This keeps inventory scanning's config reads inside the same
+// closed, bounded-probe model discovery already uses, per
+// contracts/adapter-sdk/discovery-and-plans.yaml's
+// discovery_safety_rules ("parse manifests and config with size and depth
+// limits and no code execution").
+const maxConfigProbeBytes = 1 << 20 // 1 MiB
+
+// ConfigProbeResult is a bounded, best-effort raw content read used only for
+// inventory scanning of a documented, closed set of config locations
+// (Claude's settings.json, Codex's config.toml). It is deliberately the only
+// HostView surface that ever returns file bytes; every other probe
+// (ReadProbe) stays stat-only. The adapter that calls ReadConfigProbe is
+// responsible for parsing the bounded bytes it gets back with a
+// non-executing, depth/size-limited parser -- ReadConfigProbe itself never
+// interprets the content.
+type ConfigProbeResult struct {
+	Exists    bool
+	Truncated bool
+	Content   []byte
+}
 
 // HostView is the only surface an Adapter uses to touch the host. It never
 // exposes a database connection string, credential or unscoped filesystem
@@ -139,6 +165,71 @@ func (h *HostView) ReadProbe(path string) (ReadProbeResult, error) {
 		}
 	}
 	return ReadProbeResult{Exists: true, SizeBytes: info.Size(), ModTime: info.ModTime()}, nil
+}
+
+// ReadConfigProbe performs a bounded content read of path, for the narrow
+// set of documented config locations inventory scanning must actually parse
+// (e.g. Claude's settings.json, Codex's config.toml). It applies exactly the
+// same allowed-root and one-level symlink-resolution checks ReadProbe does
+// -- it refuses to read at all unless path (or its single symlink target)
+// resolves inside an already-allowed root -- and never reads more than
+// maxConfigProbeBytes, reporting Truncated rather than silently returning a
+// partial parse as if it were complete.
+func (h *HostView) ReadConfigProbe(path string) (ConfigProbeResult, error) {
+	if !h.withinAllowedRoots(path) {
+		return ConfigProbeResult{}, ErrOutsideAllowedRoots
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ConfigProbeResult{Exists: false}, nil
+		}
+		return ConfigProbeResult{}, err
+	}
+	resolvedPath := path
+	if info.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return ConfigProbeResult{}, err
+		}
+		resolved := target
+		if !filepath.IsAbs(resolved) {
+			resolved = filepath.Join(filepath.Dir(path), resolved)
+		}
+		if !h.withinAllowedRoots(resolved) {
+			return ConfigProbeResult{}, ErrOutsideAllowedRoots
+		}
+		resolvedPath = resolved
+		info, err = os.Stat(resolved)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return ConfigProbeResult{Exists: false}, nil
+			}
+			return ConfigProbeResult{}, err
+		}
+	}
+	if info.IsDir() {
+		return ConfigProbeResult{}, errors.New("config_probe_target_is_directory")
+	}
+	file, err := os.Open(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ConfigProbeResult{Exists: false}, nil
+		}
+		return ConfigProbeResult{}, err
+	}
+	defer file.Close()
+	limited := io.LimitReader(file, maxConfigProbeBytes+1)
+	content, err := io.ReadAll(limited)
+	if err != nil {
+		return ConfigProbeResult{}, err
+	}
+	truncated := false
+	if len(content) > maxConfigProbeBytes {
+		content = content[:maxConfigProbeBytes]
+		truncated = true
+	}
+	return ConfigProbeResult{Exists: true, Truncated: truncated, Content: content}, nil
 }
 
 // ExecProbe runs a credential-free version/help/status subprocess. name

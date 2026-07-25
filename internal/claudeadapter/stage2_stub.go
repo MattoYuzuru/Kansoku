@@ -28,54 +28,69 @@ func (a *Adapter) SourceSchemas() []privacy.SourceSchema {
 	return nil
 }
 
-// Inventory forwards to BuildInventorySnapshot (inventory.go), this stage's
-// real claude.inventory graph builder. adaptersdk.Adapter's Inventory
-// signature receives only a confirmed Installation (no HostView), so this
-// method still cannot itself perform the bounded filesystem scan that
-// populates InventoryInput's skills/plugins/hooks/mcp-servers/marketplaces --
-// wiring a HostView-driven scan into an InventoryInput value is a distinct,
-// later concern (mirroring codexadapter's own Inventory/BuildInventorySnapshot
-// split). Passing an installation-scoped, otherwise-empty InventoryInput here
-// still exercises the real graph builder (producing a genuine, correctly-
-// shaped snapshot containing only the installation node) rather than a
-// hand-rolled empty literal, so this call and BuildInventorySnapshot's own
-// unit tests can never silently drift apart.
-func (a *Adapter) Inventory(ctx context.Context, target adaptersdk.Installation) (adaptersdk.InventorySnapshot, error) {
+// Inventory performs a real, bounded host filesystem scan (Session 11, ADR
+// 0014, Gap C) through ScanHostInventory in inventoryscan.go, then forwards
+// the resulting InventoryInput to BuildInventorySnapshot (inventory.go),
+// this stage's real claude.inventory graph builder. host may be nil (e.g. a
+// caller that has no permission-checked HostView, such as an older
+// integration test) -- in that case ScanHostInventory reports
+// scanned=false and this method still returns a genuine, correctly-shaped
+// InventorySnapshot containing only the installation node, never a
+// fabricated error. Whether a scan actually completed and observed real
+// components is recorded via hasComponentNodes/Reconcile's Completeness
+// field, never silently collapsed into "zero configured = complete".
+func (a *Adapter) Inventory(ctx context.Context, target adaptersdk.Installation, host *adaptersdk.HostView) (adaptersdk.InventorySnapshot, error) {
 	if target.InstallationID == "" {
 		return adaptersdk.InventorySnapshot{}, errors.New("claude_inventory_requires_installation_id")
 	}
-	return BuildInventorySnapshot(InventoryInput{InstallationID: target.InstallationID}, time.Now())
+	input, _ := ScanHostInventory(host, target)
+	return BuildInventorySnapshot(input, time.Now())
 }
 
-// PlanConfiguration builds a real adaptersdk.ChangePlan for the one
-// capability this stage's sources actually configure --
-// CapabilityConfigurationLiveCanary and CapabilityConfigurationInstall both
-// route through the existing contracts/privacy/installer.yaml
-// "claude.user_otel" target (see otel.go's OTelInstallerTargetID) via
-// installer.BuildClaudePlan and adaptersdk.BuildChangePlan verbatim -- this
-// package never defines a second apply/rollback mechanism. Any other
-// capability ID is not yet backed by a real installer target for Claude and
-// returns ErrNotImplementedYet, degrading only that capability rather than
-// fabricating a plausible-looking plan for it. The claude.user_hook
-// installer target contracts/claude/hooks-and-otel.yaml declares has no
-// filesystem writer wired yet (ADR 0010's recorded known gap); a later stage
-// adds it here without touching this claude.user_otel path.
+// PlanConfiguration builds a real adaptersdk.ChangePlan for the capabilities
+// this stage's sources actually configure. CapabilityConfigurationLiveCanary
+// and CapabilityConfigurationInstall route through the existing
+// contracts/privacy/installer.yaml "claude.user_otel" target (see otel.go's
+// OTelInstallerTargetID) via installer.BuildClaudePlan and
+// adaptersdk.BuildChangePlan verbatim. CapabilityConfigurationHookInstall
+// (Session 11, ADR 0014) routes through the new "claude.user_hook" target,
+// closing ADR 0010's recorded known gap ("claude.user_hook has no real
+// filesystem writer yet"), via installer.BuildClaudeHookPlan the same way --
+// this package never defines a second apply/rollback mechanism for either
+// capability. Both targets share one physical file (settings.json, different
+// keys); each is built from an independent installer.Plan with its own
+// PlanID/backup locator/rollback command, so applying or rolling back one
+// never references the other's plan-owned keys (see protocol.go's
+// buildTargetPlan ownership model and protocol_test.go's round-trip proof).
+// Any other capability ID is not yet backed by a real installer target for
+// Claude and returns ErrNotImplementedYet, degrading only that capability
+// rather than fabricating a plausible-looking plan for it.
 func (a *Adapter) PlanConfiguration(ctx context.Context, target adaptersdk.Installation, capability adaptersdk.CapabilityID) (adaptersdk.ChangePlan, error) {
-	switch capability {
-	case adaptersdk.CapabilityConfigurationInstall, adaptersdk.CapabilityConfigurationLiveCanary:
-	default:
-		return adaptersdk.ChangePlan{}, ErrNotImplementedYet
-	}
 	if target.StateRoot == "" || !filepath.IsAbs(target.StateRoot) {
 		return adaptersdk.ChangePlan{}, errors.New("claude_plan_requires_absolute_state_root")
 	}
 	locator := filepath.Join(target.StateRoot, "settings.json")
-	backup := filepath.Join(target.StateRoot, ".kansoku-backup", "settings.json")
-	installerPlan, err := installer.BuildClaudePlan(
-		"claudeplan_"+stableHex(target.InstallationID, string(capability)),
-		locator, backup, "kansoku installer rollback --target claude.user_otel",
-		map[string]any{},
-	)
+
+	var installerPlan installer.Plan
+	var err error
+	switch capability {
+	case adaptersdk.CapabilityConfigurationInstall, adaptersdk.CapabilityConfigurationLiveCanary:
+		backup := filepath.Join(target.StateRoot, ".kansoku-backup", "settings.json")
+		installerPlan, err = installer.BuildClaudePlan(
+			"claudeplan_"+stableHex(target.InstallationID, string(capability)),
+			locator, backup, "kansoku installer rollback --target claude.user_otel",
+			map[string]any{},
+		)
+	case adaptersdk.CapabilityConfigurationHookInstall:
+		backup := filepath.Join(target.StateRoot, ".kansoku-backup", "settings.json.hook")
+		installerPlan, err = installer.BuildClaudeHookPlan(
+			"claudehookplan_"+stableHex(target.InstallationID, string(capability)),
+			locator, backup, "kansoku installer rollback --target claude.user_hook",
+			map[string]any{},
+		)
+	default:
+		return adaptersdk.ChangePlan{}, ErrNotImplementedYet
+	}
 	if err != nil {
 		return adaptersdk.ChangePlan{}, err
 	}
@@ -154,13 +169,31 @@ func (a *Adapter) Reconcile(ctx context.Context, scope adaptersdk.ReconcileScope
 	sort.Strings(removed)
 	sort.Strings(changed)
 	completeness := "complete"
-	if len(current.Nodes) == 0 {
+	if !hasComponentNodes(current) {
 		completeness = "unknown"
 	}
 	return adaptersdk.ReconcileResult{
 		SnapshotID: current.SnapshotID, AddedNodeIDs: added, RemovedNodeIDs: removed,
 		ChangedNodeIDs: changed, NewCollisions: []string{}, Completeness: completeness,
 	}
+}
+
+// hasComponentNodes reports whether snapshot contains at least one node
+// beyond the always-present agent_installation node itself. BuildInventorySnapshot
+// unconditionally emits the installation node even when a host scan found
+// zero plugins/hooks/MCP servers, so a snapshot's Nodes slice being
+// non-empty is never on its own evidence of a genuinely populated scan --
+// Reconcile must look past that one guaranteed node before it reports
+// Completeness="complete", or an installation with zero configured
+// components would be silently misreported as a complete, healthy, empty
+// inventory instead of "unknown" (evidence absent).
+func hasComponentNodes(snapshot adaptersdk.InventorySnapshot) bool {
+	for _, node := range snapshot.Nodes {
+		if node.Kind != adaptersdk.NodeAgentInstallation {
+			return true
+		}
+	}
+	return false
 }
 
 // Audit is implemented in a later checkpointed stage of Session 07. It
