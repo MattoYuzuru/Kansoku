@@ -1,0 +1,134 @@
+/*
+ * Kansoku design tokens — verbatim from
+ * "Technical Design Document/design-system-tokens.md" §1, §1.3, §1.4, §1.5, §4.
+ * The neutral base is fixed; only --accent-purple / --accent-gold are runtime
+ * mutable (§9, applied via theme.tsx). Every literal hex/px/ms below is final.
+ */
+
+/* ---- §1.1 Dark theme (:root, default) ---- */
+:root {
+  --bg: #0E0E11;
+  --surface: #16161B;
+  --surface-raised: #1E1E24;
+  --surface-sunken: #0A0A0C;
+
+  --border: #2A2A31;
+  --border-strong: #3A3A43;
+  --hairline: #232329;
+
+  --text-primary: #EDEDF0; /* 16.5:1 on --bg */
+  --text-muted: #9A9AA3; /* 6.91:1 on --bg */
+  --text-faint: #6E6E77; /* large/UI only, 3.6:1 */
+  --text-on-accent: #0E0E11;
+
+  --accent-purple: #8B7FD6; /* 5.6:1 on --bg */
+  --accent-purple-hover: #9D93DE;
+  --accent-purple-press: #7A6EC8;
+  --accent-gold: #D9B45B; /* 9.76:1 on --bg */
+  --accent-gold-hover: #E3C273;
+  --accent-gold-press: #C7A24A;
+
+  --focus-ring: #A99CF0; /* 7.47:1 on --surface */
+  --focus-ring-halo: rgba(169, 156, 240, 0.28);
+
+  --active-marker: var(--accent-gold);
+  --row-hover: #1C1C22;
+  --row-selected: #22212B;
+
+  --status-complete: #5FB98A; /* 8.07:1 */
+  --status-partial: #D9B45B; /* 9.76:1 */
+  --status-degraded: #E06C6C; /* 5.99:1 */
+  --status-unsupported: #6E6E77;
+  --status-not-observed: #6E6E77;
+  --status-redacted: #8B7FD6;
+  --status-unknown: #6E6E77;
+  --status-zero: #9A9AA3;
+
+  /* Scrollbar (§5) — dark */
+  --scrollbar-track: var(--surface-sunken); /* #0A0A0C */
+  --scrollbar-thumb: var(--border-strong); /* #3A3A43 */
+  --scrollbar-thumb-hover: #4A4A54;
+
+  /* On-light-only token, kept defined so components can reference it safely */
+  --accent-gold-fill: var(--accent-gold);
+
+  /* ---- §1.3 Spacing scale (base unit 4px) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* ---- §1.4 Radius scale (nothing above 4px) ---- */
+  --radius-0: 0; /* tables/panels/hairline containers/section headers */
+  --radius-1: 2px; /* inputs/dropdown surface/buttons/status chips */
+  --radius-2: 4px; /* brand-mark placeholder/focus-ring outer bound/KPI value pill */
+
+  /* ---- §1.5 Typography families ---- */
+  --font-ui: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* ---- §4 Motion tokens ---- */
+  --motion-fast: 90ms;
+  --motion-base: 180ms;
+  --motion-slow: 220ms;
+  --motion-chart: 400ms;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Layout constants (§2, §10) */
+  --sidebar-expanded: 248px;
+  --sidebar-collapsed: 60px;
+  --content-max: 1440px;
+  --breakpoint: 1024px;
+}
+
+/* ---- §1.2 Light theme override ---- */
+[data-theme="light"] {
+  --bg: #FBFBFA;
+  --surface: #FFFFFF;
+  --surface-raised: #FFFFFF; /* raised via border only, no shadow */
+  --surface-sunken: #F4F3F0;
+
+  --border: #E4E3DF;
+  --border-strong: #CFCEC8;
+  --hairline: #EEEDE9;
+
+  --text-primary: #1A1A1E; /* 16.76:1 on --bg */
+  --text-muted: #6A6A72; /* 5.18:1 on --bg */
+  --text-faint: #9A9AA0; /* large/UI only */
+  --text-on-accent: #FFFFFF;
+
+  /* On-light "deep" variants — required for AA text/stroke use */
+  --accent-purple: #6F63C4; /* 4.76:1 on --bg */
+  --accent-purple-hover: #5F53B4;
+  --accent-purple-press: #4E4499;
+  --accent-gold: #8A6D1F; /* 4.73:1 on --bg — NOT #D9B45B/#B8922F, both fail on light */
+  --accent-gold-hover: #7A5F16;
+  --accent-gold-press: #665013;
+  --accent-gold-fill: #D9B45B; /* large chart marks only, >24px graphical-object rule */
+
+  --focus-ring: #6F63C4; /* 4.76:1 on --bg */
+  --focus-ring-halo: rgba(111, 99, 196, 0.24);
+
+  --active-marker: var(--accent-gold);
+  --row-hover: #F4F3F0;
+  --row-selected: #F0EEF8;
+
+  --status-complete: #2E7D5B; /* 4.83:1 */
+  --status-partial: #8A6D1F; /* 4.73:1 */
+  --status-degraded: #C0392B; /* 5.25:1 */
+  --status-unsupported: #8A8A90;
+  --status-not-observed: #8A8A90;
+  --status-redacted: #6F63C4;
+  --status-unknown: #8A8A90;
+  --status-zero: #6A6A72;
+
+  /* Scrollbar (§5) — light */
+  --scrollbar-track: #F4F3F0;
+  --scrollbar-thumb: #CFCEC8;
+  --scrollbar-thumb-hover: #B8B7B0;
+}

@@ -1,0 +1,41 @@
+.k-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.k-page__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.k-page__wire {
+  color: var(--text-muted);
+}
+.k-page__pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-0);
+  max-width: 640px;
+}
+.k-page__pending-label {
+  color: var(--accent-gold);
+}
+.k-page__pending p {
+  margin: 0;
+  color: var(--text-muted);
+}
+.k-page__panels {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.k-page__panels li {
+  color: var(--text-faint);
+}

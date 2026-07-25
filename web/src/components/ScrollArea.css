@@ -1,0 +1,15 @@
+.k-scroll {
+  min-height: 0;
+  min-width: 0;
+}
+.k-scroll--y {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.k-scroll--x {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.k-scroll--both {
+  overflow: auto;
+}

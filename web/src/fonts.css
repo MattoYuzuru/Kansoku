@@ -1,0 +1,24 @@
+/*
+ * Self-hosted variable fonts — zero external network at runtime (§11).
+ * Both files are OFL-licensed variable fonts covering the shipped weights via
+ * the `wght` axis (Inter 400/500/600; JetBrains Mono 400/500), so a single
+ * @font-face per family with font-weight: 100 900 lets the browser interpolate
+ * the exact weights the type scale (§1.5) asks for.
+ * Files live in web/public/fonts/ and are embedded into the Go binary.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/Inter-Variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Variable.woff2") format("woff2");
+}

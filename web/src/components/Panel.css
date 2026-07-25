@@ -1,0 +1,92 @@
+.k-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-0);
+}
+.k-panel__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.k-panel__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.k-panel__title {
+  color: var(--text-muted);
+  margin: 0;
+}
+.k-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.k-panel__caption {
+  color: var(--text-faint);
+  margin: 0;
+}
+.k-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.k-panel__unsupported {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.k-panel__unsupported p {
+  margin: 0;
+  color: var(--text-muted);
+}
+.k-panel__gap {
+  color: var(--text-faint);
+  font-style: italic;
+  margin: 0;
+}
+
+/* ---- Page-level grids ---- */
+.k-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+.k-grid--kpis {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.k-grid--2col {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+}
+
+/* ---- Key/value snapshot list (e.g. Privacy retention, System snapshot) ---- */
+.k-kv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+.k-kv__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-1);
+  border-bottom: 1px solid var(--hairline);
+}
+.k-kv__row:last-child {
+  border-bottom: none;
+}
+.k-kv__row dt {
+  color: var(--text-faint);
+}
+.k-kv__row dd {
+  margin: 0;
+  color: var(--text-primary);
+  text-align: right;
+}

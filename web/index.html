@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      Per-request server injection (internal/webui). The Go index handler
+      renders this file as a template and fills these two meta tags with the
+      real read-bearer / CSRF token values. The frontend API client reads them
+      once at startup. Never logged, never placed in a URL. Go template
+      delimiters pass through Vite untouched.
+    -->
+    <meta name="kansoku-read-token" content="{{.ReadToken}}" />
+    <meta name="kansoku-csrf-token" content="{{.CSRFToken}}" />
+
+    <title>Kansoku</title>
+
+    <!-- Favicons / manifest (§8), all self-hosted under /public. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/mask-icon.svg" color="#8B7FD6" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0E0E11" />
+
+    <!--
+      Pre-paint appearance application (§9): read kansoku.appearance.v1 and set
+      data-theme + the two accent custom properties BEFORE first paint so there
+      is no flash of the default theme. Mirrors theme.tsx's applyAppearance.
+    -->
+    <script nonce="{{.CSPNonce}}">
+      (function () {
+        try {
+          var raw = localStorage.getItem("kansoku.appearance.v1");
+          var a = raw ? JSON.parse(raw) : null;
+          var theme = a && a.theme === "light" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+          if (a && a.version === 1) {
+            var purple = theme === "light" ? a.accentPurpleLight : a.accentPurple;
+            var gold = theme === "light" ? a.accentGoldLight : a.accentGold;
+            if (purple) document.documentElement.style.setProperty("--accent-purple", purple);
+            if (gold) document.documentElement.style.setProperty("--accent-gold", gold);
+          }
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

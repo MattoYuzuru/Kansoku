@@ -1,0 +1,136 @@
+.k-dd {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 160px;
+}
+
+.k-dd__caption {
+  color: var(--text-muted);
+}
+
+/* Closed trigger: 32px tall, radius-1, border -> border-strong hover -> focus-ring focus */
+.k-dd__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  transition: border-color var(--motion-fast) var(--ease);
+}
+.k-dd__trigger:hover {
+  border-color: var(--border-strong);
+}
+.k-dd__trigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+  border-color: var(--focus-ring);
+}
+
+.k-dd__value {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.k-dd__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--radius-1);
+  background: var(--accent-purple);
+  color: var(--text-on-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.k-dd__chevron {
+  display: inline-flex;
+  color: var(--text-muted);
+  transition: transform var(--motion-fast) var(--ease);
+}
+.k-dd__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+/* Open panel: surface-raised, border, radius-1, max-height 320px + §5 scrollbar */
+.k-dd__list {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  /* §4 #9 open motion */
+  transform-origin: top center;
+  animation: k-dd-open var(--motion-base) var(--ease);
+}
+.k-dd__list:focus {
+  outline: none;
+}
+
+@keyframes k-dd-open {
+  from {
+    opacity: 0;
+    transform: scaleY(0.98) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+/* Options: 32px tall, row-hover on hover; selected -> leading check + body-strong */
+.k-dd__opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.k-dd__opt.is-active {
+  background: var(--row-hover);
+}
+.k-dd__opt.is-selected {
+  font-weight: 600;
+}
+.k-dd__opt.is-disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+.k-dd__check {
+  display: inline-flex;
+  width: 14px;
+  color: var(--accent-purple);
+}
+.k-dd__opt-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

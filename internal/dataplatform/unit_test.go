@@ -115,10 +115,28 @@ func TestParsePartitionUpperBound(t *testing.T) {
 
 func TestBudgetsMatchQueryContract(t *testing.T) {
 	expected := map[string]int64{
-		"hourly_rollup_range_30d":     50,
-		"daily_rollup_range_1y":       50,
-		"session_drilldown":           100,
-		"percentile_recompute_bucket": 200,
+		"hourly_rollup_range_30d":       50,
+		"daily_rollup_range_1y":         50,
+		"session_drilldown":             100,
+		"percentile_recompute_bucket":   200,
+		"agent_breakdown_range":         150,
+		"model_breakdown_range":         150,
+		"component_breakdown_range":     150,
+		"component_lifecycle_funnel":    150,
+		"reliability_coverage_timeline": 150,
+		"mcp_topology":                  100,
+		// Wave 1b (Session 10 continuation) budgets -- see query.go's
+		// Budgets map doc comment: not yet mirrored into
+		// contracts/data-platform/query-contract.yaml, tracked as a
+		// follow-up contract-governance task.
+		"activity_timeline_range":      150,
+		"prompt_shape_range":           150,
+		"model_usage_range":            150,
+		"tool_analytics_range":         150,
+		"mcp_uptime_range":             100,
+		"reliability_counts_range":     100,
+		"system_snapshot":              50,
+		"privacy_canary_history_range": 100,
 	}
 	if len(Budgets) != len(expected) {
 		t.Fatalf("expected %d budgets, got %d", len(expected), len(Budgets))

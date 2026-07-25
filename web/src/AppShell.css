@@ -1,0 +1,235 @@
+/* ---- Shell layout ---- */
+.k-shell {
+  display: flex;
+  min-height: 100%;
+}
+
+/* ---- Sidebar (§2) ---- */
+.k-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  flex: 0 0 var(--sidebar-expanded);
+  width: var(--sidebar-expanded);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  /* §4 #1: width 248<->60 over 200ms */
+  transition: width 200ms var(--ease), flex-basis 200ms var(--ease);
+}
+.k-shell.is-collapsed .k-sidebar {
+  flex-basis: var(--sidebar-collapsed);
+  width: var(--sidebar-collapsed);
+}
+
+/* ---- Brand block (60px tall) ---- */
+.k-brand {
+  display: flex;
+  align-items: center;
+  height: 60px;
+  padding-left: var(--space-4);
+  flex: 0 0 auto;
+}
+.k-brand__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: var(--radius-2);
+  background: var(--surface-raised);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--accent-purple);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+}
+.k-brand__text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-left: var(--space-2);
+  line-height: 1;
+  /* labels never font-size-scale; opacity 1->0 over 90ms then clip (§2) */
+  transition: opacity var(--motion-fast) var(--ease);
+}
+.k-brand__wordmark {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.k-brand__tag {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--accent-gold);
+}
+
+/* ---- Nav ---- */
+.k-nav {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-2) 0;
+}
+.k-nav__group {
+  padding: var(--space-2) 0;
+}
+.k-nav__group-label {
+  padding: 0 var(--space-4) var(--space-1);
+  color: var(--text-faint);
+  transition: opacity var(--motion-fast) var(--ease);
+}
+.k-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Rows: icons pinned to the 60px rail column in both states */
+.k-nav__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  color: var(--text-muted);
+  text-decoration: none;
+  /* §4 #5: row hover 90ms */
+  transition: background-color var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
+}
+.k-nav__row:hover {
+  background: var(--row-hover);
+  color: var(--text-primary);
+}
+.k-nav__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sidebar-collapsed); /* 60px rail column */
+  flex: 0 0 var(--sidebar-collapsed);
+}
+.k-nav__label {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity var(--motion-fast) var(--ease);
+}
+
+/* Active route: 3px active-marker left bar + row-selected fill + 600 weight */
+.k-nav__row.is-active {
+  color: var(--text-primary);
+  background: var(--row-selected);
+}
+.k-nav__row.is-active .k-nav__label {
+  font-weight: 600;
+}
+.k-nav__row.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--active-marker);
+  transform: scaleY(1);
+  transform-origin: center;
+  transition: transform var(--motion-base) var(--ease);
+}
+
+/* Settings pinned to the bottom behind a full-width hairline */
+.k-nav__pinned {
+  margin-top: auto;
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--space-1);
+}
+
+/* Shared travelling focus-ring (§4 #6) */
+.k-nav__focus-ring {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 0;
+  border: 2px solid var(--focus-ring);
+  border-radius: var(--radius-1);
+  box-shadow: 0 0 0 3px var(--focus-ring-halo);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: transform var(--motion-base) var(--ease), opacity var(--motion-fast) var(--ease);
+}
+.k-nav__focus-ring.is-visible {
+  opacity: 1;
+}
+
+/* ---- Sidebar footer (rail buttons) ---- */
+.k-sidebar__foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-top: 1px solid var(--hairline);
+}
+.k-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-1);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
+}
+.k-iconbtn:hover:not(:disabled) {
+  background: var(--row-hover);
+  color: var(--text-primary);
+}
+.k-iconbtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.k-iconbtn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* ---- Collapsed state: hide text, keep icons on the rail ---- */
+.k-shell.is-collapsed .k-brand__text,
+.k-shell.is-collapsed .k-nav__label,
+.k-shell.is-collapsed .k-nav__group-label {
+  opacity: 0;
+  visibility: hidden;
+  width: 0;
+}
+
+/* ---- Content area (§10) ---- */
+.k-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* margin animates in lockstep with sidebar width via flex; no fixed margin */
+  transition: margin-left 200ms var(--ease);
+}
+.k-content__inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-8);
+}
+
+@media (max-width: 1024px) {
+  .k-content__inner {
+    padding: var(--space-5) var(--space-5);
+  }
+}

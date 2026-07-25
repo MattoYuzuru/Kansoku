@@ -1,0 +1,159 @@
+/*
+ * Global base styles: reset, typography scale (§1.5), custom scrollbar (§5),
+ * reduced-motion rule (§4), and the shared layout primitives the AppShell and
+ * page components rely on. Pure CSS custom properties — no Tailwind, no runtime
+ * style injection (ADR 0013 decision #3).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numeric mono contexts use tabular figures + the cv05 stylistic set (§1.5). */
+.mono,
+.tabular {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "cv05" 1;
+}
+
+/* ---- §1.5 Typography roles as utility classes ---- */
+.t-page-title {
+  font-family: var(--font-ui);
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.t-section-header {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.t-table-header {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.t-table-cell {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: 0;
+  font-feature-settings: "tnum" 1, "cv05" 1;
+}
+.t-body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+.t-body-strong {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.t-caption {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+.t-kpi-number {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  line-height: 36px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-feature-settings: "tnum" 1, "cv05" 1;
+}
+.t-kpi-unit {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  font-feature-settings: "tnum" 1, "cv05" 1;
+}
+
+/* ---- §5 Custom scrollbar (CSS-only, both engine families) ---- */
+* {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 2px;
+  border: 1px solid var(--scrollbar-track); /* 1px inset -> 8px visible thumb */
+  min-height: 32px;
+  min-width: 32px;
+  transition: background-color var(--motion-fast) var(--ease);
+}
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+a {
+  color: var(--accent-purple);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Remove default focus outline; we drive focus visibility through the shared
+ * travelling focus-ring (§2/§4) and per-component :focus-visible styling. */
+:focus {
+  outline: none;
+}
+
+/* ---- §4 Universal reduced-motion rule ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

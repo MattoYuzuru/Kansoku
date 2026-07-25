@@ -1,0 +1,34 @@
+.k-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.k-status__glyph {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12px;
+  /* §4 #8: glyph opacity cross-fade on view-state change */
+  transition: opacity var(--motion-fast) var(--ease);
+}
+
+/* Degraded's warning overlay (◐ + !) — small superscript "!" over the glyph. */
+.k-status__overlay {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.k-status__label {
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+}

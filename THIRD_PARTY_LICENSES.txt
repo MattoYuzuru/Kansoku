@@ -1,0 +1,74 @@
+Kansoku — Third-party license attributions
+===========================================
+
+This file records third-party assets and libraries redistributed in the
+Kansoku dashboard frontend (web/, embedded into the Go binary via
+internal/webui). Runtime JS/TS npm dependencies (React, wouter, TanStack Query,
+Apache ECharts, and their transitive deps) are declared in web/package.json and
+carry their own licenses (MIT / Apache-2.0); this file covers the vendored
+assets that are copied into the repository as source or build output.
+
+
+-------------------------------------------------------------------------------
+Tabler Icons — MIT License
+-------------------------------------------------------------------------------
+Source: https://github.com/tabler/tabler-icons
+Used in: web/src/ui/icons.tsx (28 outline icons, SVG path data inlined; the
+historical "pulse" icon is vendored from Tabler's current "activity" icon).
+
+MIT License
+
+Copyright (c) 2020-2026 Paweł Kuna
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+-------------------------------------------------------------------------------
+Inter — SIL Open Font License 1.1
+-------------------------------------------------------------------------------
+Source: https://github.com/rsms/inter (via github.com/google/fonts)
+Used in: web/public/fonts/Inter-Variable.woff2 (variable font, wght axis;
+         self-hosted, no CDN). Converted from the upstream variable TTF to
+         WOFF2 with wawoff2; no glyph/outline modification.
+
+Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is available with a FAQ at: https://openfontlicense.org
+
+Full license text: https://openfontlicense.org / the upstream OFL.txt at
+https://github.com/google/fonts/blob/main/ofl/inter/OFL.txt
+
+
+-------------------------------------------------------------------------------
+JetBrains Mono — SIL Open Font License 1.1
+-------------------------------------------------------------------------------
+Source: https://github.com/JetBrains/JetBrainsMono (via github.com/google/fonts)
+Used in: web/public/fonts/JetBrainsMono-Variable.woff2 (variable font, wght
+         axis; self-hosted, no CDN). Converted from the upstream variable TTF
+         to WOFF2 with wawoff2; no glyph/outline modification.
+
+Copyright 2020 The JetBrains Mono Project Authors
+(https://github.com/JetBrains/JetBrainsMono)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is available with a FAQ at: https://openfontlicense.org
+
+Full license text: https://openfontlicense.org / the upstream OFL.txt at
+https://github.com/google/fonts/blob/main/ofl/jetbrainsmono/OFL.txt

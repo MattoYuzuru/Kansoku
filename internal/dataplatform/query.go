@@ -17,10 +17,29 @@ type QueryBudget struct {
 
 // Budgets mirrors contracts/data-platform/query-contract.yaml `budgets.queries`.
 var Budgets = map[string]QueryBudget{
-	"hourly_rollup_range_30d":     {ID: "hourly_rollup_range_30d", MaxMS: 50},
-	"daily_rollup_range_1y":       {ID: "daily_rollup_range_1y", MaxMS: 50},
-	"session_drilldown":           {ID: "session_drilldown", MaxMS: 100},
-	"percentile_recompute_bucket": {ID: "percentile_recompute_bucket", MaxMS: 200},
+	"hourly_rollup_range_30d":       {ID: "hourly_rollup_range_30d", MaxMS: 50},
+	"daily_rollup_range_1y":         {ID: "daily_rollup_range_1y", MaxMS: 50},
+	"session_drilldown":             {ID: "session_drilldown", MaxMS: 100},
+	"percentile_recompute_bucket":   {ID: "percentile_recompute_bucket", MaxMS: 200},
+	"agent_breakdown_range":         {ID: "agent_breakdown_range", MaxMS: 150},
+	"model_breakdown_range":         {ID: "model_breakdown_range", MaxMS: 150},
+	"component_breakdown_range":     {ID: "component_breakdown_range", MaxMS: 150},
+	"component_lifecycle_funnel":    {ID: "component_lifecycle_funnel", MaxMS: 150},
+	"reliability_coverage_timeline": {ID: "reliability_coverage_timeline", MaxMS: 150},
+	"mcp_topology":                  {ID: "mcp_topology", MaxMS: 100},
+	// Wave 1b (Session 10 continuation) budgets. Not yet mirrored into
+	// contracts/data-platform/query-contract.yaml `budgets.queries` or the
+	// contracts/data-platform-policy-locks.yaml semantic_sha256 chain, the
+	// same Go-only-addition precedent task #12's five budgets above
+	// established; flagged as a follow-up contract-governance task.
+	"activity_timeline_range":      {ID: "activity_timeline_range", MaxMS: 150},
+	"prompt_shape_range":           {ID: "prompt_shape_range", MaxMS: 150},
+	"model_usage_range":            {ID: "model_usage_range", MaxMS: 150},
+	"tool_analytics_range":         {ID: "tool_analytics_range", MaxMS: 150},
+	"mcp_uptime_range":             {ID: "mcp_uptime_range", MaxMS: 100},
+	"reliability_counts_range":     {ID: "reliability_counts_range", MaxMS: 100},
+	"system_snapshot":              {ID: "system_snapshot", MaxMS: 50},
+	"privacy_canary_history_range": {ID: "privacy_canary_history_range", MaxMS: 100},
 }
 
 // ErrBudgetExceeded is returned when a budgeted query's measured wall-clock
