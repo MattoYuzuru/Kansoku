@@ -1,12 +1,14 @@
 {
   "schema_version": "kansoku.data-platform-policy-locks/1",
-  "effective_at": "2026-07-22",
+  "effective_at": "2026-07-25",
   "locks": [
     {"policy_version": "data-platform.schema/1", "registry": "contracts/data-platform/schema.yaml", "semantic_sha256": "029227de2bf79bf5c1aefa3073d1a11940b7f02cb1bce29aad336852ee80376a"},
     {"policy_version": "data-platform.rollups/1", "registry": "contracts/data-platform/rollups.yaml", "semantic_sha256": "e270c339db1fcbce4cce64e5d2a43d685b465c228b302805b2aa7af4c2f62485"},
     {"policy_version": "data-platform.query-contract/1", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "fabde8c3789d6b1c35ef754d384fe240ab83f891bf6a8e53baeb79e58834a7e7"},
     {"policy_version": "data-platform.retention/1", "registry": "contracts/data-platform/retention.yaml", "semantic_sha256": "6d330601500e72c7e9652e6e80a5e01101b9d59dc188305d4e658f52760ac72f"},
     {"policy_version": "data-platform.query-contract/2", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "336d772904fa73064b67b06a0e566580c33e4c6794865945225f4251806e27c9"},
-    {"policy_version": "data-platform.query-contract/3", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "dc0ae5581e828b0f644a881ebd71f0cae1b94ed75ab559a9a59ac3a2c58cb9c7"}
+    {"policy_version": "data-platform.query-contract/3", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "dc0ae5581e828b0f644a881ebd71f0cae1b94ed75ab559a9a59ac3a2c58cb9c7"},
+    {"policy_version": "data-platform.schema/2", "registry": "contracts/data-platform/schema.yaml", "semantic_sha256": "707a676c930c1d9e2b7dec83e4f26212181d662f8fc4de23fc5ab49228d78307"},
+    {"policy_version": "data-platform.query-contract/4", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "2697b825d18842f670b82b047d65ab899b097663eb4f60f571984376d911823e"}
   ]
 }

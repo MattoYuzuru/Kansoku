@@ -173,6 +173,7 @@ type FunnelStageRow struct {
 	Stage          string `json:"stage"`
 	ComponentCount int64  `json:"component_count"`
 	EventCount     int64  `json:"event_count"`
+	ValueState     string `json:"value_state"`
 }
 
 // FunnelResponse is the closed completeness-aware envelope for a component

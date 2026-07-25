@@ -9,7 +9,7 @@ import (
 
 // FormulaVersionComponentFunnel1 is the registered formula version for the
 // component lifecycle funnel query.
-const FormulaVersionComponentFunnel1 = "component_lifecycle_funnel/2"
+const FormulaVersionComponentFunnel1 = "component_lifecycle_funnel/3"
 
 // canonicalLifecycleStages mirrors contracts/capabilities.yaml
 // `lifecycle.canonical_progression` plus the parallel `opportunity_detected`
@@ -51,6 +51,27 @@ func ComponentLifecycleFunnel(ctx context.Context, pool *pgxpool.Pool, component
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
 		WITH observations AS (
+			SELECT 'installed'::text AS lifecycle_stage, c.component_id,
+				'inventory:' || cis.component_installation_id AS observation_id
+			FROM component_inventory_state cis
+			JOIN component_installations ci
+			  ON ci.component_installation_id = cis.component_installation_id
+			JOIN component_versions cv ON cv.component_version_id = ci.component_version_id
+			JOIN components c ON c.component_id = cv.component_id
+			WHERE cis.last_seen_at >= $1 AND cis.last_seen_at < $2
+				AND ($3 = '' OR c.kind = $3)
+			UNION ALL
+			SELECT 'enabled'::text AS lifecycle_stage, c.component_id,
+				'inventory-enabled:' || cis.component_installation_id AS observation_id
+			FROM component_inventory_state cis
+			JOIN component_installations ci
+			  ON ci.component_installation_id = cis.component_installation_id
+			JOIN component_versions cv ON cv.component_version_id = ci.component_version_id
+			JOIN components c ON c.component_id = cv.component_id
+			WHERE cis.enabled
+				AND cis.last_seen_at >= $1 AND cis.last_seen_at < $2
+				AND ($3 = '' OR c.kind = $3)
+			UNION ALL
 			SELECT cle.lifecycle_stage, c.component_id,
 				'cle:' || cle.component_lifecycle_event_id AS observation_id
 			FROM component_lifecycle_events cle
@@ -90,7 +111,10 @@ func ComponentLifecycleFunnel(ctx context.Context, pool *pgxpool.Pool, component
 			rows.Close()
 			return FunnelResponse{}, err
 		}
-		observed[stage] = FunnelStageRow{Stage: stage, ComponentCount: componentCount, EventCount: eventCount}
+		observed[stage] = FunnelStageRow{
+			Stage: stage, ComponentCount: componentCount, EventCount: eventCount,
+			ValueState: "complete",
+		}
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
@@ -109,7 +133,17 @@ func ComponentLifecycleFunnel(ctx context.Context, pool *pgxpool.Pool, component
 	for _, stage := range canonicalLifecycleStages {
 		row, ok := observed[stage]
 		if !ok {
-			row = FunnelStageRow{Stage: stage, ComponentCount: 0, EventCount: 0}
+			valueState := "unknown"
+			if installedCount > 0 {
+				valueState = "not_observed"
+				if stage == "installed" || stage == "enabled" {
+					valueState = "numeric_zero"
+				}
+			}
+			row = FunnelStageRow{
+				Stage: stage, ComponentCount: 0, EventCount: 0,
+				ValueState: valueState,
+			}
 		}
 		response.Data = append(response.Data, row)
 	}
@@ -122,14 +156,11 @@ func ComponentLifecycleFunnel(ctx context.Context, pool *pgxpool.Pool, component
 			response.Data = append(response.Data, row)
 		}
 	}
-	// Population/completeness measures reporting coverage against the
-	// "installed" stage as the eligible population baseline (every
-	// component that reached "installed" is eligible to have progressed
-	// further); succeeded is the numerator. When nothing was installed in
-	// range, completenessFor's zero-denominator path reports unknown.
-	if succeeded, ok := observed["succeeded"]; ok {
-		numerator = succeeded.ComponentCount
-	}
+	// Population/completeness describes whether the eligible installed
+	// population was measured. Lifecycle conversion (for example succeeded /
+	// invoked) is a separate value and must never be mislabeled as collection
+	// completeness.
+	numerator = installedCount
 	denominator = installedCount
 	response.FormulaVersion = FormulaVersionComponentFunnel1
 	response.Population = Population{Numerator: numerator, Denominator: denominator}

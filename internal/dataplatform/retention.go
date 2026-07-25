@@ -59,7 +59,11 @@ type LogicalBackup struct {
 
 var backupTables = []string{
 	"devices", "agent_installations", "agent_surfaces", "projects", "sessions", "turns",
-	"components", "adapter_versions", "source_instances", "events", "event_evidence",
+	"components", "component_versions", "component_installations", "component_relations",
+	"adapter_versions", "source_instances",
+	"inventory_snapshots", "inventory_nodes", "inventory_edges",
+	"component_inventory_state", "inventory_collection_status",
+	"events", "event_evidence",
 	"metric_rollups_hourly", "metric_rollups_daily", "rollup_status", "formula_versions",
 }
 

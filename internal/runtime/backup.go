@@ -38,6 +38,8 @@ var backupTableGroups = map[string][]string{
 		"events", "event_evidence", "model_operations", "token_usage",
 		"cost_estimates", "component_lifecycle_events", "tool_calls",
 		"mcp_connections", "change_outcomes", "correlations",
+		"inventory_snapshots", "inventory_nodes", "inventory_edges",
+		"component_inventory_state", "inventory_collection_status",
 		"source_watermarks", "completeness_intervals", "ingest_failures",
 		"schema_quarantine_metadata", "reconciliation_runs",
 		"reconciliation_mismatches", "audit_runs", "audit_checks",

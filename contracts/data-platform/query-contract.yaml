@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.data-platform-query-contract/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-22",
+  "contract_version": "1.2.0",
+  "effective_at": "2026-07-25",
   "response_fields": ["data", "formula_version", "population", "completeness", "freshness"],
   "population_fields": ["numerator", "denominator"],
   "completeness_fields": ["status", "covered_ratio", "intervals"],
@@ -17,7 +17,7 @@
       {"id": "agent_breakdown_range", "description": "per-agent-installation event count and outcome split grouped across all agents observed within a range", "max_ms": 150, "backing": "events_partition_pruned"},
       {"id": "model_breakdown_range", "description": "per-model request count and token sum grouped across all models observed within a range", "max_ms": 150, "backing": "model_operations_token_usage_partition_pruned"},
       {"id": "component_breakdown_range", "description": "per-component call count, outcome split and exact p95 latency grouped across all components of an optional kind observed within a range", "max_ms": 150, "backing": "tool_calls_partition_pruned"},
-      {"id": "component_lifecycle_funnel", "description": "distinct-component and event count per canonical lifecycle stage for one component kind observed within a range", "max_ms": 150, "backing": "component_lifecycle_events_union_native_component_events"},
+      {"id": "component_lifecycle_funnel", "description": "distinct-component and event count per canonical lifecycle stage for one component kind observed within a range; collection completeness is measured independently from lifecycle conversion", "max_ms": 150, "backing": "current_component_inventory_state_union_component_lifecycle_events_union_native_component_events"},
       {"id": "reliability_coverage_timeline", "description": "per-source per-day completeness interval status counts overlapping a range, plus aggregate source watermark freshness", "max_ms": 150, "backing": "completeness_intervals"},
       {"id": "mcp_topology", "description": "mcp server components with their bundled child components and each server's most recently observed connection state within a range", "max_ms": 100, "backing": "components_component_relations_mcp_connections"}
     ],
