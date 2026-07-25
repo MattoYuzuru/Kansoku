@@ -22,6 +22,7 @@ import { useState } from "react";
 import { GapNote, Panel } from "../components/Panel";
 import { StatusBadge } from "../components/StatusBadge";
 import { Dropdown } from "../components/Dropdown";
+import { Switch } from "../components/Switch";
 import { deriveViewState } from "../api/client";
 import { useSystemSnapshot } from "../api/queries";
 import { bytesToReadable, secondsToReadable } from "../lib/format";
@@ -120,14 +121,12 @@ function AppearancePanel() {
         <AccentField label="Accent (purple)" which="purple" />
         <AccentField label="Accent (gold)" which="gold" />
       </div>
-      <label className="k-checkbox-row t-body">
-        <input
-          type="checkbox"
-          checked={appearance.sidebarCollapsed}
-          onChange={(e) => setSidebarCollapsed(e.target.checked)}
-        />
-        Collapse sidebar by default
-      </label>
+      <Switch
+        id="sidebar-collapsed-default"
+        checked={appearance.sidebarCollapsed}
+        onChange={setSidebarCollapsed}
+        label="Collapse sidebar by default"
+      />
       <button type="button" className="k-link-button t-caption" onClick={toggleTheme}>
         Toggle theme
       </button>
