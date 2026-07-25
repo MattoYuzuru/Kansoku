@@ -132,6 +132,86 @@ func TestInventoryReportsUnknownCompletenessWhenHostViewIsNil(t *testing.T) {
 	}
 }
 
+func TestInventoryScansMirroredSkillsPluginsAndMCPWithoutPersistingContent(t *testing.T) {
+	stateRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(stateRoot, "state", "personal"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(stateRoot, "skills", "user", "safe-canary"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	config := `
+[plugins."github@openai-curated"]
+enabled = false
+
+[plugins."canary@local"]
+enabled = true
+
+[mcp_servers.kansoku-do-nothing]
+enabled = true
+`
+	if err := os.WriteFile(filepath.Join(stateRoot, "state", "personal", "config.toml"), []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	skill := `---
+name: kansoku-noop-canary
+description: harmless secret-shaped text sk-live-value-must-not-persist
+---
+Never execute anything.
+`
+	if err := os.WriteFile(filepath.Join(stateRoot, "skills", "user", "safe-canary", "SKILL.md"), []byte(skill), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{
+		InstallationID: "ain_fixture", AdapterID: codexadapter.AdapterID,
+		SurfaceID: "cli", StateRoot: stateRoot,
+	}
+	snapshot, err := codexadapter.New().Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized := string(raw)
+	if strings.Contains(serialized, "sk-live-value-must-not-persist") || strings.Contains(serialized, stateRoot) {
+		t.Fatal("raw skill content or filesystem path reached the inventory snapshot")
+	}
+	nodeByName := map[string]adaptersdk.Node{}
+	for _, node := range snapshot.Nodes {
+		nodeByName[node.DeclaredName] = node
+	}
+	if nodeByName["kansoku-noop-canary"].Kind != adaptersdk.NodeSkillIdentity {
+		t.Fatalf("missing skill node: %+v", snapshot.Nodes)
+	}
+	if nodeByName["github@openai-curated"].Kind != adaptersdk.NodePluginPackage ||
+		nodeByName["canary@local"].Kind != adaptersdk.NodePluginPackage {
+		t.Fatalf("missing plugin nodes: %+v", snapshot.Nodes)
+	}
+	if nodeByName["kansoku-do-nothing"].Kind != adaptersdk.NodeMCPServerInstance {
+		t.Fatalf("missing MCP node: %+v", snapshot.Nodes)
+	}
+	enabled := map[string]bool{}
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeEnabledFor {
+			enabled[edge.FromNode] = true
+		}
+	}
+	if enabled[nodeByName["github@openai-curated"].NodeID] {
+		t.Fatal("disabled plugin must remain installed but not enabled")
+	}
+	if !enabled[nodeByName["canary@local"].NodeID] ||
+		!enabled[nodeByName["kansoku-noop-canary"].NodeID] ||
+		!enabled[nodeByName["kansoku-do-nothing"].NodeID] {
+		t.Fatal("enabled inventory components are missing enabled_for edges")
+	}
+}
+
 // TestScanHostInventoryNeverReadsBeneathNestedEnvSubtable proves the parser
 // deliberately does not descend into [mcp_servers.<name>.env] -- no
 // credential-shaped value from that subtable is ever readable via the

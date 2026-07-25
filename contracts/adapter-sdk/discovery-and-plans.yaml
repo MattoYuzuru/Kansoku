@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.adapter-sdk-discovery-and-plans/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-22",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-25",
   "discovery_safety_rules": [
     "resolve_state_roots_from_documented_env_or_config_before_falling_back_to_documented_defaults",
     "never_speculatively_scan_an_entire_home_directory",
@@ -10,8 +10,8 @@
     "command_probes_are_credential_free_version_help_or_status_reads_only",
     "cache_paths_are_discovered_and_reported_but_always_labeled_separately_from_active_configuration"
   ],
-  "host_view_fields": ["allowed_roots", "read_probe", "read_config_probe", "exec_probe", "pseudonymize_path"],
-  "host_view_guarantee": "host_view_exposes_only_permission_checked_read_and_exec_probes_scoped_to_allowed_roots_no_adapter_ever_receives_a_database_credential_connection_string_or_unscoped_filesystem_handle_read_config_probe_is_size_bounded_to_1_mib_with_an_explicit_truncated_flag_and_reuses_read_probes_allowed_root_and_symlink_safety_checks",
+  "host_view_fields": ["allowed_roots", "read_probe", "read_config_probe", "list_directory_probe", "exec_probe", "pseudonymize_path"],
+  "host_view_guarantee": "host_view_exposes_only_permission_checked_bounded_read_list_and_exec_probes_scoped_to_allowed_roots_no_adapter_ever_receives_a_database_credential_connection_string_or_unscoped_filesystem_handle_read_config_probe_is_size_bounded_to_1_mib_with_an_explicit_truncated_flag_list_directory_probe_is_non_recursive_sorted_and_fails_closed_above_512_entries_and_both_reuse_read_probes_allowed_root_and_symlink_safety_checks",
   "installation_candidate_fields": ["candidate_id", "adapter_id", "surface_id", "state_root", "detected_version", "detection_method", "confidence"],
   "detection_methods": ["executable_on_path", "documented_env_var", "documented_config_file", "documented_state_root_present"],
   "change_plan_fields": ["plan_id", "installation_candidate_id", "capability_id", "precondition_hash", "before_sanitized_diff", "after_sanitized_diff", "backup_locator", "commands", "privacy_disclosure", "rollback_command"],

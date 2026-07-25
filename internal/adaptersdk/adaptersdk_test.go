@@ -185,6 +185,34 @@ func TestDiscoveryIsDeterministicAcrossRepeatedRuns(t *testing.T) {
 	}
 }
 
+func TestDirectoryProbeIsBoundedSortedAndCannotEscapeAllowedRoots(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "skills", "zeta"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "skills", "alpha"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "skills", "escape")); err != nil {
+		t.Fatal(err)
+	}
+	host, err := adaptersdk.NewHostView([]string{root}, nil, testPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := host.ListDirectoryProbe(filepath.Join(root, "skills"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 || entries[0].Name != "alpha" || entries[1].Name != "escape" || entries[2].Name != "zeta" {
+		t.Fatalf("directory entries must be deterministically sorted: %+v", entries)
+	}
+	if _, err := host.ListDirectoryProbe(filepath.Join(root, "skills", "escape")); !errors.Is(err, adaptersdk.ErrOutsideAllowedRoots) {
+		t.Fatalf("symlink escape must fail closed, got %v", err)
+	}
+}
+
 // --- Inventory / normalization golden tests ----------------------------------------
 
 func TestInventorySnapshotUsesDistinctVocabularyAndPathPseudonyms(t *testing.T) {

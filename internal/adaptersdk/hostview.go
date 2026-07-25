@@ -67,6 +67,21 @@ type ConfigProbeResult struct {
 	Content   []byte
 }
 
+// DirectoryProbeEntry is the closed metadata-only shape returned by
+// ListDirectoryProbe. Names are single path components; raw child paths and
+// file contents are never returned.
+type DirectoryProbeEntry struct {
+	Name      string
+	IsDir     bool
+	IsSymlink bool
+	SizeBytes int64
+}
+
+// maxDirectoryProbeEntries prevents an allowed directory from becoming an
+// unbounded inventory source. Callers may recurse only by issuing another
+// independently checked ListDirectoryProbe for a documented child path.
+const maxDirectoryProbeEntries = 512
+
 // HostView is the only surface an Adapter uses to touch the host. It never
 // exposes a database connection string, credential or unscoped filesystem
 // handle -- only permission-checked read/exec probes scoped to declared
@@ -230,6 +245,69 @@ func (h *HostView) ReadConfigProbe(path string) (ConfigProbeResult, error) {
 		truncated = true
 	}
 	return ConfigProbeResult{Exists: true, Truncated: truncated, Content: content}, nil
+}
+
+// ListDirectoryProbe lists one explicitly requested directory without
+// recursion. It applies the same allowlist boundary as every other HostView
+// probe, sorts entries deterministically, and fails closed when the directory
+// exceeds the bounded entry ceiling rather than returning a plausible-looking
+// partial inventory.
+func (h *HostView) ListDirectoryProbe(path string) ([]DirectoryProbeEntry, error) {
+	if !h.withinAllowedRoots(path) {
+		return nil, ErrOutsideAllowedRoots
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []DirectoryProbeEntry{}, nil
+		}
+		return nil, err
+	}
+	resolvedPath := path
+	if info.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return nil, err
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		if !h.withinAllowedRoots(target) {
+			return nil, ErrOutsideAllowedRoots
+		}
+		resolvedPath = filepath.Clean(target)
+		info, err = os.Stat(resolvedPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return []DirectoryProbeEntry{}, nil
+			}
+			return nil, err
+		}
+	}
+	if !info.IsDir() {
+		return nil, errors.New("directory_probe_target_is_not_directory")
+	}
+	entries, err := os.ReadDir(resolvedPath)
+	if err != nil {
+		return nil, err
+	}
+	if len(entries) > maxDirectoryProbeEntries {
+		return nil, errors.New("directory_probe_entry_limit_exceeded")
+	}
+	result := make([]DirectoryProbeEntry, 0, len(entries))
+	for _, entry := range entries {
+		entryInfo, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, DirectoryProbeEntry{
+			Name:      entry.Name(),
+			IsDir:     entryInfo.IsDir(),
+			IsSymlink: entryInfo.Mode()&os.ModeSymlink != 0,
+			SizeBytes: entryInfo.Size(),
+		})
+	}
+	return result, nil
 }
 
 // ExecProbe runs a credential-free version/help/status subprocess. name
