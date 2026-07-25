@@ -46,7 +46,7 @@ cmd/privacy-canary     — standalone binary, independently verifies no raw cont
 |---|---|---|---|
 | `internal/observability` | OTLP + hook ingress, canonical event envelope, normalization, durable spool | `otlp.go`, `routes.go`, `normalize.go`, `ingest.go`, `types.go` | `contracts/observability/*` |
 | `internal/privacy` | Sanitization boundary: typed `SafeRecord`/`SafeError`, redaction, sinks | `sanitizer.go`, `classification.go`, `sinks.go` | `contracts/privacy/*` |
-| `internal/dataplatform` | PostgreSQL schema, ingest, partitions, rollups, retention, all dashboard queries | `db.go`, `migrate.go`, `rollup.go`, `retention.go`, `query.go`, per-panel files (`activity_timeline.go`, `tool_analytics.go`, `mcp_topology.go`, ...) | `contracts/data-platform/*` |
+| `internal/dataplatform` | PostgreSQL schema, ingest, partitions, rollups, retention, durable component inventory/current state, all dashboard queries | `db.go`, `migrate.go`, `rollup.go`, `retention.go`, `inventory.go`, `component_inventory.go`, per-panel files (`activity_timeline.go`, `tool_analytics.go`, `mcp_topology.go`, ...) | `contracts/data-platform/*` |
 | `internal/adaptersdk` | Shared `Adapter` interface, capability model, `HostView`, inventory graph, `ChangePlan` | `adapter.go`, `manifest.go`, `plan.go`, `hostview.go`; `fakeadapter/`, `wayfinder/` (conformance fixtures) | `contracts/adapter-sdk/*` |
 | `internal/codexadapter` | Codex adapter: hooks, OTel, rollout files, discovery, skill/plugin/MCP evidence, reconciliation | `codexadapter.go`, `otel.go`, `hook.go`, `rollout.go`, `discover.go`, `reconcile.go` | `contracts/codex/*` |
 | `internal/claudeadapter` | Claude Code adapter: same shape as codexadapter | `claudeadapter.go`, `otel.go`, `hook.go`, `discover.go`, `reconcile.go`, `transcript.go` | `contracts/claude/*` |
@@ -54,7 +54,7 @@ cmd/privacy-canary     — standalone binary, independently verifies no raw cont
 | `internal/installer` | Config-writer plan protocol shared by both adapters' `PlanConfiguration` (OTel + hook targets); simulate-only | `protocol.go` | `contracts/privacy/installer.yaml`, `contracts/adapter-sdk/capabilities.yaml` |
 | `internal/integrity` | Daily audit: drift/schema/freshness/health checks, incidents, fault injection, live canary, backup cycle | `check.go`, `drift.go`, `health.go`, `incident.go`, `livecanary.go`, `scheduler.go` | `contracts/integrity/*` |
 | `internal/localhttp` | Local HTTP server security: auth (bearer tokens), CSRF, loopback binding | `security.go` | `contracts/privacy/deployment.yaml`, `contracts/runtime/auth-and-plans.yaml` |
-| `internal/runtime` | Assembles the appliance process: API surface, jobs/scheduler, backup/export, secrets, queue, soak harness | `assembly.go`, `api.go`, `jobs.go`, `backup.go`, `secrets.go`, `soak.go` | `contracts/runtime/*` |
+| `internal/runtime` | Assembles the appliance process: API surface, jobs/scheduler, read-only inventory collector, backup/export, secrets, queue, soak harness | `assembly.go`, `api.go`, `inventory.go`, `jobs.go`, `backup.go`, `secrets.go`, `soak.go` | `contracts/runtime/*` |
 | `internal/webui` | Embeds the built `web/dist` SPA (Go `embed`) and serves it | `webui.go`, `dist/` (generated, do not hand-edit) | — |
 | `cmd/kansoku` | Main binary entrypoint; wires `internal/runtime` assembly, exposes `soak` subcommand | `main.go`, `soak.go` | — |
 | `cmd/privacy-canary` | Standalone binary: independently verifies no raw content reaches any sink | `main.go` | `contracts/privacy/sinks.yaml` |

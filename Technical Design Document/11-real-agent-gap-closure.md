@@ -146,3 +146,34 @@ appear on the dashboard — not just that unit tests pass in isolation.
 Same as Engineering Proposal 11: real agent activity is visible end to end, all existing
 conformance suites remain green, and no gap is closed by weakening an existing privacy or
 "unknown is not zero" invariant.
+
+## D. Durable appliance inventory and lifecycle projection (implemented 2026-07-25)
+
+The implementation required one additional production layer beyond section C:
+
+1. `internal/runtime/inventory.go` schedules every configured target independently at a bounded
+   interval. Each target is an explicit absolute read-only root; a failed target records a safe
+   error class and cannot erase the last successful snapshot or block other targets.
+2. Compose exposes separate personal/corporate Codex state and user/system skill mounts. Missing
+   variables resolve to a repository-owned empty directory, never to the host root or home.
+3. Migration `0007_component_inventory` stores immutable snapshots/nodes/edges plus
+   `component_inventory_state` and `inventory_collection_status`. Snapshot IDs and component
+   installation IDs make replay idempotent; cache-only nodes do not become installed components.
+4. The current projection stores only bounded normalized metadata and path pseudonyms. Raw
+   manifests, config values, commands, arguments, environment values and credentials never enter
+   Postgres.
+5. `installed`/`enabled` funnel stages read the current inventory projection. Later stages read
+   `component_lifecycle_events` and compatible normalized component events. Funnel completeness
+   is independently derived from target coverage and eligible population.
+6. `/api/v1/components/inventory?kind=skill|plugin|mcp` exposes the current sanitized projection
+   and target population. Skills and Plugins pages render it even when activation telemetry is
+   absent.
+7. Inventory tables participate in retention accounting and backup/restore validation. A daily
+   audit can reconcile persisted node/edge counts with the collector status without rereading
+   host configuration.
+
+Live proof on 2026-07-25 found 14 installed/enabled Codex skills and two installed but disabled
+plugins. A low-effort no-op canary emitted session, prompt, model and tool events but no component
+identity or lifecycle event. Consequently later Codex skill stages remain `not_observed`. This is
+the required honest result because the current official Codex OTel contract does not expose a
+stable native skill activation event.

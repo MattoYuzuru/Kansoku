@@ -55,6 +55,15 @@ done
 #    следующий отдельный вызов docker compose (интерполируется заново при каждом запуске)
 echo "KANSOKU_IMAGE=kansoku:local" > .env
 
+# Необязательно: дать Kansoku read-only доступ к inventory Codex.
+# Укажите только существующие абсолютные пути; Compose монтирует их read-only.
+cat >> .env <<EOF
+KANSOKU_CODEX_HOME_PERSONAL=/absolute/path/to/.codex-home
+KANSOKU_CODEX_HOME_CORPORATE=/absolute/path/to/.codex-tbank
+KANSOKU_CODEX_USER_SKILLS=/absolute/path/to/user-skills
+KANSOKU_CODEX_SYSTEM_SKILLS=/absolute/path/to/system-skills
+EOF
+
 # 4. Поднять стек
 docker compose -f compose.yaml up -d
 
@@ -109,6 +118,32 @@ headers = { "Authorization" = "Bearer <ingress_bearer>" }
 Конфиг агенты читают один раз при старте — после правки нужна новая сессия/процесс агента.
 Проверка: откройте дашборд → Activity/Agents, там должны появиться события за последние
 минуты.
+
+### Что именно измеряет component inventory
+
+Kansoku раз в пять минут сканирует только явно смонтированные read-only roots из `.env`.
+Для Codex это профили `CODEX_HOME`, user/system skills и plugin-конфигурация. В Postgres попадают
+только нормализованные имена, scope, версия/её value state, enabled-state, pseudonym пути,
+fingerprint и lineage snapshot; содержимое `SKILL.md`, команды MCP, env и credentials не
+сохраняются.
+
+Overview показывает funnel как разные классы доказательств:
+
+- `Installed`/`Enabled` — текущее состояние из inventory snapshot;
+- `Invoked`/`Executed`/`Succeeded` — только реальные lifecycle-события агента;
+- `not_observed` означает, что текущий upstream такого события не прислал, а не нулевое
+  использование.
+
+На 2026-07-25 официальный Codex OTel не документирует стабильное skill/plugin activation
+событие. Поэтому Kansoku не выводит `executed` или `opportunity detected` из prompt-текста,
+tool name либо факта установки. Claude Code, напротив, документирует `skill_activated`,
+`plugin_loaded` и `plugin_installed`; они учитываются только в совместимых версиях и при
+прохождении privacy allowlist.
+
+Plugin, найденный в конфигурации/каталоге, но не включённый, показывается как installed +
+disabled. Наличие plugin marketplace или cache само по себе не считается установкой. MCP
+показывается только после явной конфигурации; тестовый MCP или plugin не включается Kansoku
+автоматически.
 
 ## Подключение через hooks
 

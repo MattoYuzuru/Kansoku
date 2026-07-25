@@ -54,6 +54,24 @@ input/output token counts. Kansoku counts `tool_result` as the execution and lea
 `tool_decision` unmapped so one physical call is not counted twice. Retrieved 2026-07-25; relevant
 local version `codex-cli 0.145.0`.
 
+2026-07-25 component/cost re-check:
+
+- Codex manual snapshot: <https://developers.openai.com/codex/codex-manual.md>
+- ChatGPT/Codex plugin documentation: <https://developers.openai.com/plugins>
+- OpenAI API pricing: <https://developers.openai.com/api/docs/pricing>
+- Model references:
+  <https://developers.openai.com/api/docs/models/gpt-5.6-sol>,
+  <https://developers.openai.com/api/docs/models/gpt-5.6-terra>,
+  <https://developers.openai.com/api/docs/models/gpt-5.6-luna>
+
+Retrieved 2026-07-25; relevant local Codex version `0.145.0`. The manual still provides no stable
+Codex skill/plugin activation event. The pricing page publishes per-million-token API rates for
+the three observed model IDs, including separate input, cached-input and output rates and
+short/long-context tiers. Kansoku therefore labels its result **API-equivalent estimate** and
+versions the price catalog: OTel token metadata is not an OpenAI/ChatGPT invoice, subscription
+entitlements and provider-specific routing may differ, and absent input/output/cache splits cannot
+be silently priced as one token class.
+
 ## Anthropic Claude Code
 
 - Monitoring and OpenTelemetry: <https://code.claude.com/docs/en/monitoring-usage>
@@ -94,6 +112,20 @@ input/output/cache token counts, duration and `cost_usd_micros`. Kansoku maps on
 non-content attributes and unconditionally drops bodies, prompt/response text, tool input/output
 and raw API data. Retrieved 2026-07-25; relevant local Claude Code version `2.1.197`, while
 documented availability remains version/feature dependent.
+
+2026-07-25 component-lifecycle re-check:
+
+- Plugin structure/reference: <https://code.claude.com/docs/en/plugins-reference>
+- Plugin creation and MCP bundling: <https://code.claude.com/docs/en/plugins>
+- MCP: <https://code.claude.com/docs/en/mcp>
+
+The current monitoring reference explicitly documents `claude_code.skill_activated`,
+`claude_code.plugin_installed` and `claude_code.plugin_loaded`, plus `skill.name`/`plugin.name`
+attribution. It also warns that `OTEL_LOG_TOOL_DETAILS=1` exposes commands, paths, MCP names,
+skill names and tool input. Kansoku keeps that detail gate off by default and only consumes the
+dedicated bounded lifecycle attributes supported by the active adapter version. Retrieved
+2026-07-25; local Claude Code remains `2.1.197`, so documentation support and locally proven
+version support stay distinct.
 
 ## Google Gemini CLI
 

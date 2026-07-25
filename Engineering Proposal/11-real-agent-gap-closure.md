@@ -105,3 +105,17 @@ README-documented steps (existing OTel steps plus the new hook steps), produces 
 (non-quarantined) events, sessions and inventory nodes visible on the dashboard within the
 existing SLO. The fixture-agent, Loomwright and Wayfinder conformance suites still pass unmodified.
 No capability the underlying data cannot actually support is ever marked `configured`/`healthy`.
+
+## 2026-07-25 implementation reconciliation — durable runtime inventory
+
+The original HostView scan made adapter inventory computable but did not make it reachable from
+the appliance: no production scheduler called it, no snapshot was persisted, and the dashboard
+therefore still had an empty component funnel. ADR 0016 closes that runtime gap with explicit
+read-only Compose mounts, a bounded periodic collector, immutable inventory snapshots and a
+current-state projection.
+
+The funnel is now deliberately heterogeneous evidence: `installed` and `enabled` are current
+inventory state; later stages require lifecycle events. A complete scan with no enabled plugin is
+numeric zero. A component population with no activation event is `not_observed`, not zero. A
+component kind with no installed population remains unknown. This preserves the proposal's
+acceptance rule instead of inferring execution from installation.
