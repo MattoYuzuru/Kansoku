@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"kansoku.local/kansoku/internal/adaptersdk"
@@ -400,11 +401,12 @@ func TestAgentSpecificExtraEventSurvivesAsAllowlistedAttributeWithoutCoreChange(
 	if !found {
 		t.Fatalf("plugin.name's resolved slot %q must already be a member of OTLPSafeAttributes() -- no new raw attribute passthrough is declared for it", slot)
 	}
-	// The safe attribute allowlist itself is exactly the expanded,
-	// content-free list ingress.yaml declares; plugin.name still gains no
-	// raw passthrough member of its own.
-	if len(claudeadapter.OTLPSafeAttributes()) != 15 {
-		t.Fatalf("claude.otel's safe attribute allowlist must match the closed 15-member ingress registry, got %d members", len(claudeadapter.OTLPSafeAttributes()))
+	// Both adapters reuse the same closed, content-free ingress registry;
+	// compare their full ordered projections instead of freezing a row count
+	// that changes whenever the shared registry gains a reviewed safe slot.
+	// plugin.name still gains no raw passthrough member of its own.
+	if !slices.Equal(claudeadapter.OTLPSafeAttributes(), codexadapter.OTLPSafeAttributes()) {
+		t.Fatal("claude.otel and codex.otel must reuse the same closed ingress safe-attribute registry")
 	}
 }
 
