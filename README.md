@@ -194,6 +194,9 @@ human-approval шага.
 
 ## Документы
 
+- [ARCHITECTURE.md](ARCHITECTURE.md) — карта модулей репозитория (`internal/*`, `cmd/*`, `web/`,
+  `contracts/*`) для быстрой ориентации агента: что где лежит и какой документ ниже открывать
+  дальше по конкретной области.
 - [ROADMAP.md](ROADMAP.md) — история разработки и зависимости между этапами.
 - [Engineering Proposal](Engineering%20Proposal/README.md) — цели, альтернативы, продуктовые
   решения.

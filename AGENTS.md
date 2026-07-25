@@ -5,8 +5,11 @@ acceptance contract, not as disposable planning notes.
 
 ## Before changing anything
 
-1. Read `README.md`, `ROADMAP.md`, the selected Engineering Proposal, and its paired Technical
-   Design Document.
+1. Read `ARCHITECTURE.md` first — it maps every module (`internal/*`, `cmd/*`, `web/`,
+   `contracts/*`) to its purpose and governing contracts, and tells you which of the documents
+   below to open for the specific area you're touching, so you don't have to re-read all of them.
+   Then read `README.md`, `ROADMAP.md`, the selected Engineering Proposal, and its paired Technical
+   Design Document for that area.
 2. Inspect the current repository state, branch, recent decisions, migrations, fixtures, and tests.
 3. Re-check official documentation for every agent interface being changed. Record the retrieval
    date and relevant version in `SOURCES.md`.
@@ -44,4 +47,11 @@ acceptance contract, not as disposable planning notes.
 A feature is not complete when the UI renders. It is complete when ingestion is idempotent,
 unknown schemas fail visibly, privacy tests pass, metrics reconcile, gaps are shown in the UI,
 backup/restore behavior is known, and the daily audit can verify the feature.
+
+## Debug skills
+
+`SKILLS/` holds local, repo-specific debugging playbooks — see `SKILLS/README.md` for the index.
+Check there before re-deriving connection details, ports, or credential locations from scratch.
+In particular, `SKILLS/db-quick-connect/SKILL.md` covers fast, credential-safe access to the
+local Postgres instance (schemas, tables, ad-hoc queries).
 
