@@ -7,11 +7,17 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
 
+	"kansoku.local/kansoku/internal/adaptersdk"
+	"kansoku.local/kansoku/internal/codexadapter"
+	"kansoku.local/kansoku/internal/observability"
 	kansokuruntime "kansoku.local/kansoku/internal/runtime"
 )
+
+var bridgeInstallationID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:@/|-]{0,255}$`)
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -29,7 +35,7 @@ func run(arguments []string) error {
 	}
 	command := arguments[0]
 	switch command {
-	case "serve", "health", "config", "migrate", "backup", "restore-verify", "export", "import", "diagnostics", "soak":
+	case "serve", "health", "config", "migrate", "backup", "restore-verify", "export", "import", "diagnostics", "evidence-bridge", "soak":
 	default:
 		return errors.New("unknown_command")
 	}
@@ -47,6 +53,8 @@ func run(arguments []string) error {
 	backupID := flags.String("backup-id", "", "opaque backup identifier")
 	exportID := flags.String("export-id", "", "opaque export identifier")
 	idempotencyKeyFile := flags.String("idempotency-key-file", "", "absolute path to an import idempotency key")
+	bridgeID := flags.String("bridge-id", "", "version-pinned evidence bridge identifier")
+	installationID := flags.String("installation-id", "", "opaque agent installation identifier")
 	flagArgs := arguments[1:]
 	if command == "config" && len(flagArgs) > 0 && flagArgs[0] == "check" {
 		flagArgs = flagArgs[1:]
@@ -125,6 +133,31 @@ func run(arguments []string) error {
 			return err
 		}
 		return writeJSON(result)
+	case "evidence-bridge":
+		if *bridgeID != codexadapter.AppServerBridgeID ||
+			!bridgeInstallationID.MatchString(*installationID) {
+			return errors.New("evidence_bridge_target_invalid")
+		}
+		bridge, err := codexadapter.NewAppServerBridge(secrets.IdentityHMAC, time.Now)
+		if err != nil {
+			return err
+		}
+		sink, err := observability.NewBridgeAssertionSink(appliance.Ingestor)
+		if err != nil {
+			return err
+		}
+		if err := bridge.Connect(ctx, adaptersdk.BridgeTarget{
+			Installation: adaptersdk.Installation{
+				InstallationID: *installationID,
+				AdapterID:      codexadapter.AdapterID,
+			},
+			Protocol:      codexadapter.AppServerProtocolVersion,
+			SchemaVersion: codexadapter.AppServerSchemaVersion,
+			Frames:        os.Stdin,
+		}, sink); err != nil {
+			return err
+		}
+		return writeJSON(bridge.Health(ctx))
 	default:
 		return errors.New("unknown_command")
 	}
