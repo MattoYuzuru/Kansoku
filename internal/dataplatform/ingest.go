@@ -65,6 +65,44 @@ func EnsureDimensions(ctx context.Context, pool *pgxpool.Pool, refs DimensionRef
 			return fmt.Errorf("ensure dimension: %w", err)
 		}
 	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO agent_installation_profiles (
+			agent_installation_id, adapter_id, provider_id, display_name,
+			surface_kind, observed_agent_version, adapter_version,
+			completeness, source_provenance, first_seen_at, last_seen_at
+		) VALUES ($1,$2,$2,$2,'cli',NULL,$3,'partial','normalized_event',now(),now())
+		ON CONFLICT (agent_installation_id) DO UPDATE SET
+			adapter_version = EXCLUDED.adapter_version,
+			last_seen_at = GREATEST(agent_installation_profiles.last_seen_at, EXCLUDED.last_seen_at)
+	`, refs.AgentInstallationID, refs.AdapterID, refs.AdapterVersion); err != nil {
+		return fmt.Errorf("ensure agent profile: %w", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO source_installation_attributions (
+			source_instance_id, agent_installation_id, attribution_state, observed_at
+		) VALUES ($1,$2,'exact',now())
+		ON CONFLICT (source_instance_id) DO UPDATE SET
+			agent_installation_id = EXCLUDED.agent_installation_id,
+			attribution_state = CASE
+				WHEN source_installation_attributions.agent_installation_id = EXCLUDED.agent_installation_id
+				THEN 'exact' ELSE 'ambiguous' END,
+			observed_at = GREATEST(source_installation_attributions.observed_at, EXCLUDED.observed_at)
+	`, refs.SourceInstanceID, refs.AgentInstallationID); err != nil {
+		return fmt.Errorf("ensure source attribution: %w", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO session_installation_attributions (
+			session_id, agent_installation_id, attribution_state,
+			first_observed_at, last_observed_at
+		) VALUES ($1,$2,'exact',now(),now())
+		ON CONFLICT (session_id, agent_installation_id) DO UPDATE SET
+			last_observed_at = GREATEST(
+				session_installation_attributions.last_observed_at,
+				EXCLUDED.last_observed_at
+			)
+	`, refs.SessionID, refs.AgentInstallationID); err != nil {
+		return fmt.Errorf("ensure session attribution: %w", err)
+	}
 	return nil
 }
 
@@ -78,11 +116,11 @@ type InsertResult struct {
 }
 
 // InsertFact writes one normalized fact/evidence pair inside a single
-// transaction. Idempotency is enforced by the unique index on
-// (source_instance_id, source_native_event_id, observed_at): a replay of the
-// same source event is detected via ON CONFLICT and increments replay_count
-// on evidence without inserting a second fact row, exactly like the Session
-// 03 FileStore contract.
+// transaction. A canonical event may be asserted by multiple source lanes, so
+// any conflict on the event row leaves the first fact intact while the
+// independent evidence row is still inserted. A replay of the same evidence
+// is detected by its own key and increments replay_count without inserting a
+// second fact or evidence row, exactly like the Session 03 FileStore contract.
 func InsertFact(ctx context.Context, pool *pgxpool.Pool, fact FactRow, evidence EvidenceRow) (InsertResult, error) {
 	if fact.EventID != evidence.EventID {
 		return InsertResult{}, fmt.Errorf("fact/evidence event id mismatch")
@@ -102,7 +140,7 @@ func InsertFact(ctx context.Context, pool *pgxpool.Pool, fact FactRow, evidence 
 				surface_id, project_id, session_id, turn_id, component_id, duration_ms, success,
 				count, value_state, outcome, correlation_status
 			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
-			ON CONFLICT (source_instance_id, source_native_event_id, observed_at) DO NOTHING
+			ON CONFLICT DO NOTHING
 		`, fact.EventID, fact.FactKey, fact.EventType, fact.ObservedAt, fact.IngestedAt, fact.TimestampQuality,
 			fact.SourceInstanceID, fact.SourceNativeEventID, fact.Sequence, nullableString(fact.AgentInstallationID),
 			nullableString(fact.SurfaceID), nullableString(fact.ProjectID), nullableString(fact.SessionID),

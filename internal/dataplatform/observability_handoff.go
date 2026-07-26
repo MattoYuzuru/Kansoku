@@ -156,12 +156,15 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		ComponentID:         scope.ComponentID,
 		ComponentKind:       databaseComponentKind(event.Subject.Kind),
 		ModelID:             event.Subject.ModelID,
-		ProviderID:          providerForAdapter(event.Source.AdapterID),
-		AdapterVersionID:    scope.AdapterVersionID,
-		AdapterID:           event.Source.AdapterID,
-		AdapterVersion:      event.Source.AdapterVersion,
-		SourceInstanceID:    scope.SourceInstanceID,
-		SourceKind:          string(event.Source.Kind),
+		// The adapter identity is the honest fallback provider dimension.
+		// Rich adapter-owned display profiles may later supply a distinct
+		// provider label; core never guesses one from a model or brand switch.
+		ProviderID:       event.Source.AdapterID,
+		AdapterVersionID: scope.AdapterVersionID,
+		AdapterID:        event.Source.AdapterID,
+		AdapterVersion:   event.Source.AdapterVersion,
+		SourceInstanceID: scope.SourceInstanceID,
+		SourceKind:       string(event.Source.Kind),
 	}); err != nil {
 		return err
 	}
@@ -311,17 +314,6 @@ func databaseComponentKind(kind string) string {
 	}
 }
 
-func providerForAdapter(adapterID string) string {
-	switch adapterID {
-	case "claude":
-		return "anthropic"
-	case "codex":
-		return "openai"
-	default:
-		return adapterID
-	}
-}
-
 func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event observability.Event, scope ObservabilityFactScope) error {
 	switch event.EventType {
 	case "component.installed", "component.loaded", "component.invoked", "component.executed":
@@ -359,11 +351,13 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		_, err := h.pool.Exec(ctx, `
 			INSERT INTO tool_calls (
 				tool_call_id, observed_at, event_id, component_id, session_id,
-				duration_ms, outcome
-			) VALUES ($1,$2,$3,$4,$5,$6,$7)
+				duration_ms, outcome, agent_installation_id,
+				installation_attribution_state
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'exact')
 			ON CONFLICT (tool_call_id, observed_at) DO NOTHING
 		`, handoffID("tool-call", event.EventID), event.ObservedAt, event.EventID,
-			nullableString(scope.ComponentID), scope.SessionID, event.Measurements.DurationMS, event.Outcome)
+			nullableString(scope.ComponentID), scope.SessionID, event.Measurements.DurationMS,
+			event.Outcome, scope.AgentInstallationID)
 		return err
 	case "model.requested", "model.responded":
 		if event.Subject.ModelID == "" {
@@ -380,12 +374,13 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		if _, err := h.pool.Exec(ctx, `
 			INSERT INTO model_operations (
 				model_operation_id, observed_at, event_id, model_id, session_id,
-				provider_cost_micros, operation_kind, duration_ms, outcome
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+				provider_cost_micros, operation_kind, duration_ms, outcome,
+				agent_installation_id, installation_attribution_state
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'exact')
 			ON CONFLICT (model_operation_id, observed_at) DO NOTHING
 		`, operationID, event.ObservedAt, event.EventID, event.Subject.ModelID,
 			scope.SessionID, event.Measurements.ProviderCostMicros, operationKind,
-			event.Measurements.DurationMS, event.Outcome); err != nil {
+			event.Measurements.DurationMS, event.Outcome, scope.AgentInstallationID); err != nil {
 			return err
 		}
 		if operationKind == "request" {

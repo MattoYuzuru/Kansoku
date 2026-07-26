@@ -19,10 +19,12 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,9 +32,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"kansoku.local/kansoku/internal/adaptersdk"
+	"kansoku.local/kansoku/internal/codexadapter"
 	"kansoku.local/kansoku/internal/dataplatform"
 	"kansoku.local/kansoku/internal/integrity"
 	"kansoku.local/kansoku/internal/observability"
+	"kansoku.local/kansoku/internal/privacy"
 )
 
 // testDSN returns the ephemeral Postgres DSN provided by the runtime
@@ -650,6 +655,99 @@ func TestDurableQueueReserveCommitAgainstRealHandoff(t *testing.T) {
 		if depth := finalMetrics.Depth[source]; depth != 0 {
 			t.Fatalf("lane %s depth after commits = %d, want 0", source, depth)
 		}
+	}
+}
+
+func TestEvidenceBridgeAndOTelCommitOneFactTwoLanesToRealPostgres(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	handoff, err := dataplatform.NewObservabilityHandoff(pool, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataDir := filepath.Join(t.TempDir(), "data")
+	mustPrivateSpoolDir(t, dataDir)
+	queue, err := NewDurableIngressQueue(handoff, dataDir, 64, 64<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queue.Close()
+	store, err := observability.OpenFileStore(filepath.Join(t.TempDir(), "state.json"), 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := bytes.Repeat([]byte("k"), 32)
+	ingestor, err := observability.NewIngestor(store, key, privacy.DefaultLimits(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed := time.Unix(1785074400, 0).UTC()
+	ingestor.SetClockForTest(func() time.Time { return observed.Add(time.Second) })
+	if err := ingestor.ConfigureDurableFactSink(queue); err != nil {
+		t.Fatal(err)
+	}
+	sink, err := observability.NewBridgeAssertionSink(ingestor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bridge, err := codexadapter.NewAppServerBridge(key, func() time.Time {
+		return observed.Add(time.Second)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := `{"method":"turn/started","params":{"threadId":"live-shared-session","turn":{"id":"live-shared-event","startedAt":1785074400,"status":"inProgress","items":[]}}}`
+	if err := bridge.Connect(ctx, adaptersdk.BridgeTarget{
+		Installation: adaptersdk.Installation{
+			InstallationID: "ain_live_bridge", AdapterID: codexadapter.AdapterID,
+		},
+		Protocol:      codexadapter.AppServerProtocolVersion,
+		SchemaVersion: codexadapter.AppServerSchemaVersion,
+		Frames:        strings.NewReader(frame),
+	}, sink); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ingestor.IngestSafeFields(map[string]any{
+		"event_id": "live-shared-event", "session_id": "live-shared-session",
+		"observed_at": observed.Format(time.RFC3339Nano),
+		"event_type":  "prompt.submitted", "outcome": "unknown",
+		"value_state": "observed",
+	}, codexadapter.AdapterID, observability.SourceOTLPLog, 2); err != nil {
+		t.Fatal(err)
+	}
+	state := store.Snapshot()
+	if len(state.Facts) != 1 || len(state.Evidence) != 2 {
+		t.Fatalf("mirror facts=%d evidence=%d", len(state.Facts), len(state.Evidence))
+	}
+	var factKey string
+	for key := range state.Facts {
+		factKey = key
+	}
+	var facts, evidence int64
+	if err := pool.QueryRow(ctx, `
+		SELECT count(DISTINCT e.event_id), count(DISTINCT ee.evidence_id)
+		FROM events e
+		JOIN event_evidence ee ON ee.event_id=e.event_id AND ee.observed_at=e.observed_at
+		WHERE e.fact_key=$1
+	`, factKey).Scan(&facts, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	if facts != 1 || evidence != 2 {
+		t.Fatalf("Postgres facts=%d evidence=%d", facts, evidence)
+	}
+	var lanes int64
+	if err := pool.QueryRow(ctx, `
+		SELECT count(DISTINCT si.source_kind)
+		FROM event_evidence ee
+		JOIN source_instances si ON si.source_instance_id=ee.source_instance_id
+		JOIN events e ON e.event_id=ee.event_id AND e.observed_at=ee.observed_at
+		WHERE e.fact_key=$1
+	`, factKey).Scan(&lanes); err != nil {
+		t.Fatal(err)
+	}
+	if lanes != 2 {
+		t.Fatalf("evidence lane count=%d", lanes)
 	}
 }
 

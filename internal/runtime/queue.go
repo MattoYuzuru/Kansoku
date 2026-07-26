@@ -66,6 +66,7 @@ var productionSources = []observability.SourceKind{
 	observability.SourceOTLPMetric,
 	observability.SourceTranscript,
 	observability.SourceAdapterBatch,
+	observability.SourceEvidenceBridge,
 }
 
 func NewDurableIngressQueue(sink observability.DurableFactSink, dataDir string, queueCapacity int, spoolMaxBytes int64) (*DurableIngressQueue, error) {
@@ -104,7 +105,8 @@ func NewDurableIngressQueueWithSpools(sink observability.DurableFactSink, spools
 			return nil, fmt.Errorf("spool required for %s", source)
 		}
 		capacity := queueCapacity
-		if source == observability.SourceTranscript || source == observability.SourceAdapterBatch {
+		if source == observability.SourceTranscript || source == observability.SourceAdapterBatch ||
+			source == observability.SourceEvidenceBridge {
 			capacity = 16
 		}
 		lane := &queueLane{capacity: capacity, jobs: make(chan *persistJob, capacity), spool: spool}

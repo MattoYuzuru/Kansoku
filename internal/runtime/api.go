@@ -127,6 +127,7 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 		}
 	}))
 	mux.Handle("/api/v1/quarantine/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.quarantineResource)))
+	mux.Handle("/api/v1/agents/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.agentResource)))
 	for route, handler := range map[string]http.HandlerFunc{
 		"/api/v1/plans/preview":           api.planPreview,
 		"/api/v1/plans/apply":             api.planApply,

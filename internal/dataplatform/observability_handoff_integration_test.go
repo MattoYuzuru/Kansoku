@@ -109,9 +109,9 @@ func TestObservabilityHandoffPersistsNativeTelemetryProjectionsIdempotently(t *t
 	`).Scan(&gotInput, &gotOutput, &gotCost, &gotProvider); err != nil {
 		t.Fatalf("read model projection: %v", err)
 	}
-	if gotInput != inputTokens || gotOutput != outputTokens || gotCost != costMicros || gotProvider != "openai" {
+	if gotInput != inputTokens || gotOutput != outputTokens || gotCost != costMicros || gotProvider != "codex" {
 		t.Fatalf("model projection = (%d,%d,%d,%q), want (%d,%d,%d,%q)",
-			gotInput, gotOutput, gotCost, gotProvider, inputTokens, outputTokens, costMicros, "openai")
+			gotInput, gotOutput, gotCost, gotProvider, inputTokens, outputTokens, costMicros, "codex")
 	}
 
 	var gotModelDuration int64

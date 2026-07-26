@@ -139,6 +139,7 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		"session_drilldown":             100,
 		"percentile_recompute_bucket":   200,
 		"agent_breakdown_range":         150,
+		"agent_profile_range":           200,
 		"model_breakdown_range":         150,
 		"component_breakdown_range":     150,
 		"component_lifecycle_funnel":    150,

@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.runtime-and-api/1",
-  "contract_version": "1.1.0",
+  "contract_version": "1.2.0",
   "effective_at": "2026-07-26",
   "appliance": {
     "binary": "cmd/kansoku",
@@ -48,6 +48,7 @@
       "GET /api/v1/incidents",
       "GET /api/v1/incidents/{opaque_id}",
       "GET /api/v1/incidents/{opaque_id}/occurrences",
+      "GET /api/v1/agents/{opaque_id}",
       "GET /api/v1/incidents/{opaque_id}/debug-bundle",
       "GET /api/v1/quarantine",
       "GET /api/v1/quarantine/{opaque_id}",

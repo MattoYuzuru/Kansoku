@@ -23,6 +23,7 @@ var Budgets = map[string]QueryBudget{
 	"percentile_recompute_bucket":   {ID: "percentile_recompute_bucket", MaxMS: 200},
 	"agent_breakdown_range":         {ID: "agent_breakdown_range", MaxMS: 150},
 	"model_breakdown_range":         {ID: "model_breakdown_range", MaxMS: 150},
+	"agent_profile_range":           {ID: "agent_profile_range", MaxMS: 200},
 	"component_breakdown_range":     {ID: "component_breakdown_range", MaxMS: 150},
 	"component_lifecycle_funnel":    {ID: "component_lifecycle_funnel", MaxMS: 150},
 	"component_inventory_current":   {ID: "component_inventory_current", MaxMS: 100},

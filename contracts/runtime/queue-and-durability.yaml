@@ -1,14 +1,15 @@
 {
   "schema_version": "kansoku.runtime-queue-and-durability/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-24",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-26",
   "lanes": [
     {"source": "hook_http", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
     {"source": "otlp_log", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
     {"source": "otlp_span", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
     {"source": "otlp_metric", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
     {"source": "transcript_jsonl", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864},
-    {"source": "adapter_batch", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864}
+    {"source": "adapter_batch", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864},
+    {"source": "evidence_bridge", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864}
   ],
   "admission": {
     "reservation_before_filestore_acceptance": true,

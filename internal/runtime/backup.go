@@ -40,6 +40,8 @@ var backupTableGroups = map[string][]string{
 		"mcp_connections", "change_outcomes", "correlations",
 		"inventory_snapshots", "inventory_nodes", "inventory_edges",
 		"component_inventory_state", "inventory_collection_status",
+		"agent_installation_profiles", "source_installation_attributions",
+		"session_installation_attributions",
 		"source_watermarks", "completeness_intervals", "ingest_failures",
 		"schema_quarantine_metadata", "reconciliation_runs",
 		"reconciliation_mismatches", "audit_runs", "audit_checks",

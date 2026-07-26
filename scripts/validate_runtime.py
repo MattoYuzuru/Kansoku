@@ -45,8 +45,8 @@ POLICY_BASE_BY_REGISTRY = {
 AUTHORITATIVE_SEMANTIC_SHA256 = {
     "contracts/runtime/auth-and-plans.yaml": "774677e401e14dabb079eecd584a803d6858fde1c5cd7701a395724bc8d19864",
     "contracts/runtime/operations-backup-and-soak.yaml": "3b3d1e0df2a9a6aeeea01859b7f8ae485a4e6a3dffb09d865dacdcda0f1a94a2",
-    "contracts/runtime/queue-and-durability.yaml": "7a40f224ce3e2d597ce93100a001dba7018d2ba98a13fb4f18c70ee4ec21df4a",
-    "contracts/runtime/runtime-and-api.yaml": "0abfa3b28f34d69253fe8029faae01e71be7f86c7d834b443d5eee907a8fd216",
+    "contracts/runtime/queue-and-durability.yaml": "23efa645fc0f27b7343a6f8799bca73aadd622b02c5111ec7ad343fce490f530",
+    "contracts/runtime/runtime-and-api.yaml": "6ba710f5bfa28e3ff363bc27f6d9d3392e23781c61668c4d90f75ae425ee37e2",
 }
 TOP_LEVEL = {
     "auth-and-plans.yaml": {
@@ -74,12 +74,14 @@ LANES = {
     "otlp_metric": (64, 1),
     "transcript_jsonl": (16, 1),
     "adapter_batch": (16, 1),
+    "evidence_bridge": (16, 1),
 }
 READ_ROUTES = {
     "GET /api/v1/inventory", "GET /api/v1/analytics", "GET /api/v1/health",
     "GET /api/v1/incidents", "GET /api/v1/completeness", "GET /api/v1/operations/jobs",
     "GET /api/v1/incidents/{opaque_id}",
     "GET /api/v1/incidents/{opaque_id}/occurrences",
+    "GET /api/v1/agents/{opaque_id}",
     "GET /api/v1/incidents/{opaque_id}/debug-bundle",
     "GET /api/v1/quarantine", "GET /api/v1/quarantine/{opaque_id}",
 }
@@ -161,7 +163,7 @@ def validate(
         if set(document) != TOP_LEVEL[name]:
             errors.append(f"{name} top-level schema is not closed")
         expected_effective = "2026-07-26" if name in {
-            "operations-backup-and-soak.yaml", "runtime-and-api.yaml"
+            "operations-backup-and-soak.yaml", "queue-and-durability.yaml", "runtime-and-api.yaml"
         } else "2026-07-24"
         if document.get("effective_at") != expected_effective:
             errors.append(f"{name} effective_at changed")

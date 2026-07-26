@@ -209,6 +209,117 @@ func TestAnalyticsEntityBreakdownRoutesServeRealAggregationsWithEnvelopeIntact(t
 	}
 }
 
+func TestAgentProfileRouteReconcilesExactModelsSourcesAndOpaqueIdentity(t *testing.T) {
+	dsn := testDSN(t)
+	handler, bearer, pool := newTestAPIForEntityBreakdown(t, dsn)
+	ctx := context.Background()
+	observed := time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC)
+	refs := dataplatform.DimensionRefs{
+		DeviceID: "dev_agent_profile", AgentInstallationID: "ain_agent_profile",
+		AgentID: "future-agent", SurfaceID: "asf_agent_profile",
+		ProjectID: "prj_agent_profile", SessionID: "ses_agent_profile",
+		TurnID: "trn_agent_profile", ModelID: "model-profile-a",
+		ProviderID: "future-agent", AdapterVersionID: "adv_agent_profile",
+		AdapterID: "future-agent", AdapterVersion: "9.4.1",
+		SourceInstanceID: "src_agent_profile_bridge", SourceKind: "evidence_bridge",
+	}
+	if err := dataplatform.EnsureDimensions(ctx, pool, refs); err != nil {
+		t.Fatalf("ensure profile dimensions: %v", err)
+	}
+	fact := dataplatform.FactRow{
+		EventID: "evt_agent_profile", FactKey: "fact_agent_profile",
+		EventType: "model.responded", ObservedAt: observed, IngestedAt: observed.Add(time.Second),
+		TimestampQuality: "source_rfc3339", SourceInstanceID: refs.SourceInstanceID,
+		SourceNativeEventID: "hmac-sha256:agent-profile-native",
+		Sequence:            1, AgentInstallationID: refs.AgentInstallationID,
+		SurfaceID: refs.SurfaceID, ProjectID: refs.ProjectID, SessionID: refs.SessionID,
+		TurnID: refs.TurnID, ValueState: "observed", Outcome: "succeeded",
+		CorrelationStatus: "exact",
+	}
+	evidence := dataplatform.EvidenceRow{
+		EvidenceID: "evd_agent_profile", EventID: fact.EventID, ObservedAt: observed,
+		SourceInstanceID: refs.SourceInstanceID, Tier: "native", Confidence: 1,
+		Completeness: "complete", FirstSeenAt: observed, LastSeenAt: observed,
+		SanitizerVersion:  "kansoku.ingress-sanitizer/1",
+		PrivacyContractID: "privacy-contract-test",
+		AssertEventType:   fact.EventType, AssertOutcome: fact.Outcome,
+		AssertValueState: fact.ValueState,
+	}
+	if _, err := dataplatform.InsertFact(ctx, pool, fact, evidence); err != nil {
+		t.Fatalf("insert profile fact: %v", err)
+	}
+	for _, table := range []string{"model_operations", "token_usage"} {
+		if err := dataplatform.EnsurePartition(ctx, pool, table, observed); err != nil {
+			t.Fatalf("ensure %s partition: %v", table, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO model_operations (
+			model_operation_id, observed_at, event_id, model_id, session_id,
+			provider_cost_micros, operation_kind, duration_ms, outcome,
+			agent_installation_id, installation_attribution_state
+		) VALUES ('mop_agent_profile',$1,$2,$3,$4,1200,'response',80,'succeeded',$5,'exact')
+	`, observed, fact.EventID, refs.ModelID, refs.SessionID,
+		refs.AgentInstallationID); err != nil {
+		t.Fatalf("seed model profile projection: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO token_usage (
+			token_usage_id, observed_at, model_operation_id,
+			input_tokens, cached_input_tokens, output_tokens
+		) VALUES ('tku_agent_profile',$1,'mop_agent_profile',100,20,30)
+	`, observed); err != nil {
+		t.Fatalf("seed token profile projection: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO source_watermarks (
+			source_instance_id, last_read_sequence, last_emitted_sequence,
+			last_observed_at, last_committed_at, gap_count, inactivity
+		) VALUES ($2,1,1,$1,$1,0,false)
+	`, observed, refs.SourceInstanceID); err != nil {
+		t.Fatalf("seed source profile projection: %v", err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, entityBreakdownRequest(
+		"/api/v1/agents/ain_agent_profile?from=2026-06-01T00:00:00Z&to=2026-06-02T00:00:00Z",
+		bearer,
+	))
+	if response.Code != http.StatusOK {
+		t.Fatalf("profile status=%d body=%s", response.Code, response.Body.String())
+	}
+	envelope := decodeEnvelope(t, response.Body.Bytes())
+	encoded, err := json.Marshal(envelope.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var profile dataplatform.AgentProfileResponse
+	if err := json.Unmarshal(encoded, &profile); err != nil {
+		t.Fatalf("decode profile: %v", err)
+	}
+	if profile.Identity.DisplayName != "future-agent" ||
+		profile.Identity.ProviderID != "future-agent" ||
+		profile.Identity.AgentInstallationID != "ain_agent_profile" {
+		t.Fatalf("identity guessed or lost: %#v", profile.Identity)
+	}
+	if len(profile.Models) != 1 || profile.Models[0].ModelID != "model-profile-a" ||
+		profile.Models[0].RequestCount != 1 || profile.Models[0].InputTokens != 100 ||
+		profile.Models[0].CachedInputTokens != 20 || profile.Models[0].OutputTokens != 30 ||
+		profile.Models[0].EstimatedCostMicros != 1200 {
+		t.Fatalf("model reconciliation failed: %#v", profile.Models)
+	}
+	if len(profile.Sources) != 1 || profile.Sources[0].SourceKind != "evidence_bridge" ||
+		profile.Sources[0].FactCount != 1 || profile.Sources[0].EvidenceCount != 1 {
+		t.Fatalf("source reconciliation failed: %#v", profile.Sources)
+	}
+	if profile.Population.Numerator != 1 || profile.Population.Denominator != 1 ||
+		profile.Exclusions["non_exact_installation_attribution"] != 0 {
+		t.Fatalf("population/exclusions failed: %#v %#v", profile.Population, profile.Exclusions)
+	}
+	if containsForbiddenResponseKey(response.Body.Bytes()) {
+		t.Fatalf("agent profile response tripped forbidden-field scan: %s", response.Body.String())
+	}
+}
+
 // TestAnalyticsEntityBreakdownRejectsInvalidQueryWith400Never500 proves the
 // extended analytics() dispatch never panics or 500s on malformed input for
 // the new budget_id family: an invalid time range, an invalid metric_family

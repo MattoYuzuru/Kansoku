@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.data-platform-query-contract/1",
-  "contract_version": "1.3.0",
+  "contract_version": "1.4.0",
   "effective_at": "2026-07-26",
   "response_fields": ["data", "formula_version", "population", "completeness", "freshness"],
   "population_fields": ["numerator", "denominator"],
@@ -15,6 +15,7 @@
       {"id": "session_drilldown", "description": "raw event list for a single session ordered by observed_at", "max_ms": 100, "backing": "events_partition_pruned"},
       {"id": "percentile_recompute_bucket", "description": "exact percentile_cont recompute for one hour bucket of normalized facts", "max_ms": 200, "backing": "events_partition_pruned"},
       {"id": "agent_breakdown_range", "description": "per-agent-installation event count and outcome split grouped across all agents observed within a range", "max_ms": 150, "backing": "events_partition_pruned"},
+      {"id": "agent_profile_range", "description": "one installation identity activity per-model usage source matrix and attribution exclusions within a range", "max_ms": 200, "backing": "agent_installation_profile_exact_event_model_source_attribution_indexes"},
       {"id": "model_breakdown_range", "description": "per-model request count and token sum grouped across all models observed within a range", "max_ms": 150, "backing": "model_operations_token_usage_partition_pruned"},
       {"id": "component_breakdown_range", "description": "per-component call count, outcome split and exact p95 latency grouped across all components of an optional kind observed within a range", "max_ms": 150, "backing": "tool_calls_partition_pruned"},
       {"id": "component_lifecycle_funnel", "description": "distinct-component and event count per canonical lifecycle stage for one component kind observed within a range; collection completeness is measured independently from lifecycle conversion", "max_ms": 150, "backing": "current_component_inventory_state_union_component_lifecycle_events_union_native_component_events"},

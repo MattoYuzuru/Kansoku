@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.data-platform-schema/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-25",
+  "contract_version": "1.2.0",
+  "effective_at": "2026-07-26",
   "engine": {"product": "PostgreSQL", "major_version": 18, "image_digest": "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15", "volume_path": "/var/lib/postgresql"},
   "migration_policy": {
     "tool": "kansoku_embedded_sql_migrator",
@@ -12,8 +12,8 @@
     "rule": "migrations are append-only after their first trusted commit; a checksum mismatch against the ledger fails startup"
   },
   "tables": {
-    "dimensions": ["devices", "agent_installations", "agent_surfaces", "agent_versions", "projects", "models", "providers", "price_catalog_versions", "components", "component_versions", "component_installations", "component_relations", "adapter_versions", "source_instances", "source_schema_fingerprints"],
-    "activity_facts": ["sessions", "turns", "prompt_features", "events", "event_evidence", "model_operations", "token_usage", "cost_estimates", "component_lifecycle_events", "tool_calls", "mcp_connections", "change_outcomes", "correlations"],
+    "dimensions": ["devices", "agent_installations", "agent_surfaces", "agent_versions", "projects", "models", "providers", "price_catalog_versions", "components", "component_versions", "component_installations", "component_relations", "adapter_versions", "source_instances", "source_schema_fingerprints", "agent_installation_profiles", "source_installation_attributions"],
+    "activity_facts": ["sessions", "turns", "prompt_features", "events", "event_evidence", "model_operations", "token_usage", "cost_estimates", "component_lifecycle_events", "tool_calls", "mcp_connections", "change_outcomes", "correlations", "session_installation_attributions"],
     "inventory": ["inventory_snapshots", "inventory_nodes", "inventory_edges", "component_inventory_state", "inventory_collection_status"],
     "quality_operations": ["source_watermarks", "completeness_intervals", "ingest_failures", "schema_quarantine_metadata", "reconciliation_runs", "reconciliation_mismatches", "audit_runs", "audit_checks", "incidents", "retention_policies", "backup_runs", "restore_tests", "formula_versions", "rollup_status"],
     "rollups": ["metric_rollups_hourly", "metric_rollups_daily", "rollup_repair_queue"]

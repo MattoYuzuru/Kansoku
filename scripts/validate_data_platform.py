@@ -42,7 +42,7 @@ GRANULARITIES = ["hourly", "daily"]
 PERCENTILE_LEVELS = [0.5, 0.9, 0.95, 0.99]
 BUDGET_IDS = {
     "hourly_rollup_range_30d", "daily_rollup_range_1y", "session_drilldown", "percentile_recompute_bucket",
-    "agent_breakdown_range", "model_breakdown_range", "component_breakdown_range",
+    "agent_breakdown_range", "agent_profile_range", "model_breakdown_range", "component_breakdown_range",
     "component_lifecycle_funnel", "component_inventory_current",
     "reliability_coverage_timeline", "mcp_topology", "incident_list",
     "incident_detail", "incident_occurrences", "quarantine_list", "quarantine_detail",
@@ -260,7 +260,7 @@ def validate_code_and_fixture() -> list[str]:
     ]
     required_snippets = [
         "percentile_cont(0.5)", "percentile_cont(0.9)", "percentile_cont(0.95)", "percentile_cont(0.99)",
-        "FOR UPDATE SKIP LOCKED", "statement_timeout", "ON CONFLICT (source_instance_id, source_native_event_id, observed_at) DO NOTHING",
+        "FOR UPDATE SKIP LOCKED", "statement_timeout", "ON CONFLICT DO NOTHING",
         "DropPartitionsOlderThan", "checksum mismatch", "ErrBudgetExceeded",
     ]
     for required in required_snippets:

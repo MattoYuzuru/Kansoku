@@ -144,6 +144,12 @@ type RollupPoint struct {
 type EntityRow struct {
 	EntityID            string       `json:"entity_id"`
 	AgentID             string       `json:"agent_id,omitempty"`
+	ProviderID          string       `json:"provider_id,omitempty"`
+	DisplayName         string       `json:"display_name,omitempty"`
+	DisplayAlias        string       `json:"display_alias,omitempty"`
+	SurfaceKind         string       `json:"surface_kind,omitempty"`
+	AgentVersion        string       `json:"agent_version,omitempty"`
+	AdapterVersion      string       `json:"adapter_version,omitempty"`
 	EventCount          int64        `json:"event_count"`
 	SuccessCount        int64        `json:"success_count"`
 	FailureCount        int64        `json:"failure_count"`
