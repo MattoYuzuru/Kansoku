@@ -2,7 +2,8 @@
 
 ## Status
 
-Approved for planning on 2026-07-26. Implementation has not started.
+Implemented and live-verified on 2026-07-26. The reconciliation evidence is recorded in
+`reports/session-13-reconciliation.md`.
 
 ## Purpose
 
@@ -98,3 +99,12 @@ Bridge and OTel duplicates reconcile to one logical fact. Removing the bridge de
 capabilities. All content-rich App Server fields are absent from durable and diagnostic sinks, and
 the adapter conformance fixture proves a differently shaped future bridge can participate without a
 core schema or routing change.
+
+## Implemented outcome
+
+The accepted design is implemented by the generic adapter-SDK `EvidenceBridge`, a deliberately
+non-agent-shaped fake bridge, and the version-pinned Codex App Server 0.145.0 bridge. PostgreSQL
+migration 0008 adds fresh exact installation attribution without rewriting ambiguous history.
+Agent list/detail APIs and UI now expose identity, activity, per-model usage, exact populations and
+independent source health. Cross-lane PostgreSQL replay, source-loss, unknown-schema, ten-sink
+privacy, production restart, browser and repeated restore verification gates pass.

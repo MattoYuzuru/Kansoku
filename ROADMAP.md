@@ -224,9 +224,12 @@
   upgrade/restart, repeated isolated restore verification, query plans, ten-sink privacy and
   headless-browser checks pass. The measured production store retained all legacy rows and has no
   orphan occurrences or non-legacy aggregate/detail mismatches.
-- **13 — planned/P0 (approved 2026-07-26):** a generic adapter-owned evidence bridge, with Codex App
-  Server as its first optional version-pinned implementation, delivers useful agent/model profiles
-  while proving cross-agent extensibility and cross-lane deduplication.
+- **13 — implemented/P0 (2026-07-26; live gate green):** the generic adapter-owned
+  `EvidenceBridge`, a non-agent-shaped conformance fake and the optional version-pinned Codex App
+  Server bridge feed the canonical safe assertion path without core brand branching. Migration
+  0008 adds non-rewriting installation/session/model attribution; agent profiles expose exact
+  per-model populations and independent source health. Real PostgreSQL cross-lane reconciliation,
+  production restart, ten-sink bridge privacy, browser, backup and repeated restore gates pass.
 - **14 — planned/P1 (approved 2026-07-26):** skill analytics moves from one false universal funnel
   to availability/runtime/optimization planes; optimization stays unsupported until Session 20.
   Profiles contain evidence and file-tree metadata, not file contents.

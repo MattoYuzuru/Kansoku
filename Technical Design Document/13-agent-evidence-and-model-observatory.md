@@ -1,5 +1,9 @@
 # TDD 13 — Agent evidence bridge and model observatory
 
+## Status
+
+Implemented and live-verified on 2026-07-26. See `reports/session-13-reconciliation.md`.
+
 ## Boundary
 
 Session 13 introduces a generic adapter-owned evidence bridge and a complete agent/model profile.
@@ -204,3 +208,15 @@ than silently substituted.
 The Engineering Proposal gate is proven by fixtures and live evidence. A bridge can be removed
 without losing OTel-backed history, two lanes never double-count one fact, and a third fake adapter
 bridge works without core agent-name branches.
+
+## Reconciliation notes
+
+- `event_id`/`fact_key` remain lane-independent; `event_evidence.evidence_id` is lane-dependent.
+  A canonical event conflict therefore preserves the first fact while still accepting independent
+  evidence. Only a repeated evidence key increments `replay_count`.
+- Fresh projections populate exact installation columns and attribution relations. Historical rows
+  use exact event lineage at query time; migration 0008 performs no forced historical backfill.
+- Core provider fallback is the adapter identity. No provider is inferred from a model and the
+  former agent-name provider switch was removed.
+- The first App Server implementation accepts only the locally generated Codex 0.145.0 schema
+  subset documented in `SOURCES.md`; unsupported methods become metadata-only bridge incidents.
