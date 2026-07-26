@@ -145,6 +145,12 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		"component_inventory_current":   100,
 		"reliability_coverage_timeline": 150,
 		"mcp_topology":                  100,
+		"incident_list":                 150,
+		"incident_detail":               100,
+		"incident_occurrences":          100,
+		"quarantine_list":               150,
+		"quarantine_detail":             100,
+		"incident_debug_bundle":         150,
 		// Wave 1b (Session 10 continuation) budgets -- see query.go's
 		// Budgets map doc comment: not yet mirrored into
 		// contracts/data-platform/query-contract.yaml, tracked as a

@@ -394,6 +394,17 @@ func TestNativeBackupRestoreVerifyRoundTripAndCleanup(t *testing.T) {
 	// Seed one real normalized fact through the same handoff production ingress
 	// uses, so the backup covers non-empty fact/evidence tables.
 	seedFactThroughHandoff(t, pool, "backup_seed")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO metric_rollups_hourly (
+			metric_family,bucket_start,dimension_scope,formula_version,
+			event_count,unknown_count,completeness_duration_ms,value_numeric
+		) VALUES (
+			'backup_restore_fixture','2026-07-26T10:00:00Z','fixture',
+			'backup_restore_fixture/1',1,0,3600000,1
+		)
+	`); err != nil {
+		t.Fatalf("seed backup rollup: %v", err)
+	}
 
 	before := countRestoreDatabases(t, pool)
 
@@ -407,6 +418,16 @@ func TestNativeBackupRestoreVerifyRoundTripAndCleanup(t *testing.T) {
 	}
 	if len(backup.ArchiveSHA256) != 64 {
 		t.Fatalf("backup archive sha256 = %q, want 64 hex chars", backup.ArchiveSHA256)
+	}
+	// The source remains live after pg_dump. Verification is against the
+	// immutable archive and its manifest, never against a later mutable
+	// source snapshot.
+	if _, err := pool.Exec(ctx, `
+		UPDATE metric_rollups_hourly
+		SET event_count=2,value_numeric=2
+		WHERE metric_family='backup_restore_fixture'
+	`); err != nil {
+		t.Fatalf("mutate source after backup: %v", err)
 	}
 
 	// Success path: RestoreVerify must pass and drop its temporary database.

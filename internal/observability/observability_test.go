@@ -284,6 +284,54 @@ func TestUnknownSchemaIsMetadataOnlyQuarantineAndDegradedIncident(t *testing.T) 
 	}
 }
 
+func TestUnknownSchemaReplayDoesNotInflateButIndependentRepeatsDo(t *testing.T) {
+	store, ingestor, _ := testIngestor(t, 4<<20)
+	now := fixedTime.Add(time.Second)
+	ingestor.SetClockForTest(func() time.Time { return now })
+	fingerprintA := "hmac-sha256:" + strings.Repeat("a", 64)
+	fingerprintB := "hmac-sha256:" + strings.Repeat("b", 64)
+
+	if err := ingestor.IngestUnknown(SourceOTLPLog, fingerprintA, 40, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := ingestor.IngestUnknown(SourceOTLPLog, fingerprintA, 40, 2); err != nil {
+		t.Fatal(err)
+	}
+	state := store.Snapshot()
+	if len(state.Quarantine) != 1 || len(state.Incidents) != 1 {
+		t.Fatalf("replay inflated rows: quarantine=%d incidents=%d", len(state.Quarantine), len(state.Incidents))
+	}
+	for _, incident := range state.Incidents {
+		if incident.OccurrenceCount != 1 {
+			t.Fatalf("replay occurrence count=%d, want 1", incident.OccurrenceCount)
+		}
+	}
+
+	now = now.Add(time.Second)
+	if err := ingestor.IngestUnknown(SourceOTLPLog, fingerprintA, 40, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := ingestor.IngestUnknown(SourceOTLPLog, fingerprintB, 40, 2); err != nil {
+		t.Fatal(err)
+	}
+	state = store.Snapshot()
+	if len(state.Quarantine) != 2 || len(state.Incidents) != 2 {
+		t.Fatalf("independent shapes not separated: quarantine=%d incidents=%d", len(state.Quarantine), len(state.Incidents))
+	}
+	counts := map[string]uint64{}
+	for id, incident := range state.Incidents {
+		counts[id] = incident.OccurrenceCount
+	}
+	foundTwo, foundOne := false, false
+	for _, count := range counts {
+		foundTwo = foundTwo || count == 2
+		foundOne = foundOne || count == 1
+	}
+	if !foundTwo || !foundOne {
+		t.Fatalf("occurrence counts=%v, want one repeated=2 and one distinct=1", counts)
+	}
+}
+
 func TestCrashStagesAndRestartAreTransactional(t *testing.T) {
 	for _, stage := range []CrashStage{CrashBeforeSync, CrashBeforeRename, CrashAfterRename} {
 		t.Run(string(stage), func(t *testing.T) {

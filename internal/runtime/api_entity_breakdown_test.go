@@ -29,8 +29,8 @@ func TestHealthAndIncidentRoutesIncludeIngressQuarantine(t *testing.T) {
 
 	openedAt := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 	if _, err := pool.Exec(context.Background(), `
-		INSERT INTO incidents (incident_id, category, opened_at)
-		VALUES ('inc_ingress_quarantine', 'unknown_schema', $1)
+		INSERT INTO incidents (incident_id, category, opened_at, last_seen_at)
+		VALUES ('inc_ingress_quarantine', 'unknown_schema', $1, $1)
 	`, openedAt); err != nil {
 		t.Fatalf("seed ingress incident: %v", err)
 	}
@@ -56,17 +56,19 @@ func TestHealthAndIncidentRoutesIncludeIngressQuarantine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("remarshal incidents: %v", err)
 	}
-	var incidents []struct {
-		IncidentID   string `json:"incident_id"`
-		FailureClass string `json:"failure_class"`
-		CapabilityID string `json:"capability_id"`
+	var page struct {
+		Data []struct {
+			IncidentID   string `json:"incident_id"`
+			FailureClass string `json:"failure_class"`
+			CapabilityID string `json:"capability_id"`
+		} `json:"data"`
 	}
-	if err := json.Unmarshal(data, &incidents); err != nil {
+	if err := json.Unmarshal(data, &page); err != nil {
 		t.Fatalf("decode incidents: %v", err)
 	}
-	if len(incidents) != 1 || incidents[0].IncidentID != "inc_ingress_quarantine" ||
-		incidents[0].FailureClass != "unknown_schema" || incidents[0].CapabilityID != "core_ingestion" {
-		t.Fatalf("ingress quarantine missing from incident API: %+v", incidents)
+	if len(page.Data) != 1 || page.Data[0].IncidentID != "inc_ingress_quarantine" ||
+		page.Data[0].FailureClass != "unknown_schema" || page.Data[0].CapabilityID != "core_ingestion" {
+		t.Fatalf("ingress quarantine missing from incident API: %+v", page.Data)
 	}
 }
 

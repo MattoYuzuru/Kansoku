@@ -1,0 +1,44 @@
+{
+  "schema_version": "kansoku.session-12-fixture/1",
+  "synthetic": true,
+  "unknown_observation": {
+    "source_kind": "otlp_log",
+    "schema_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "byte_count": 97,
+    "record_count": 3,
+    "observed_at": "2026-07-26T10:00:00Z"
+  },
+  "safe_manifest": {
+    "signal_kind": "otlp_log",
+    "structural_field_paths": [
+      "$.resource_logs",
+      "$.resource_logs[].scope_logs",
+      "$.resource_logs[].scope_logs[].log_records"
+    ],
+    "primitive_types": ["array", "object"],
+    "shape_value_state": "observed",
+    "event_type_value_state": "unknown"
+  },
+  "replay": {
+    "idempotency_key_repeats": 2,
+    "expected_occurrence_increment": 0
+  },
+  "independent_repeat": {
+    "observed_at": "2026-07-26T10:00:01Z",
+    "expected_occurrence_increment": 1
+  },
+  "supported_recovery_fixture": {
+    "event_type": "source.observed",
+    "value_state": "observed",
+    "outcome": "unknown",
+    "requires_later_targeted_audit": true
+  },
+  "privacy_canary_fixture": "tests/fixtures/session-02/raw-canary-input.json",
+  "expected": {
+    "incident_count": 1,
+    "quarantine_manifest_count": 1,
+    "occurrence_count": 2,
+    "raw_canary_matches": 0,
+    "resolution_without_fresh_audit": false
+  }
+}

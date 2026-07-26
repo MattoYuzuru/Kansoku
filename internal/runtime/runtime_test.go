@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -228,6 +230,21 @@ func TestForbiddenResponseKeysAreRejectedRecursively(t *testing.T) {
 	}
 	if containsForbiddenResponseKey([]byte(`{"data":{"event_id":"safe"}}`)) {
 		t.Fatal("safe response rejected")
+	}
+}
+
+func TestAPIResponseRejectsSecretLikeValues(t *testing.T) {
+	api := &API{config: Config{ResponseMaxBytes: 1 << 20}}
+	response := httptest.NewRecorder()
+	api.write(
+		response,
+		http.StatusOK,
+		map[string]string{"safe_id": "sk-abcdefghijklmnop"},
+		map[string]any{"status": "complete"},
+	)
+	if response.Code != http.StatusInternalServerError ||
+		response.Body.String() != "response_policy_violation\n" {
+		t.Fatalf("secret-like API response was emitted: status=%d body=%q", response.Code, response.Body.String())
 	}
 }
 
