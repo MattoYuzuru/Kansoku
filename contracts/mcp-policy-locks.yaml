@@ -1,0 +1,11 @@
+{
+  "lock_id": "kansoku.mcp-policy-locks",
+  "version": "1.0.0",
+  "resources": [
+    {"id": "inventory-and-capabilities", "version": "1.0.0"},
+    {"id": "connection-lifecycle", "version": "1.0.0"},
+    {"id": "call-lifecycle", "version": "1.0.0"},
+    {"id": "metrics-and-privacy", "version": "1.0.0"}
+  ],
+  "append_only": true
+}

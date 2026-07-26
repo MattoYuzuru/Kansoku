@@ -91,6 +91,33 @@ func TestAppServerBridgeProjectsOnlySafeTypedFields(t *testing.T) {
 	}
 }
 
+func TestAppServerBridgeMapsMCPStartAndIsErrorTerminalWithoutPayload(t *testing.T) {
+	bridge := appServerTestBridge(t)
+	sink := &adaptersdk.MemoryAssertionSink{}
+	frames := strings.Join([]string{
+		`{"method":"item/started","params":{"threadId":"thr-1","turnId":"turn-1","startedAtMs":1785060001000,"item":{"type":"mcpToolCall","id":"call-1","server":"kansoku-noop-mcp","tool":"nothing.error","arguments":{"token":"sk-raw"}}}}`,
+		`{"method":"item/completed","params":{"threadId":"thr-1","turnId":"turn-1","completedAtMs":1785060001050,"item":{"type":"mcpToolCall","id":"call-1","server":"kansoku-noop-mcp","tool":"nothing.error","status":"completed","durationMs":50,"result":{"isError":true,"content":[{"type":"text","text":"raw error"}]}}}}`,
+	}, "\n")
+	if err := bridge.Connect(context.Background(), adaptersdk.BridgeTarget{
+		Installation: adaptersdk.Installation{InstallationID: "ain-safe", AdapterID: AdapterID},
+		Protocol:     AppServerProtocolVersion, SchemaVersion: AppServerSchemaVersion,
+		Frames: strings.NewReader(frames),
+	}, sink); err != nil {
+		t.Fatal(err)
+	}
+	records := sink.Records()
+	if len(records) != 2 || records[0].Outcome != "unknown" || records[1].Outcome != "failed" ||
+		records[0].Tool.ID == nil || *records[0].Tool.ID != "mcp:kansoku-noop-mcp/nothing.error" {
+		t.Fatalf("unexpected MCP lifecycle: %#v", records)
+	}
+	serialized, _ := json.Marshal(records)
+	for _, raw := range []string{"sk-raw", "raw error", "arguments", "content"} {
+		if bytes.Contains(serialized, []byte(raw)) {
+			t.Fatalf("raw MCP payload survived: %q", raw)
+		}
+	}
+}
+
 func TestAppServerBridgeUnknownSchemaIsMetadataOnlyAndDegradesOnlyBridge(t *testing.T) {
 	bridge := appServerTestBridge(t)
 	sink := &adaptersdk.MemoryAssertionSink{}

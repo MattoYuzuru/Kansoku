@@ -1,0 +1,23 @@
+{
+  "contract_id": "kansoku.mcp.inventory-and-capabilities",
+  "version": "1.0.0",
+  "server_states": ["configured", "enabled"],
+  "transports": ["stdio", "streamable_http", "sse", "websocket", "other", "unknown"],
+  "locality": ["local", "remote", "unknown"],
+  "primitive_kinds": ["tool", "resource", "resource_template", "prompt"],
+  "completeness": ["complete", "partial", "degraded", "unknown"],
+  "value_states": ["observed", "not_observed", "redacted", "unknown", "unsupported"],
+  "safe_structural_fields": [
+    "opaque_server_instance_id", "agent_installation_id", "scope", "enabled",
+    "transport", "locality", "configuration_fingerprint", "protocol_version",
+    "server_version", "capability_fingerprint", "primitive_kind", "opaque_primitive_id",
+    "approved_display_alias", "schema_fingerprint", "input_schema_present",
+    "output_schema_present", "description_byte_count", "schema_byte_count",
+    "annotation_claim_flags", "page_number", "revision", "enumeration_completeness",
+    "observed_at", "source_lineage", "idempotency_key"
+  ],
+  "prohibited": [
+    "description", "schema", "url", "command", "arguments", "environment",
+    "resource_uri", "auth_value", "oauth_material"
+  ]
+}

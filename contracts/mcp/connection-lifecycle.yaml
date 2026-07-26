@@ -1,0 +1,16 @@
+{
+  "contract_id": "kansoku.mcp.connection-lifecycle",
+  "version": "1.0.0",
+  "states": ["configured", "connecting", "connected", "failed", "disconnected", "timed_out", "unknown"],
+  "terminal_states": ["connected", "failed", "disconnected", "timed_out"],
+  "failure_classes": [
+    "none", "version_mismatch", "capability_negotiation", "auth", "transport",
+    "process_exit", "timeout", "unknown"
+  ],
+  "uptime_rule": "union_connected_intervals_bounded_by_observed_transitions",
+  "range_boundary_inference": false,
+  "required_lineage": [
+    "source_instance_id", "adapter_version", "schema_version", "evidence_tier",
+    "confidence", "observed_at", "idempotency_key"
+  ]
+}

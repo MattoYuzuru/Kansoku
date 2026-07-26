@@ -1,0 +1,30 @@
+{
+  "contract_id": "kansoku.mcp.metrics-and-privacy",
+  "version": "1.0.0",
+  "contours": ["inventory", "connection", "call"],
+  "formulas": {
+    "mcp.observable_uptime/2": {
+      "numerator": "union_seconds_in_connected_intervals",
+      "denominator": "seconds_between_real_compatible_state_observations",
+      "exclusions": ["missing_terminal_observation", "incompatible_source", "unknown_identity"]
+    },
+    "mcp.call_terminal_ratio/1": {
+      "numerator": "calls_with_exactly_one_logical_terminal",
+      "denominator": "distinct_started_calls",
+      "exclusions": ["contradictory_terminal", "unknown_identity", "incomplete_source"]
+    },
+    "mcp.no_observed_demand/1": {
+      "numerator": "advertised_tools_with_zero_started_calls",
+      "denominator": "advertised_tools_in_complete_enumeration_windows",
+      "exclusions": ["partial_pagination", "missing_exposure_window", "unknown_identity"]
+    }
+  },
+  "privacy_sinks": [
+    "database", "durable_queue", "retry_queue", "quarantine", "application_logs",
+    "internal_traces", "dashboard_network", "export", "backup", "error_response"
+  ],
+  "never_persist": [
+    "arguments", "results", "error_messages", "urls", "commands", "environment",
+    "auth_headers", "resource_uris", "oauth_material"
+  ]
+}

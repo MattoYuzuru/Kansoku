@@ -1,0 +1,25 @@
+{
+  "contract_id": "kansoku.mcp.call-lifecycle",
+  "version": "1.0.0",
+  "states": [
+    "decided", "denied", "started", "progressing", "completed",
+    "execution_error", "protocol_error", "cancelled", "timed_out",
+    "transport_lost", "incomplete"
+  ],
+  "terminal_states": [
+    "denied", "completed", "execution_error", "protocol_error", "cancelled",
+    "timed_out", "transport_lost", "incomplete"
+  ],
+  "approval_decisions": ["not_observed", "allowed", "denied"],
+  "approval_sources": ["not_observed", "user", "policy", "agent", "system"],
+  "safe_error_classes": [
+    "none", "json_rpc", "execution", "timeout", "cancelled", "policy_denial",
+    "transport_loss", "missing_terminal", "contradictory_terminal", "unknown"
+  ],
+  "completed_semantics": "protocol_result_isError_false_only",
+  "execution_error_semantics": "protocol_result_isError_true",
+  "user_task_success_inference": false,
+  "prohibited": [
+    "arguments", "result_values", "error_message", "response_text", "resource_content"
+  ]
+}

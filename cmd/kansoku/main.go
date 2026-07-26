@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +15,7 @@ import (
 
 	"kansoku.local/kansoku/internal/adaptersdk"
 	"kansoku.local/kansoku/internal/codexadapter"
+	"kansoku.local/kansoku/internal/dataplatform"
 	"kansoku.local/kansoku/internal/observability"
 	kansokuruntime "kansoku.local/kansoku/internal/runtime"
 )
@@ -35,7 +38,7 @@ func run(arguments []string) error {
 	}
 	command := arguments[0]
 	switch command {
-	case "serve", "health", "config", "migrate", "backup", "restore-verify", "export", "import", "diagnostics", "evidence-bridge", "soak":
+	case "serve", "health", "config", "migrate", "backup", "restore-verify", "export", "import", "diagnostics", "evidence-bridge", "mcp-evidence", "soak":
 	default:
 		return errors.New("unknown_command")
 	}
@@ -158,6 +161,29 @@ func run(arguments []string) error {
 			return err
 		}
 		return writeJSON(bridge.Health(ctx))
+	case "mcp-evidence":
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Buffer(make([]byte, 4096), 32<<10)
+		var accepted int
+		for scanner.Scan() {
+			if accepted >= 10_000 {
+				return errors.New("mcp_evidence_frame_limit")
+			}
+			decoder := json.NewDecoder(bytes.NewReader(scanner.Bytes()))
+			decoder.DisallowUnknownFields()
+			var frame dataplatform.MCPEvidenceFrame
+			if err := decoder.Decode(&frame); err != nil {
+				return errors.New("invalid_mcp_evidence_frame")
+			}
+			if err := dataplatform.PersistMCPEvidence(ctx, appliance.Pool, frame); err != nil {
+				return err
+			}
+			accepted++
+		}
+		if err := scanner.Err(); err != nil {
+			return errors.New("mcp_evidence_stream_error")
+		}
+		return writeJSON(map[string]any{"accepted_records": accepted, "status": "reconciled"})
 	default:
 		return errors.New("unknown_command")
 	}

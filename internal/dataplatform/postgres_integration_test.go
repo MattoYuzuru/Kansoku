@@ -412,7 +412,7 @@ func TestRetentionDropsOnlyExpiredPartitionsAndBoundsData(t *testing.T) {
 	now := time.Date(2026, 7, 22, 0, 0, 0, 0, time.UTC)
 	horizonDays := 30
 	oldObservedAt := now.AddDate(0, 0, -(horizonDays + 60)) // safely before the horizon, different month
-	recentObservedAt := now.AddDate(0, 0, -1)                // inside the horizon
+	recentObservedAt := now.AddDate(0, 0, -1)               // inside the horizon
 
 	oldFact, oldEvidence := makeFact(1, oldObservedAt, 111, sourceInstanceID)
 	if _, err := InsertFact(ctx, pool, oldFact, oldEvidence); err != nil {
@@ -656,4 +656,104 @@ func exactPercentile(values []int64, fraction float64) float64 {
 	}
 	weight := rank - float64(lower)
 	return float64(sorted[lower])*(1-weight) + float64(sorted[upper])*weight
+}
+
+func TestMCPObservatoryContoursReconcileAgainstPostgres(t *testing.T) {
+	pool := freshSchema(t, testDSN(t))
+	ctx := context.Background()
+	base := time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
+	configured, enabled := true, true
+	common := MCPEvidenceFrame{
+		ServerID: "mcp_noop_server", ServerName: "kansoku-noop-mcp",
+		AgentInstallationID: "ain_mcp_canary", SessionID: "ses_mcp_canary",
+		SourceInstanceID: "src_mcp_canary", AdapterVersion: "canary/1",
+		SchemaVersion: "kansoku.mcp-canary/1",
+	}
+	server := common
+	server.Kind, server.Scope, server.Transport, server.Locality = "server", "user", "stdio", "local"
+	server.Configured, server.Enabled, server.Completeness = &configured, &enabled, "complete"
+	server.Revision, server.ObservedAt, server.IdempotencyKey = "revision-2", base, "server-1"
+	if err := PersistMCPEvidence(ctx, pool, server); err != nil {
+		t.Fatal(err)
+	}
+	for page, tool := range []string{"nothing.success", "nothing.error"} {
+		frame := common
+		frame.Kind, frame.ToolID, frame.ToolName = "primitive", "mcp_tool_"+string(rune('a'+page)), tool
+		frame.PageNumber, frame.Revision, frame.Completeness = page+1, "revision-2", "complete"
+		frame.ObservedAt, frame.IdempotencyKey = base.Add(time.Duration(page)*time.Millisecond), "primitive-"+tool
+		if err := PersistMCPEvidence(ctx, pool, frame); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for index, item := range []struct {
+		state  string
+		second int
+	}{
+		{"connecting", 0}, {"connected", 1}, {"disconnected", 11}, {"connected", 13}, {"disconnected", 23},
+	} {
+		frame := common
+		frame.Kind, frame.State, frame.Transport, frame.AttemptID = "connection", item.state, "stdio", "attempt-1"
+		frame.ObservedAt, frame.IdempotencyKey = base.Add(time.Duration(item.second)*time.Second), "connection-"+string(rune('a'+index))
+		if err := PersistMCPEvidence(ctx, pool, frame); err != nil {
+			t.Fatal(err)
+		}
+	}
+	terminals := []string{"completed", "execution_error", "protocol_error", "timed_out", "cancelled", "transport_lost", "incomplete"}
+	for index, terminal := range terminals {
+		callID := "call-" + string(rune('a'+index))
+		start := common
+		start.Kind, start.ToolID, start.ToolName = "call", "mcp_tool_a", "nothing.success"
+		start.LogicalCallID, start.State = callID, "started"
+		start.ObservedAt, start.IdempotencyKey = base.Add(30*time.Second+time.Duration(index)*time.Second), callID+"-start"
+		if err := PersistMCPEvidence(ctx, pool, start); err != nil {
+			t.Fatal(err)
+		}
+		end := start
+		end.State = terminal
+		duration := int64((index + 1) * 10)
+		end.DurationMS = &duration
+		end.ObservedAt = start.ObservedAt.Add(time.Duration(duration) * time.Millisecond)
+		end.IdempotencyKey = callID + "-terminal"
+		if err := PersistMCPEvidence(ctx, pool, end); err != nil {
+			t.Fatal(err)
+		}
+	}
+	denied := common
+	denied.Kind, denied.ToolID, denied.ToolName = "call", "mcp_tool_b", "nothing.error"
+	denied.LogicalCallID, denied.State = "call-denied", "denied"
+	denied.ApprovalDecision, denied.ApprovalSource, denied.FailureClass = "denied", "policy", "policy_denial"
+	denied.ObservedAt, denied.IdempotencyKey = base.Add(50*time.Second), "call-denied"
+	if err := PersistMCPEvidence(ctx, pool, denied); err != nil {
+		t.Fatal(err)
+	}
+	// Exact replay must not inflate any contour.
+	if err := PersistMCPEvidence(ctx, pool, denied); err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := MCPObservatory(ctx, pool, base.Add(-time.Second), base.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Data) != 1 {
+		t.Fatalf("servers=%d", len(response.Data))
+	}
+	row := response.Data[0]
+	if row.ToolCount != 2 || row.CallCount != 7 || row.TerminalCount != 7 || row.ObservableSeconds != 23 || row.ConnectedSeconds != 20 {
+		t.Fatalf("unexpected MCP reconciliation: %+v", row)
+	}
+	profile, err := MCPServerProfile(ctx, pool, "mcp_noop_server", base.Add(-time.Second), base.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.Outcomes.Completed != 1 || profile.Outcomes.ExecutionError != 1 || profile.Outcomes.ProtocolError != 1 ||
+		profile.Outcomes.TimedOut != 1 || profile.Outcomes.Cancelled != 1 || profile.Outcomes.Denied != 1 || profile.Population != (Population{Numerator: 7, Denominator: 7}) {
+		t.Fatalf("unexpected profile: %+v", profile)
+	}
+	if profile.CallP95MS == nil || math.Abs(*profile.CallP95MS-57.5) > 0.001 {
+		if profile.CallP95MS == nil {
+			t.Fatal("p95=nil want 57.5")
+		}
+		t.Fatalf("p95=%v want 57.5", *profile.CallP95MS)
+	}
 }

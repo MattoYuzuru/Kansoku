@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -448,7 +449,13 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		`, handoffID("tool-call", event.EventID), event.ObservedAt, event.EventID,
 			nullableString(scope.ComponentID), scope.SessionID, event.Measurements.DurationMS,
 			event.Outcome, scope.AgentInstallationID)
-		return err
+		if err != nil {
+			return err
+		}
+		if event.Subject.Kind == "mcp" {
+			return h.persistMCPToolAssertion(ctx, event, evidence, scope)
+		}
+		return nil
 	case "model.requested", "model.responded":
 		if event.Subject.ModelID == "" {
 			return nil
@@ -510,6 +517,67 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 	default:
 		return nil
 	}
+}
+
+func (h *ObservabilityHandoff) persistMCPToolAssertion(
+	ctx context.Context,
+	event observability.Event,
+	evidence observability.Evidence,
+	scope ObservabilityFactScope,
+) error {
+	identity := event.Subject.ComponentID
+	if !strings.HasPrefix(identity, "mcp:") {
+		return nil
+	}
+	parts := strings.SplitN(strings.TrimPrefix(identity, "mcp:"), "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return nil
+	}
+	var serverID, toolID string
+	err := h.pool.QueryRow(ctx, `
+		SELECT min(s.component_id),min(t.component_id)
+		FROM components s
+		JOIN component_relations r ON r.parent_id=s.component_id AND r.relation_kind='bundles'
+		JOIN components t ON t.component_id=r.child_id
+		WHERE s.kind='mcp' AND s.declared_name=$1 AND t.declared_name=$2
+		HAVING count(*)=1
+	`, parts[0], parts[1]).Scan(&serverID, &toolID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	state, failure := "started", "none"
+	switch event.Outcome {
+	case "succeeded":
+		state = "completed"
+	case "failed":
+		state, failure = "execution_error", "execution"
+	case "cancelled":
+		state, failure = "cancelled", "cancelled"
+	case "timed_out":
+		state, failure = "timed_out", "timeout"
+	case "abandoned", "interrupted":
+		state, failure = "transport_lost", "transport_loss"
+	}
+	logicalID := handoffID("mcp-logical-call", event.Source.NativeEventID)
+	idempotency := evidence.EvidenceID + ":" + state
+	_, err = h.pool.Exec(ctx, `
+		INSERT INTO mcp_call_assertions(
+			call_assertion_id,logical_call_id,server_component_id,tool_component_id,
+			agent_installation_id,session_id,source_instance_id,state,observed_at,
+			duration_ms,safe_error_class,approval_decision,approval_source,
+			evidence_tier,confidence,adapter_version,schema_version,idempotency_key
+		) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'not_observed','not_observed',
+			$12,$13,$14,$15,$16)
+		ON CONFLICT(source_instance_id,idempotency_key) DO NOTHING
+	`, handoffID("mcp-call-assertion", idempotency), logicalID, serverID, toolID,
+		scope.AgentInstallationID, nullableString(scope.SessionID), scope.SourceInstanceID,
+		state, event.ObservedAt, event.Measurements.DurationMS, failure,
+		string(evidence.Tier), evidence.Confidence, event.Source.AdapterVersion,
+		event.Source.SchemaID, idempotency)
+	return err
 }
 
 func persistComponentIdentityIncident(

@@ -380,6 +380,70 @@ export interface SkillProfileResponse {
   freshness: Freshness;
 }
 
+/* ---- /api/v1/components/mcp and server profiles ---- */
+export interface MCPContourSupport {
+  status: string;
+  completeness: string;
+}
+export interface MCPServerRow {
+  server_component_id: string;
+  declared_name: string;
+  configured: boolean;
+  enabled: boolean;
+  transport: string;
+  locality: string;
+  enumeration_completeness: string;
+  primitive_count: number;
+  tool_count: number;
+  latest_connection_state: string;
+  call_count: number;
+  terminal_count: number;
+  observable_seconds: number;
+  connected_seconds: number;
+  uptime_ratio?: number;
+  inventory: MCPContourSupport;
+  connection: MCPContourSupport;
+  calls: MCPContourSupport;
+}
+export interface MCPObservatoryResponse {
+  data: MCPServerRow[];
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+}
+export interface MCPPrimitiveRow {
+  tool_component_id: string;
+  declared_name: string;
+  kind: string;
+  schema_fingerprint?: string;
+  description_byte_count?: number;
+  schema_byte_count?: number;
+  enumeration_completeness: string;
+  last_advertised_at: string;
+}
+export interface MCPCallOutcomeCounts {
+  started: number;
+  completed: number;
+  execution_error: number;
+  protocol_error: number;
+  cancelled: number;
+  timed_out: number;
+  denied: number;
+  transport_lost: number;
+  incomplete: number;
+}
+export interface MCPServerProfileResponse {
+  identity: MCPServerRow;
+  primitives: MCPPrimitiveRow[];
+  outcomes: MCPCallOutcomeCounts;
+  call_p95_ms?: number;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+}
+
 /* ---- /api/v1/reliability/counts ---- */
 export interface ReliabilityCountsDayRow {
   day: string;

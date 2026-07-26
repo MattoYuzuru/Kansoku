@@ -272,6 +272,8 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 			Item       struct {
 				ID      string `json:"id"`
 				Type    string `json:"type"`
+				Server  string `json:"server"`
+				Tool    string `json:"tool"`
 				Content []struct {
 					Type string `json:"type"`
 					Name string `json:"name"`
@@ -284,10 +286,22 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 			params.StartedAtM <= 0 {
 			return nil, "invalid_item_started"
 		}
+		observedAt := time.UnixMilli(params.StartedAtM)
+		if params.Item.Type == "mcpToolCall" {
+			if params.Item.Server == "" || params.Item.Tool == "" ||
+				len(params.Item.Server)+len(params.Item.Tool) > 120 {
+				return nil, "invalid_mcp_item_started"
+			}
+			return []privacy.SafeRecord{b.safeRecord(
+				params.Item.ID, params.ThreadID, params.TurnID, "tool.called",
+				"unknown", "mcp:"+params.Item.Server+"/"+params.Item.Tool, "mcp",
+				observedAt, sequence,
+				privacy.RedactionCounts{ToolIOFields: 1, SensitiveIdentifierFields: 1},
+			)}, ""
+		}
 		if params.Item.Type != "userMessage" {
 			return nil, ""
 		}
-		observedAt := time.UnixMilli(params.StartedAtM)
 		var records []privacy.SafeRecord
 		skillCount := 0
 		for _, input := range params.Item.Content {
@@ -324,6 +338,9 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 				Tool       string `json:"tool"`
 				Status     string `json:"status"`
 				DurationMS *int64 `json:"durationMs"`
+				Result     *struct {
+					IsError bool `json:"isError"`
+				} `json:"result"`
 			} `json:"item"`
 		}
 		if json.Unmarshal(envelope.Params, &params) != nil || params.Item.Type != "mcpToolCall" {
@@ -337,6 +354,9 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 			return nil, "invalid_mcp_item_completed"
 		}
 		outcome := bridgeOutcome(params.Item.Status)
+		if params.Item.Status == "completed" && params.Item.Result != nil && params.Item.Result.IsError {
+			outcome = "failed"
+		}
 		record := b.safeRecord(
 			params.Item.ID, params.ThreadID, params.TurnID, "tool.called",
 			outcome, "mcp:"+params.Item.Server+"/"+params.Item.Tool, "mcp",

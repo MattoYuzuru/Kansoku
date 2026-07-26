@@ -31,6 +31,8 @@ var Budgets = map[string]QueryBudget{
 	"skill_profile_range":           {ID: "skill_profile_range", MaxMS: 200},
 	"reliability_coverage_timeline": {ID: "reliability_coverage_timeline", MaxMS: 150},
 	"mcp_topology":                  {ID: "mcp_topology", MaxMS: 100},
+	"mcp_observatory_range":         {ID: "mcp_observatory_range", MaxMS: 200},
+	"mcp_server_profile_range":      {ID: "mcp_server_profile_range", MaxMS: 200},
 	"incident_list":                 {ID: "incident_list", MaxMS: 150},
 	"incident_detail":               {ID: "incident_detail", MaxMS: 100},
 	"incident_occurrences":          {ID: "incident_occurrences", MaxMS: 100},

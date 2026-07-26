@@ -1,0 +1,11 @@
+{
+  "synthetic": true,
+  "arguments": {"token": "sk-session15-canary-not-a-secret"},
+  "result": "KANSOKU_MCP_RAW_RESULT_CANARY",
+  "error_message": "KANSOKU_MCP_RAW_ERROR_CANARY",
+  "url": "https://user:secret@example.invalid/mcp",
+  "command": "/private/canary/bin/server",
+  "environment": {"MCP_TOKEN": "secret-canary"},
+  "auth_header": "Bearer session15-canary",
+  "resource_uri": "file:///private/canary/resource"
+}

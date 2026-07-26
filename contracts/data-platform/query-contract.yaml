@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.data-platform-query-contract/1",
-  "contract_version": "1.5.0",
+  "contract_version": "1.6.0",
   "effective_at": "2026-07-26",
   "response_fields": ["data", "formula_version", "population", "completeness", "freshness"],
   "population_fields": ["numerator", "denominator"],
@@ -24,6 +24,8 @@
       {"id": "skill_profile_range", "description": "one skill installation identity assertion timeline source matrix child attribution incidents and pseudonymous file-tree metadata", "max_ms": 200, "backing": "component_installation_assertion_profile_indexes"},
       {"id": "reliability_coverage_timeline", "description": "per-source per-day completeness interval status counts overlapping a range, plus aggregate source watermark freshness", "max_ms": 150, "backing": "completeness_intervals"},
       {"id": "mcp_topology", "description": "mcp server components with their bundled child components and each server's most recently observed connection state within a range", "max_ms": 100, "backing": "components_component_relations_mcp_connections"},
+      {"id": "mcp_observatory_range", "description": "independent MCP inventory connection and call contours with exact populations exclusions and observed-only uptime", "max_ms": 200, "backing": "mcp_server_primitive_connection_call_assertion_indexes"},
+      {"id": "mcp_server_profile_range", "description": "one MCP server primitive inventory terminal taxonomy p95 and auditable call population", "max_ms": 200, "backing": "mcp_server_primitive_connection_call_assertion_indexes"},
       {"id": "incident_list", "description": "filtered unified incident projection ordered by last_seen_at and opaque incident id with signed keyset pagination", "max_ms": 150, "backing": "integrity_incidents_details_union_ingress_incidents"},
       {"id": "incident_detail", "description": "one unified incident projection by opaque incident id", "max_ms": 100, "backing": "integrity_incidents_details_union_ingress_incidents"},
       {"id": "incident_occurrences", "description": "one incident's metadata-only occurrence evidence ordered by observed_at and opaque occurrence id with signed keyset pagination", "max_ms": 100, "backing": "idx_incident_occurrences_page"},

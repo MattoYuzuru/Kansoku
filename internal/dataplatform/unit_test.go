@@ -148,6 +148,8 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		"skill_profile_range":           200,
 		"reliability_coverage_timeline": 150,
 		"mcp_topology":                  100,
+		"mcp_observatory_range":         200,
+		"mcp_server_profile_range":      200,
 		"incident_list":                 150,
 		"incident_detail":               100,
 		"incident_occurrences":          100,
