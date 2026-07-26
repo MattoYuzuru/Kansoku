@@ -403,9 +403,14 @@ func TestNativeBackupRestoreVerifyRoundTripAndCleanup(t *testing.T) {
 		INSERT INTO metric_rollups_hourly (
 			metric_family,bucket_start,dimension_scope,formula_version,
 			event_count,unknown_count,completeness_duration_ms,value_numeric
-		) VALUES (
+		) VALUES
+		(
 			'backup_restore_fixture','2026-07-26T10:00:00Z','fixture',
 			'backup_restore_fixture/1',1,0,3600000,1
+		),
+		(
+			'backup_restore_fixture','2026-07-26T11:00:00Z','unknown_dominant_fixture',
+			'backup_restore_fixture/1',0,4,3600000,NULL
 		)
 	`); err != nil {
 		t.Fatalf("seed backup rollup: %v", err)

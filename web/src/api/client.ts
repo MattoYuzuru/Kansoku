@@ -46,6 +46,8 @@ export type ViewState =
 
 export interface Completeness {
   status?: string;
+  /** API envelope summary uses `completeness`; metric payloads use `status`. */
+  completeness?: string;
   numerator?: number;
   denominator?: number;
   exclusions?: string[];
@@ -122,7 +124,7 @@ export function deriveViewState(
   opts?: { isLoading?: boolean; isEmptyMeasuredZero?: boolean },
 ): ViewState {
   if (opts?.isLoading || envelope === undefined) return "loading";
-  const status = envelope.completeness?.status;
+  const status = envelope.completeness?.status ?? envelope.completeness?.completeness;
   switch (status) {
     case "complete":
     case "partial":

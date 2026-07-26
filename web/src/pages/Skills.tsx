@@ -46,12 +46,12 @@ export function Skills() {
       </header>
       <Panel title="Evidence planes" actions={<RangeControl range={range} />}>
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Installed" value={counts?.installed ?? 0} state={state} />
-          <KpiCard label="Enabled" value={counts?.enabled ?? 0} state={state} />
-          <KpiCard label="Exposed" value={counts?.exposed ?? 0} state={state} />
-          <KpiCard label="Invoked" value={counts?.invoked ?? 0} state={state} />
-          <KpiCard label="Loaded" value={counts?.loaded ?? 0} state={state} />
-          <KpiCard label="Cold" value={counts?.cold ?? 0} state={(data?.completeness.status as ViewState | undefined) ?? state} />
+          <KpiCard label="Installed" value={counts?.installed ?? null} state={state} />
+          <KpiCard label="Enabled" value={counts?.enabled ?? null} state={state} />
+          <KpiCard label="Exposed" value={counts?.exposed ?? null} state={state} />
+          <KpiCard label="Invoked" value={counts?.invoked ?? null} state={state} />
+          <KpiCard label="Loaded" value={counts?.loaded ?? null} state={state} />
+          <KpiCard label="Cold" value={counts?.cold ?? null} state={(data?.completeness.status as ViewState | undefined) ?? state} />
         </div>
         <GapNote>
           Availability and runtime are independent. “Executed” is not a universal skill state.

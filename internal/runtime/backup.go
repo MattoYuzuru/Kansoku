@@ -428,7 +428,9 @@ func verifyRestoredSemantics(ctx context.Context, restored *pgxpool.Pool, manife
 		var invalidRows int64
 		if err := restored.QueryRow(ctx, `
 			SELECT count(*) FROM `+quoteIdentifier(table)+`
-			WHERE formula_version='' OR unknown_count > event_count
+			WHERE formula_version=''
+			   OR event_count < 0
+			   OR unknown_count < 0
 		`).Scan(&invalidRows); err != nil {
 			return errors.New("restore_formula_sample_failed")
 		}

@@ -138,12 +138,12 @@ export function Overview() {
 
       <Panel title="Skill evidence planes">
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Installed" value={skillCounts?.installed ?? 0} state={skillState} />
-          <KpiCard label="Enabled" value={skillCounts?.enabled ?? 0} state={skillState} />
-          <KpiCard label="Exposed" value={skillCounts?.exposed ?? 0} state={skillState} />
-          <KpiCard label="Invoked" value={skillCounts?.invoked ?? 0} state={skillState} />
-          <KpiCard label="Loaded" value={skillCounts?.loaded ?? 0} state={skillState} />
-          <KpiCard label="Cold" value={skillCounts?.cold ?? 0} state={skillState} />
+          <KpiCard label="Installed" value={skillCounts?.installed ?? null} state={skillState} />
+          <KpiCard label="Enabled" value={skillCounts?.enabled ?? null} state={skillState} />
+          <KpiCard label="Exposed" value={skillCounts?.exposed ?? null} state={skillState} />
+          <KpiCard label="Invoked" value={skillCounts?.invoked ?? null} state={skillState} />
+          <KpiCard label="Loaded" value={skillCounts?.loaded ?? null} state={skillState} />
+          <KpiCard label="Cold" value={skillCounts?.cold ?? null} state={skillState} />
         </div>
         <GapNote>
           Availability and runtime are independent populations. Cold requires a

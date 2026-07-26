@@ -30,13 +30,22 @@ const prefersReducedMotion = () =>
 
 function useCountUp(target: number | null, precision: number): number {
   const [display, setDisplay] = useState<number>(target ?? 0);
-  const fromRef = useRef<number>(0);
+  const fromRef = useRef<number | null>(target);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
     if (target === null) return;
+    // A value that arrives after an async load has no measured predecessor.
+    // Render it immediately instead of animating from a fabricated zero. Later
+    // measured-to-measured changes may still use the short count-up transition.
+    if (fromRef.current === null) {
+      setDisplay(target);
+      fromRef.current = target;
+      return;
+    }
     if (prefersReducedMotion()) {
       setDisplay(target);
+      fromRef.current = target;
       return;
     }
     const from = fromRef.current;

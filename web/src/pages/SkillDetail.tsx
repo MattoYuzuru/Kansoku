@@ -44,12 +44,12 @@ export function SkillDetail({ id }: { id: string }) {
       </header>
       <Panel title="Availability and runtime" actions={<RangeControl range={range} />}>
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Exposed" value={identity?.exposed_count ?? 0} state={identityState} />
-          <KpiCard label="Invoked" value={identity?.invoked_count ?? 0} state={identityState} />
-          <KpiCard label="Loaded" value={identity?.loaded_count ?? 0} state={identityState} />
-          <KpiCard label="Child activity" value={identity?.child_activity_count ?? 0} state={identityState} />
-          <KpiCard label="Active days" value={identity?.active_days ?? 0} state={identityState} />
-          <KpiCard label="Incidents" value={profile?.incident_count ?? 0} state={profile ? "complete" : "unknown"} />
+          <KpiCard label="Exposed" value={identity?.exposed_count ?? null} state={identityState} />
+          <KpiCard label="Invoked" value={identity?.invoked_count ?? null} state={identityState} />
+          <KpiCard label="Loaded" value={identity?.loaded_count ?? null} state={identityState} />
+          <KpiCard label="Child activity" value={identity?.child_activity_count ?? null} state={identityState} />
+          <KpiCard label="Active days" value={identity?.active_days ?? null} state={identityState} />
+          <KpiCard label="Incidents" value={profile?.incident_count ?? null} state={profile ? "complete" : "unknown"} />
         </div>
         <GapNote>
           No file-content endpoint exists. File-tree evidence below is limited to pseudonymous
