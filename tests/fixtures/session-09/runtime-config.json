@@ -40,6 +40,12 @@
       "adapter_id": "codex",
       "surface_id": "cli",
       "state_root": "/agent-state/codex"
+    },
+    {
+      "target_id": "claude-local",
+      "adapter_id": "claude",
+      "surface_id": "cli",
+      "state_root": "/agent-state/claude"
     }
   ],
   "inventory_scan_interval_seconds": 300

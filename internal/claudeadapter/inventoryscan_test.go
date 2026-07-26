@@ -34,6 +34,17 @@ func writeSettingsJSON(t *testing.T, stateRoot, content string) {
 	}
 }
 
+func writeSkillManifest(t *testing.T, dir, name, description string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	content := "---\nname: " + name + "\ndescription: " + description + "\n---\nNever execute anything.\n"
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestInventoryScansRealPluginsAndMCPServersFromSettingsJSONThroughHostView(t *testing.T) {
 	stateRoot := t.TempDir()
 	writeSettingsJSON(t, stateRoot, `{
@@ -190,5 +201,121 @@ func TestScanHostInventoryReturnsNotScannedWhenSettingsFileAbsent(t *testing.T) 
 	}
 	if len(input.Plugins) != 0 || len(input.StandaloneMCPServers) != 0 {
 		t.Fatal("a missing settings.json must never fabricate plugin or MCP server entries")
+	}
+}
+
+// TestInventoryScansSkillsAcrossAllDocumentedScopesFromHostView proves the
+// scanner walks each of Claude Code's documented skill roots (user,
+// repository, system) and assigns each skill the corresponding source scope,
+// mirroring codexadapter's identical scope set.
+func TestInventoryScansSkillsAcrossAllDocumentedScopesFromHostView(t *testing.T) {
+	stateRoot := t.TempDir()
+	writeSkillManifest(t, filepath.Join(stateRoot, "skills", "user", "user-skill"), "user-skill", "a user-scoped skill")
+	writeSkillManifest(t, filepath.Join(stateRoot, "skills", "repository", "repo-skill"), "repo-skill", "a repository-scoped skill")
+	writeSkillManifest(t, filepath.Join(stateRoot, "skills", "system", "system-skill"), "system-skill", "a system-scoped skill")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := claudeadapter.New()
+	target := adaptersdk.Installation{InstallationID: "inst-scan-skills-1", AdapterID: claudeadapter.AdapterID, StateRoot: stateRoot}
+	snapshot, err := adapter.Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodeByName := map[string]adaptersdk.Node{}
+	for _, node := range snapshot.Nodes {
+		if node.Kind == adaptersdk.NodeSkillIdentity {
+			nodeByName[node.DeclaredName] = node
+		}
+	}
+	if nodeByName["user-skill"].SourceScope != adaptersdk.ScopeUser {
+		t.Fatalf("expected user-skill scoped as user, got %+v", nodeByName["user-skill"])
+	}
+	if nodeByName["repo-skill"].SourceScope != adaptersdk.ScopeRepository {
+		t.Fatalf("expected repo-skill scoped as repository, got %+v", nodeByName["repo-skill"])
+	}
+	if nodeByName["system-skill"].SourceScope != adaptersdk.ScopeSystem {
+		t.Fatalf("expected system-skill scoped as system, got %+v", nodeByName["system-skill"])
+	}
+	enabled := map[string]bool{}
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeEnabledFor {
+			enabled[edge.FromNode] = true
+		}
+	}
+	for _, name := range []string{"user-skill", "repo-skill", "system-skill"} {
+		if !enabled[nodeByName[name].NodeID] {
+			t.Fatalf("expected %s to have an enabled_for edge", name)
+		}
+	}
+}
+
+// TestInventoryScansSkillsPluginsAndMCPWithoutPersistingContent mirrors
+// codexadapter's identical test: real settings.json plugins/MCP servers and
+// a real skill manifest with a secret-shaped canary description must all
+// surface as inventory nodes, but neither the secret text nor the raw scanned
+// path may ever reach the serialized snapshot.
+func TestInventoryScansSkillsPluginsAndMCPWithoutPersistingContent(t *testing.T) {
+	stateRoot := t.TempDir()
+	writeSettingsJSON(t, stateRoot, `{
+		"enabledPlugins": {"formatter-plugin@example-marketplace": true},
+		"mcpServers": {"alpha": {"command": "alpha-server"}}
+	}`)
+	writeSkillManifest(t, filepath.Join(stateRoot, "skills", "user", "safe-canary"),
+		"kansoku-noop-canary", "harmless secret-shaped text sk-live-value-must-not-persist")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{
+		InstallationID: "inst-scan-skills-2", AdapterID: claudeadapter.AdapterID,
+		SurfaceID: "cli", StateRoot: stateRoot,
+	}
+	snapshot, err := claudeadapter.New().Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized := string(raw)
+	if strings.Contains(serialized, "sk-live-value-must-not-persist") || strings.Contains(serialized, stateRoot) {
+		t.Fatal("raw skill content or filesystem path reached the inventory snapshot")
+	}
+	nodeByName := map[string]adaptersdk.Node{}
+	for _, node := range snapshot.Nodes {
+		nodeByName[node.DeclaredName] = node
+	}
+	if nodeByName["kansoku-noop-canary"].Kind != adaptersdk.NodeSkillIdentity {
+		t.Fatalf("missing skill node: %+v", snapshot.Nodes)
+	}
+	if nodeByName["formatter-plugin@example-marketplace"].Kind != adaptersdk.NodePluginPackage {
+		t.Fatalf("missing plugin node: %+v", snapshot.Nodes)
+	}
+	if nodeByName["alpha"].Kind != adaptersdk.NodeMCPServerInstance {
+		t.Fatalf("missing MCP node: %+v", snapshot.Nodes)
+	}
+}
+
+// TestScanHostInventoryScansSkillsEvenWhenSettingsJSONAbsent proves the
+// restructured ScanHostInventory: a missing/unreadable settings.json must
+// not hide skills that live entirely in their own directories.
+func TestScanHostInventoryScansSkillsEvenWhenSettingsJSONAbsent(t *testing.T) {
+	stateRoot := t.TempDir()
+	writeSkillManifest(t, filepath.Join(stateRoot, "skills", "user", "lonely-skill"),
+		"lonely-skill", "exists without any settings.json")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{InstallationID: "inst-scan-6", StateRoot: stateRoot}
+	input, scanned := claudeadapter.ScanHostInventory(host, target)
+	if !scanned {
+		t.Fatal("expected scan to be reported as completed because the skill root scan observed real content, even though settings.json is absent")
+	}
+	if len(input.StandaloneSkills) != 1 || input.StandaloneSkills[0].Name != "lonely-skill" {
+		t.Fatalf("expected exactly one skill named lonely-skill, got %+v", input.StandaloneSkills)
 	}
 }

@@ -64,6 +64,15 @@ KANSOKU_CODEX_USER_SKILLS=/absolute/path/to/user-skills
 KANSOKU_CODEX_SYSTEM_SKILLS=/absolute/path/to/system-skills
 EOF
 
+# Необязательно: дать Kansoku read-only доступ к inventory Claude Code.
+# KANSOKU_CLAUDE_HOME — каталог с settings.json (обычно ~/.claude).
+cat >> .env <<EOF
+KANSOKU_CLAUDE_HOME=/absolute/path/to/.claude
+KANSOKU_CLAUDE_USER_SKILLS=/absolute/path/to/.claude/skills
+KANSOKU_CLAUDE_REPOSITORY_SKILLS=/absolute/path/to/repo/.claude/skills
+KANSOKU_CLAUDE_SYSTEM_SKILLS=/absolute/path/to/system-skills
+EOF
+
 # 4. Поднять стек
 docker compose -f compose.yaml up -d
 
