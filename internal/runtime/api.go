@@ -113,6 +113,7 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 		"/api/v1/reliability/collection-health": api.collectionHealth,
 		"/api/v1/system/snapshot":               api.systemSnapshot,
 		"/api/v1/privacy/canary-history":        api.privacyCanaryHistory,
+		"/api/v1/skills":                        api.skills,
 	} {
 		mux.Handle(route, readGuard.Wrap(localhttp.RouteUIStream, handler))
 	}
@@ -128,6 +129,7 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 	}))
 	mux.Handle("/api/v1/quarantine/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.quarantineResource)))
 	mux.Handle("/api/v1/agents/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.agentResource)))
+	mux.Handle("/api/v1/skills/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.skillResource)))
 	for route, handler := range map[string]http.HandlerFunc{
 		"/api/v1/plans/preview":           api.planPreview,
 		"/api/v1/plans/apply":             api.planApply,

@@ -144,6 +144,8 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		"component_breakdown_range":     150,
 		"component_lifecycle_funnel":    150,
 		"component_inventory_current":   100,
+		"skill_observatory_range":       200,
+		"skill_profile_range":           200,
 		"reliability_coverage_timeline": 150,
 		"mcp_topology":                  100,
 		"incident_list":                 150,
