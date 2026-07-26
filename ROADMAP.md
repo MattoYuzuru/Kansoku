@@ -200,10 +200,12 @@
   the live manual pass (rebuild the Docker image, connect a real Codex/Claude Code CLI session,
   confirm dashboard activity) was not re-run here — this reconciliation pass verified the mechanism
   via code inspection and the existing automated test suites, not a fresh live Docker session. A
-  known, still-open gap this session did **not** close: `ingestJSON`'s `hook_http` decode path
-  remains fixture-schema-only, so a real adapter's hook payload reaches the correct adapter-specific
-  handler but still quarantines rather than committing a fact — Gap A's OTLP generalization has no
-  hook-lane equivalent yet. `claude.transcript`, Session 07b (Gemini/Cursor), the `kansoku
+  The formerly open real-hook gap was closed on 2026-07-26: adapter hook output now enters the
+  canonical safe-field path directly with `hook_http` lineage instead of being re-decoded as
+  fixture-agent JSON, and uniquely inventory-resolved `component.*` facts project idempotently to
+  `component_lifecycle_events`. Universal component success remains explicitly unsupported without
+  a component-specific terminal contract; a Codex App Server typed-event bridge remains future
+  work. `claude.transcript`, Session 07b (Gemini/Cursor), the `kansoku
   doctor`/`configure` CLI, live-CLI canary automation and the DB-restart/failed-restore scenarios
   (ADR 0011) remain out of scope, unchanged.
 

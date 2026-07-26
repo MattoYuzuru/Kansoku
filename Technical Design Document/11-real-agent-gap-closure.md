@@ -177,3 +177,33 @@ plugins. A low-effort no-op canary emitted session, prompt, model and tool event
 identity or lifecycle event. Consequently later Codex skill stages remain `not_observed`. This is
 the required honest result because the current official Codex OTel contract does not expose a
 stable native skill activation event.
+
+## E. Evidence-backed lifecycle projection and hook ingress (implemented 2026-07-26)
+
+The follow-up audit proved that the inventory-backed half of the funnel was working while the
+runtime half was not: `component_lifecycle_events` was empty, normalized `component.*` events were
+not projected, and real adapter hooks were still decoded a second time as fixture-agent JSON and
+quarantined.
+
+The production path now:
+
+1. sends already-sanitized Codex/Claude hook output through the same canonical safe-field
+   validator, pseudonymization, idempotency and durable handoff used by real OTLP, retaining
+   `hook_http` lineage and the adapter's `*.hook/1` schema;
+2. resolves a native component identity only against current inventory with the exact tuple
+   `(agent_installation_id, kind, declared_name)`; exactly one match is required;
+3. persists the resolved assertion idempotently to `component_lifecycle_events` and prevents the
+   compatibility union from double-counting its normalized event;
+4. keeps zero-match and multi-match identities as durable facts but does not promote them into the
+   inventory-backed funnel.
+
+The funnel intentionally reports `opportunity_detected` and universal skill/plugin `succeeded` as
+`unsupported` when no component-specific terminal contract exists. A successful hook ingestion,
+session, tool call or child action is not component success. Claude's native `skill_activated` and
+`plugin_loaded` can populate invoked/loaded after an exact inventory match. Codex's stable OTel
+events still have no native skill/plugin activation; exact Codex activation needs an opt-in,
+version-pinned App Server bridge consuming typed skill/plugin identities. Ambiguous ownership must
+remain unpromoted.
+
+No hook configuration was written to a user's Codex or Claude settings during this slice. The
+installer contract still requires preview and explicit confirmation before any agent-facing write.

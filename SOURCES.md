@@ -324,6 +324,39 @@ then drains bounded ingress lanes and attempts durable spool persistence before 
 database pool. Session 09 changes no agent interface, so Codex/Claude/Gemini/Cursor documentation
 was not re-fetched and no adapter support claim changes.
 
+## 2026-07-26 lifecycle and telemetry re-audit
+
+- Codex advanced configuration, observability and telemetry:
+  <https://learn.chatgpt.com/docs/config-file/config-advanced>
+- Codex hooks:
+  <https://learn.chatgpt.com/docs/hooks>
+- Codex App Server protocol:
+  <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
+- Claude Code monitoring:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Claude Code skills:
+  <https://code.claude.com/docs/en/skills>
+- Claude Code hooks:
+  <https://code.claude.com/docs/en/hooks>
+- Retrieved: 2026-07-26.
+- Locally observed versions: Codex CLI `0.145.0`; Claude Code `2.1.197`.
+
+Design note: Codex's stable OTel event list covers conversations, API/SSE/websocket activity,
+prompt length, tool decisions and tool results, but does not publish a native skill/plugin
+activation or terminal component-success event. Current Codex hooks observe shell, unified exec,
+`apply_patch`, MCP and most local function tools, while hosted tools and specialized opt-out paths
+remain outside hook coverage. App Server provides typed `skills/list`, explicit `type: "skill"`
+turn inputs and plugin-attributed command/MCP items; Kansoku treats a future bridge as a
+version-pinned optional source, not as permission to parse content-rich raw rollout files.
+
+Claude Code documents native `plugin_loaded` (once per enabled plugin at session start) and
+`skill_activated` events. Third-party identity is redacted unless detailed tool telemetry is
+enabled; enabling that setting also exposes content-bearing tool parameters/input and therefore
+cannot be Kansoku's privacy-safe default. Claude's skill documentation says full skill content
+loads on invocation and can persist across turns, but neither that persistence nor a successful
+session proves a terminal skill outcome. Kansoku therefore records only identity-resolved native
+loaded/invoked assertions and leaves universal component success unsupported.
+
 ## Source maintenance policy
 
 For every supported agent release:

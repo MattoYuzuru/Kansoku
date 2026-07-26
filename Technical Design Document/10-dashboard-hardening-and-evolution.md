@@ -37,6 +37,29 @@ URL-encoded safe state includes preset/custom range, timezone, comparison, agent
 component filters and bucket resolution. Sensitive raw paths/IDs are not placed in URLs; use opaque
 IDs/aliases. One shared date engine resolves half-open ranges and sprint configuration.
 
+### Implemented adaptive timeline slice (2026-07-26)
+
+The first dashboard build rendered only sparse UTC days and froze `to` when a page mounted. That
+made 24-hour, 7-day and 30-day presets look identical and left a tab opened across midnight on the
+previous date even while newer facts were durable. The production slice now applies one shared
+contract across the bespoke timeline endpoints:
+
+- the browser sends its IANA timezone and a closed `hourly|daily|weekly|monthly` granularity;
+- 24 hours uses hourly buckets, 7/30 days use daily buckets, six months uses ISO-calendar weeks,
+  and 12 months/five years use calendar months;
+- PostgreSQL computes each exact aggregate and percentile from raw facts with timezone-aware
+  `date_trunc`; already-computed percentiles are never averaged in the browser;
+- the browser renders every bucket intersecting the half-open range and merges sparse rows onto
+  it; a missing row is `null`, never a fabricated zero;
+- the live upper boundary refreshes every 30 seconds, 60 seconds or five minutes according to
+  resolution while the tab is visible, and refreshes immediately on focus;
+- tooltip formatting rounds presentation to at most two fractional digits while preserving API
+  and database precision.
+
+Long-range validation is resolution-aware: a five-year monthly request is valid, while an hourly
+request remains capped at 31 days. The current “Last 5 years” preset is intentionally labeled as
+such; a true retention-derived `all_time` boundary remains a separate server metadata feature.
+
 ## Response/view states
 
 Every panel handles:
@@ -146,4 +169,3 @@ capability/version evidence record.
 All supported routes pass accessibility, privacy, reliability, performance and visual-state tests;
 formula/evidence drill-down is universal; release/restore is reproducible; the project has a safe
 adapter and metric evolution process beyond the initial ten sessions.
-
