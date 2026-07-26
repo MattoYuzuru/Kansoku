@@ -41,3 +41,7 @@ go build ./...                    # binary now embeds the new UI
 `npm run build` runs, in order: `gen-routes.mjs` (regenerates the route
 registry from `contracts/dashboard.yaml`), `tsc --noEmit` (typecheck), then
 `vite build`.
+
+The production Docker build compares `web/dist` with `internal/webui/dist` and
+fails with a remediation message if they differ. This prevents a successful Go
+rebuild from silently embedding an older dashboard bundle.

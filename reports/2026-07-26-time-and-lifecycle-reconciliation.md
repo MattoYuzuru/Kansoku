@@ -73,6 +73,8 @@ explicit confirmation.
 - `python3 scripts/validate_codex.py`: pass.
 - `python3 scripts/validate_claude.py`: pass.
 - production Docker service and Postgres: healthy.
+- production embed matches the Vite build byte-for-byte; the Docker build now rejects stale
+  `internal/webui/dist` output before compiling the Go binary.
 - live hourly activity in `Europe/Moscow`: July 26 buckets appeared for new sessions.
 - live daily activity in `Europe/Moscow`: separate July 25 and July 26 local-day buckets.
 - live five-year monthly model usage: HTTP 200 with `model_usage/3`.

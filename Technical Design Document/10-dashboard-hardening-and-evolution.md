@@ -60,6 +60,11 @@ Long-range validation is resolution-aware: a five-year monthly request is valid,
 request remains capped at 31 days. The current “Last 5 years” preset is intentionally labeled as
 such; a true retention-derived `all_time` boundary remains a separate server metadata feature.
 
+The production binary embeds `internal/webui/dist`, not the adjacent Vite output directory
+directly. Dashboard releases therefore use `web/scripts/build-and-embed.sh`, and the Docker build
+fails when `web/dist` and `internal/webui/dist` differ. A backend rebuild can no longer silently
+ship a stale frontend bundle.
+
 ## Response/view states
 
 Every panel handles:

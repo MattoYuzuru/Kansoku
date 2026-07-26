@@ -3,6 +3,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
+RUN diff -qr web/dist internal/webui/dist \
+    || (echo "embedded dashboard is stale; run web/scripts/build-and-embed.sh" >&2; exit 1)
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/kansoku ./cmd/kansoku \
     && mkdir -p /out/kansoku-data /out/kansoku-backups \
     && chmod 0700 /out/kansoku-data /out/kansoku-backups
