@@ -1,0 +1,40 @@
+{
+  "schema_version": "kansoku.incidents-model/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-26",
+  "identity": {
+    "components": ["installation_value_state", "installation_id", "source_value_state", "source_id", "capability_id", "failure_class", "schema_fingerprint", "adapter_major_compatibility"],
+    "missing_identity_rule": "A missing installation or source uses an explicit value state and JSON null; sentinel strings are never normal observed identities.",
+    "fingerprint_grouping": "One unknown schema fingerprint maps to one open incident per identity tuple. Similar fingerprints may be related but are never merged without a versioned deterministic rule."
+  },
+  "detector_states": ["open", "recovering", "resolved"],
+  "triage_states": ["new", "acknowledged", "investigating", "action_ready"],
+  "triage_note_categories": ["fixture_needed", "parser_fix_prepared", "source_owner_contacted", "recovery_pending"],
+  "triage_detector_separation": "Triage mutation changes only triage_state and an optional closed note category. It cannot change detector_state or resolved_at.",
+  "occurrence": {
+    "fields": ["incident_occurrence_id", "incident_id", "observed_at", "evidence_ref", "schema_fingerprint", "safe_error_class", "record_count", "byte_count", "idempotency_key"],
+    "idempotency": "The same idempotency_key is a replay and cannot increment occurrence_count. A distinct observation appends one occurrence and increments exactly once.",
+    "ordering": ["observed_at DESC", "incident_occurrence_id DESC"]
+  },
+  "read_model": {
+    "physical_projections": ["incidents", "integrity_incidents+integrity_incident_details"],
+    "compatibility": "Both historical projections remain durable and are unioned into one typed public read model. No historical telemetry row is deleted, rewritten, or assigned a fabricated installation/source identity.",
+    "required_fields": ["incident_id", "detector_state", "triage_state", "capability_id", "installation", "source", "failure_class", "severity", "first_seen_at", "last_seen_at", "resolved_at", "occurrence_count", "occurrence_retention_excluded_count", "affected_interval", "adapter_version", "schema_fingerprint", "source_schema_version", "parser_version", "recovery_criteria", "recovery_observed_at", "recovery_audit_run_id", "recovery_evidence_ref", "evidence_ref", "projection"]
+  },
+  "pagination": {
+    "incident_order": ["last_seen_at DESC", "incident_id DESC"],
+    "occurrence_order": ["observed_at DESC", "incident_occurrence_id DESC"],
+    "cursor": "Opaque, HMAC-SHA256 signed, versioned, bounded, and free of raw or unpseudonymized identity.",
+    "stability": "Rows inserted before the cursor boundary do not shift or duplicate later pages."
+  },
+  "recovery": {
+    "rule": "Resolution requires supported evidence newer than the latest failure and a later targeted audit check for the same affected capability with status pass.",
+    "forbidden": ["triage_mutation", "parser_deployment_only", "absence_of_repeat", "manual_resolve_route"]
+  },
+  "api": {
+    "read_routes": ["GET /api/v1/incidents", "GET /api/v1/incidents/{opaque_id}", "GET /api/v1/incidents/{opaque_id}/occurrences", "GET /api/v1/incidents/{opaque_id}/debug-bundle", "GET /api/v1/quarantine", "GET /api/v1/quarantine/{opaque_id}"],
+    "mutation_routes": ["POST /api/v1/incidents/{opaque_id}/acknowledge", "POST /api/v1/incidents/{opaque_id}/investigating", "POST /api/v1/incidents/{opaque_id}/action-ready", "PATCH /api/v1/incidents/{opaque_id}/triage"],
+    "no_resolve_route": true,
+    "limit": {"default": 50, "maximum": 100}
+  }
+}

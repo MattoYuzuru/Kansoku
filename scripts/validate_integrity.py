@@ -32,7 +32,7 @@ POLICY_BASE_BY_REGISTRY = {
 AUTHORITATIVE_SEMANTIC_SHA256 = {
     "contracts/integrity/audit-run-and-schedule.yaml": "09fc0db07cba190f1426533be16cc75e0edee651339975df63c95b23fc51b430",
     "contracts/integrity/drift-fingerprint-and-schema.yaml": "2fd03b2dcbe841ff9ba9410a9784fcf695f681b4622aec52af192f6f7a26127c",
-    "contracts/integrity/incident-and-health.yaml": "0a0dfec0a87022abf2c4d5a54480900d1bed3c82e9aa4c68fe65df7b2457b8ce",
+    "contracts/integrity/incident-and-health.yaml": "04501626b26dcc77611e5aed4263499eb7dc76e98292095d70e432d8746799d5",
     "contracts/integrity/fault-injection-and-live-canary.yaml": "e04cec8c81408be251d553572d6114b6778d9bf997bb851f7ab586f2fb2323ed",
 }
 

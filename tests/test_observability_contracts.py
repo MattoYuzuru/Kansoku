@@ -59,11 +59,17 @@ class Session03ObservabilityContractTests(unittest.TestCase):
     def test_policy_versions_are_contiguous_and_trusted_history_is_append_only(self) -> None:
         base = validate_observability.registries()
         current = validate_observability.load(validate_observability.LOCK_PATH)
+        envelope_versions = [
+            int(entry["policy_version"].rsplit("/", 1)[1])
+            for entry in current["locks"]
+            if entry["registry"] == "contracts/observability/envelope.yaml"
+        ]
+        next_version = max(envelope_versions) + 1
         changed = copy.deepcopy(base)
         changed["contracts/observability/envelope.yaml"]["contract_version"] = "1.1.0"
         transitioned = copy.deepcopy(current)
         transitioned["locks"].append({
-            "policy_version": "observability.envelope/2",
+            "policy_version": f"observability.envelope/{next_version}",
             "registry": "contracts/observability/envelope.yaml",
             "semantic_sha256": validate_observability.semantic_sha256(changed["contracts/observability/envelope.yaml"]),
         })
@@ -73,7 +79,7 @@ class Session03ObservabilityContractTests(unittest.TestCase):
         self.assert_has(validate_observability.validate(changed, reordered, include_code=False, historical=current), "append-only trusted prefix")
         skipped = copy.deepcopy(current)
         skipped["locks"].append({
-            "policy_version": "observability.envelope/3",
+            "policy_version": f"observability.envelope/{next_version + 1}",
             "registry": "contracts/observability/envelope.yaml",
             "semantic_sha256": validate_observability.semantic_sha256(changed["contracts/observability/envelope.yaml"]),
         })

@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.privacy-sinks/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-21",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-26",
   "control_id": "PRV-SINK-001",
   "required_sinks": [
     {"id": "database", "slo_scope": "database", "durable": true},
@@ -20,6 +20,7 @@
     "scan": "exact UTF-8 canaries plus secret-format patterns across every serialized sink",
     "required_preserved_fields": ["adapter_id", "adapter_version", "source_schema_id", "schema_fingerprint", "idempotency_key", "confidence", "prompt_features", "redaction_counts", "lineage"],
     "raw_canary_target": 0,
+    "mandatory_subsurfaces": ["incident_api", "quarantine_api", "incident_debug_bundle_json", "incident_debug_bundle_markdown", "reliability_browser_response"],
     "unknown_schema_sink": "metadata-only quarantine",
     "backup_restore": "exact export bytes are base64 encoded in the backup and restored byte-for-byte",
     "artifact_paths": "bounded repo-relative regular files only; no symlink, traversal, absolute or out-of-root paths",

@@ -229,12 +229,18 @@ class Session02PrivacyContractTests(unittest.TestCase):
             validate_privacy.validate_privacy_policy_locks(current_lock, None, base),
             validate_privacy.validate_privacy_policy_locks(copy.deepcopy(current_lock), None, copy.deepcopy(base)),
         )
+        ingress_versions = [
+            int(entry["policy_version"].rsplit("/", 1)[1])
+            for entry in current_lock["locks"]
+            if entry["registry"] == "contracts/privacy/ingress.yaml"
+        ]
+        next_version = max(ingress_versions) + 1
 
         candidate = copy.deepcopy(base)
         candidate["contracts/privacy/ingress.yaml"]["contract_version"] = "1.1.0"
         transitioned = copy.deepcopy(current_lock)
         transitioned["locks"].append({
-            "policy_version": "privacy.ingress/3",
+            "policy_version": f"privacy.ingress/{next_version}",
             "registry": "contracts/privacy/ingress.yaml",
             "semantic_sha256": validate_privacy.canonical_semantic_sha256(candidate["contracts/privacy/ingress.yaml"]),
         })
@@ -260,7 +266,7 @@ class Session02PrivacyContractTests(unittest.TestCase):
         )
         skipped = copy.deepcopy(current_lock)
         skipped["locks"].append({
-            "policy_version": "privacy.ingress/4",
+            "policy_version": f"privacy.ingress/{next_version + 1}",
             "registry": "contracts/privacy/ingress.yaml",
             "semantic_sha256": validate_privacy.canonical_semantic_sha256(candidate["contracts/privacy/ingress.yaml"]),
         })

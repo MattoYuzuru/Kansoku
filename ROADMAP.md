@@ -217,9 +217,13 @@
   work. `claude.transcript`, Session 07b (Gemini/Cursor), the `kansoku
   doctor`/`configure` CLI, live-CLI canary automation and the DB-restart/failed-restore scenarios
   (ADR 0011) remain out of scope, unchanged.
-- **12 — planned/P0 (approved 2026-07-26):** Reliability becomes the one metadata-only incident and
-  quarantine workbench with keyset pagination, structural manifests, profiles, debug bundles and
-  fresh-evidence recovery. Raw unknown JSON remains prohibited.
+- **12 — implemented/P0 (2026-07-26; live gate green):** Reliability has the unified
+  metadata-only incident/quarantine workbench, signed keyset pagination, profiles, typed debug
+  bundles, detector-separated triage, durable supported-event/audit recovery and aggregate-
+  preserving detail retention. Real PostgreSQL migration/replay/recovery tests, production
+  upgrade/restart, repeated isolated restore verification, query plans, ten-sink privacy and
+  headless-browser checks pass. The measured production store retained all legacy rows and has no
+  orphan occurrences or non-legacy aggregate/detail mismatches.
 - **13 — planned/P0 (approved 2026-07-26):** a generic adapter-owned evidence bridge, with Codex App
   Server as its first optional version-pinned implementation, delivers useful agent/model profiles
   while proving cross-agent extensibility and cross-lane deduplication.

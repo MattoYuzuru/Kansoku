@@ -44,9 +44,9 @@ POLICY_BASE_BY_REGISTRY = {
 }
 AUTHORITATIVE_SEMANTIC_SHA256 = {
     "contracts/runtime/auth-and-plans.yaml": "774677e401e14dabb079eecd584a803d6858fde1c5cd7701a395724bc8d19864",
-    "contracts/runtime/operations-backup-and-soak.yaml": "b47139e4c793da192975773f4d879ed2eef930411e788c8d026692826a135695",
+    "contracts/runtime/operations-backup-and-soak.yaml": "3b3d1e0df2a9a6aeeea01859b7f8ae485a4e6a3dffb09d865dacdcda0f1a94a2",
     "contracts/runtime/queue-and-durability.yaml": "7a40f224ce3e2d597ce93100a001dba7018d2ba98a13fb4f18c70ee4ec21df4a",
-    "contracts/runtime/runtime-and-api.yaml": "2fb3a6433ca3bf1b078259912c538871250eb307389c6e46a8026608e0c40071",
+    "contracts/runtime/runtime-and-api.yaml": "0abfa3b28f34d69253fe8029faae01e71be7f86c7d834b443d5eee907a8fd216",
 }
 TOP_LEVEL = {
     "auth-and-plans.yaml": {
@@ -78,9 +78,17 @@ LANES = {
 READ_ROUTES = {
     "GET /api/v1/inventory", "GET /api/v1/analytics", "GET /api/v1/health",
     "GET /api/v1/incidents", "GET /api/v1/completeness", "GET /api/v1/operations/jobs",
+    "GET /api/v1/incidents/{opaque_id}",
+    "GET /api/v1/incidents/{opaque_id}/occurrences",
+    "GET /api/v1/incidents/{opaque_id}/debug-bundle",
+    "GET /api/v1/quarantine", "GET /api/v1/quarantine/{opaque_id}",
 }
 MUTATION_ROUTES = {
     "POST /api/v1/plans/preview", "POST /api/v1/plans/apply",
+    "PATCH /api/v1/incidents/{opaque_id}/triage",
+    "POST /api/v1/incidents/{opaque_id}/acknowledge",
+    "POST /api/v1/incidents/{opaque_id}/investigating",
+    "POST /api/v1/incidents/{opaque_id}/action-ready",
     "POST /api/v1/admin/retention/preview", "POST /api/v1/admin/retention/apply",
     "POST /api/v1/admin/export", "POST /api/v1/admin/import",
     "POST /api/v1/admin/backup", "POST /api/v1/admin/restore-verify",
@@ -152,31 +160,49 @@ def validate(
         name = Path(path).name
         if set(document) != TOP_LEVEL[name]:
             errors.append(f"{name} top-level schema is not closed")
-        if document.get("effective_at") != "2026-07-24":
+        expected_effective = "2026-07-26" if name in {
+            "operations-backup-and-soak.yaml", "runtime-and-api.yaml"
+        } else "2026-07-24"
+        if document.get("effective_at") != expected_effective:
             errors.append(f"{name} effective_at changed")
 
     if set(lock_doc) != {"schema_version", "effective_at", "locks"}:
         errors.append("runtime lock schema is not closed")
     rows = lock_doc.get("locks", [])
-    if [row.get("registry") for row in rows] != sorted(PATHS):
-        errors.append("runtime locks are not in exact registry order")
+    if historical is not None:
+        prior = historical.get("locks", [])
+        if rows[:len(prior)] != prior:
+            errors.append("runtime lock history lost append-only trusted prefix")
+    latest: dict[str, tuple[int, dict[str, Any]]] = {}
+    ordinals: dict[str, list[int]] = {path: [] for path in PATHS}
+    seen_versions: set[str] = set()
     for row in rows:
         path = row.get("registry")
         if path not in data:
             errors.append("runtime lock references unknown registry")
             continue
         wanted_base = POLICY_BASE_BY_REGISTRY[path]
-        if row.get("policy_version") != wanted_base + "/1":
+        match = re.fullmatch(re.escape(wanted_base) + r"/([1-9][0-9]*)", str(row.get("policy_version", "")))
+        if match is None:
             errors.append("runtime policy name does not match registry identity")
+            continue
+        version = str(row["policy_version"])
+        if version in seen_versions:
+            errors.append("duplicate runtime policy version")
+        seen_versions.add(version)
+        ordinal = int(match.group(1))
+        ordinals[path].append(ordinal)
+        if path not in latest or ordinal > latest[path][0]:
+            latest[path] = (ordinal, row)
+    for path in sorted(PATHS):
+        values = sorted(ordinals[path])
+        if not values or values != list(range(1, values[-1] + 1)):
+            errors.append(f"runtime policy versions are not contiguous for {path}")
         digest = semantic_sha256(data[path])
-        if row.get("semantic_sha256") != digest:
+        if path not in latest or latest[path][1].get("semantic_sha256") != digest:
             errors.append(f"runtime semantic lock mismatch for {path}")
         if digest != AUTHORITATIVE_SEMANTIC_SHA256[path]:
             errors.append(f"runtime authoritative semantic digest changed for {path}")
-    if historical is not None:
-        prior = historical.get("locks", [])
-        if rows[:len(prior)] != prior:
-            errors.append("runtime lock history lost append-only trusted prefix")
 
     runtime = data["contracts/runtime/runtime-and-api.yaml"]
     if runtime["appliance"].get("shared_components") != [

@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.data-platform-query-contract/1",
-  "contract_version": "1.2.0",
-  "effective_at": "2026-07-25",
+  "contract_version": "1.3.0",
+  "effective_at": "2026-07-26",
   "response_fields": ["data", "formula_version", "population", "completeness", "freshness"],
   "population_fields": ["numerator", "denominator"],
   "completeness_fields": ["status", "covered_ratio", "intervals"],
@@ -20,7 +20,13 @@
       {"id": "component_lifecycle_funnel", "description": "distinct-component and event count per canonical lifecycle stage for one component kind observed within a range; collection completeness is measured independently from lifecycle conversion", "max_ms": 150, "backing": "current_component_inventory_state_union_component_lifecycle_events_union_native_component_events"},
       {"id": "component_inventory_current", "description": "current sanitized component inventory rows for one optional component kind with completeness measured across configured inventory targets", "max_ms": 100, "backing": "component_inventory_state_join_component_dimensions_and_inventory_collection_status"},
       {"id": "reliability_coverage_timeline", "description": "per-source per-day completeness interval status counts overlapping a range, plus aggregate source watermark freshness", "max_ms": 150, "backing": "completeness_intervals"},
-      {"id": "mcp_topology", "description": "mcp server components with their bundled child components and each server's most recently observed connection state within a range", "max_ms": 100, "backing": "components_component_relations_mcp_connections"}
+      {"id": "mcp_topology", "description": "mcp server components with their bundled child components and each server's most recently observed connection state within a range", "max_ms": 100, "backing": "components_component_relations_mcp_connections"},
+      {"id": "incident_list", "description": "filtered unified incident projection ordered by last_seen_at and opaque incident id with signed keyset pagination", "max_ms": 150, "backing": "integrity_incidents_details_union_ingress_incidents"},
+      {"id": "incident_detail", "description": "one unified incident projection by opaque incident id", "max_ms": 100, "backing": "integrity_incidents_details_union_ingress_incidents"},
+      {"id": "incident_occurrences", "description": "one incident's metadata-only occurrence evidence ordered by observed_at and opaque occurrence id with signed keyset pagination", "max_ms": 100, "backing": "idx_incident_occurrences_page"},
+      {"id": "quarantine_list", "description": "metadata-only structural manifests ordered by last_seen_at and opaque quarantine id with signed keyset pagination", "max_ms": 150, "backing": "idx_quarantine_manifests_page"},
+      {"id": "quarantine_detail", "description": "one metadata-only structural manifest by opaque quarantine id", "max_ms": 100, "backing": "quarantine_structural_manifests_primary_key"},
+      {"id": "incident_debug_bundle", "description": "typed allowlisted incident debug bundle assembled from one incident, its occurrence count and optional structural manifest", "max_ms": 150, "backing": "incident_detail_incident_occurrences_quarantine_manifest"}
     ],
     "enforcement": "statement_timeout_set_per_session_at_the_budget_ceiling_and_measured_wall_clock_assertion_in_tests",
     "plan_review": "EXPLAIN_ANALYZE_captured_for_each_budgeted_query_and_checked_for_sequential_scan_of_a_partitioned_fact_table"

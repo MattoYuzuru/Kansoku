@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.runtime-operations-backup-and-soak/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-24",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-26",
   "job_state": {
     "jobs": ["daily_integrity", "rollup_repair", "retention", "backup", "restore_verify", "export", "import"],
     "states": ["scheduled", "running", "passed", "failed", "cancelled", "interrupted", "already_running"],
@@ -13,6 +13,8 @@
   "retention_and_resources": {
     "preview_before_apply": true,
     "partition_drop_only": true,
+    "partition_drop_scope": "partitioned fact tables only",
+    "metadata_expiry": {"tables": ["incident_occurrences", "quarantine_structural_manifests", "schema_quarantine_metadata"], "minimum_horizon_days": 30, "aggregate_preserved": true, "preview_operation": "partition_drop_plus_incident_metadata_expiry"},
     "default_horizon_days": 400,
     "disk_budget_fraction": 0.90,
     "forecast_before_next_daily_cycle": true,
@@ -27,7 +29,7 @@
     "destination_local_only": true,
     "manifest_fields": ["backup_version", "app_version", "dataplatform_schema_version", "integrity_schema_version", "runtime_schema_version", "formula_registry_version", "adapter_versions", "privacy_policy_sha256", "archive_sha256", "created_at", "table_counts"],
     "covered_table_groups": {
-      "dataplatform": ["devices", "agent_installations", "agent_surfaces", "projects", "sessions", "turns", "components", "adapter_versions", "source_instances", "events", "event_evidence", "metric_rollups_hourly", "metric_rollups_daily", "rollup_status", "formula_versions", "retention_policies"],
+      "dataplatform": ["devices", "agent_installations", "agent_surfaces", "projects", "sessions", "turns", "components", "adapter_versions", "source_instances", "events", "event_evidence", "metric_rollups_hourly", "metric_rollups_daily", "rollup_status", "formula_versions", "retention_policies", "incidents", "incident_occurrences", "schema_quarantine_metadata", "quarantine_structural_manifests"],
       "integrity": ["integrity_audit_attempts", "integrity_audit_runs", "integrity_audit_checks", "integrity_incidents", "integrity_incident_details", "integrity_schema_compatibility", "integrity_live_canary_state", "integrity_backup_status", "integrity_fingerprints", "integrity_audit_reports"],
       "runtime": ["runtime_job_runs", "runtime_operation_approvals", "runtime_import_receipts"],
       "migration_ledgers": ["schema_migrations", "integrity_schema_migrations", "runtime_schema_migrations"]

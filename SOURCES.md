@@ -411,6 +411,26 @@ OpenTelemetry HTTP metrics use low-cardinality route templates for server durati
 Process resource attributes may include command lines, arguments, executable paths and owner data;
 Session 17 explicitly excludes those surfaces from system self-observability.
 
+## 2026-07-26 Session 12 implementation re-check
+
+- OpenTelemetry OTLP exporter specification 1.11.0:
+  <https://opentelemetry.io/docs/specs/otel/protocol/exporter/>
+- OpenTelemetry Protocol specification 1.11.0:
+  <https://opentelemetry.io/docs/specs/otlp/>
+- PostgreSQL 18 query ordering:
+  <https://www.postgresql.org/docs/18/queries-order.html>
+- PostgreSQL 18 multicolumn indexes:
+  <https://www.postgresql.org/docs/18/indexes-multicolumn.html>
+- Retrieved: 2026-07-26.
+- Local executable evidence: Codex CLI `0.145.0`, Claude Code `2.1.197`, Go `1.26.5`
+  (`darwin/arm64`), Node `26.3.0`, npm `11.16.0`.
+
+The OTLP 1.11.0 documents confirm protocol envelope names only; they do not prove that an unknown
+payload's values are safe. Session 12 persists only fixed, reviewed protocol field names and leaves
+shape `not_observed` when the privacy boundary cannot expose a value-free descriptor. PostgreSQL 18
+documents the row-order and B-tree behavior used by `(last_seen_at DESC, incident_id DESC)` and
+occurrence cursors. Live database plans and timings remain a separate runtime proof.
+
 ## Source maintenance policy
 
 For every supported agent release:

@@ -142,6 +142,26 @@
     {
       "formula_version": "system.restore_test_age_seconds/1",
       "semantic_sha256": "91d071b5965be8a1cbf7d9751fafd16acb7d95948100b3923da3a25bc1e1026b"
+    },
+    {
+      "formula_version": "reliability.incident_open_count/1",
+      "semantic_sha256": "523411fcdf1330423665ed6549bec95f1d88b7feb29c2ad0a68781570fe91a20"
+    },
+    {
+      "formula_version": "reliability.incident_recurring_count/1",
+      "semantic_sha256": "f383356c500ce78bcb25c6222c2447bdb3bfc2edaf37e1b1bd7e43fd332d95e6"
+    },
+    {
+      "formula_version": "reliability.incident_age_seconds/1",
+      "semantic_sha256": "351cbd37d6d6de94e3752f96894e359198d748e61515193fd5ccb69c073abfbe"
+    },
+    {
+      "formula_version": "reliability.incident_recovery_seconds/1",
+      "semantic_sha256": "a722670e85ad4f04997c38b0111985c96e0e83f868ed2c6dd6fb245eaa9a6d4b"
+    },
+    {
+      "formula_version": "reliability.incident_affected_population/1",
+      "semantic_sha256": "e602975ee2861f91ebc8b39d5dbc8cfc71bce19512d1a58a928f404b9eda7ec6"
     }
   ]
 }

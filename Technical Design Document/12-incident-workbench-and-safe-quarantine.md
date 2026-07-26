@@ -2,9 +2,11 @@
 
 ## State and boundaries
 
-This TDD is approved planning, not an implementation claim. Session 12 extends
-`internal/observability`, `internal/integrity`, `internal/dataplatform`, `internal/runtime` and
-`web/` while preserving the Session 02 privacy boundary and all existing telemetry.
+Implemented and live-verified on 2026-07-26. Docker/PostgreSQL migration, production restart,
+keyset page walks, query plans, repeated isolated restore verification, ten-sink privacy and
+headless-browser checks pass. Session 12 extends `internal/observability`, `internal/integrity`,
+`internal/dataplatform`, `internal/runtime` and `web/` while preserving the Session 02 privacy
+boundary and all existing telemetry.
 
 The system MUST retain one conceptual incident identity even if migration compatibility requires
 multiple physical tables temporarily. No migration may rewrite, delete or synthesize historical
@@ -188,3 +190,28 @@ occurrences, structural manifests and triage state.
 The Engineering Proposal exit gate is executable. The reconciliation report includes exact legacy
 and canonical counts, every migration exclusion, query plans/budgets, privacy scan results and a
 live unknown-schema-to-recovery proof.
+
+## Implemented shape and evidence boundary
+
+- `internal/runtime/migrations/0002_incident_workbench` creates occurrence/manifests after the
+  data-platform and integrity migrations; `internal/integrity/migrations/0006_incident_triage`
+  adds only detector/triage separation and its page index.
+- New ingress unknown-schema writes keep their compatibility row and append one occurrence per
+  unique idempotency key. Existing quarantine metadata is backfilled with explicit unlinked
+  lineage because the legacy table cannot prove a relationship.
+- Recovery requires a durable normalized `source.observed` event newer than the failure and a
+  passing targeted audit later than that event. Both references persist on the incident.
+- The daily Stage 7 audit checks orphans, non-legacy aggregate/detail reconciliation, invalid
+  manifests, stale opens and recent recovery proof.
+- Retention removes occurrence/manifests only after the confirmed configured horizon, increments
+  an aggregate exclusion count transactionally, and never deletes the incident identity/history.
+- Query functions use registered PostgreSQL `statement_timeout` ceilings plus client wall-clock
+  checks. Live `EXPLAIN ANALYZE` stayed below 0.6 ms for the three workbench page shapes on the
+  measured appliance.
+- A migration-era manifest remains explicitly unlinked until a fresh observation proves the exact
+  same quarantine identity, source kind and schema fingerprint. That observation may replace only
+  the `inc_unlinked_*` relation and a value-free `not_observed` protocol shape; it cannot merge or
+  reinterpret any unrelated legacy record.
+- Restore verification is defined against the immutable archive, its manifest and compiled
+  migration ledgers. It never compares an old archive with later mutable rollups in the source
+  database; repeated verification therefore remains stable while ingestion continues.

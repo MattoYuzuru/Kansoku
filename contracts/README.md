@@ -15,6 +15,7 @@ python3 scripts/validate_adapter_sdk.py
 python3 scripts/validate_codex.py
 python3 scripts/validate_claude.py
 python3 scripts/validate_integrity.py
+python3 scripts/validate_incidents.py
 python3 -m unittest discover -s tests -v
 python3 scripts/run_go_tests.py
 python3 scripts/run_privacy_canary.py
@@ -185,3 +186,11 @@ canaries rather than live-CLI execution. `scripts/validate_integrity.py` cross-c
 registries. ADR 0011 records the PostgreSQL-advisory-lock scheduler decision, the sequential
 checkpointed build order this session uses, and the live-canary-disabled-by-default scope boundary
 explicitly.
+
+Session 12 adds the unified incident and metadata-only quarantine registries under
+`contracts/incidents/`, bound by the append-only `contracts/incidents-policy-locks.yaml`.
+`scripts/validate_incidents.py` verifies detector/triage separation, occurrence idempotency,
+signed-keyset pagination, fresh-audit recovery, the absence of a manual resolve route, and the
+sanitized unknown-schema fixture. Incident list/detail, occurrence, quarantine and debug-bundle
+queries are registered in the data-platform query-budget contract. The incident API and both debug
+bundle formats are mandatory zero-canary privacy subsurfaces.

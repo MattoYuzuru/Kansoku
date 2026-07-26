@@ -2,7 +2,11 @@
 
 ## Status
 
-Approved for planning on 2026-07-26. Implementation has not started.
+Implemented and live-verified on 2026-07-26. Contract, unit, PostgreSQL integration, migration,
+query-plan, backup/restore, ten-sink privacy, production restart and headless-browser gates pass.
+The live migration preserved the 14 legacy quarantine fingerprints and two legacy ingress
+incidents. Fresh exact evidence deterministically replaces only a migration-era `inc_unlinked_*`
+manifest link and value-free structural-shape gap; it never reinterprets unrelated legacy rows.
 
 ## Purpose
 
@@ -89,3 +93,17 @@ occurrence history without count inflation, every list page is stable under conc
 profile exposes complete safe lineage, and a later supported event plus audit closes the incident.
 The ten-sink privacy canary is absent from database, logs, queues, API, export, backup and debug
 bundle. Historical telemetry is preserved through migration.
+
+## Implementation reconciliation
+
+The compatibility read model remains a typed SQL union over the ingress and integrity projections;
+Session 12 does not rewrite either historical incident table. Runtime migration `0002` owns the
+cross-projection occurrence and structural-manifest tables because it runs after both earlier
+migration ledgers. Legacy quarantine rows have no incident foreign key, so their manifests receive
+an explicit deterministic `inc_unlinked_*` identity instead of an invented relationship.
+
+Recovery now records both the normalized `source.observed` event ID and the later passing audit-run
+ID. Triage routes cannot set detector state and no resolve route exists. Fixed OTLP protocol
+descriptor names may form an observed structural shape; sources without a value-free descriptor
+remain `not_observed`. Confirmed retention expires detail while preserving aggregate incident
+counts and an explicit occurrence-detail exclusion count.

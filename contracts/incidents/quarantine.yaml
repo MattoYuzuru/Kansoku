@@ -1,0 +1,30 @@
+{
+  "schema_version": "kansoku.incidents-quarantine/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-26",
+  "metadata_only": true,
+  "manifest_fields": ["quarantine_id", "incident_id", "source_kind", "source_instance", "signal_kind", "event_type", "structural_field_paths", "primitive_types", "shape_value_state", "schema_fingerprint", "adapter_version", "source_schema_version", "parser_version", "classification", "rejection_reason", "first_seen_at", "last_seen_at", "occurrence_count", "total_record_count", "total_byte_count", "disposition"],
+  "value_states": ["observed", "unsupported", "not_observed", "redacted", "unknown"],
+  "primitive_types": ["string", "integer", "number", "boolean", "null", "array", "object"],
+  "field_path_policy": {
+    "allowed": "Only reviewed protocol field names or segments accepted by the shared privacy categorizer may persist.",
+    "unknown_segments": "Reject, replace with a closed category, or HMAC-pseudonymize each segment before persistence.",
+    "values": "No field value, body, excerpt, resource URI, URL, environment value, raw key judged sensitive, or upstream error text is stored."
+  },
+  "prohibited_fields": ["prompt", "response", "reasoning", "content", "source_code", "tool_input", "tool_output", "arguments", "result", "raw_error", "environment", "credential", "url", "resource_uri", "raw_path", "payload", "body", "attributes"],
+  "shape_semantics": "A protocol envelope shape may be observed from reviewed descriptor field names. If value-free structural paths are unavailable at the privacy boundary, shape_value_state is not_observed and structural_field_paths is empty.",
+  "debug_bundle": {
+    "schema_version": "kansoku.incident-debug-bundle/1",
+    "construction": "Generated from typed allowlisted fields, never database row serialization.",
+    "required": ["incident", "structural_manifest", "occurrence_count", "contract_locators", "fixture_locators", "validation_commands", "agent_prompt", "exclusions"],
+    "formats": ["json", "markdown"],
+    "read_only": true,
+    "prohibited": ["raw_sql_parameters", "host_paths", "configuration_values", "free_form_user_notes", "original_payload", "upstream_error_message"]
+  },
+  "retention": {
+    "default_days": 400,
+    "minimum_days": 30,
+    "detail_expiry": "The confirmed retention job deletes expired occurrence and structural-manifest detail in one transaction. Incident aggregate identity and occurrence_count remain durable; removed occurrence detail increments occurrence_retention_excluded_count.",
+    "backup_restore": "Incident occurrences, structural manifests, disposition and triage metadata are included in native backup/restore verification."
+  }
+}

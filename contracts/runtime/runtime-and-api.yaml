@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.runtime-and-api/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-24",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-26",
   "appliance": {
     "binary": "cmd/kansoku",
     "app_version": "0.9.0",
@@ -46,12 +46,21 @@
       "GET /api/v1/analytics",
       "GET /api/v1/health",
       "GET /api/v1/incidents",
+      "GET /api/v1/incidents/{opaque_id}",
+      "GET /api/v1/incidents/{opaque_id}/occurrences",
+      "GET /api/v1/incidents/{opaque_id}/debug-bundle",
+      "GET /api/v1/quarantine",
+      "GET /api/v1/quarantine/{opaque_id}",
       "GET /api/v1/completeness",
       "GET /api/v1/operations/jobs"
     ],
     "mutation_routes": [
       "POST /api/v1/plans/preview",
       "POST /api/v1/plans/apply",
+      "PATCH /api/v1/incidents/{opaque_id}/triage",
+      "POST /api/v1/incidents/{opaque_id}/acknowledge",
+      "POST /api/v1/incidents/{opaque_id}/investigating",
+      "POST /api/v1/incidents/{opaque_id}/action-ready",
       "POST /api/v1/admin/retention/preview",
       "POST /api/v1/admin/retention/apply",
       "POST /api/v1/admin/export",
@@ -71,6 +80,7 @@
     "request_max_bytes": 1048576,
     "response_max_bytes": 1048576,
     "list_max_items": 500,
+    "incident_list_max_items": 100,
     "query_timeout_ms": 500,
     "analytics_query_budget_ids": ["hourly_rollup_range_30d", "daily_rollup_range_1y"],
     "raw_field_names_forbidden_recursively": [

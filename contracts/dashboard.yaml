@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.dashboard/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-21",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-26",
   "global_query": {
     "ranges": ["day", "week", "sprint", "month", "six_months", "year", "all_time", "custom"],
     "range_semantics": "half-open [from,to) in selected timezone",
@@ -76,10 +76,12 @@
       ]
     },
     {
-      "path": "/reliability", "title": "Reliability", "wireframe": "coverage timeline; source gaps/watermarks; drift/mismatch tables; incident list",
+      "path": "/reliability", "title": "Reliability", "wireframe": "URL-addressable health, incidents and quarantine tabs; signed-keyset incident table; incident profile with lineage, occurrence history and safe debug bundle; metadata-only structural quarantine profiles",
       "panels": [
         {"id": "reliability-coverage", "question_ids": ["Q-COLLECTION-HEALTH", "Q-UPDATE-DRIFT"], "metrics": ["collection.coverage_ratio", "collection.completeness_duration_seconds", "collection.active_source_gap_seconds", "collection.ingest_latency_seconds", "collection.rollup_freshness_seconds", "collection.acknowledged_durability_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
-        {"id": "reliability-drift", "question_ids": ["Q-UPDATE-DRIFT"], "metrics": ["reliability.unknown_schema_count", "reliability.reconciliation_mismatch_count", "reliability.drift_detection_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+        {"id": "reliability-drift", "question_ids": ["Q-UPDATE-DRIFT"], "metrics": ["reliability.unknown_schema_count", "reliability.reconciliation_mismatch_count", "reliability.drift_detection_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "reliability-incidents", "question_ids": ["Q-COLLECTION-HEALTH", "Q-UPDATE-DRIFT"], "metrics": ["reliability.incident_open_count", "reliability.incident_recurring_count", "reliability.incident_age_seconds", "reliability.incident_recovery_seconds", "reliability.incident_affected_population"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "reliability-quarantine", "question_ids": ["Q-UPDATE-DRIFT", "Q-PRIVACY-STATE"], "metrics": ["reliability.unknown_schema_count", "privacy.raw_content_persisted_count"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
       ]
     },
     {

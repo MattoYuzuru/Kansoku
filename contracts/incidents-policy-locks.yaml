@@ -1,0 +1,8 @@
+{
+  "schema_version": "kansoku.incidents-policy-locks/1",
+  "effective_at": "2026-07-26",
+  "locks": [
+    {"policy_version": "incidents.model/1", "registry": "contracts/incidents/model.yaml", "semantic_sha256": "4f9cd0035612b80466e1ae77c163cc1638f909fe2f0e85089cd5c7729e2cafa0"},
+    {"policy_version": "incidents.quarantine/1", "registry": "contracts/incidents/quarantine.yaml", "semantic_sha256": "a1dad94e57c64f909bb8bb53fd099f95e14444ee347e8a596d525840cd5b66e7"}
+  ]
+}

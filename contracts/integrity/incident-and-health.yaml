@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.integrity-incident-and-health/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-23",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-26",
   "one_incident_concept_rule": "internal/observability.Incident (IncidentID, Capability, Category, Completeness, OpenedAt, LastObserved, ResolvedAt *time.Time, OccurrenceCount uint64) remains the ONE Go incident concept. Session 08 aliases that exact type as IncidentBase and persists its scheduler-owned PostgreSQL projection plus a 1:1 detail row; it never defines a second overlapping Go struct or a competing state vocabulary",
   "incident_key": {
     "components": ["installation_id", "source_id", "capability_id", "failure_class"],
@@ -30,13 +30,22 @@
       "recovery_criteria": "string, a human-readable description of what fresh positive evidence would close this incident, filled in per failure_class from fault-injection-and-live-canary.yaml's catalog",
       "user_notes": "string, optional operator annotation, never containing prohibited content and validated against the same size bound as other durable text fields"
     },
+    "session_12_extension_fields": {
+      "detector_state": "open|recovering|resolved; only detector evidence may change this state",
+      "triage_state": "new|acknowledged|investigating|action_ready; operator changes never resolve an incident",
+      "triage_note_category": "optional closed category; free-form notes are excluded from the workbench API",
+      "occurrence_evidence": "append-only metadata rows deduplicated by idempotency_key",
+      "unknown_schema_identity": "adds schema_fingerprint and adapter major compatibility while retaining explicit installation/source value states",
+      "structural_manifest": "metadata-only protocol shape with explicit value states and no raw values"
+    },
     "extension_rule": "these fields live in a session-08-owned wrapper record (e.g. an IntegrityIncidentDetail keyed 1:1 by IncidentID) that references the original Incident by IncidentID rather than embedding a competing struct with overlapping semantics; a later Go stage must not fork Incident itself"
   },
   "dedup_and_lifecycle_rules": {
     "dedup": "a new check finding with the same incident_key as an existing open incident increments OccurrenceCount and updates LastObserved/affected_interval; it never creates a second incident row for the same key",
     "first_last_seen": "first_seen_at is set once at creation and never rewritten; LastObserved advances on every matching finding, matching Watermark's own last_observed_at semantics",
     "affected_interval_tracking": "each matching finding extends affected_interval.to to the finding's observation time; affected_interval.from never moves once set, so the interval always represents the full duration incident evidence has been observed",
-    "recovery_requires_fresh_positive_evidence": "ResolvedAt is set only when a check for the SAME incident_key runs again (in a later audit_run, not the same one that raised it) and reports status=pass; the mere absence of a new failing check in a subsequent run is never sufficient, because absence of evidence often means the check did not run at all rather than that the condition recovered",
+    "recovery_requires_fresh_positive_evidence": "ResolvedAt is set only after supported evidence newer than the latest failure and a later targeted audit check for the SAME affected capability reports status=pass; parser deployment, triage and absence of a repeat never resolve an incident",
+    "occurrence_reconciliation": "Every retained occurrence has exactly one incident identity. occurrence_count is incremented only when a new idempotency key commits; retained occurrence detail may be lower than the aggregate only after an explicitly reported retention exclusion.",
     "no_deletion_on_recovery": "closing an incident sets ResolvedAt; the row and its OccurrenceCount/first_seen_at/affected_interval history are retained exactly as contracts/observability/reconciliation.yaml's recovery.source_return rule already states: health may recover but incident history remains",
     "reopen_rule": "a new finding for a key whose prior incident has ResolvedAt set opens a genuinely new incident (new IncidentID) with first_seen_at set to the new occurrence, rather than clearing ResolvedAt on the old row, preserving the closed incident's history intact"
   },
