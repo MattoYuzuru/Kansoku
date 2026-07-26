@@ -62,7 +62,7 @@ HOOK_EVENTS = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", 
 NODE_KINDS = [
     "agent_installation", "agent_surface", "agent_version", "plugin_package", "plugin_version",
     "skill_identity", "mcp_server_instance", "mcp_tool", "hook_definition", "custom_command_definition",
-    "cache_artifact",
+    "app_definition", "cache_artifact",
 ]
 EDGE_KINDS = ["bundles", "provides", "configured_in", "enabled_for", "shadows", "collides_with", "depends_on", "observed_using"]
 SOURCE_SCOPES = ["system", "user", "repository", "admin", "marketplace", "plugin_cache"]
@@ -202,11 +202,13 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     if app_server_bridge.get("target_scope") != "explicit_local" or app_server_bridge.get("network_grade") != "loopback_only":
         errors.append("Codex App Server bridge target must remain explicit local loopback")
     accepted_methods = set(app_server_bridge.get("accepted_methods", []))
-    if not {"skills/list", "skills/list response", "turn/started"}.issubset(accepted_methods):
+    if not {"skills/list", "skills/list response", "turn/started", "plugin/read", "plugin/read response"}.issubset(accepted_methods):
         errors.append("Codex App Server bridge must retain the reviewed skill list request/response and turn-start surfaces")
     projections = app_server_bridge.get("emitting_projections", {})
     if projections.get("skills/list_enabled_response") != "component.exposed":
         errors.append("enabled skills/list response must project component.exposed")
+    if "snapshot-scoped bundles/provides" not in str(projections.get("plugin/read_response", "")):
+        errors.append("plugin/read response must project only metadata into snapshot-scoped plugin bundle relations")
     if "codex-app-server-skill-input-load/1" not in str(projections.get("item/started_userMessage_skill_input", "")):
         errors.append("typed skill input invoked/load projection must retain its explicit versioned rule")
     prohibited = set(app_server_bridge.get("prohibited_surfaces", []))

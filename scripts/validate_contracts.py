@@ -32,6 +32,7 @@ EXPECTED_ROUTES = {
     "/components/skills",
     "/components/skills/:id",
     "/components/plugins",
+    "/components/plugins/:id",
     "/components/mcp",
     "/tools",
     "/reliability",

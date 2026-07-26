@@ -35,6 +35,8 @@ import type {
   ToolAnalyticsResponse,
   SkillObservatoryResponse,
   SkillProfileResponse,
+  PluginObservatoryResponse,
+  PluginProfileResponse,
   MCPObservatoryResponse,
   MCPServerProfileResponse,
   MCPPrimitiveListResponse,
@@ -328,6 +330,23 @@ export function useSkillProfile(id: string, range: RangeParams) {
     queryKey: rk("skill-profile", { id, ...range }),
     queryFn: ({ signal }) =>
       apiGet<SkillProfileResponse>(`/api/v1/skills/${encodeURIComponent(id)}`, { ...range }, signal),
+    enabled: Boolean(id),
+  });
+}
+
+export function usePlugins(range: RangeParams) {
+  return useQuery({
+    queryKey: rk("plugins", range),
+    queryFn: ({ signal }) =>
+      apiGet<PluginObservatoryResponse>("/api/v1/plugins", { ...range }, signal),
+  });
+}
+
+export function usePluginProfile(id: string, range: RangeParams) {
+  return useQuery({
+    queryKey: rk("plugin-profile", { id, ...range }),
+    queryFn: ({ signal }) =>
+      apiGet<PluginProfileResponse>(`/api/v1/plugins/${encodeURIComponent(id)}`, { ...range }, signal),
     enabled: Boolean(id),
   });
 }

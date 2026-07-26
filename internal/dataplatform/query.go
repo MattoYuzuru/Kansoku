@@ -29,6 +29,8 @@ var Budgets = map[string]QueryBudget{
 	"component_inventory_current":   {ID: "component_inventory_current", MaxMS: 100},
 	"skill_observatory_range":       {ID: "skill_observatory_range", MaxMS: 200},
 	"skill_profile_range":           {ID: "skill_profile_range", MaxMS: 200},
+	"plugin_observatory_range":      {ID: "plugin_observatory_range", MaxMS: 200},
+	"plugin_profile_range":          {ID: "plugin_profile_range", MaxMS: 200},
 	"reliability_coverage_timeline": {ID: "reliability_coverage_timeline", MaxMS: 150},
 	"mcp_topology":                  {ID: "mcp_topology", MaxMS: 100},
 	"mcp_observatory_range":         {ID: "mcp_observatory_range", MaxMS: 200},

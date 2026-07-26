@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kansoku-do-nothing": {
+      "command": "python3",
+      "args": ["${PLUGIN_ROOT}/kansoku_noop_mcp.py"]
+    }
+  }
+}

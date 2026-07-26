@@ -37,13 +37,13 @@ func ApplyRetention(ctx context.Context, pool *pgxpool.Pool, now time.Time, hori
 // BackupManifest mirrors contracts/data-platform/retention.yaml
 // `backup.manifest_fields`.
 type BackupManifest struct {
-	AppVersion            string    `json:"app_version"`
-	SchemaVersion         string    `json:"schema_version"`
-	FormulaRegistryVersion string   `json:"formula_registry_version"`
-	AdapterVersions       []string  `json:"adapter_versions"`
-	ChecksumSHA256        string    `json:"checksum_sha256"`
-	PrivacyPolicySHA256   string    `json:"privacy_policy_sha256"`
-	CreatedAt             time.Time `json:"created_at"`
+	AppVersion             string    `json:"app_version"`
+	SchemaVersion          string    `json:"schema_version"`
+	FormulaRegistryVersion string    `json:"formula_registry_version"`
+	AdapterVersions        []string  `json:"adapter_versions"`
+	ChecksumSHA256         string    `json:"checksum_sha256"`
+	PrivacyPolicySHA256    string    `json:"privacy_policy_sha256"`
+	CreatedAt              time.Time `json:"created_at"`
 }
 
 // LogicalBackup is a deterministic, checksum-verifiable logical export of
@@ -62,6 +62,7 @@ var backupTables = []string{
 	"components", "component_versions", "component_installations", "component_relations",
 	"adapter_versions", "source_instances",
 	"inventory_snapshots", "inventory_nodes", "inventory_edges",
+	"component_relation_observations",
 	"component_inventory_state", "inventory_collection_status",
 	"events", "event_evidence",
 	"metric_rollups_hourly", "metric_rollups_daily", "rollup_status", "formula_versions",

@@ -495,6 +495,36 @@ third-party identity remains `not_observed`. PostgreSQL's exported snapshot is u
 format dump and its table-count/version manifest observe the same transaction snapshot during
 concurrent ingestion.
 
+## 2026-07-26 Session 16 implementation verification
+
+- OpenAI plugin build documentation:
+  <https://developers.openai.com/plugins/build/plugins>
+- Codex App Server protocol:
+  <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
+- Codex App Server JSON Schema generated from local Codex CLI `0.145.0`, including
+  `plugin/read`, `PluginReadParams`, `PluginReadResponse`, `PluginDetail`, `PluginSummary`,
+  `SkillSummary`, `PluginHookSummary`, `AppSummary` and MCP server names.
+- Claude Code monitoring:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Claude Code plugins reference:
+  <https://code.claude.com/docs/en/plugins-reference>
+- Retrieved and live-checked: 2026-07-26.
+- Locally observed versions: Codex CLI `0.145.0`; Claude Code `2.1.197`; Go `1.26.5`;
+  Node `26.3.0`; npm `11.16.0`.
+
+The current Codex protocol exposes `plugin/list`, `plugin/installed` and `plugin/read`.
+`plugin/read` returned the Session 16 local canary as one plugin with local version `0.1.0`, one
+enabled namespaced skill and one named MCP server. Kansoku uses only those bounded identity and
+membership fields; marketplace/plugin paths, descriptions, prompts, URLs and content are discarded
+before persistence. The App Server methods remain experimental and the bridge stays pinned to
+0.145.0.
+
+Claude documents `plugin_installed` and one `plugin_loaded` event per enabled plugin at session
+start. The load event includes plugin identity, marketplace/version/scope and bounded bundle counts;
+third-party identity is redacted unless detailed telemetry is explicitly enabled. Kansoku maps
+installed and loaded independently and does not infer plugin success from either event or from a
+child outcome.
+
 ## Source maintenance policy
 
 For every supported agent release:

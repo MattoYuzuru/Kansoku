@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.adapter-sdk-inventory-graph/1",
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "effective_at": "2026-07-22",
   "snapshot_fields": ["snapshot_id", "adapter_id", "adapter_version", "installation_id", "observed_at", "fingerprint", "nodes", "edges"],
   "snapshot_semantics": "snapshots_are_immutable_point_in_time_observations_reconciliation_derives_current_state_by_diffing_snapshots_never_by_mutating_a_prior_one",
@@ -16,6 +16,7 @@
     "mcp_tool",
     "hook_definition",
     "custom_command_definition",
+    "app_definition",
     "subagent_definition",
     "cache_artifact"
   ],
@@ -27,7 +28,7 @@
   "cache_separation": "cache_artifact_nodes_are_always_kept_separate_from_active_configuration_nodes_a_cached_version_is_never_reported_as_enabled_without_an_enabled_for_edge_to_an_active_installation",
   "path_pseudonymization": "every_path_pseudonym_is_derived_from_the_same_device_scoped_hmac_construction_as_privacy.Lineage_no_raw_filesystem_path_is_ever_a_durable_field_users_may_assign_a_local_display_alias_that_never_leaves_the_device",
   "example_graph_paths": [
-    "agent_installation -> agent_surface -> enabled_plugin_package -> bundled_skill_or_mcp_or_hook_or_command",
+    "agent_installation -> agent_surface -> enabled_plugin_package -> bundled_skill_or_mcp_or_hook_or_command_or_app",
     "plugin_package -> cache_artifact (cached_only=true, no enabled_for edge)",
     "skill_identity -> source_scope -> shadows|collides_with another skill_identity",
     "mcp_server_instance -> mcp_tool (provides)"

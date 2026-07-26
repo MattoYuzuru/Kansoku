@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.data-platform-query-contract/1",
-  "contract_version": "1.6.0",
+  "contract_version": "1.7.0",
   "effective_at": "2026-07-26",
   "response_fields": ["data", "formula_version", "population", "completeness", "freshness"],
   "population_fields": ["numerator", "denominator"],
@@ -22,6 +22,8 @@
       {"id": "component_inventory_current", "description": "current sanitized component inventory rows for one optional component kind with completeness measured across configured inventory targets", "max_ms": 100, "backing": "component_inventory_state_join_component_dimensions_and_inventory_collection_status"},
       {"id": "skill_observatory_range", "description": "skill availability and runtime planes with exact assertion dedupe cold eligibility exclusions and source completeness", "max_ms": 200, "backing": "component_inventory_state_component_assertions_component_observation_windows"},
       {"id": "skill_profile_range", "description": "one skill installation identity assertion timeline source matrix child attribution incidents and pseudonymous file-tree metadata", "max_ms": 200, "backing": "component_installation_assertion_profile_indexes"},
+      {"id": "plugin_observatory_range", "description": "plugin installed enabled and loaded assertions with snapshot-scoped complete bundle graphs exact child activity and active-share exclusions", "max_ms": 200, "backing": "component_inventory_state_component_assertions_component_relation_observations"},
+      {"id": "plugin_profile_range", "description": "one plugin installation provenance version history current bundle tree assertion timeline sources incidents and exact child activity", "max_ms": 200, "backing": "plugin_installation_relation_observation_assertion_profile_indexes"},
       {"id": "reliability_coverage_timeline", "description": "per-source per-day completeness interval status counts overlapping a range, plus aggregate source watermark freshness", "max_ms": 150, "backing": "completeness_intervals"},
       {"id": "mcp_topology", "description": "mcp server components with their bundled child components and each server's most recently observed connection state within a range", "max_ms": 100, "backing": "components_component_relations_mcp_connections"},
       {"id": "mcp_observatory_range", "description": "independent MCP inventory connection and call contours with exact populations exclusions and observed-only uptime", "max_ms": 200, "backing": "mcp_server_primitive_connection_call_assertion_indexes"},

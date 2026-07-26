@@ -70,6 +70,12 @@
       ]
     },
     {
+      "path": "/components/plugins/:id", "title": "Plugin detail", "wireframe": "identity, provenance and versions; snapshot-scoped bundle tree; load and exact child-activity assertions; incidents and completeness",
+      "panels": [
+        {"id": "plugin-detail-evidence", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
       "path": "/components/mcp", "title": "MCP", "wireframe": "server tree; connection timeline; calls/errors/latency; support gaps",
       "panels": [
         {"id": "mcp-health", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["mcp.connection_uptime_ratio", "tool.calls", "tool.success_ratio", "tool.latency_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}

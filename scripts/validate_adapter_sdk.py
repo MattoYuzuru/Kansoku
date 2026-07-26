@@ -58,7 +58,7 @@ EVIDENCE_TIERS = ["corroborated", "native", "reconstructed", "inferred"]
 NODE_KINDS = [
     "device", "agent_installation", "agent_surface", "agent_version", "plugin_package", "plugin_version",
     "skill_identity", "mcp_server_instance", "mcp_tool", "hook_definition", "custom_command_definition",
-    "subagent_definition", "cache_artifact",
+    "app_definition", "subagent_definition", "cache_artifact",
 ]
 EDGE_KINDS = ["bundles", "provides", "configured_in", "enabled_for", "shadows", "collides_with", "depends_on", "observed_using"]
 SOURCE_SCOPES = ["system", "user", "repository", "admin", "marketplace", "plugin_cache", "transient_session"]

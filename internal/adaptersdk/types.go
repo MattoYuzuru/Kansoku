@@ -192,6 +192,7 @@ const (
 	NodeMCPTool                 NodeKind = "mcp_tool"
 	NodeHookDefinition          NodeKind = "hook_definition"
 	NodeCustomCommandDefinition NodeKind = "custom_command_definition"
+	NodeAppDefinition           NodeKind = "app_definition"
 	NodeSubagentDefinition      NodeKind = "subagent_definition"
 	NodeCacheArtifact           NodeKind = "cache_artifact"
 )

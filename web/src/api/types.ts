@@ -380,6 +380,77 @@ export interface SkillProfileResponse {
   freshness: Freshness;
 }
 
+/* ---- /api/v1/plugins and /api/v1/plugins/:id ---- */
+export interface PluginObservatoryRow {
+  component_installation_id: string;
+  component_id: string;
+  declared_name: string;
+  version?: string;
+  version_state: string;
+  source_scope: string;
+  agent_id: string;
+  agent_installation_id: string;
+  installed: boolean;
+  enabled: boolean;
+  loaded_count: number;
+  loaded_sessions: number;
+  child_activity_count: number;
+  child_count: number;
+  collision_count: number;
+  last_loaded_at?: string;
+  activity_state: "active" | "cold" | "disabled" | "not_observed";
+  outcome_state: "unsupported";
+  bundle_completeness: string;
+}
+export interface PluginPlaneCounts {
+  installed: number;
+  enabled: number;
+  loaded: number;
+  active: number;
+  cold: number;
+}
+export interface PluginObservatoryResponse {
+  data: PluginObservatoryRow[];
+  counts: PluginPlaneCounts;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+  freshness: Freshness;
+}
+export interface PluginChildRow {
+  component_id: string;
+  component_kind: string;
+  declared_name: string;
+  relation_kind: string;
+  version?: string;
+  version_state: string;
+  usage_count: number;
+  last_activity_at?: string;
+  relation_observed_at: string;
+  relation_completeness: string;
+}
+export interface PluginVersionRow {
+  version?: string;
+  version_state: string;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  current: boolean;
+}
+export interface PluginProfileResponse {
+  identity: PluginObservatoryRow;
+  children: PluginChildRow[];
+  versions: PluginVersionRow[];
+  assertions: SkillAssertionRow[];
+  sources: SkillSourceRow[];
+  incident_count: number;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+  freshness: Freshness;
+}
+
 /* ---- /api/v1/components/mcp and server profiles ---- */
 export interface MCPContourSupport {
   status: string;

@@ -115,6 +115,7 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 		"/api/v1/system/snapshot":               api.systemSnapshot,
 		"/api/v1/privacy/canary-history":        api.privacyCanaryHistory,
 		"/api/v1/skills":                        api.skills,
+		"/api/v1/plugins":                       api.plugins,
 	} {
 		mux.Handle(route, readGuard.Wrap(localhttp.RouteUIStream, handler))
 	}
@@ -131,6 +132,7 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 	mux.Handle("/api/v1/quarantine/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.quarantineResource)))
 	mux.Handle("/api/v1/agents/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.agentResource)))
 	mux.Handle("/api/v1/skills/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.skillResource)))
+	mux.Handle("/api/v1/plugins/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.pluginResource)))
 	mux.Handle("/api/v1/components/mcp/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.mcpResource)))
 	for route, handler := range map[string]http.HandlerFunc{
 		"/api/v1/plans/preview":           api.planPreview,
@@ -151,7 +153,7 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 func (a *API) componentInventory(writer http.ResponseWriter, request *http.Request) {
 	kind := request.URL.Query().Get("kind")
 	switch kind {
-	case "", "skill", "plugin", "mcp", "hook", "command":
+	case "", "skill", "plugin", "mcp", "hook", "command", "app":
 	default:
 		a.writeError(writer, http.StatusBadRequest, "invalid_component_kind")
 		return

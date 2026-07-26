@@ -1,0 +1,10 @@
+{
+  "schema_version": "kansoku.plugins-policy-locks/1",
+  "append_only": true,
+  "resources": [
+    {"policy_version": "plugins.inventory-and-identity/1", "registry": "contracts/plugins/inventory-and-identity.yaml", "semantic_sha256": "1e605e56d7358e129a783ebb3a537d842cefb4aa2d243ed15afe9f173f5b791c"},
+    {"policy_version": "plugins.evidence-and-attribution/1", "registry": "contracts/plugins/evidence-and-attribution.yaml", "semantic_sha256": "a0c020a845d0da7b435e82a502184a670839c9d382e9b4b5d224c2c4fa01b52b"},
+    {"policy_version": "plugins.metrics-and-privacy/1", "registry": "contracts/plugins/metrics-and-privacy.yaml", "semantic_sha256": "caa088cec21849849cd78a4b8840a42a97854543d0fd0363795140121f8f46ef"},
+    {"policy_version": "plugins.canary/1", "registry": "contracts/plugins/canary.yaml", "semantic_sha256": "9a4292bb3adba98ce87f8770bd60025eb7784aff35a27c4ea93d4cf02158e51a"}
+  ]
+}

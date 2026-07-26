@@ -241,8 +241,13 @@
   start/terminal reconciliation, privacy-safe no-op protocol/real-Codex canaries, production
   restart, browser, PostgreSQL and repeated restore gates pass. Codex 0.145.0's failure to follow
   the fixture `nextCursor` is exposed as incomplete enumeration rather than fabricated coverage.
-- **16 — planned/P2 (approved 2026-07-26):** plugin bundle graph and child usage reuse stabilized
-  skill/MCP relations. There is no universal plugin-success metric.
+- **16 — implemented/P2 (2026-07-26; live gate green):** plugins are versioned, snapshot-scoped
+  bundle graphs across skills, hooks, MCP servers/tools, commands and apps. Independent
+  installed/enabled/loaded assertions, exact single-owner child attribution, active/cold formulas,
+  list/profile APIs and UI, collision/upgrade/disable/source-loss/replay/privacy tests, a real Codex
+  `plugin/read` canary, PostgreSQL migration/reconciliation, production restart, browser/API,
+  backup/restore and overhead gates pass. There is no plugin content endpoint or universal
+  plugin-success metric.
 - **17 — planned/P2 (approved 2026-07-26):** Kansoku measures its own bounded operational
   time-series separately from agent ingress.
 - **18 — planned/P3 (approved 2026-07-26):** design-system/browser regression and the complete

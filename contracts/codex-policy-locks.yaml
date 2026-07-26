@@ -13,6 +13,8 @@
     {"policy_version": "codex.manifest/2", "registry": "contracts/codex/manifest.yaml", "semantic_sha256": "15a2f3958907450a10b18edfa1f23245e220401fa8933750d325d57c4e8d58bb"},
     {"policy_version": "codex.app-server-bridge/1", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "8558137473b8674b51d4fd97fd53d7ebded2aa4d13635d79b61243c8cf3b4bf5"},
     {"policy_version": "codex.app-server-bridge/2", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "d528d373cd3d0ed1d7950c6eb6b8621e47320e7da0262eaa0940d8301237e4d0"},
-    {"policy_version": "codex.app-server-bridge/3", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "74718e3957568b399a2082596e22c9bae3156c7f09894a928ede4d61a121de18"}
+    {"policy_version": "codex.app-server-bridge/3", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "74718e3957568b399a2082596e22c9bae3156c7f09894a928ede4d61a121de18"},
+    {"policy_version": "codex.app-server-bridge/4", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "a2ce6603b382689de6b6cfb66eef17add116667d22b521941bdc2b6799a2ad78"},
+    {"policy_version": "codex.rollout-and-inventory/2", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "04ff5d8e85f9fc447162b79d9c3220aa5e4f9c3d81caad1a46747b9bf6d00092"}
   ]
 }

@@ -46,7 +46,7 @@ cmd/privacy-canary     — standalone binary, independently verifies no raw cont
 |---|---|---|---|
 | `internal/observability` | OTLP + hook ingress, canonical event envelope, normalization, durable spool | `otlp.go`, `routes.go`, `normalize.go`, `ingest.go`, `types.go` | `contracts/observability/*` |
 | `internal/privacy` | Sanitization boundary: typed `SafeRecord`/`SafeError`, redaction, sinks | `sanitizer.go`, `classification.go`, `sinks.go` | `contracts/privacy/*` |
-| `internal/dataplatform` | PostgreSQL schema, ingest, partitions, rollups, retention, durable component inventory/current state, all dashboard queries | `db.go`, `migrate.go`, `rollup.go`, `retention.go`, `inventory.go`, `component_inventory.go`, per-panel files (`activity_timeline.go`, `tool_analytics.go`, `mcp_topology.go`, ...) | `contracts/data-platform/*` |
+| `internal/dataplatform` | PostgreSQL schema, ingest, partitions, rollups, retention, durable component inventory/current state, all dashboard queries | `db.go`, `migrate.go`, `rollup.go`, `retention.go`, `inventory.go`, `component_inventory.go`, plugin graph/attribution/queries (`plugin_attribution.go`, `plugin_observatory.go`), per-panel files (`activity_timeline.go`, `tool_analytics.go`, `mcp_topology.go`, ...) | `contracts/data-platform/*`, `contracts/plugins/*` |
 | `internal/adaptersdk` | Shared `Adapter` interface, capability model, `HostView`, inventory graph, `ChangePlan` | `adapter.go`, `manifest.go`, `plan.go`, `hostview.go`; `fakeadapter/`, `wayfinder/` (conformance fixtures) | `contracts/adapter-sdk/*` |
 | `internal/codexadapter` | Codex adapter: hooks, OTel, rollout files, discovery, skill/plugin/MCP evidence, reconciliation | `codexadapter.go`, `otel.go`, `hook.go`, `rollout.go`, `discover.go`, `reconcile.go` | `contracts/codex/*` |
 | `internal/claudeadapter` | Claude Code adapter: same shape as codexadapter | `claudeadapter.go`, `otel.go`, `hook.go`, `discover.go`, `reconcile.go`, `transcript.go` | `contracts/claude/*` |
@@ -54,7 +54,7 @@ cmd/privacy-canary     — standalone binary, independently verifies no raw cont
 | `internal/installer` | Config-writer plan protocol shared by both adapters' `PlanConfiguration` (OTel + hook targets); simulate-only | `protocol.go` | `contracts/privacy/installer.yaml`, `contracts/adapter-sdk/capabilities.yaml` |
 | `internal/integrity` | Daily audit: drift/schema/freshness/health checks, incidents, fault injection, live canary, backup cycle | `check.go`, `drift.go`, `health.go`, `incident.go`, `livecanary.go`, `scheduler.go` | `contracts/integrity/*` |
 | `internal/localhttp` | Local HTTP server security: auth (bearer tokens), CSRF, loopback binding | `security.go` | `contracts/privacy/deployment.yaml`, `contracts/runtime/auth-and-plans.yaml` |
-| `internal/runtime` | Assembles the appliance process: API surface, jobs/scheduler, read-only inventory collector, backup/export, secrets, queue, soak harness | `assembly.go`, `api.go`, `inventory.go`, `jobs.go`, `backup.go`, `secrets.go`, `soak.go` | `contracts/runtime/*` |
+| `internal/runtime` | Assembles the appliance process: API surface, jobs/scheduler, read-only inventory collector, backup/export, secrets, queue, soak harness | `assembly.go`, `api.go`, domain API files (`api_incidents.go`, `api_mcp.go`, `api_plugins.go`, ...), `inventory.go`, `jobs.go`, `backup.go`, `secrets.go`, `soak.go` | `contracts/runtime/*`, domain API contracts |
 | `internal/webui` | Embeds the built `web/dist` SPA (Go `embed`) and serves it | `webui.go`, `dist/` (generated, do not hand-edit) | — |
 | `cmd/kansoku` | Main binary entrypoint; wires `internal/runtime` assembly, exposes `soak` subcommand | `main.go`, `soak.go` | — |
 | `cmd/privacy-canary` | Standalone binary: independently verifies no raw content reaches any sink | `main.go` | `contracts/privacy/sinks.yaml` |
@@ -67,7 +67,7 @@ status before editing here.**
 
 | Path | Purpose |
 |---|---|
-| `web/src/pages/` | One file per dashboard route (`Overview.tsx`, `Activity.tsx`, `Agents.tsx`, `Tools.tsx`, `MCP.tsx`, `Models.tsx`, `Reliability.tsx`, `Privacy.tsx`, `Settings.tsx`, ...) — routes/panels are defined in `contracts/dashboard.yaml`, one row per page |
+| `web/src/pages/` | One file per dashboard route (`Overview.tsx`, `Activity.tsx`, `Agents.tsx`, `Tools.tsx`, `MCP.tsx`, `Plugins.tsx`, `PluginDetail.tsx`, `Models.tsx`, `Reliability.tsx`, `Privacy.tsx`, `Settings.tsx`, ...) — routes/panels are defined in `contracts/dashboard.yaml`, one row per page |
 | `web/src/api/` | `client.ts` (HTTP client against `internal/localhttp`), `queries.ts` (TanStack Query hooks), `types.ts` |
 | `web/src/components/` | Shared chart/table/panel primitives (`ChartContainer`, `DataTable`, `KpiCard`, `Panel`, `PercentageDisplay`, `StatusBadge`, `Switch`, ...) |
 | `web/src/ui/`, `web/src/hooks/`, `web/src/lib/` | Icon set, `useRange` hook, formatting helpers |
@@ -83,7 +83,7 @@ each closed and paired with a `*-policy-locks.yaml` (append-only trust root) and
 `dashboard.yaml` (route → panel → metric → question-id map), `metrics.yaml`, `slo.yaml`,
 `capabilities.yaml`, `formula-version-locks.yaml`. Full explanation of each registry:
 `contracts/README.md`. Domain subdirs: `adapter-sdk/`, `claude/`, `codex/`, `cross-agent/`,
-`data-platform/`, `integrity/`, `observability/`, `privacy/`, `runtime/`.
+`data-platform/`, `integrity/`, `observability/`, `plugins/`, `privacy/`, `runtime/`.
 
 ## Documentation map — which doc answers which question
 

@@ -280,7 +280,9 @@ func PersistInventorySnapshot(
 			result.EnabledComponentCount++
 		}
 	}
-	if err := persistInventoryRelations(ctx, tx, snapshot); err != nil {
+	if err := persistInventoryRelations(
+		ctx, tx, snapshot, sourceInstanceID, completeness,
+	); err != nil {
 		return InventoryPersistResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -341,16 +343,26 @@ func inventoryComponentKind(kind adaptersdk.NodeKind) (string, bool) {
 		return "plugin", true
 	case adaptersdk.NodeMCPServerInstance:
 		return "mcp", true
+	case adaptersdk.NodeMCPTool:
+		return "command", true
 	case adaptersdk.NodeHookDefinition:
 		return "hook", true
 	case adaptersdk.NodeCustomCommandDefinition:
 		return "command", true
+	case adaptersdk.NodeAppDefinition:
+		return "app", true
 	default:
 		return "", false
 	}
 }
 
-func persistInventoryRelations(ctx context.Context, tx pgx.Tx, snapshot adaptersdk.InventorySnapshot) error {
+func persistInventoryRelations(
+	ctx context.Context,
+	tx pgx.Tx,
+	snapshot adaptersdk.InventorySnapshot,
+	sourceInstanceID string,
+	completeness string,
+) error {
 	componentNodes := make(map[string]bool)
 	for _, node := range snapshot.Nodes {
 		_, componentNodes[node.NodeID] = inventoryComponentKind(node.Kind)
@@ -360,6 +372,8 @@ func persistInventoryRelations(ctx context.Context, tx pgx.Tx, snapshot adapters
 		switch edge.Kind {
 		case adaptersdk.EdgeBundles:
 			relationKind = "bundles"
+		case adaptersdk.EdgeProvides:
+			relationKind = "provides"
 		case adaptersdk.EdgeCollidesWith:
 			relationKind = "collides_with"
 		case adaptersdk.EdgeShadows:
@@ -373,6 +387,20 @@ func persistInventoryRelations(ctx context.Context, tx pgx.Tx, snapshot adapters
 			VALUES ($1,$2,$3,$4)
 			ON CONFLICT (relation_id) DO NOTHING
 		`, edge.EdgeID, edge.FromNode, edge.ToNode, relationKind); err != nil {
+			return err
+		}
+		idempotencyKey := snapshot.SnapshotID + ":" + edge.EdgeID
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO component_relation_observations (
+				relation_observation_id, relation_id, inventory_snapshot_id,
+				source_instance_id, observed_at, completeness, adapter_version,
+				schema_version, idempotency_key
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,'kansoku.inventory-relation/1',$8)
+			ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
+		`, inventoryID("component-relation-observation", idempotencyKey),
+			edge.EdgeID, snapshot.SnapshotID, sourceInstanceID,
+			snapshot.ObservedAt.UTC(), completeness, snapshot.AdapterVersion,
+			idempotencyKey); err != nil {
 			return err
 		}
 	}

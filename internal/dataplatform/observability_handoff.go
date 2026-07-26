@@ -318,7 +318,7 @@ func (h *ObservabilityHandoff) persistSourceWatermark(ctx context.Context, event
 
 func databaseComponentKind(kind string) string {
 	switch kind {
-	case "skill", "plugin", "mcp", "hook", "command":
+	case "skill", "plugin", "mcp", "hook", "command", "app":
 		return kind
 	case "tool", "agent":
 		// The v1 component catalog has no generic tool/subagent kind.
@@ -397,6 +397,19 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			return err
 		}
 		if result.RowsAffected() == 0 || scope.ComponentResolution == "exact" {
+			if result.RowsAffected() > 0 && scope.ComponentResolution == "exact" &&
+				(stage == "invoked" || stage == "loaded") {
+				if err := persistPluginChildActivity(ctx, tx, pluginChildEvidence{
+					ChildComponentID: scope.ComponentID, AgentInstallationID: scope.AgentInstallationID,
+					SessionID: scope.SessionID, TurnID: scope.TurnID, EventID: event.EventID,
+					EvidenceID: evidence.EvidenceID, SourceInstanceID: scope.SourceInstanceID,
+					AdapterVersion: event.Source.AdapterVersion, SchemaVersion: event.Source.SchemaID,
+					EvidenceTier: string(evidence.Tier), Confidence: evidence.Confidence,
+					ObservedAt: event.ObservedAt, IdempotencyKey: evidence.EvidenceID + ":" + stage,
+				}); err != nil {
+					return err
+				}
+			}
 			if result.RowsAffected() > 0 && scope.ComponentResolution == "exact" &&
 				stage == "exposed" {
 				if _, err := tx.Exec(ctx, `
@@ -563,7 +576,12 @@ func (h *ObservabilityHandoff) persistMCPToolAssertion(
 	}
 	logicalID := handoffID("mcp-logical-call", event.Source.NativeEventID)
 	idempotency := evidence.EvidenceID + ":" + state
-	_, err = h.pool.Exec(ctx, `
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	result, err := tx.Exec(ctx, `
 		INSERT INTO mcp_call_assertions(
 			call_assertion_id,logical_call_id,server_component_id,tool_component_id,
 			agent_installation_id,session_id,source_instance_id,state,observed_at,
@@ -577,7 +595,22 @@ func (h *ObservabilityHandoff) persistMCPToolAssertion(
 		state, event.ObservedAt, event.Measurements.DurationMS, failure,
 		string(evidence.Tier), evidence.Confidence, event.Source.AdapterVersion,
 		event.Source.SchemaID, idempotency)
-	return err
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() > 0 {
+		if err := persistPluginChildActivity(ctx, tx, pluginChildEvidence{
+			ChildComponentID: toolID, AgentInstallationID: scope.AgentInstallationID,
+			SessionID: scope.SessionID, TurnID: scope.TurnID, EventID: event.EventID,
+			EvidenceID: evidence.EvidenceID, SourceInstanceID: scope.SourceInstanceID,
+			AdapterVersion: event.Source.AdapterVersion, SchemaVersion: event.Source.SchemaID,
+			EvidenceTier: string(evidence.Tier), Confidence: evidence.Confidence,
+			ObservedAt: event.ObservedAt, IdempotencyKey: idempotency,
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func persistComponentIdentityIncident(

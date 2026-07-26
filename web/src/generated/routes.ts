@@ -88,6 +88,14 @@ export const ROUTES: readonly RouteMeta[] = [
     ]
   },
   {
+    "path": "/components/plugins/:id",
+    "title": "Plugin detail",
+    "wireframe": "identity, provenance and versions; snapshot-scoped bundle tree; load and exact child-activity assertions; incidents and completeness",
+    "panelIds": [
+      "plugin-detail-evidence"
+    ]
+  },
+  {
     "path": "/components/mcp",
     "title": "MCP",
     "wireframe": "server tree; connection timeline; calls/errors/latency; support gaps",

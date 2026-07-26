@@ -110,13 +110,25 @@ func PersistMCPEvidence(ctx context.Context, pool *pgxpool.Pool, f MCPEvidenceFr
 			return errors.New("invalid_mcp_call_evidence")
 		}
 		return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-			_, err := tx.Exec(ctx, `INSERT INTO mcp_call_assertions(
+			result, err := tx.Exec(ctx, `INSERT INTO mcp_call_assertions(
 				call_assertion_id,logical_call_id,server_component_id,tool_component_id,agent_installation_id,session_id,source_instance_id,state,
 				observed_at,duration_ms,safe_error_class,approval_decision,approval_source,evidence_tier,confidence,adapter_version,schema_version,idempotency_key)
 				VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'native',1,$14,$15,$16)
 				ON CONFLICT(source_instance_id,idempotency_key) DO NOTHING`,
 				handoffID("mcp-call", f.SourceInstanceID, f.IdempotencyKey), f.LogicalCallID, f.ServerID, f.ToolID, f.AgentInstallationID, nullableString(f.SessionID), f.SourceInstanceID, f.State, f.ObservedAt, f.DurationMS, failure, decision, source, f.AdapterVersion, f.SchemaVersion, f.IdempotencyKey)
-			return err
+			if err != nil {
+				return err
+			}
+			if result.RowsAffected() == 0 {
+				return nil
+			}
+			return persistPluginChildActivity(ctx, tx, pluginChildEvidence{
+				ChildComponentID: f.ToolID, AgentInstallationID: f.AgentInstallationID,
+				SessionID: f.SessionID, SourceInstanceID: f.SourceInstanceID,
+				AdapterVersion: f.AdapterVersion, SchemaVersion: f.SchemaVersion,
+				EvidenceTier: "native", Confidence: 1, ObservedAt: f.ObservedAt,
+				IdempotencyKey: f.IdempotencyKey,
+			})
 		})
 	default:
 		return errors.New("invalid_mcp_evidence_kind")

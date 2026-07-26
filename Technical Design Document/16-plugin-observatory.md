@@ -27,3 +27,21 @@ privacy.
 
 The canary bundle graph and child summaries reconcile exactly without duplicate child facts or a
 fabricated plugin-success ratio.
+
+## Implemented design
+
+Migration `0011_plugin_bundle_graph` adds `component_relation_observations`. Each row binds an
+existing relation identity to one immutable inventory snapshot plus source instance, timestamp,
+completeness, adapter/schema versions and an idempotency key. `app_definition` and `provides` are
+additive inventory vocabulary; downgrade intentionally leaves those safe enum widenings in place
+rather than deleting user inventory.
+
+`persistPluginChildActivity` resolves direct or one-hop nested children against only current
+snapshot-observed edges in the same agent installation. It writes one plugin `child_activity`
+assertion only when exactly one owner exists. The child's invocation, call and outcome rows remain
+unchanged. Replay is deduplicated by source/idempotency key; disable only changes current inventory
+state and never deletes historical assertions.
+
+`GET /api/v1/plugins` and `GET /api/v1/plugins/:id` are bounded by the 200 ms
+`plugin_observatory_range` and `plugin_profile_range` budgets. The React list/profile views show the
+same populations and exclusions and deliberately provide no bundle-content route.

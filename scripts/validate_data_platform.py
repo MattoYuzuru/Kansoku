@@ -45,6 +45,7 @@ BUDGET_IDS = {
     "agent_breakdown_range", "agent_profile_range", "model_breakdown_range", "component_breakdown_range",
     "component_lifecycle_funnel", "component_inventory_current",
     "skill_observatory_range", "skill_profile_range",
+    "plugin_observatory_range", "plugin_profile_range",
     "reliability_coverage_timeline", "mcp_topology", "mcp_observatory_range",
     "mcp_server_profile_range", "incident_list",
     "incident_detail", "incident_occurrences", "quarantine_list", "quarantine_detail",

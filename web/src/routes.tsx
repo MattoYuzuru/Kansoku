@@ -24,6 +24,7 @@ const Models = lazy(() => import("./pages/Models").then((m) => ({ default: m.Mod
 const Skills = lazy(() => import("./pages/Skills").then((m) => ({ default: m.Skills })));
 const SkillDetail = lazy(() => import("./pages/SkillDetail").then((m) => ({ default: m.SkillDetail })));
 const Plugins = lazy(() => import("./pages/Plugins").then((m) => ({ default: m.Plugins })));
+const PluginDetail = lazy(() => import("./pages/PluginDetail").then((m) => ({ default: m.PluginDetail })));
 const MCP = lazy(() => import("./pages/MCP").then((m) => ({ default: m.MCP })));
 const MCPServerDetail = lazy(() => import("./pages/MCPServerDetail").then((m) => ({ default: m.MCPServerDetail })));
 const MCPToolDetail = lazy(() => import("./pages/MCPToolDetail").then((m) => ({ default: m.MCPToolDetail })));
@@ -85,6 +86,13 @@ function SkillDetailRoute() {
   return <SkillDetail id={id} />;
 }
 
+function PluginDetailRoute() {
+  const params = useParams();
+  const id = params.id ?? "";
+  useEffect(() => setTitle(`Plugin ${id}`), [id]);
+  return <PluginDetail id={id} />;
+}
+
 function MCPServerDetailRoute() {
   const params = useParams();
   const id = params.id ?? "";
@@ -129,6 +137,9 @@ export function AppRoutes() {
         </Route>
         <Route path="/components/skills/:id">
           <SkillDetailRoute />
+        </Route>
+        <Route path="/components/plugins/:id">
+          <PluginDetailRoute />
         </Route>
         <Route path="/components/mcp/:id/tools/:toolID">
           <MCPToolDetailRoute />

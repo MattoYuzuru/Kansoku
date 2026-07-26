@@ -10,6 +10,7 @@
     {"policy_version": "adapter-sdk.discovery-and-plans/2", "registry": "contracts/adapter-sdk/discovery-and-plans.yaml", "semantic_sha256": "804cb59701689f0b86181f6b56f2212a41b2ca3a9d74ddc100f1ed62a918f2fa"},
     {"policy_version": "adapter-sdk.discovery-and-plans/3", "registry": "contracts/adapter-sdk/discovery-and-plans.yaml", "semantic_sha256": "e61df814ff1243cba724aa6a205900644fec172446fc207fccc5bf4b763b189a"},
     {"policy_version": "adapter-sdk.capabilities/3", "registry": "contracts/adapter-sdk/capabilities.yaml", "semantic_sha256": "cb325f5dcc04254060b156e75b7e35cd03bd1ff77fac97f39c175694e3fccc83"},
-    {"policy_version": "adapter-sdk.evidence-bridge/1", "registry": "contracts/adapter-sdk/evidence-bridge.yaml", "semantic_sha256": "1c13e049f18c8e877fbc6bcdd95e3e762e4753862266de68fb4180c9d51ea53c"}
+    {"policy_version": "adapter-sdk.evidence-bridge/1", "registry": "contracts/adapter-sdk/evidence-bridge.yaml", "semantic_sha256": "1c13e049f18c8e877fbc6bcdd95e3e762e4753862266de68fb4180c9d51ea53c"},
+    {"policy_version": "adapter-sdk.inventory-graph/2", "registry": "contracts/adapter-sdk/inventory-graph.yaml", "semantic_sha256": "db0a194e1af77b704b1c53f4a2a7196438a166ee316b9a3652481eda350debd0"}
   ]
 }

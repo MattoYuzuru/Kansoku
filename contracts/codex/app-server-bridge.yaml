@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.codex-app-server-bridge/1",
-  "contract_version": "1.1.0",
+  "contract_version": "1.2.0",
   "effective_at": "2026-07-26",
   "bridge_api_version": "kansoku.evidence-bridge/v1",
   "bridge_id": "codex-app-server",
@@ -19,13 +19,16 @@
     "item/completed",
     "skills/changed",
     "skills/list",
-    "skills/list response"
+    "skills/list response",
+    "plugin/read",
+    "plugin/read response"
   ],
   "emitting_projections": {
     "thread/started": "session.started",
     "turn/started": "prompt.submitted",
     "item/started_userMessage_skill_input": "component.invoked plus component.loaded under codex-app-server-skill-input-load/1",
     "skills/list_enabled_response": "component.exposed",
+    "plugin/read_response": "metadata-only plugin package plus snapshot-scoped bundles/provides relations to named skills hooks MCP servers commands and apps; path description URL and content fields are discarded before persistence",
     "item/completed_mcpToolCall": "tool.called",
     "content_only_items": "discarded_before_sink"
   },
