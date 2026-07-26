@@ -42,7 +42,7 @@ LOCK_PATH = ROOT / "contracts" / "adapter-sdk-policy-locks.yaml"
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "session-05" / "loomwright-conformance.json"
 GO_IMAGE = "golang@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651"
 
-FILES = ("manifest.yaml", "capabilities.yaml", "inventory-graph.yaml", "discovery-and-plans.yaml")
+FILES = ("manifest.yaml", "capabilities.yaml", "inventory-graph.yaml", "discovery-and-plans.yaml", "evidence-bridge.yaml")
 
 EXECUTION_FORMS = ["builtin", "external_process", "wasm", "container"]
 NETWORK_GRADES = ["none", "loopback_only"]
@@ -50,7 +50,7 @@ CAPABILITY_IDS = [
     "discovery.agent_and_surface", "inventory.components", "activity.sessions", "activity.prompt_metadata",
     "activity.token_model_cost", "components.skill_invocation", "components.plugin_and_custom_command",
     "components.mcp_lifecycle", "components.builtin_tool_calls_and_approvals", "components.subagents_and_compaction",
-    "ingestion.historical_import", "ingestion.live_stream", "configuration.install", "configuration.live_canary",
+    "ingestion.historical_import", "ingestion.live_stream", "ingestion.evidence_bridge", "configuration.install", "configuration.live_canary",
     "configuration.hook_install",
 ]
 CAPABILITY_STATES = ["unsupported", "available", "configured", "healthy", "degraded"]
@@ -72,6 +72,7 @@ LOCK_BASES = {
     "adapter-sdk.capabilities": "contracts/adapter-sdk/capabilities.yaml",
     "adapter-sdk.inventory-graph": "contracts/adapter-sdk/inventory-graph.yaml",
     "adapter-sdk.discovery-and-plans": "contracts/adapter-sdk/discovery-and-plans.yaml",
+    "adapter-sdk.evidence-bridge": "contracts/adapter-sdk/evidence-bridge.yaml",
 }
 
 
@@ -99,7 +100,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("adapter-sdk registry set is not exact")
         return errors
     by_name = {Path(path).name: value for path, value in data.items()}
-    manifest, capabilities, inventory_graph, discovery_and_plans = (by_name[name] for name in FILES)
+    manifest, capabilities, inventory_graph, discovery_and_plans, evidence_bridge = (by_name[name] for name in FILES)
 
     expected_top = {
         "manifest.yaml": {
@@ -123,6 +124,12 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
             "host_view_guarantee", "installation_candidate_fields", "detection_methods", "change_plan_fields",
             "change_plan_reuse", "apply_requires", "normal_operation_rule", "audit_modes", "check_result_fields",
             "check_statuses", "cli_concepts", "third_party_acceptance_checklist",
+        },
+        "evidence-bridge.yaml": {
+            "schema_version", "contract_version", "effective_at", "api_version", "manifest_fields",
+            "interface_methods", "target_scope", "network_grade", "safe_sink_methods",
+            "bridge_rejection_fields", "lifecycle_states", "supervision_limits", "privacy_boundary",
+            "database_boundary", "deduplication_rule", "health_isolation_rule", "unknown_schema_rule",
         },
     }
     for name, fields in expected_top.items():
@@ -217,6 +224,22 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     if "unsigned_distribution_clearly_labeled_signed_packages_deferred" not in checklist:
         errors.append("third-party acceptance checklist must require unsigned distribution to be clearly labeled")
 
+    if evidence_bridge.get("api_version") != "kansoku.evidence-bridge/v1":
+        errors.append("evidence bridge API version changed")
+    if evidence_bridge.get("target_scope") != "explicit_local" or evidence_bridge.get("network_grade") != "loopback_only":
+        errors.append("evidence bridge must remain explicitly targeted and loopback-only")
+    if evidence_bridge.get("safe_sink_methods") != [
+        "Accept_privacy.SafeRecord", "Reject_metadata_only_BridgeRejection",
+    ]:
+        errors.append("evidence bridge safe sink changed")
+    for fragment in ("messages", "reasoning", "arguments", "results", "errors", "paths", "environment"):
+        if fragment not in evidence_bridge.get("privacy_boundary", ""):
+            errors.append(f"evidence bridge privacy boundary no longer drops {fragment}")
+    if "never_receives_a_database_pool" not in evidence_bridge.get("database_boundary", ""):
+        errors.append("evidence bridge database boundary weakened")
+    if "logical_fact_identity_is_lane_independent" not in evidence_bridge.get("deduplication_rule", ""):
+        errors.append("evidence bridge cross-lane deduplication rule weakened")
+
     errors.extend(validate_policy_locks(lock, data, historical))
 
     if include_code:
@@ -243,7 +266,7 @@ def validate_policy_locks(lock: dict[str, Any], data: dict[str, dict[str, Any]],
             errors.append("adapter-sdk policy lock entries must be closed")
             continue
         version = item.get("policy_version", "")
-        match = re.fullmatch(r"(adapter-sdk\.(?:manifest|capabilities|inventory-graph|discovery-and-plans))/([1-9][0-9]*)", version)
+        match = re.fullmatch(r"(adapter-sdk\.(?:manifest|capabilities|inventory-graph|discovery-and-plans|evidence-bridge))/([1-9][0-9]*)", version)
         if not match or item.get("registry") != LOCK_BASES.get(match.group(1)) or re.fullmatch(r"[0-9a-f]{64}", str(item.get("semantic_sha256"))) is None:
             errors.append("adapter-sdk policy lock entry has invalid version/registry/digest binding")
             continue

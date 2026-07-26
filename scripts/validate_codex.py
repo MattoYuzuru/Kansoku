@@ -47,7 +47,7 @@ FIXTURES_DIR = ROOT / "tests" / "fixtures" / "session-06"
 CANARY_SCENARIO_PATH = FIXTURES_DIR / "canary" / "kansoku-canary-scenario.json"
 GO_IMAGE = "golang@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651"
 
-FILES = ("manifest.yaml", "hooks-and-otel.yaml", "rollout-and-inventory.yaml", "skill-evidence-and-reconciliation.yaml")
+FILES = ("manifest.yaml", "hooks-and-otel.yaml", "rollout-and-inventory.yaml", "skill-evidence-and-reconciliation.yaml", "app-server-bridge.yaml")
 
 REAL_AGENT_TERMS = {"codex", "claude", "gemini", "cursor"}
 
@@ -55,7 +55,7 @@ CAPABILITY_IDS = [
     "discovery.agent_and_surface", "inventory.components", "activity.sessions", "activity.prompt_metadata",
     "activity.token_model_cost", "components.skill_invocation", "components.plugin_and_custom_command",
     "components.mcp_lifecycle", "components.builtin_tool_calls_and_approvals", "components.subagents_and_compaction",
-    "ingestion.historical_import", "ingestion.live_stream", "configuration.install", "configuration.live_canary",
+    "ingestion.historical_import", "ingestion.live_stream", "ingestion.evidence_bridge", "configuration.install", "configuration.live_canary",
 ]
 EVIDENCE_TIERS = ["corroborated", "native", "reconstructed", "inferred"]
 HOOK_EVENTS = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "SubagentStart", "SubagentStop", "Stop"]
@@ -84,6 +84,7 @@ LOCK_BASES = {
     "codex.hooks-and-otel": "contracts/codex/hooks-and-otel.yaml",
     "codex.rollout-and-inventory": "contracts/codex/rollout-and-inventory.yaml",
     "codex.skill-evidence-and-reconciliation": "contracts/codex/skill-evidence-and-reconciliation.yaml",
+    "codex.app-server-bridge": "contracts/codex/app-server-bridge.yaml",
 }
 
 
@@ -111,7 +112,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("codex registry set is not exact")
         return errors
     by_name = {Path(path).name: value for path, value in data.items()}
-    manifest, hooks_and_otel, rollout_and_inventory, skill_evidence = (by_name[name] for name in FILES)
+    manifest, hooks_and_otel, rollout_and_inventory, skill_evidence, app_server_bridge = (by_name[name] for name in FILES)
 
     expected_top = {
         "manifest.yaml": {
@@ -132,6 +133,14 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         "skill-evidence-and-reconciliation.yaml": {
             "schema_version", "contract_version", "effective_at", "skill_evidence_model",
             "source_to_canonical_mapping", "reconciliation", "canary", "required_tests", "exit_gate",
+        },
+        "app-server-bridge.yaml": {
+            "schema_version", "contract_version", "effective_at", "bridge_api_version",
+            "bridge_id", "bridge_version", "agent_version_exact", "protocol",
+            "schema_version_exact", "schema_generation_command", "target_scope",
+            "network_grade", "accepted_methods", "emitting_projections", "safe_fields",
+            "prohibited_surfaces", "limits", "checkpoint", "unknown_schema",
+            "source_evidence", "support_grade",
         },
     }
     for name, fields in expected_top.items():
@@ -185,6 +194,18 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("hook ingress auth must remain session02_loopback_bearer with no second auth mechanism")
     if "never_a_second_ingress_mechanism" not in str(hook_reuse.get("no_parallel_route", "")):
         errors.append("hook ingress must never introduce a parallel ingress mechanism")
+
+    if app_server_bridge.get("bridge_api_version") != "kansoku.evidence-bridge/v1" or \
+            app_server_bridge.get("agent_version_exact") != "0.145.0" or \
+            app_server_bridge.get("schema_version_exact") != "0.145.0":
+        errors.append("Codex App Server bridge must remain pinned to reviewed schema 0.145.0")
+    if app_server_bridge.get("target_scope") != "explicit_local" or app_server_bridge.get("network_grade") != "loopback_only":
+        errors.append("Codex App Server bridge target must remain explicit local loopback")
+    prohibited = set(app_server_bridge.get("prohibited_surfaces", []))
+    if not {"messages", "reasoning", "arguments", "results", "errors", "paths", "environment", "uris"}.issubset(prohibited):
+        errors.append("Codex App Server prohibited content surface set weakened")
+    if "metadata_only_rejection" not in app_server_bridge.get("unknown_schema", ""):
+        errors.append("Codex App Server unknown schema must remain metadata-only")
 
     # -- hooks-and-otel.yaml --
     hook_source = hooks_and_otel.get("hook_source", {})
@@ -373,7 +394,7 @@ def validate_policy_locks(lock: dict[str, Any], data: dict[str, dict[str, Any]],
             errors.append("codex policy lock entries must be closed")
             continue
         version = item.get("policy_version", "")
-        match = re.fullmatch(r"(codex\.(?:manifest|hooks-and-otel|rollout-and-inventory|skill-evidence-and-reconciliation))/([1-9][0-9]*)", version)
+        match = re.fullmatch(r"(codex\.(?:manifest|hooks-and-otel|rollout-and-inventory|skill-evidence-and-reconciliation|app-server-bridge))/([1-9][0-9]*)", version)
         if not match or item.get("registry") != LOCK_BASES.get(match.group(1)) or re.fullmatch(r"[0-9a-f]{64}", str(item.get("semantic_sha256"))) is None:
             errors.append("codex policy lock entry has invalid version/registry/digest binding")
             continue

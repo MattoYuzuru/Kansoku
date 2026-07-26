@@ -19,7 +19,7 @@ var (
 
 func validSourceKind(kind SourceKind) bool {
 	switch kind {
-	case SourceHook, SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric, SourceTranscript, SourceAdapterBatch:
+	case SourceHook, SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric, SourceTranscript, SourceAdapterBatch, SourceEvidenceBridge:
 		return true
 	default:
 		return false
@@ -124,7 +124,7 @@ func validSource(source SourceRef) bool {
 		return false
 	}
 	expected := expectedSourceSchema(source.Kind)
-	if source.Kind == SourceAdapterBatch || source.SchemaID == expected {
+	if source.Kind == SourceAdapterBatch || source.Kind == SourceEvidenceBridge || source.SchemaID == expected {
 		return true
 	}
 	if source.Kind == SourceHook {

@@ -88,7 +88,8 @@ func validCapabilityID(id CapabilityID) bool {
 		CapabilityActivityPromptMetadata, CapabilityActivityTokenModelCost, CapabilityComponentsSkillInvocation,
 		CapabilityComponentsPluginAndCustomCmd, CapabilityComponentsMCPLifecycle, CapabilityComponentsBuiltinToolCalls,
 		CapabilityComponentsSubagentsCompaction, CapabilityIngestionHistoricalImport, CapabilityIngestionLiveStream,
-		CapabilityConfigurationInstall, CapabilityConfigurationLiveCanary, CapabilityConfigurationHookInstall:
+		CapabilityIngestionEvidenceBridge, CapabilityConfigurationInstall, CapabilityConfigurationLiveCanary,
+		CapabilityConfigurationHookInstall:
 		return true
 	default:
 		return false

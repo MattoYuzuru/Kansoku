@@ -56,8 +56,13 @@ const (
 	CapabilityComponentsSubagentsCompaction CapabilityID = "components.subagents_and_compaction"
 	CapabilityIngestionHistoricalImport     CapabilityID = "ingestion.historical_import"
 	CapabilityIngestionLiveStream           CapabilityID = "ingestion.live_stream"
-	CapabilityConfigurationInstall          CapabilityID = "configuration.install"
-	CapabilityConfigurationLiveCanary       CapabilityID = "configuration.live_canary"
+	// CapabilityIngestionEvidenceBridge identifies an optional, adapter-owned
+	// rich-evidence source. Its health is intentionally independent from the
+	// adapter's OTel/hook lanes: losing a bridge may degrade bridge-only
+	// attribution without making ingestion.live_stream unavailable.
+	CapabilityIngestionEvidenceBridge CapabilityID = "ingestion.evidence_bridge"
+	CapabilityConfigurationInstall    CapabilityID = "configuration.install"
+	CapabilityConfigurationLiveCanary CapabilityID = "configuration.live_canary"
 	// CapabilityConfigurationHookInstall is a Session 11 addition (ADR 0014):
 	// codex.user_hook/claude.user_hook write into the *same physical file*
 	// configuration.install's codex.user_otel/claude.user_otel targets

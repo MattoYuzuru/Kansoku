@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.codex-manifest/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-22",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-26",
   "adapter_id": "codex",
   "adapter_id_naming": "adapter_id_is_the_stable_lowercase_hyphenated_identifier_registered_once_through_adaptersdk.Registry.Register_never_a_branch_inside_adaptersdk_core",
   "manifest_api_version": "kansoku.adapter/v1",
@@ -39,7 +39,7 @@
   },
   "compatibility_registry_fields_reused": "manifest.yaml_compatibility_registry_fields_from_contracts/adapter-sdk/manifest.yaml_agent_id_agent_version_range_source_schema_fingerprints_fixture_coverage_last_passive_audit_at_last_live_audit_at_known_gaps_setup_recipe_version",
   "unknown_agent_version_policy": "reused_verbatim_from_adapter-sdk.manifest_an_agent_version_outside_every_declared_compatibility_range_defaults_to_degraded_even_if_parsing_appears_to_succeed",
-  "sources": ["codex.hook", "codex.otel", "codex.rollout", "codex.inventory"],
+  "sources": ["codex.hook", "codex.otel", "codex.rollout", "codex.inventory", "codex.app-server"],
   "capability_ids": [
     "discovery.agent_and_surface",
     "inventory.components",
@@ -53,10 +53,11 @@
     "components.subagents_and_compaction",
     "ingestion.historical_import",
     "ingestion.live_stream",
+    "ingestion.evidence_bridge",
     "configuration.install",
     "configuration.live_canary"
   ],
-  "capability_ids_source": "reused_verbatim_from_contracts/adapter-sdk/capabilities.yaml_capability_ids_no_codex_specific_capability_id_is_invented",
+  "capability_ids_source": "reused_from_contracts/adapter-sdk/capabilities.yaml_with_only_the_generic_ingestion.evidence_bridge_id_no_codex_specific_capability_id_is_invented",
   "installer_target_reuse": {
     "otel": "codex.user_otel_target_already_declared_in_contracts/privacy/installer.yaml_targets_reused_verbatim_never_redefined",
     "hook": "a_new_hook_installer_target_is_declared_in_hooks-and-otel.yaml_hook_installer_target_because_installer.yaml_declares_no_codex_hook_target_yet",

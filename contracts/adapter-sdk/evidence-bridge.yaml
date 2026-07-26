@@ -1,0 +1,60 @@
+{
+  "schema_version": "kansoku.adapter-sdk-evidence-bridge/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-26",
+  "api_version": "kansoku.evidence-bridge/v1",
+  "manifest_fields": [
+    "api_version",
+    "adapter_id",
+    "bridge_id",
+    "bridge_version",
+    "supported_agent_versions",
+    "protocol_versions",
+    "schema_versions",
+    "capabilities",
+    "safe_fields",
+    "prohibited_surfaces",
+    "permissions",
+    "target_scope",
+    "max_frame_bytes",
+    "max_frames",
+    "connect_timeout",
+    "max_reconnects",
+    "idempotency_strategy",
+    "checkpoint_strategy",
+    "fixture_id",
+    "canary_id"
+  ],
+  "interface_methods": ["Manifest", "Probe", "Connect", "Checkpoint", "Health"],
+  "target_scope": "explicit_local",
+  "network_grade": "loopback_only",
+  "safe_sink_methods": ["Accept_privacy.SafeRecord", "Reject_metadata_only_BridgeRejection"],
+  "bridge_rejection_fields": [
+    "bridge_id",
+    "schema_version",
+    "schema_fingerprint",
+    "category",
+    "byte_count",
+    "observed_at"
+  ],
+  "lifecycle_states": [
+    "discovered",
+    "configured",
+    "connected",
+    "producing",
+    "reconciled",
+    "degraded",
+    "disabled"
+  ],
+  "supervision_limits": {
+    "max_frame_bytes_ceiling": 1048576,
+    "max_frames_ceiling": 100000,
+    "connect_timeout_ceiling_seconds": 60,
+    "max_reconnects_ceiling": 10
+  },
+  "privacy_boundary": "the_adapter_discards_messages_reasoning_arguments_results_errors_resources_uris_paths_environment_and_config_values_before_any_log_queue_safe_sink_or_durable_sink",
+  "database_boundary": "a_bridge_never_receives_a_database_pool_sql_api_database_credentials_mutation_bearer_or_unrestricted_filesystem_handle",
+  "deduplication_rule": "logical_fact_identity_is_lane_independent_evidence_identity_includes_the_lane_and_native_source_identity",
+  "health_isolation_rule": "bridge_failure_degrades_only_bridge_owned_capabilities_and_never_invalidates_history_proven_by_other_lanes",
+  "unknown_schema_rule": "unknown_protocol_or_schema_creates_metadata_only_rejection_and_degraded_bridge_health_never_raw_payload_persistence_or_fallback_transcript_parsing"
+}

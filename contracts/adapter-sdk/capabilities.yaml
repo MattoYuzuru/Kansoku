@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.adapter-sdk-capabilities/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-25",
+  "contract_version": "1.2.0",
+  "effective_at": "2026-07-26",
   "capability_ids": [
     "discovery.agent_and_surface",
     "inventory.components",
@@ -15,6 +15,7 @@
     "components.subagents_and_compaction",
     "ingestion.historical_import",
     "ingestion.live_stream",
+    "ingestion.evidence_bridge",
     "configuration.install",
     "configuration.live_canary",
     "configuration.hook_install"

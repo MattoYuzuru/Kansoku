@@ -24,10 +24,10 @@ class Session06CodexContractTests(unittest.TestCase):
         base = validate_codex.registries()
         current = validate_codex.load(validate_codex.LOCK_PATH)
         changed = copy.deepcopy(base)
-        changed["contracts/codex/manifest.yaml"]["contract_version"] = "1.1.0"
+        changed["contracts/codex/manifest.yaml"]["contract_version"] = "99.0.0"
         transitioned = copy.deepcopy(current)
         transitioned["locks"].append({
-            "policy_version": "codex.manifest/2",
+            "policy_version": "codex.manifest/3",
             "registry": "contracts/codex/manifest.yaml",
             "semantic_sha256": validate_codex.semantic_sha256(changed["contracts/codex/manifest.yaml"]),
         })
@@ -39,7 +39,7 @@ class Session06CodexContractTests(unittest.TestCase):
 
         skipped = copy.deepcopy(current)
         skipped["locks"].append({
-            "policy_version": "codex.manifest/3",
+            "policy_version": "codex.manifest/4",
             "registry": "contracts/codex/manifest.yaml",
             "semantic_sha256": validate_codex.semantic_sha256(changed["contracts/codex/manifest.yaml"]),
         })

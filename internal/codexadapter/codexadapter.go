@@ -93,12 +93,14 @@ func (a *Adapter) Manifest() adaptersdk.Manifest {
 			adaptersdk.CapabilityComponentsSubagentsCompaction: "supported",
 			adaptersdk.CapabilityIngestionHistoricalImport:     "supported",
 			adaptersdk.CapabilityIngestionLiveStream:           "supported",
+			adaptersdk.CapabilityIngestionEvidenceBridge:       "available",
 			adaptersdk.CapabilityConfigurationInstall:          "supported",
 			adaptersdk.CapabilityConfigurationLiveCanary:       "supported",
 		},
 		Sources: []adaptersdk.SourceDescriptor{
 			{ID: sourceIDHook, Kind: "hook_http", Schemas: []string{hookSourceSchemaID}},
 			{ID: sourceIDOTel, Kind: "otlp_log_span_metric", Schemas: []string{otelSourceSchemaID}},
+			{ID: AppServerBridgeID, Kind: "evidence_bridge", Schemas: []string{AdapterID + ".bridge/" + AppServerSchemaVersion}},
 		},
 		Permissions: adaptersdk.Permissions{
 			FilesystemRead: []string{

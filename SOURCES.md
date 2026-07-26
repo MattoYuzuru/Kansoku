@@ -72,6 +72,26 @@ versions the price catalog: OTel token metadata is not an OpenAI/ChatGPT invoice
 entitlements and provider-specific routing may differ, and absent input/output/cache splits cannot
 be silently priced as one token class.
 
+2026-07-26 Session 13 App Server verification:
+
+- Official Codex manual snapshot:
+  <https://developers.openai.com/codex/codex-manual.md>
+- Local schema command:
+  `codex app-server generate-json-schema --experimental --out TARGET`
+- Locally observed version: `codex-cli 0.145.0`.
+
+The current manual describes App Server as an experimental local-development JSONL protocol,
+requires one `initialize`/`initialized` handshake, and documents typed thread, turn, item, skill and
+MCP methods. The exact local 0.145.0 generator was then used as the implementation authority for
+`thread/started`, `turn/started`, `turn/completed`, `item/started`, `item/completed`,
+`skills/changed`, `skills/list` and `mcpServerStatus/list`. This is version-pinned experimental
+support, not an unversioned compatibility claim. Generated item schemas also prove that the same
+frames can contain messages, reasoning, commands, paths, MCP arguments/results/errors and resource
+URIs. The bridge therefore projects only typed lifecycle/identity/status fields and destroys those
+content surfaces before its safe sink; an unknown method or schema becomes metadata-only rejection
+and bridge-local degraded health. Retrieval evidence is official documentation plus a locally
+generated schema, followed by sanitized fixture and cross-lane end-to-end tests.
+
 ## Anthropic Claude Code
 
 - Monitoring and OpenTelemetry: <https://code.claude.com/docs/en/monitoring-usage>

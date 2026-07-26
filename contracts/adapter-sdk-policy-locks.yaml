@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.adapter-sdk-policy-locks/1",
-  "effective_at": "2026-07-25",
+  "effective_at": "2026-07-26",
   "locks": [
     {"policy_version": "adapter-sdk.manifest/1", "registry": "contracts/adapter-sdk/manifest.yaml", "semantic_sha256": "c2c4bb77085642a6c5fe279ffa255894baa1df87f8dd0b37ffb47218a57a4b54"},
     {"policy_version": "adapter-sdk.capabilities/1", "registry": "contracts/adapter-sdk/capabilities.yaml", "semantic_sha256": "0fec2bb80afbd00eb10168f90abf191385df5e9abe7f93514d27a6e02b04af4d"},
@@ -8,6 +8,8 @@
     {"policy_version": "adapter-sdk.discovery-and-plans/1", "registry": "contracts/adapter-sdk/discovery-and-plans.yaml", "semantic_sha256": "b744de8a56d1c2d5753162565875a5bcac9cf0aa83012196a634a8325bf1a323"},
     {"policy_version": "adapter-sdk.capabilities/2", "registry": "contracts/adapter-sdk/capabilities.yaml", "semantic_sha256": "48837882d6d009eafbba5ff6a2f4a249c69d5bd0d10d66dcb6ac0d8484a0f3b7"},
     {"policy_version": "adapter-sdk.discovery-and-plans/2", "registry": "contracts/adapter-sdk/discovery-and-plans.yaml", "semantic_sha256": "804cb59701689f0b86181f6b56f2212a41b2ca3a9d74ddc100f1ed62a918f2fa"},
-    {"policy_version": "adapter-sdk.discovery-and-plans/3", "registry": "contracts/adapter-sdk/discovery-and-plans.yaml", "semantic_sha256": "e61df814ff1243cba724aa6a205900644fec172446fc207fccc5bf4b763b189a"}
+    {"policy_version": "adapter-sdk.discovery-and-plans/3", "registry": "contracts/adapter-sdk/discovery-and-plans.yaml", "semantic_sha256": "e61df814ff1243cba724aa6a205900644fec172446fc207fccc5bf4b763b189a"},
+    {"policy_version": "adapter-sdk.capabilities/3", "registry": "contracts/adapter-sdk/capabilities.yaml", "semantic_sha256": "cb325f5dcc04254060b156e75b7e35cd03bd1ff77fac97f39c175694e3fccc83"},
+    {"policy_version": "adapter-sdk.evidence-bridge/1", "registry": "contracts/adapter-sdk/evidence-bridge.yaml", "semantic_sha256": "1c13e049f18c8e877fbc6bcdd95e3e762e4753862266de68fb4180c9d51ea53c"}
   ]
 }

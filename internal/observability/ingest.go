@@ -327,6 +327,21 @@ func (i *Ingestor) IngestSafeHookFields(fields map[string]any, adapterID string,
 	)
 }
 
+// IngestSafeBridgeFields accepts the same closed canonical field set as the
+// OTel and hook paths but records an independent evidence_bridge lane. The
+// adapter-owned bridge must have discarded content before calling this
+// method. Keeping adapterID/session_id/event_id identical across lanes gives
+// NormalizedFromSafe the same logical fact key while the SourceKind keeps the
+// evidence identity distinct.
+func (i *Ingestor) IngestSafeBridgeFields(fields map[string]any, adapterID, schemaVersion string, sequence uint64) (CommitResult, error) {
+	if adapterID == "" || adapterID == FixtureAdapterID || schemaVersion == "" {
+		return CommitResult{}, errors.New("invalid_bridge_adapter_identity")
+	}
+	return i.ingestCanonicalSafeFields(
+		fields, adapterID, SourceEvidenceBridge, adapterID+".bridge/"+schemaVersion, sequence,
+	)
+}
+
 func (i *Ingestor) ingestCanonicalSafeFields(
 	fields map[string]any,
 	adapterID string,
@@ -471,7 +486,26 @@ func (i *Ingestor) IngestSanitizedAdapterRecord(record privacy.SafeRecord, seque
 	return i.ingestSafe(record, SourceAdapterBatch, sequence, nil)
 }
 
+// IngestSanitizedBridgeRecord is the typed counterpart to
+// IngestSafeBridgeFields for adapter-owned bridge parsers that construct a
+// SafeRecord directly. It shares validation and commit machinery with every
+// other lane while retaining evidence_bridge lineage.
+func (i *Ingestor) IngestSanitizedBridgeRecord(record privacy.SafeRecord, sequence uint64) (CommitResult, error) {
+	if err := validateSanitizedRecordForKind(record, SourceEvidenceBridge); err != nil {
+		return CommitResult{}, err
+	}
+	if !i.acquire() {
+		return CommitResult{}, ErrBackpressure
+	}
+	defer i.release()
+	return i.ingestSafe(record, SourceEvidenceBridge, sequence, nil)
+}
+
 func validateSanitizedAdapterRecord(record privacy.SafeRecord) error {
+	return validateSanitizedRecordForKind(record, SourceAdapterBatch)
+}
+
+func validateSanitizedRecordForKind(record privacy.SafeRecord, kind SourceKind) error {
 	if record.AdapterID == "" || record.AdapterVersion == "" ||
 		record.SourceSchemaID == "" || record.SchemaFingerprint == "" ||
 		record.RecordID == "" || record.IdempotencyKey == "" ||
@@ -501,7 +535,7 @@ func validateSanitizedAdapterRecord(record privacy.SafeRecord) error {
 		redactions.SensitiveIdentifierFields < 0 {
 		return errors.New("invalid_sanitized_adapter_record")
 	}
-	if _, _, err := NormalizedFromSafe(record, SourceAdapterBatch, 0, record.ReceivedAt); err != nil {
+	if _, _, err := NormalizedFromSafe(record, kind, 0, record.ReceivedAt); err != nil {
 		return errors.New("invalid_sanitized_adapter_record")
 	}
 	return nil

@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.codex-policy-locks/1",
-  "effective_at": "2026-07-22",
+  "effective_at": "2026-07-26",
   "locks": [
     {"policy_version": "codex.manifest/1", "registry": "contracts/codex/manifest.yaml", "semantic_sha256": "2c7f28afd7abf6304cb8808e30638d6eb9941a018fa91f558698d092543341f7"},
     {"policy_version": "codex.hooks-and-otel/1", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "ba6529160f7a4faf02c38e903cdd5ff3677d49da247408198e97c00354182923"},
@@ -9,6 +9,8 @@
     {"policy_version": "codex.hooks-and-otel/2", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "711a0bb845c9b0029a52e66ee514f11fdbab34a007d50b71d82998082960df0a"},
     {"policy_version": "codex.hooks-and-otel/3", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "60679c2f4bdf1eee2b8e1c7e1f71c709f553e0ef2cefb853b66cc28a19045430"},
     {"policy_version": "codex.hooks-and-otel/4", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "423dd9fcbc70240b4a2edb312c88b3f07c944d039fe3ada108f5ab1b7290bfa5"},
-    {"policy_version": "codex.hooks-and-otel/5", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "6ee1368fe0b7f76b1b9af55607f815906ae8556865df2b27b509b87aac8fcae9"}
+    {"policy_version": "codex.hooks-and-otel/5", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "6ee1368fe0b7f76b1b9af55607f815906ae8556865df2b27b509b87aac8fcae9"},
+    {"policy_version": "codex.manifest/2", "registry": "contracts/codex/manifest.yaml", "semantic_sha256": "15a2f3958907450a10b18edfa1f23245e220401fa8933750d325d57c4e8d58bb"},
+    {"policy_version": "codex.app-server-bridge/1", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "8558137473b8674b51d4fd97fd53d7ebded2aa4d13635d79b61243c8cf3b4bf5"}
   ]
 }

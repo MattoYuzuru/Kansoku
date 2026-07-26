@@ -1,0 +1,70 @@
+{
+  "schema_version": "kansoku.codex-app-server-bridge/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-26",
+  "bridge_api_version": "kansoku.evidence-bridge/v1",
+  "bridge_id": "codex-app-server",
+  "bridge_version": "0.1.0",
+  "agent_version_exact": "0.145.0",
+  "protocol": "codex-app-server-jsonl",
+  "schema_version_exact": "0.145.0",
+  "schema_generation_command": "codex app-server generate-json-schema --experimental --out TARGET",
+  "target_scope": "explicit_local",
+  "network_grade": "loopback_only",
+  "accepted_methods": [
+    "thread/started",
+    "turn/started",
+    "turn/completed",
+    "item/started",
+    "item/completed",
+    "skills/changed"
+  ],
+  "emitting_projections": {
+    "thread/started": "session.started",
+    "turn/started": "prompt.submitted",
+    "item/completed_mcpToolCall": "tool.called",
+    "content_only_items": "discarded_before_sink"
+  },
+  "safe_fields": [
+    "adapter_version",
+    "bridge_version",
+    "component_kind",
+    "event_type",
+    "idempotency_key",
+    "installation_id",
+    "observed_at",
+    "outcome",
+    "schema_version",
+    "sequence",
+    "session_pseudonym",
+    "source_record_pseudonym",
+    "tool_identity",
+    "turn_pseudonym",
+    "value_state"
+  ],
+  "prohibited_surfaces": [
+    "arguments",
+    "commands",
+    "config_values",
+    "environment",
+    "errors",
+    "file_contents",
+    "messages",
+    "paths",
+    "prompts",
+    "reasoning",
+    "resources",
+    "results",
+    "uris"
+  ],
+  "limits": {
+    "max_frame_bytes": 65536,
+    "max_frames": 10000,
+    "connect_timeout_seconds": 30,
+    "max_reconnects": 3
+  },
+  "checkpoint": "sequence_only_no_source_replay",
+  "unknown_schema": "metadata_only_rejection_and_bridge_degraded_no_rollout_fallback",
+  "source_evidence": "official_codex_manual_plus_locally_generated_0.145.0_experimental_json_schema",
+  "support_grade": "experimental_opt_in_version_pinned"
+}

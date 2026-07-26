@@ -23,12 +23,13 @@ const (
 type SourceKind string
 
 const (
-	SourceHook         SourceKind = "hook_http"
-	SourceOTLPLog      SourceKind = "otlp_log"
-	SourceOTLPSpan     SourceKind = "otlp_span"
-	SourceOTLPMetric   SourceKind = "otlp_metric"
-	SourceTranscript   SourceKind = "transcript_jsonl"
-	SourceAdapterBatch SourceKind = "adapter_batch"
+	SourceHook           SourceKind = "hook_http"
+	SourceOTLPLog        SourceKind = "otlp_log"
+	SourceOTLPSpan       SourceKind = "otlp_span"
+	SourceOTLPMetric     SourceKind = "otlp_metric"
+	SourceTranscript     SourceKind = "transcript_jsonl"
+	SourceAdapterBatch   SourceKind = "adapter_batch"
+	SourceEvidenceBridge SourceKind = "evidence_bridge"
 )
 
 type SourceLifecycle string
