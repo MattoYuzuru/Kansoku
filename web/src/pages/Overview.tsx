@@ -26,8 +26,8 @@ import {
   useReliabilityCounts,
 } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { dayLabel, sum } from "../lib/format";
-import { funnelBarOption, timeSeriesOption } from "../components/chartOptions";
+import { sum } from "../lib/format";
+import { bucketedTimeSeriesOption, funnelBarOption } from "../components/chartOptions";
 import type { Incident } from "../api/types";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -43,7 +43,10 @@ const STAGE_LABELS: Record<string, string> = {
 
 export function Overview() {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
 
   const activity = useActivityTimeline(rangeParams);
   const modelUsage = useModelUsage(rangeParams);
@@ -138,11 +141,12 @@ export function Overview() {
         {activityData.length > 0 ? (
           <ChartContainer
             ariaLabel="Sessions and prompts over time"
-            option={timeSeriesOption(
-              activityData.map((r) => dayLabel(r.day)),
+            option={bucketedTimeSeriesOption(
+              range,
+              activityData,
               [
-                { name: "Sessions", data: activityData.map((r) => r.session_count) },
-                { name: "Prompts", data: activityData.map((r) => r.prompt_count) },
+                { name: "Sessions", value: (r) => r.session_count },
+                { name: "Prompts", value: (r) => r.prompt_count },
               ],
             )}
           />

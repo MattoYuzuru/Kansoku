@@ -58,8 +58,10 @@ type EvidenceRow struct {
 type Granularity string
 
 const (
-	GranularityHourly Granularity = "hourly"
-	GranularityDaily  Granularity = "daily"
+	GranularityHourly  Granularity = "hourly"
+	GranularityDaily   Granularity = "daily"
+	GranularityWeekly  Granularity = "weekly"
+	GranularityMonthly Granularity = "monthly"
 )
 
 // Percentiles holds exact percentile_cont results for one metric bucket.

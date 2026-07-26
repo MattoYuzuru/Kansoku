@@ -24,7 +24,7 @@ const FormulaVersionReliabilityCounts1 = "reliability_counts/1"
 // exposes either of these counts today (health() only reports open
 // integrity_incidents; completeness() only reports events.value_state
 // distribution), so this is new, non-duplicative backend surface.
-func ReliabilityCounts(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (ReliabilityCountsResponse, error) {
+func ReliabilityCounts(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, bucket TimeBucketSpec) (ReliabilityCountsResponse, error) {
 	budget := Budgets["reliability_counts_range"]
 	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
 	if err != nil {
@@ -35,19 +35,19 @@ func ReliabilityCounts(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
 		WITH accepted_days AS (
-			SELECT date_trunc('day', observed_at) AS day, count(*) AS accepted_count
+			SELECT date_trunc($3, observed_at, $4) AS day, count(*) AS accepted_count
 			FROM events
 			WHERE observed_at >= $1 AND observed_at < $2
 			GROUP BY day
 		),
 		schema_days AS (
-			SELECT date_trunc('day', observed_at) AS day, count(*) AS unknown_schema_count
+			SELECT date_trunc($3, observed_at, $4) AS day, count(*) AS unknown_schema_count
 			FROM schema_quarantine_metadata
 			WHERE observed_at >= $1 AND observed_at < $2
 			GROUP BY day
 		),
 		mismatch_days AS (
-			SELECT date_trunc('day', rr.started_at) AS day, count(*) AS reconciliation_mismatch_count
+			SELECT date_trunc($3, rr.started_at, $4) AS day, count(*) AS reconciliation_mismatch_count
 			FROM reconciliation_mismatches rm
 			JOIN reconciliation_runs rr ON rr.reconciliation_run_id = rm.reconciliation_run_id
 			WHERE rr.started_at >= $1 AND rr.started_at < $2
@@ -61,7 +61,7 @@ func ReliabilityCounts(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 		FULL OUTER JOIN schema_days s ON s.day = a.day
 		FULL OUTER JOIN mismatch_days m ON m.day = coalesce(a.day, s.day)
 		ORDER BY day
-	`, from, to)
+	`, from, to, bucket.SQLUnit(), bucket.Timezone)
 	if err != nil {
 		return ReliabilityCountsResponse{}, budgetOrErr(budget, started, err)
 	}

@@ -63,7 +63,7 @@ func TestModelUsageAggregatesTokensCostAndMatchedLatencyWithinRangeAndBudget(t *
 
 	to := base.AddDate(0, 0, 1)
 	started := time.Now()
-	response, err := ModelUsage(ctx, pool, base, to)
+	response, err := ModelUsage(ctx, pool, base, to, DefaultTimeBucketSpec())
 	elapsed := time.Since(started)
 	if err != nil {
 		t.Fatalf("ModelUsage: %v", err)
@@ -118,7 +118,7 @@ func TestModelUsageEmptyRangeReportsUnknownNotZero(t *testing.T) {
 	if err := EnsurePartition(ctx, pool, "model_operations", base); err != nil {
 		t.Fatalf("ensure partition: %v", err)
 	}
-	response, err := ModelUsage(ctx, pool, base, base.AddDate(0, 0, 1))
+	response, err := ModelUsage(ctx, pool, base, base.AddDate(0, 0, 1), DefaultTimeBucketSpec())
 	if err != nil {
 		t.Fatalf("ModelUsage: %v", err)
 	}

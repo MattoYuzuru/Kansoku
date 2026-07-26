@@ -54,7 +54,7 @@ func TestReliabilityCountsAggregatesUnknownSchemaAndMismatchesWithinRangeAndBudg
 
 	to := base.AddDate(0, 0, 1)
 	started := time.Now()
-	response, err := ReliabilityCounts(ctx, pool, base, to)
+	response, err := ReliabilityCounts(ctx, pool, base, to, DefaultTimeBucketSpec())
 	elapsed := time.Since(started)
 	if err != nil {
 		t.Fatalf("ReliabilityCounts: %v", err)
@@ -91,7 +91,7 @@ func TestReliabilityCountsEmptyRangeReportsUnknownNotZero(t *testing.T) {
 	pool := freshSchema(t, dsn)
 	ctx := context.Background()
 	base := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	response, err := ReliabilityCounts(ctx, pool, base, base.AddDate(0, 0, 1))
+	response, err := ReliabilityCounts(ctx, pool, base, base.AddDate(0, 0, 1), DefaultTimeBucketSpec())
 	if err != nil {
 		t.Fatalf("ReliabilityCounts: %v", err)
 	}

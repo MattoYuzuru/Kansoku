@@ -84,6 +84,10 @@
 .k-nav__group {
   padding: var(--space-2) 0;
 }
+.k-nav__group--compact {
+  padding-top: 0;
+  margin-top: calc(-1 * var(--space-2));
+}
 .k-nav__group-label {
   padding: 0 var(--space-4) var(--space-1);
   color: var(--text-faint);

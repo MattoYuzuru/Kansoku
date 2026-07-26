@@ -25,7 +25,7 @@ const FormulaVersionModelUsage1 = "model_usage/2"
 // combined api_request response row can carry both. When no operation has a
 // duration or terminal outcome, Percentiles/ErrorRatio remain nil -- an
 // honest "not observed" rather than a fabricated zero.
-func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (ModelUsageResponse, error) {
+func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, bucket TimeBucketSpec) (ModelUsageResponse, error) {
 	budget := Budgets["model_usage_range"]
 	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
 	if err != nil {
@@ -37,7 +37,7 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 	rows, err := conn.Query(ctx, `
 		WITH ops AS (
 			SELECT mo.model_operation_id, mo.observed_at, mo.provider_cost_micros,
-				date_trunc('day', mo.observed_at) AS day
+				date_trunc($3, mo.observed_at, $4) AS day
 			FROM model_operations mo
 			WHERE mo.observed_at >= $1 AND mo.observed_at < $2
 			  AND mo.operation_kind = 'response'
@@ -69,7 +69,7 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 			GROUP BY o.model_operation_id, o.provider_cost_micros
 		),
 		observations AS (
-			SELECT date_trunc('day', mo.observed_at) AS day,
+			SELECT date_trunc($3, mo.observed_at, $4) AS day,
 				mo.duration_ms, mo.outcome
 			FROM model_operations mo
 			WHERE mo.observed_at >= $1 AND mo.observed_at < $2
@@ -105,7 +105,7 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (Mo
 		) obs ON obs.day = o.day
 		GROUP BY o.day
 		ORDER BY o.day
-	`, from, to)
+	`, from, to, bucket.SQLUnit(), bucket.Timezone)
 	if err != nil {
 		return ModelUsageResponse{}, budgetOrErr(budget, started, err)
 	}

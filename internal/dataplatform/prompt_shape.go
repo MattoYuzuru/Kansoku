@@ -22,7 +22,7 @@ const FormulaVersionPromptShape1 = "prompt_shape/2"
 // genuinely submitted) but excluded from the percentile computation via
 // percentile_cont's FILTER clause, matching prompt.utf8_bytes's
 // "null_policy": "explicit_exclusion_only" evaluator parameter.
-func PromptShape(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (PromptShapeResponse, error) {
+func PromptShape(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, bucket TimeBucketSpec) (PromptShapeResponse, error) {
 	budget := Budgets["prompt_shape_range"]
 	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
 	if err != nil {
@@ -32,7 +32,7 @@ func PromptShape(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (P
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		SELECT date_trunc('day', pf.observed_at) AS day,
+		SELECT date_trunc($3, pf.observed_at, $4) AS day,
 			count(*) AS prompt_count,
 			percentile_cont(0.50) WITHIN GROUP (ORDER BY pf.prompt_size_bytes) FILTER (WHERE pf.prompt_size_bytes IS NOT NULL) AS p50,
 			percentile_cont(0.90) WITHIN GROUP (ORDER BY pf.prompt_size_bytes) FILTER (WHERE pf.prompt_size_bytes IS NOT NULL) AS p90,
@@ -46,7 +46,7 @@ func PromptShape(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (P
 		WHERE pf.observed_at >= $1 AND pf.observed_at < $2
 		GROUP BY day
 		ORDER BY day
-	`, from, to)
+	`, from, to, bucket.SQLUnit(), bucket.Timezone)
 	if err != nil {
 		return PromptShapeResponse{}, budgetOrErr(budget, started, err)
 	}

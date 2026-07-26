@@ -43,7 +43,7 @@ func TestToolAnalyticsAggregatesCallsAndFiltersByComponentWithinRangeAndBudget(t
 
 	to := base.AddDate(0, 0, 1)
 	started := time.Now()
-	response, err := ToolAnalytics(ctx, pool, "comp_tool_a", base, to)
+	response, err := ToolAnalytics(ctx, pool, "comp_tool_a", base, to, DefaultTimeBucketSpec())
 	elapsed := time.Since(started)
 	if err != nil {
 		t.Fatalf("ToolAnalytics: %v", err)
@@ -76,7 +76,7 @@ func TestToolAnalyticsAggregatesCallsAndFiltersByComponentWithinRangeAndBudget(t
 	}
 
 	// Empty-string componentID selects every component.
-	all, err := ToolAnalytics(ctx, pool, "", base, to)
+	all, err := ToolAnalytics(ctx, pool, "", base, to, DefaultTimeBucketSpec())
 	if err != nil {
 		t.Fatalf("ToolAnalytics (all components): %v", err)
 	}
@@ -99,7 +99,7 @@ func TestToolAnalyticsEmptyRangeReportsUnknownNotZero(t *testing.T) {
 	if err := EnsurePartition(ctx, pool, "tool_calls", base); err != nil {
 		t.Fatalf("ensure partition: %v", err)
 	}
-	response, err := ToolAnalytics(ctx, pool, "", base, base.AddDate(0, 0, 1))
+	response, err := ToolAnalytics(ctx, pool, "", base, base.AddDate(0, 0, 1), DefaultTimeBucketSpec())
 	if err != nil {
 		t.Fatalf("ToolAnalytics: %v", err)
 	}

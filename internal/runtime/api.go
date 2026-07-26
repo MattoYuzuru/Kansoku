@@ -274,14 +274,13 @@ var entityBreakdownBudgetIDs = map[string]bool{
 func (a *API) analytics(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
 	budgetID, metric, granularity, scope := query.Get("budget_id"), query.Get("metric_family"), query.Get("granularity"), query.Get("dimension_scope")
-	from, fromErr := time.Parse(time.RFC3339, query.Get("from"))
-	to, toErr := time.Parse(time.RFC3339, query.Get("to"))
-	if fromErr != nil || toErr != nil || !to.After(from) || to.Sub(from) > 366*24*time.Hour {
+	from, to, bucket, ok := parseAnalyticsRange(query)
+	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
 	}
 	if entityBreakdownBudgetIDs[budgetID] {
-		a.analyticsEntityBreakdown(writer, request, budgetID, metric, from, to)
+		a.analyticsEntityBreakdown(writer, request, budgetID, metric, from, to, bucket)
 		return
 	}
 	if !safeQueryID.MatchString(metric) || !safeQueryID.MatchString(scope) ||
@@ -317,7 +316,7 @@ func (a *API) analytics(writer http.ResponseWriter, request *http.Request) {
 // kind) since contracts/metrics.yaml's component.* metrics are already
 // dimensioned by component_kind and this reuses that same query parameter
 // rather than inventing a second one.
-func (a *API) analyticsEntityBreakdown(writer http.ResponseWriter, request *http.Request, budgetID, metric string, from, to time.Time) {
+func (a *API) analyticsEntityBreakdown(writer http.ResponseWriter, request *http.Request, budgetID, metric string, from, to time.Time, bucket dataplatform.TimeBucketSpec) {
 	if metric != "" && !safeQueryID.MatchString(metric) {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_query")
 		return
@@ -355,7 +354,7 @@ func (a *API) analyticsEntityBreakdown(writer http.ResponseWriter, request *http
 		}
 		a.write(writer, http.StatusOK, result, entityCoverage(result.Population, result.Completeness))
 	case "reliability_coverage_timeline":
-		result, err := dataplatform.ReliabilityCoverageTimeline(ctx, a.pool, from, to)
+		result, err := dataplatform.ReliabilityCoverageTimeline(ctx, a.pool, from, to, bucket)
 		if err != nil {
 			a.writeError(writer, http.StatusServiceUnavailable, "analytics_unavailable")
 			return
@@ -380,9 +379,8 @@ func entityCoverage(population dataplatform.Population, completeness dataplatfor
 // [from, to) range convention as analytics.
 func (a *API) mcpTopology(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
-	from, fromErr := time.Parse(time.RFC3339, query.Get("from"))
-	to, toErr := time.Parse(time.RFC3339, query.Get("to"))
-	if fromErr != nil || toErr != nil || !to.After(from) || to.Sub(from) > 366*24*time.Hour {
+	from, to, _, ok := parseAnalyticsRange(query)
+	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
 	}
@@ -396,31 +394,39 @@ func (a *API) mcpTopology(writer http.ResponseWriter, request *http.Request) {
 	a.write(writer, http.StatusOK, result, entityCoverage(result.Population, result.Completeness))
 }
 
-// parseAnalyticsRange applies the same [from, to) validation every
-// range-taking dataplatform route shares with analytics()/mcpTopology(): both
-// timestamps must parse as RFC3339, `to` must be strictly after `from`, and
-// the span must not exceed 366 days.
-func parseAnalyticsRange(query url.Values) (from, to time.Time, ok bool) {
+// parseAnalyticsRange applies one [from,to), timezone and bucket contract to
+// every range-taking route. Empty granularity/timezone values retain the
+// historical daily/UTC behavior for API compatibility.
+func parseAnalyticsRange(query url.Values) (from, to time.Time, bucket dataplatform.TimeBucketSpec, ok bool) {
 	from, fromErr := time.Parse(time.RFC3339, query.Get("from"))
 	to, toErr := time.Parse(time.RFC3339, query.Get("to"))
-	if fromErr != nil || toErr != nil || !to.After(from) || to.Sub(from) > 366*24*time.Hour {
-		return time.Time{}, time.Time{}, false
+	granularity := query.Get("granularity")
+	if granularity == "" {
+		granularity = string(dataplatform.GranularityDaily)
 	}
-	return from, to, true
+	timezone := query.Get("timezone")
+	if timezone == "" {
+		timezone = "UTC"
+	}
+	bucket, bucketErr := dataplatform.NewTimeBucketSpec(granularity, timezone)
+	if fromErr != nil || toErr != nil || bucketErr != nil || !bucket.ValidateRange(from, to) {
+		return time.Time{}, time.Time{}, dataplatform.TimeBucketSpec{}, false
+	}
+	return from, to, bucket, true
 }
 
 // activityTimeline serves the "/" overview-activity panel and the /activity
 // activity-timeline panel: distinct session/prompt counts and a
 // reconstructed active-duration estimate per calendar day in range.
 func (a *API) activityTimeline(writer http.ResponseWriter, request *http.Request) {
-	from, to, ok := parseAnalyticsRange(request.URL.Query())
+	from, to, bucket, ok := parseAnalyticsRange(request.URL.Query())
 	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
 	defer cancel()
-	result, err := dataplatform.ActivityTimeline(ctx, a.pool, from, to)
+	result, err := dataplatform.ActivityTimeline(ctx, a.pool, from, to, bucket)
 	if err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "analytics_unavailable")
 		return
@@ -431,14 +437,14 @@ func (a *API) activityTimeline(writer http.ResponseWriter, request *http.Request
 // promptShape serves the /prompts "prompt-shape" panel: per-day submitted
 // prompt count and exact byte-length percentiles.
 func (a *API) promptShape(writer http.ResponseWriter, request *http.Request) {
-	from, to, ok := parseAnalyticsRange(request.URL.Query())
+	from, to, bucket, ok := parseAnalyticsRange(request.URL.Query())
 	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
 	defer cancel()
-	result, err := dataplatform.PromptShape(ctx, a.pool, from, to)
+	result, err := dataplatform.PromptShape(ctx, a.pool, from, to, bucket)
 	if err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "analytics_unavailable")
 		return
@@ -449,14 +455,14 @@ func (a *API) promptShape(writer http.ResponseWriter, request *http.Request) {
 // modelUsage serves the /models "model-usage" and "model-cost" panels: the
 // per-day time-series companion to the model_breakdown_range leaderboard.
 func (a *API) modelUsage(writer http.ResponseWriter, request *http.Request) {
-	from, to, ok := parseAnalyticsRange(request.URL.Query())
+	from, to, bucket, ok := parseAnalyticsRange(request.URL.Query())
 	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
 	defer cancel()
-	result, err := dataplatform.ModelUsage(ctx, a.pool, from, to)
+	result, err := dataplatform.ModelUsage(ctx, a.pool, from, to, bucket)
 	if err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "analytics_unavailable")
 		return
@@ -470,7 +476,7 @@ func (a *API) modelUsage(writer http.ResponseWriter, request *http.Request) {
 // every component, matching ComponentBreakdown's "" == all-kinds convention).
 func (a *API) toolAnalytics(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
-	from, to, ok := parseAnalyticsRange(query)
+	from, to, bucket, ok := parseAnalyticsRange(query)
 	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
@@ -482,7 +488,7 @@ func (a *API) toolAnalytics(writer http.ResponseWriter, request *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
 	defer cancel()
-	result, err := dataplatform.ToolAnalytics(ctx, a.pool, componentID, from, to)
+	result, err := dataplatform.ToolAnalytics(ctx, a.pool, componentID, from, to, bucket)
 	if err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "analytics_unavailable")
 		return
@@ -494,7 +500,7 @@ func (a *API) toolAnalytics(writer http.ResponseWriter, request *http.Request) {
 // per MCP-server component, the fraction of its own observable window spent
 // in the "connected" state.
 func (a *API) mcpUptime(writer http.ResponseWriter, request *http.Request) {
-	from, to, ok := parseAnalyticsRange(request.URL.Query())
+	from, to, _, ok := parseAnalyticsRange(request.URL.Query())
 	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
@@ -513,14 +519,14 @@ func (a *API) mcpUptime(writer http.ResponseWriter, request *http.Request) {
 // /reliability "reliability-drift" panel: per-day unknown-schema and
 // reconciliation-mismatch counts.
 func (a *API) reliabilityCounts(writer http.ResponseWriter, request *http.Request) {
-	from, to, ok := parseAnalyticsRange(request.URL.Query())
+	from, to, bucket, ok := parseAnalyticsRange(request.URL.Query())
 	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
 	defer cancel()
-	result, err := dataplatform.ReliabilityCounts(ctx, a.pool, from, to)
+	result, err := dataplatform.ReliabilityCounts(ctx, a.pool, from, to, bucket)
 	if err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "analytics_unavailable")
 		return
@@ -548,14 +554,14 @@ func (a *API) systemSnapshot(writer http.ResponseWriter, request *http.Request) 
 // pass/fail counts for the integrity privacy-canary check, an honest
 // check-history timeline rather than a fabricated exact violation count.
 func (a *API) privacyCanaryHistory(writer http.ResponseWriter, request *http.Request) {
-	from, to, ok := parseAnalyticsRange(request.URL.Query())
+	from, to, bucket, ok := parseAnalyticsRange(request.URL.Query())
 	if !ok {
 		a.writeError(writer, http.StatusBadRequest, "invalid_analytics_range")
 		return
 	}
 	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
 	defer cancel()
-	result, err := dataplatform.PrivacyCanaryHistory(ctx, a.pool, from, to)
+	result, err := dataplatform.PrivacyCanaryHistory(ctx, a.pool, from, to, bucket)
 	if err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "analytics_unavailable")
 		return

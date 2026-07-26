@@ -18,12 +18,15 @@ import { deriveViewState } from "../api/client";
 import { useToolAnalytics } from "../api/queries";
 import { useRange } from "../hooks/useRange";
 import { dayLabel, ratio, sum } from "../lib/format";
-import { timeSeriesOption } from "../components/chartOptions";
+import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { ToolAnalyticsDayRow } from "../api/types";
 
 export function Tools() {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const analytics = useToolAnalytics(rangeParams);
 
   const rows = analytics.data?.data?.data ?? [];
@@ -51,7 +54,10 @@ export function Tools() {
       key: "p95",
       header: "p95 latency (ms)",
       align: "right",
-      render: (r) => (r.percentiles?.p95 != null ? r.percentiles.p95.toLocaleString() : "—"),
+      render: (r) =>
+        r.percentiles?.p95 != null
+          ? r.percentiles.p95.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          : "—",
     },
   ];
 
@@ -78,13 +84,14 @@ export function Tools() {
         </div>
         {rows.length > 0 ? (
           <ChartContainer
-            ariaLabel="Tool calls, successes and failures per day"
-            option={timeSeriesOption(
-              rows.map((r) => dayLabel(r.day)),
+            ariaLabel="Tool calls, successes and failures per selected time bucket"
+            option={bucketedTimeSeriesOption(
+              range,
+              rows,
               [
-                { name: "Calls", data: rows.map((r) => r.call_count) },
-                { name: "Succeeded", data: rows.map((r) => r.success_count) },
-                { name: "Failed", data: rows.map((r) => r.failure_count), color: "var(--status-degraded)" },
+                { name: "Calls", value: (r) => r.call_count },
+                { name: "Succeeded", value: (r) => r.success_count },
+                { name: "Failed", value: (r) => r.failure_count, color: "var(--status-degraded)" },
               ],
             )}
           />
@@ -95,13 +102,14 @@ export function Tools() {
         )}
         {latencyRows.length > 0 && (
           <ChartContainer
-            ariaLabel="Tool call p95 latency in milliseconds, for days with observed calls"
-            option={timeSeriesOption(
-              latencyRows.map((r) => dayLabel(r.day)),
+            ariaLabel="Tool call p95 latency in milliseconds, for buckets with observed calls"
+            option={bucketedTimeSeriesOption(
+              range,
+              latencyRows,
               [
                 {
                   name: "p95 latency (ms)",
-                  data: latencyRows.map((r) => r.percentiles?.p95 ?? null),
+                  value: (r) => r.percentiles?.p95,
                   color: "var(--accent-gold)",
                 },
               ],

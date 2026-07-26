@@ -20,6 +20,8 @@ export interface NavGroup {
   /** Mono uppercase group label, or null for an ungrouped single entry. */
   label: string | null;
   items: NavItem[];
+  /** Keep a semantic group but render it adjacent to the preceding rows. */
+  compactWithPrevious?: boolean;
 }
 
 // §2 grouping table. Order 1..7. Settings (order 7) is pinned to the bottom by
@@ -51,6 +53,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   },
   {
     label: null,
+    compactWithPrevious: true,
     items: [{ path: "/reliability", label: title("/reliability"), icon: "heartbeat" }],
   },
   {

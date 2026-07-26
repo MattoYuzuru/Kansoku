@@ -28,7 +28,7 @@ const FormulaVersionActivityTimeline1 = "activity_timeline/2"
 // interval (never zero-duration for a single-event session, since that
 // genuinely has no observed span). Sessions with zero events in range have
 // a nil ActiveDurationSeconds (unknown span), never a fabricated zero.
-func ActivityTimeline(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (ActivityTimelineResponse, error) {
+func ActivityTimeline(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, bucket TimeBucketSpec) (ActivityTimelineResponse, error) {
 	budget := Budgets["activity_timeline_range"]
 	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
 	if err != nil {
@@ -42,14 +42,14 @@ func ActivityTimeline(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 		SELECT day, count(DISTINCT session_id) AS session_count,
 			coalesce(sum(active_seconds), 0) AS active_seconds
 		FROM (
-			SELECT date_trunc('day', observed_at) AS day, session_id,
+			SELECT date_trunc($3, observed_at, $4) AS day, session_id,
 				extract(epoch FROM (max(observed_at) - min(observed_at))) AS active_seconds
 			FROM events
 			WHERE observed_at >= $1 AND observed_at < $2 AND session_id IS NOT NULL
-			GROUP BY date_trunc('day', observed_at), session_id
+			GROUP BY date_trunc($3, observed_at, $4), session_id
 		) per_session
 		GROUP BY day
-	`, from, to)
+	`, from, to, bucket.SQLUnit(), bucket.Timezone)
 	if err != nil {
 		return ActivityTimelineResponse{}, budgetOrErr(budget, started, err)
 	}
@@ -76,11 +76,11 @@ func ActivityTimeline(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 	}
 
 	promptRows, err := conn.Query(ctx, `
-		SELECT date_trunc('day', pf.observed_at) AS day, count(*) AS prompt_count
+		SELECT date_trunc($3, pf.observed_at, $4) AS day, count(*) AS prompt_count
 		FROM prompt_features pf
 		WHERE pf.observed_at >= $1 AND pf.observed_at < $2
 		GROUP BY day
-	`, from, to)
+	`, from, to, bucket.SQLUnit(), bucket.Timezone)
 	if err != nil {
 		return ActivityTimelineResponse{}, budgetOrErr(budget, started, err)
 	}

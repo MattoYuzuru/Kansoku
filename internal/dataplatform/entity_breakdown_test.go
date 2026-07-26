@@ -414,7 +414,7 @@ func TestReliabilityCoverageTimelineGroupsOverlappingIntervalsBySourceDayStatus(
 	// Different source, degraded status.
 	insertInterval("ci_4", "src_bravo", "degraded", base.Add(3*time.Hour), base.Add(4*time.Hour))
 
-	response, err := ReliabilityCoverageTimeline(ctx, pool, base, base.AddDate(0, 0, 1))
+	response, err := ReliabilityCoverageTimeline(ctx, pool, base, base.AddDate(0, 0, 1), DefaultTimeBucketSpec())
 	if err != nil {
 		t.Fatalf("ReliabilityCoverageTimeline: %v", err)
 	}

@@ -34,7 +34,10 @@ export interface AgentDetailProps {
 
 export function AgentDetail({ alias }: AgentDetailProps) {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const breakdown = useAgentBreakdown(rangeParams);
 
   const rows = breakdown.data?.data?.data ?? [];

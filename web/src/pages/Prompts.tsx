@@ -14,12 +14,15 @@ import { RangeControl } from "../components/RangeControl";
 import { deriveViewState } from "../api/client";
 import { usePromptShape } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { dayLabel, sum } from "../lib/format";
-import { timeSeriesOption } from "../components/chartOptions";
+import { sum } from "../lib/format";
+import { bucketedTimeSeriesOption } from "../components/chartOptions";
 
 export function Prompts() {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const shape = usePromptShape(rangeParams);
   const rows = shape.data?.data?.data ?? [];
   const state = deriveViewState(shape.data, { isLoading: shape.isLoading });
@@ -56,10 +59,11 @@ export function Prompts() {
         </div>
         {rows.length > 0 ? (
           <ChartContainer
-            ariaLabel="Prompt count per day"
-            option={timeSeriesOption(
-              rows.map((r) => dayLabel(r.day)),
-              [{ name: "Prompts", data: rows.map((r) => r.prompt_count) }],
+            ariaLabel="Prompt count per selected time bucket"
+            option={bucketedTimeSeriesOption(
+              range,
+              rows,
+              [{ name: "Prompts", value: (r) => r.prompt_count }],
             )}
           />
         ) : (
@@ -70,26 +74,28 @@ export function Prompts() {
         {characterRows.length > 0 ? (
           <ChartContainer
             ariaLabel="Prompt character-length percentile band (p50/p90/p95/p99)"
-            option={timeSeriesOption(
-              characterRows.map((r) => dayLabel(r.day)),
+            option={bucketedTimeSeriesOption(
+              range,
+              characterRows,
               [
-                { name: "p50", data: characterRows.map((r) => r.character_percentiles?.p50 ?? null) },
-                { name: "p90", data: characterRows.map((r) => r.character_percentiles?.p90 ?? null) },
-                { name: "p95", data: characterRows.map((r) => r.character_percentiles?.p95 ?? null) },
-                { name: "p99", data: characterRows.map((r) => r.character_percentiles?.p99 ?? null) },
+                { name: "p50", value: (r) => r.character_percentiles?.p50 },
+                { name: "p90", value: (r) => r.character_percentiles?.p90 },
+                { name: "p95", value: (r) => r.character_percentiles?.p95 },
+                { name: "p99", value: (r) => r.character_percentiles?.p99 },
               ],
             )}
           />
         ) : byteRows.length > 0 ? (
           <ChartContainer
             ariaLabel="Prompt byte-length percentile band (p50/p90/p95/p99)"
-            option={timeSeriesOption(
-              byteRows.map((r) => dayLabel(r.day)),
+            option={bucketedTimeSeriesOption(
+              range,
+              byteRows,
               [
-                { name: "p50", data: byteRows.map((r) => r.percentiles?.p50 ?? null) },
-                { name: "p90", data: byteRows.map((r) => r.percentiles?.p90 ?? null) },
-                { name: "p95", data: byteRows.map((r) => r.percentiles?.p95 ?? null) },
-                { name: "p99", data: byteRows.map((r) => r.percentiles?.p99 ?? null) },
+                { name: "p50", value: (r) => r.percentiles?.p50 },
+                { name: "p90", value: (r) => r.percentiles?.p90 },
+                { name: "p95", value: (r) => r.percentiles?.p95 },
+                { name: "p99", value: (r) => r.percentiles?.p99 },
               ],
             )}
           />
@@ -102,9 +108,9 @@ export function Prompts() {
           )
         )}
         <GapNote>
-          A calendar heatmap and hour/weekday heatmaps are not shown: the backend's
-          prompt-shape series is bucketed per calendar day only, with no hour-of-day or
-          day-of-week dimension available to build either honestly.
+          Calendar and weekday/hour heatmaps need a separate two-dimensional query.
+          The percentile charts use exact raw facts within each selected time bucket;
+          Kansoku never averages already-computed percentiles across buckets.
         </GapNote>
       </Panel>
     </section>

@@ -32,12 +32,15 @@ import {
   useSystemSnapshot,
 } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { bytesToReadable, dayLabel, secondsToReadable, sum } from "../lib/format";
-import { stackedBarOption } from "../components/chartOptions";
+import { bytesToReadable, secondsToReadable, sum } from "../lib/format";
+import { bucketedStackedBarOption } from "../components/chartOptions";
 
 export function Privacy() {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const canary = usePrivacyCanaryHistory(rangeParams);
   const counts = useReliabilityCounts(rangeParams);
   const snapshot = useSystemSnapshot();
@@ -72,12 +75,13 @@ export function Privacy() {
         </div>
         {canaryRows.length > 0 ? (
           <ChartContainer
-            ariaLabel="Redaction canary pass and fail counts per day"
-            option={stackedBarOption(
-              canaryRows.map((r) => dayLabel(r.day)),
+            ariaLabel="Redaction canary pass and fail counts per selected time bucket"
+            option={bucketedStackedBarOption(
+              range,
+              canaryRows,
               [
-                { name: "Pass", data: canaryRows.map((r) => r.pass_count), color: "var(--status-complete)" },
-                { name: "Fail", data: canaryRows.map((r) => r.fail_count), color: "var(--status-degraded)" },
+                { name: "Pass", value: (r) => r.pass_count, color: "var(--status-complete)" },
+                { name: "Fail", value: (r) => r.fail_count, color: "var(--status-degraded)" },
               ],
             )}
           />

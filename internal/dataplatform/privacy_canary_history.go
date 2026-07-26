@@ -41,7 +41,7 @@ const (
 // precedence (observed_at, then finished_at) for picking the timestamp to
 // bucket by, falling back to the parent integrity_audit_runs.started_at
 // when both check-level timestamps are null.
-func PrivacyCanaryHistory(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (PrivacyCanaryHistoryResponse, error) {
+func PrivacyCanaryHistory(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, bucket TimeBucketSpec) (PrivacyCanaryHistoryResponse, error) {
 	budget := Budgets["privacy_canary_history_range"]
 	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
 	if err != nil {
@@ -51,7 +51,7 @@ func PrivacyCanaryHistory(ctx context.Context, pool *pgxpool.Pool, from, to time
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		SELECT date_trunc('day', coalesce(iac.observed_at, iac.finished_at, iar.started_at)) AS day,
+		SELECT date_trunc($5, coalesce(iac.observed_at, iac.finished_at, iar.started_at), $6) AS day,
 			count(*) FILTER (WHERE iac.status = 'pass') AS pass_count,
 			count(*) FILTER (WHERE iac.status = 'fail') AS fail_count
 		FROM integrity_audit_checks iac
@@ -61,7 +61,7 @@ func PrivacyCanaryHistory(ctx context.Context, pool *pgxpool.Pool, from, to time
 			AND coalesce(iac.observed_at, iac.finished_at, iar.started_at) < $2
 		GROUP BY day
 		ORDER BY day
-	`, from, to, privacyCanaryCheckID, privacyCanarySourceID)
+	`, from, to, privacyCanaryCheckID, privacyCanarySourceID, bucket.SQLUnit(), bucket.Timezone)
 	if err != nil {
 		return PrivacyCanaryHistoryResponse{}, budgetOrErr(budget, started, err)
 	}

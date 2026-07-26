@@ -16,12 +16,15 @@ import { RangeControl } from "../components/RangeControl";
 import { deriveViewState } from "../api/client";
 import { useActivityTimeline } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { dayLabel, secondsToReadable, sum } from "../lib/format";
-import { timeSeriesOption } from "../components/chartOptions";
+import { secondsToReadable, sum } from "../lib/format";
+import { bucketedTimeSeriesOption } from "../components/chartOptions";
 
 export function Activity() {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const activity = useActivityTimeline(rangeParams);
   const rows = activity.data?.data?.data ?? [];
   const state = deriveViewState(activity.data, { isLoading: activity.isLoading });
@@ -53,12 +56,13 @@ export function Activity() {
         </div>
         {rows.length > 0 ? (
           <ChartContainer
-            ariaLabel="Sessions and prompts per day"
-            option={timeSeriesOption(
-              rows.map((r) => dayLabel(r.day)),
+            ariaLabel="Sessions and prompts per selected time bucket"
+            option={bucketedTimeSeriesOption(
+              range,
+              rows,
               [
-                { name: "Sessions", data: rows.map((r) => r.session_count) },
-                { name: "Prompts", data: rows.map((r) => r.prompt_count) },
+                { name: "Sessions", value: (r) => r.session_count },
+                { name: "Prompts", value: (r) => r.prompt_count },
               ],
             )}
           />
@@ -69,13 +73,14 @@ export function Activity() {
         )}
         {durationRows.length > 0 && (
           <ChartContainer
-            ariaLabel="Reconstructed active duration per day, in seconds"
-            option={timeSeriesOption(
-              durationRows.map((r) => dayLabel(r.day)),
+            ariaLabel="Reconstructed active duration per selected time bucket, in seconds"
+            option={bucketedTimeSeriesOption(
+              range,
+              durationRows,
               [
                 {
                   name: "Active duration (s)",
-                  data: durationRows.map((r) => r.active_duration_seconds),
+                  value: (r) => r.active_duration_seconds,
                   color: "var(--status-complete)",
                 },
               ],
@@ -83,9 +88,9 @@ export function Activity() {
           />
         )}
         <GapNote>
-          Session distribution and a weekday/hour heatmap are not shown: the backend's
-          activity timeline is bucketed per calendar day only, with no hour-of-day or
-          day-of-week breakdown available to build either honestly.
+          Session distribution and a weekday/hour heatmap need a separate two-dimensional
+          query. This chart does support hourly, daily, weekly and monthly time buckets,
+          but does not infer a heatmap from a one-dimensional series.
         </GapNote>
       </Panel>
     </section>

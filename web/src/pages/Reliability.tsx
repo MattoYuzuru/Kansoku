@@ -38,12 +38,15 @@ import {
 } from "../api/queries";
 import { useRange } from "../hooks/useRange";
 import { dayLabel, sum } from "../lib/format";
-import { stackedBarOption } from "../components/chartOptions";
+import { bucketedStackedBarOption } from "../components/chartOptions";
 import type { Incident, ReliabilityDayRow } from "../api/types";
 
 export function Reliability() {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const coverage = useReliabilityCoverageTimeline(rangeParams);
   const counts = useReliabilityCounts(rangeParams);
   const incidents = useIncidents();
@@ -155,14 +158,15 @@ export function Reliability() {
         </div>
         {countsRows.length > 0 ? (
           <ChartContainer
-            ariaLabel="Quarantined schema batches and reconciliation mismatch counts per day"
-            option={stackedBarOption(
-              countsRows.map((r) => dayLabel(r.day)),
+            ariaLabel="Quarantined schema batches and reconciliation mismatch counts per selected time bucket"
+            option={bucketedStackedBarOption(
+              range,
+              countsRows,
               [
-                { name: "Quarantined schema batch", data: countsRows.map((r) => r.unknown_schema_count) },
+                { name: "Quarantined schema batch", value: (r) => r.unknown_schema_count },
                 {
                   name: "Reconciliation mismatch",
-                  data: countsRows.map((r) => r.reconciliation_mismatch_count),
+                  value: (r) => r.reconciliation_mismatch_count,
                   color: "var(--status-degraded)",
                 },
               ],

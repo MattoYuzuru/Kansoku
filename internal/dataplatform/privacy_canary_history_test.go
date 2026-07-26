@@ -74,7 +74,7 @@ func TestPrivacyCanaryHistoryAggregatesPassFailWithinRangeAndBudget(t *testing.T
 
 	to := base.AddDate(0, 0, 1)
 	started := time.Now()
-	response, err := PrivacyCanaryHistory(ctx, pool, base, to)
+	response, err := PrivacyCanaryHistory(ctx, pool, base, to, DefaultTimeBucketSpec())
 	elapsed := time.Since(started)
 	if err != nil {
 		t.Fatalf("PrivacyCanaryHistory: %v", err)
@@ -112,7 +112,7 @@ func TestPrivacyCanaryHistoryEmptyRangeReportsUnknownNotZero(t *testing.T) {
 	ctx := context.Background()
 	createIntegrityTablesForTest(t, ctx, pool)
 	base := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	response, err := PrivacyCanaryHistory(ctx, pool, base, base.AddDate(0, 0, 1))
+	response, err := PrivacyCanaryHistory(ctx, pool, base, base.AddDate(0, 0, 1), DefaultTimeBucketSpec())
 	if err != nil {
 		t.Fatalf("PrivacyCanaryHistory: %v", err)
 	}

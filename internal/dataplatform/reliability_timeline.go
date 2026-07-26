@@ -23,7 +23,7 @@ const FormulaVersionReliabilityTimeline1 = "reliability_coverage_timeline/1"
 // everywhere else in the schema. An interval whose dimension_scope omits
 // that key is still counted (grouped under an empty source id) rather than
 // silently dropped, since the fact itself remains real and observed.
-func ReliabilityCoverageTimeline(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (ReliabilityTimelineResponse, error) {
+func ReliabilityCoverageTimeline(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, bucket TimeBucketSpec) (ReliabilityTimelineResponse, error) {
 	budget := Budgets["reliability_coverage_timeline"]
 	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
 	if err != nil {
@@ -33,7 +33,7 @@ func ReliabilityCoverageTimeline(ctx context.Context, pool *pgxpool.Pool, from, 
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		SELECT date_trunc('day', interval_start) AS day,
+		SELECT date_trunc($3, interval_start, $4) AS day,
 			coalesce(dimension_scope->>'source_instance_id', '') AS source_instance_id,
 			status,
 			count(*) AS interval_count
@@ -41,7 +41,7 @@ func ReliabilityCoverageTimeline(ctx context.Context, pool *pgxpool.Pool, from, 
 		WHERE interval_start < $2 AND interval_end > $1
 		GROUP BY day, source_instance_id, status
 		ORDER BY day, source_instance_id, status
-	`, from, to)
+	`, from, to, bucket.SQLUnit(), bucket.Timezone)
 	if err != nil {
 		return ReliabilityTimelineResponse{}, budgetOrErr(budget, started, err)
 	}

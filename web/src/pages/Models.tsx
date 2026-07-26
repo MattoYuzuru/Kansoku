@@ -20,13 +20,16 @@ import { RangeControl } from "../components/RangeControl";
 import { deriveViewState } from "../api/client";
 import { useModelBreakdown, useModelUsage } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { dayLabel, microsToUsd, sum } from "../lib/format";
-import { timeSeriesOption } from "../components/chartOptions";
+import { microsToUsd, sum } from "../lib/format";
+import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { EntityRow } from "../api/types";
 
 export function Models() {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const usage = useModelUsage(rangeParams);
   const breakdown = useModelBreakdown(rangeParams);
 
@@ -102,12 +105,13 @@ export function Models() {
         </div>
         {rows.length > 0 ? (
           <ChartContainer
-            ariaLabel="Model requests and tokens per day"
-            option={timeSeriesOption(
-              rows.map((r) => dayLabel(r.day)),
+            ariaLabel="Model requests and tokens per selected time bucket"
+            option={bucketedTimeSeriesOption(
+              range,
+              rows,
               [
-                { name: "Requests", data: rows.map((r) => r.request_count) },
-                { name: "Tokens", data: rows.map((r) => r.total_tokens) },
+                { name: "Requests", value: (r) => r.request_count },
+                { name: "Tokens", value: (r) => r.total_tokens },
               ],
             )}
           />
@@ -118,13 +122,14 @@ export function Models() {
         )}
         {latencyRows.length > 0 && (
           <ChartContainer
-            ariaLabel="Model p95 request latency in milliseconds, for days with native duration observations"
-            option={timeSeriesOption(
-              latencyRows.map((r) => dayLabel(r.day)),
+            ariaLabel="Model p95 request latency in milliseconds, for buckets with native duration observations"
+            option={bucketedTimeSeriesOption(
+              range,
+              latencyRows,
               [
                 {
                   name: "p95 latency (ms)",
-                  data: latencyRows.map((r) => r.percentiles?.p95 ?? null),
+                  value: (r) => r.percentiles?.p95,
                   color: "var(--status-degraded)",
                 },
               ],
@@ -155,13 +160,14 @@ export function Models() {
         </div>
         {costRows.length > 0 && (
           <ChartContainer
-            ariaLabel="API-equivalent estimated cost per day, in USD"
-            option={timeSeriesOption(
-              costRows.map((r) => dayLabel(r.day)),
+            ariaLabel="API-equivalent estimated cost per selected time bucket, in USD"
+            option={bucketedTimeSeriesOption(
+              range,
+              costRows,
               [
                 {
                   name: "Cost (USD)",
-                  data: costRows.map((r) => microsToUsd(r.estimated_cost_micros)),
+                  value: (r) => microsToUsd(r.estimated_cost_micros),
                   color: "var(--accent-gold)",
                   type: "bar",
                 },

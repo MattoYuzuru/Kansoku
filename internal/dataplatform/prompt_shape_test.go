@@ -53,7 +53,7 @@ func TestPromptShapeComputesExactByteLengthPercentilesWithinRangeAndBudget(t *te
 
 	to := base.AddDate(0, 0, 1)
 	started := time.Now()
-	response, err := PromptShape(ctx, pool, base, to)
+	response, err := PromptShape(ctx, pool, base, to, DefaultTimeBucketSpec())
 	elapsed := time.Since(started)
 	if err != nil {
 		t.Fatalf("PromptShape: %v", err)
@@ -94,7 +94,7 @@ func TestPromptShapeEmptyRangeReportsUnknownNotZero(t *testing.T) {
 	pool := freshSchema(t, dsn)
 	ctx := context.Background()
 	base := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	response, err := PromptShape(ctx, pool, base, base.AddDate(0, 0, 1))
+	response, err := PromptShape(ctx, pool, base, base.AddDate(0, 0, 1), DefaultTimeBucketSpec())
 	if err != nil {
 		t.Fatalf("PromptShape: %v", err)
 	}

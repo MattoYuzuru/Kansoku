@@ -20,7 +20,7 @@ const FormulaVersionToolAnalytics1 = "tool_analytics/1"
 // "tool-analytics" panel and the /components/mcp "mcp-health" panel's
 // calls/errors/latency series (tool.calls, tool.success_ratio,
 // tool.latency_seconds).
-func ToolAnalytics(ctx context.Context, pool *pgxpool.Pool, componentID string, from, to time.Time) (ToolAnalyticsResponse, error) {
+func ToolAnalytics(ctx context.Context, pool *pgxpool.Pool, componentID string, from, to time.Time, bucket TimeBucketSpec) (ToolAnalyticsResponse, error) {
 	budget := Budgets["tool_analytics_range"]
 	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
 	if err != nil {
@@ -30,7 +30,7 @@ func ToolAnalytics(ctx context.Context, pool *pgxpool.Pool, componentID string, 
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		SELECT date_trunc('day', tc.observed_at) AS day,
+		SELECT date_trunc($4, tc.observed_at, $5) AS day,
 			count(*) AS call_count,
 			count(*) FILTER (WHERE tc.outcome = 'succeeded') AS success_count,
 			count(*) FILTER (WHERE tc.outcome IN ('failed', 'timed_out', 'abandoned')) AS failure_count,
@@ -43,7 +43,7 @@ func ToolAnalytics(ctx context.Context, pool *pgxpool.Pool, componentID string, 
 			AND ($3 = '' OR tc.component_id = $3)
 		GROUP BY day
 		ORDER BY day
-	`, from, to, componentID)
+	`, from, to, componentID, bucket.SQLUnit(), bucket.Timezone)
 	if err != nil {
 		return ToolAnalyticsResponse{}, budgetOrErr(budget, started, err)
 	}

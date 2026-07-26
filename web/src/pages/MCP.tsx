@@ -22,13 +22,16 @@ import { StatusBadge } from "../components/StatusBadge";
 import { deriveViewState } from "../api/client";
 import { useMCPTopology, useMCPUptime, useToolAnalytics } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { dayLabel, sum } from "../lib/format";
-import { timeSeriesOption } from "../components/chartOptions";
+import { sum } from "../lib/format";
+import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { ComponentTreeNode, MCPUptimeRow } from "../api/types";
 
 export function MCP() {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const topology = useMCPTopology(rangeParams);
   const uptime = useMCPUptime(rangeParams);
 
@@ -144,13 +147,14 @@ export function MCP() {
         </div>
         {toolRows.length > 0 ? (
           <ChartContainer
-            ariaLabel="MCP tool calls per day"
-            option={timeSeriesOption(
-              toolRows.map((r) => dayLabel(r.day)),
+            ariaLabel="MCP tool calls per selected time bucket"
+            option={bucketedTimeSeriesOption(
+              range,
+              toolRows,
               [
-                { name: "Calls", data: toolRows.map((r) => r.call_count) },
-                { name: "Succeeded", data: toolRows.map((r) => r.success_count) },
-                { name: "Failed", data: toolRows.map((r) => r.failure_count), color: "var(--status-degraded)" },
+                { name: "Calls", value: (r) => r.call_count },
+                { name: "Succeeded", value: (r) => r.success_count },
+                { name: "Failed", value: (r) => r.failure_count, color: "var(--status-degraded)" },
               ],
             )}
           />

@@ -72,7 +72,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <nav className="k-nav">
           {NAV_GROUPS.map((group, gi) => (
-            <div className="k-nav__group" key={group.label ?? `g${gi}`}>
+            <div
+              className={`k-nav__group${group.compactWithPrevious ? " k-nav__group--compact" : ""}`}
+              key={group.label ?? `g${gi}`}
+            >
               {group.label && <div className="k-nav__group-label t-section-header">{group.label}</div>}
               <ul className="k-nav__list">{group.items.map(renderItem)}</ul>
             </div>

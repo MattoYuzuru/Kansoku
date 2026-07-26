@@ -79,7 +79,7 @@ func TestActivityTimelineAggregatesSessionsAndPromptsWithinRangeAndBudget(t *tes
 
 	to := base.AddDate(0, 0, 1)
 	started := time.Now()
-	response, err := ActivityTimeline(ctx, pool, base, to)
+	response, err := ActivityTimeline(ctx, pool, base, to, DefaultTimeBucketSpec())
 	elapsed := time.Since(started)
 	if err != nil {
 		t.Fatalf("ActivityTimeline: %v", err)
@@ -128,7 +128,7 @@ func TestActivityTimelineEmptyRangeReportsUnknownNotZero(t *testing.T) {
 	if err := EnsurePartition(ctx, pool, "events", base); err != nil {
 		t.Fatalf("ensure partition: %v", err)
 	}
-	response, err := ActivityTimeline(ctx, pool, base, base.AddDate(0, 0, 1))
+	response, err := ActivityTimeline(ctx, pool, base, base.AddDate(0, 0, 1), DefaultTimeBucketSpec())
 	if err != nil {
 		t.Fatalf("ActivityTimeline: %v", err)
 	}

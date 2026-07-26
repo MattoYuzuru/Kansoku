@@ -47,7 +47,10 @@ export function ComponentLifecyclePage({
   extraGapNote,
 }: ComponentLifecyclePageProps) {
   const range = useRange();
-  const rangeParams = useMemo(() => ({ from: range.from, to: range.to }), [range.from, range.to]);
+  const rangeParams = useMemo(
+    () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
+    [range.from, range.to, range.granularity, range.timezone],
+  );
   const funnel = useComponentLifecycleFunnel(rangeParams, componentKind);
   const inventory = useComponentInventory(componentKind);
 

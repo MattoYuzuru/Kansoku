@@ -32,6 +32,8 @@ import type {
 export interface RangeParams {
   from: string;
   to: string;
+  granularity: "hourly" | "daily" | "weekly" | "monthly";
+  timezone: string;
 }
 
 const rk = (...parts: unknown[]) => parts;
