@@ -207,7 +207,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     projections = app_server_bridge.get("emitting_projections", {})
     if projections.get("skills/list_enabled_response") != "component.exposed":
         errors.append("enabled skills/list response must project component.exposed")
-    if "codex-app-server-skill-input-load/1" not in str(projections.get("turn/started_skill_input", "")):
+    if "codex-app-server-skill-input-load/1" not in str(projections.get("item/started_userMessage_skill_input", "")):
         errors.append("typed skill input invoked/load projection must retain its explicit versioned rule")
     prohibited = set(app_server_bridge.get("prohibited_surfaces", []))
     if not {"messages", "reasoning", "arguments", "results", "errors", "paths", "environment", "uris"}.issubset(prohibited):

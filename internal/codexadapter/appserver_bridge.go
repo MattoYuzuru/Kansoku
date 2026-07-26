@@ -251,14 +251,6 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 			Turn     struct {
 				ID        string `json:"id"`
 				StartedAt *int64 `json:"startedAt"`
-				Items     []struct {
-					Type    string `json:"type"`
-					Content []struct {
-						Type string `json:"type"`
-						Name string `json:"name"`
-						Path string `json:"path"`
-					} `json:"content"`
-				} `json:"items"`
 			} `json:"turn"`
 		}
 		if json.Unmarshal(envelope.Params, &params) != nil || params.ThreadID == "" ||
@@ -266,37 +258,57 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 			return nil, "invalid_turn_started"
 		}
 		observedAt := time.Unix(*params.Turn.StartedAt, 0)
-		records := []privacy.SafeRecord{b.safeRecord(
+		return []privacy.SafeRecord{b.safeRecord(
 			params.Turn.ID, params.ThreadID, params.Turn.ID, "prompt.submitted",
 			"unknown", "", "", observedAt, sequence,
 			privacy.RedactionCounts{PromptFields: 1},
-		)}
+		)}, ""
+	case "item/started":
+		var params struct {
+			ThreadID   string `json:"threadId"`
+			TurnID     string `json:"turnId"`
+			StartedAtM int64  `json:"startedAtMs"`
+			Item       struct {
+				ID      string `json:"id"`
+				Type    string `json:"type"`
+				Content []struct {
+					Type string `json:"type"`
+					Name string `json:"name"`
+					Path string `json:"path"`
+				} `json:"content"`
+			} `json:"item"`
+		}
+		if json.Unmarshal(envelope.Params, &params) != nil ||
+			params.ThreadID == "" || params.TurnID == "" || params.Item.ID == "" ||
+			params.StartedAtM <= 0 {
+			return nil, "invalid_item_started"
+		}
+		if params.Item.Type != "userMessage" {
+			return nil, ""
+		}
+		observedAt := time.UnixMilli(params.StartedAtM)
+		var records []privacy.SafeRecord
 		skillCount := 0
-		for _, item := range params.Turn.Items {
-			if item.Type != "userMessage" {
+		for _, input := range params.Item.Content {
+			if input.Type != "skill" {
 				continue
 			}
-			for _, input := range item.Content {
-				if input.Type != "skill" {
-					continue
-				}
-				if !bridgeSkillNamePattern.MatchString(input.Name) || input.Path == "" {
-					return nil, "invalid_skill_input"
-				}
-				skillCount++
-				if skillCount > 16 {
-					return nil, "skill_input_limit_exceeded"
-				}
-				nativeID := params.Turn.ID + ":skill:" + input.Name
-				records = append(records,
-					b.safeRecord(nativeID+":invoked", params.ThreadID, params.Turn.ID,
-						"component.invoked", "unknown", input.Name, "skill", observedAt,
-						sequence, privacy.RedactionCounts{PathFields: 1, PromptFields: 1}),
-					b.safeRecord(nativeID+":loaded", params.ThreadID, params.Turn.ID,
-						"component.loaded", "unknown", input.Name, "skill", observedAt,
-						sequence, privacy.RedactionCounts{PathFields: 1, PromptFields: 1}),
-				)
+			if !bridgeSkillNamePattern.MatchString(input.Name) || input.Path == "" {
+				return nil, "invalid_skill_input"
 			}
+			skillCount++
+			if skillCount > 16 {
+				return nil, "skill_input_limit_exceeded"
+			}
+			nativeID := params.Item.ID + ":skill:" + input.Name
+			records = append(records,
+				b.safeRecord(nativeID+":invoked", params.ThreadID, params.TurnID,
+					"component.invoked", "unknown", input.Name, "skill", observedAt,
+					sequence, privacy.RedactionCounts{PathFields: 1, PromptFields: 1}),
+				b.safeRecord(nativeID+":loaded", params.ThreadID, params.TurnID,
+					"component.loaded", "unknown", input.Name, "skill", observedAt,
+					sequence, privacy.RedactionCounts{PathFields: 1, PromptFields: 1}),
+			)
 		}
 		return records, ""
 	case "item/completed":
@@ -332,7 +344,7 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 		)
 		record.Telemetry.DurationMS = params.Item.DurationMS
 		return []privacy.SafeRecord{record}, ""
-	case "item/started", "turn/completed", "skills/changed":
+	case "turn/completed", "skills/changed":
 		return nil, ""
 	default:
 		return nil, "unsupported_bridge_method"
