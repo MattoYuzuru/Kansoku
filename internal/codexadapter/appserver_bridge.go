@@ -196,11 +196,12 @@ func (b *AppServerBridge) reject(ctx context.Context, sink adaptersdk.SafeAssert
 }
 
 type appServerEnvelope struct {
-	JSONRPC string          `json:"jsonrpc,omitempty"`
-	ID      json.RawMessage `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-	Result  json.RawMessage `json:"result,omitempty"`
+	JSONRPC     string          `json:"jsonrpc,omitempty"`
+	ID          json.RawMessage `json:"id,omitempty"`
+	Method      string          `json:"method"`
+	Params      json.RawMessage `json:"params,omitempty"`
+	Result      json.RawMessage `json:"result,omitempty"`
+	EmittedAtMS *int64          `json:"emittedAtMs,omitempty"`
 }
 
 func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.SafeRecord, string) {

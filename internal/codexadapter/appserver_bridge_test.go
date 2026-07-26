@@ -176,8 +176,8 @@ func TestAppServerBridgeProjectsSkillExposureInvocationAndLoadWithoutPath(t *tes
 	frames := strings.Join([]string{
 		`{"jsonrpc":"2.0","id":7,"method":"skills/list","params":{"cwds":["/private/work"],"forceReload":true}}`,
 		`{"jsonrpc":"2.0","id":7,"result":{"data":[{"cwd":"/private/work","errors":[],"skills":[{"name":"kansoku-noop-skill","path":"` + canaryPath + `","enabled":true,"scope":"user","description":"content is discarded"}]}]}}`,
-		`{"method":"turn/started","params":{"threadId":"thr-skill","turn":{"id":"turn-skill","startedAt":1785060001,"status":"inProgress","items":[]}}}`,
-		`{"method":"item/started","params":{"threadId":"thr-skill","turnId":"turn-skill","startedAtMs":1785060001000,"item":{"type":"userMessage","id":"msg-skill","content":[{"type":"skill","name":"kansoku-noop-skill","path":"` + canaryPath + `"},{"type":"text","text":"raw prompt is discarded"}]}}}`,
+		`{"emittedAtMs":1785060001000,"method":"turn/started","params":{"threadId":"thr-skill","turn":{"id":"turn-skill","startedAt":1785060001,"status":"inProgress","items":[]}}}`,
+		`{"emittedAtMs":1785060001001,"method":"item/started","params":{"threadId":"thr-skill","turnId":"turn-skill","startedAtMs":1785060001000,"item":{"type":"userMessage","id":"msg-skill","content":[{"type":"skill","name":"kansoku-noop-skill","path":"` + canaryPath + `"},{"type":"text","text":"raw prompt is discarded"}]}}}`,
 	}, "\n")
 	if err := bridge.Connect(context.Background(), adaptersdk.BridgeTarget{
 		Installation: adaptersdk.Installation{InstallationID: "ain-safe", AdapterID: AdapterID},
