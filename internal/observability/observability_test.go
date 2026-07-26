@@ -801,19 +801,9 @@ func TestHTTPHookAndOTLPProtobufReuseLocalSecurityBoundary(t *testing.T) {
 // otel.yaml's hook_source stdin shape) is a real event through the existing
 // codexHookHandler/claudeHookHandler routes -- the same generic
 // /v1/hooks/{adapter}/{event} mux fixture-agent already uses, no second
-// ingress mechanism. It also proves, honestly rather than by omission (per
-// "unknown is not zero"), the one pre-existing limit this session's Gap B
-// scope does not touch: internal/observability/ingest.go's ingestJSON still
-// decodes every hook_http body against privacy.FixtureSourceSchema() only
-// (Session 03's synthetic schema), so a real codex/claude canonical event
-// type such as "session.started" is correctly recognized as *decoded and
-// routed* by codexHookHandler/claudeHookHandler (proving the installer's
-// notify.command/hooks.* wiring reaches a real, adapter-specific handler,
-// not a stub) but still quarantines as unknown_schema rather than committing
-// a fact -- generalizing ingestJSON's schema dispatch for hook_http the way
-// ADR 0014 Gap A generalizes it for OTLP is explicitly a different gap
-// (adapter-aware ingestion dispatch), never silently folded into the
-// installer file-writer this test's own task scopes.
+// ingress mechanism. Already-sanitized adapter output enters the shared
+// canonical safe-field path with hook_http lineage; it is never re-decoded
+// against the fixture-agent-only wire schema.
 func TestRealAdapterHookStdinPayloadsReachCodexAndClaudeHookRoutes(t *testing.T) {
 	store, ingestor, _ := testIngestor(t, 4<<20)
 	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
@@ -847,29 +837,29 @@ func TestRealAdapterHookStdinPayloadsReachCodexAndClaudeHookRoutes(t *testing.T)
 	}
 
 	// A well-formed, documented SessionStart payload for both adapters is
-	// decoded, mapped to its canonical event type and allowlist-validated by
-	// the real codexHookHandler/claudeHookHandler -- proving the installed
-	// hook helper's payload genuinely drives that adapter-specific code path
-	// end to end -- but still quarantines (never silently drops or fakes a
-	// commit) because ingestJSON's schema recognition has not yet been
-	// generalized past the Session 03 fixture-agent schema; that
-	// generalization is ADR 0014 Gap A's stated territory, not this gap's.
+	// decoded, mapped, allowlist-validated and committed.
 	codexStdin, _ := json.Marshal(map[string]any{"hook_event_name": "SessionStart", "session_id": "codex-real-session-1"})
 	codexResponse := send("/v1/hooks/codex/SessionStart", codexStdin, "127.0.0.1:52010")
-	if codexResponse.Code != http.StatusBadRequest {
-		t.Fatalf("expected the real codex hook route to reach ingestJSON's schema quarantine (status 400), got status=%d body=%s -- if this now succeeds, ingestJSON has been generalized and this test's documented limitation should be updated to assert a committed fact instead", codexResponse.Code, codexResponse.Body.String())
+	if codexResponse.Code != http.StatusOK {
+		t.Fatalf("codex hook status=%d body=%s", codexResponse.Code, codexResponse.Body.String())
 	}
 
 	claudeStdin, _ := json.Marshal(map[string]any{"hook_event_name": "SessionStart", "session_id": "claude-real-session-1"})
 	claudeResponse := send("/v1/hooks/claude/SessionStart", claudeStdin, "127.0.0.1:52011")
-	if claudeResponse.Code != http.StatusBadRequest {
-		t.Fatalf("expected the real claude hook route to reach ingestJSON's schema quarantine (status 400), got status=%d body=%s -- if this now succeeds, ingestJSON has been generalized and this test's documented limitation should be updated to assert a committed fact instead", claudeResponse.Code, claudeResponse.Body.String())
+	if claudeResponse.Code != http.StatusOK {
+		t.Fatalf("claude hook status=%d body=%s", claudeResponse.Code, claudeResponse.Body.String())
 	}
 
-	// Neither the unsupported-event rejection nor the schema quarantine ever
-	// fabricates a committed fact.
-	if len(store.Snapshot().Facts) != 0 {
-		t.Fatalf("neither an unsupported hook event nor a schema-quarantined one may ever produce a fact, got %d", len(store.Snapshot().Facts))
+	state := store.Snapshot()
+	if len(state.Facts) != 2 || len(state.Quarantine) != 0 {
+		t.Fatalf("facts=%d quarantine=%d, want two committed hooks and no quarantine", len(state.Facts), len(state.Quarantine))
+	}
+	for _, fact := range state.Facts {
+		if fact.Event.EventType != "session.started" ||
+			fact.Event.Source.Kind != SourceHook ||
+			fact.Event.Source.SchemaID != fact.Event.Source.AdapterID+".hook/1" {
+			t.Fatalf("unexpected hook lineage: %+v", fact.Event)
+		}
 	}
 }
 

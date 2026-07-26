@@ -172,12 +172,7 @@ func codexHookHandler(writer http.ResponseWriter, request *http.Request, ingesto
 		http.Error(writer, "hook_output_not_allowlisted", http.StatusInternalServerError)
 		return
 	}
-	raw, err := json.Marshal(output)
-	if err != nil {
-		http.Error(writer, "invalid_hook", http.StatusInternalServerError)
-		return
-	}
-	result, err := ingestor.IngestHook(raw, 0)
+	result, err := ingestor.IngestSafeHookFields(codexHookSafeFields(output), codexadapter.AdapterID, 0)
 	writeHookIngestResult(writer, result, err)
 }
 
@@ -219,13 +214,66 @@ func claudeHookHandler(writer http.ResponseWriter, request *http.Request, ingest
 		http.Error(writer, "hook_output_not_allowlisted", http.StatusInternalServerError)
 		return
 	}
-	raw, err := json.Marshal(output)
-	if err != nil {
-		http.Error(writer, "invalid_hook", http.StatusInternalServerError)
-		return
-	}
-	result, err := ingestor.IngestHook(raw, 0)
+	result, err := ingestor.IngestSafeHookFields(claudeHookSafeFields(output), claudeadapter.AdapterID, 0)
 	writeHookIngestResult(writer, result, err)
+}
+
+func hookOutcome(status string) string {
+	switch strings.ToLower(status) {
+	case "success", "succeeded", "ok", "completed":
+		return "succeeded"
+	case "failure", "failed", "error":
+		return "failed"
+	case "cancelled", "interrupted", "timed_out", "abandoned":
+		return strings.ToLower(status)
+	default:
+		return "unknown"
+	}
+}
+
+func addOptionalHookField(fields map[string]any, key string, value any) {
+	switch typed := value.(type) {
+	case string:
+		if typed != "" {
+			fields[key] = typed
+		}
+	case int64:
+		if typed != 0 {
+			fields[key] = typed
+		}
+	}
+}
+
+func codexHookSafeFields(output codexadapter.HookHelperOutput) map[string]any {
+	fields := map[string]any{
+		"event_id": output.EventID, "session_id": output.SessionID,
+		"observed_at": output.ObservedAt, "event_type": output.EventType,
+		"outcome": hookOutcome(output.ToolStatus), "value_state": "observed",
+	}
+	addOptionalHookField(fields, "turn_id", output.TurnID)
+	addOptionalHookField(fields, "model", output.ModelID)
+	addOptionalHookField(fields, "tool_name", output.ToolID)
+	addOptionalHookField(fields, "duration_ms", output.TimingMS)
+	if output.PromptFeatures != nil {
+		fields["prompt_character_count"] = int64(output.PromptFeatures.CharacterCount)
+	}
+	return fields
+}
+
+func claudeHookSafeFields(output claudeadapter.HookHelperOutput) map[string]any {
+	fields := map[string]any{
+		"event_id": output.EventID, "session_id": output.SessionID,
+		"observed_at": output.ObservedAt, "event_type": output.EventType,
+		"outcome": hookOutcome(output.ToolStatus), "value_state": "observed",
+	}
+	addOptionalHookField(fields, "turn_id", output.TurnID)
+	addOptionalHookField(fields, "model", output.ModelID)
+	addOptionalHookField(fields, "tool_name", output.ToolID)
+	addOptionalHookField(fields, "duration_ms", output.TimingMS)
+	if output.PromptFeatures != nil {
+		fields["prompt_character_count"] = int64(output.PromptFeatures.CharacterCount)
+	}
+	return fields
 }
 
 func writeHookIngestResult(writer http.ResponseWriter, result CommitResult, err error) {

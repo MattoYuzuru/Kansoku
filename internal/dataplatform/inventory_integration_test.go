@@ -108,6 +108,8 @@ func TestInventorySnapshotPersistsIdempotentlyAndBacksLifecycleFunnel(t *testing
 		t.Fatalf("inventory-backed funnel mismatch: %+v", funnel.Data)
 	}
 	if stage["invoked"].ValueState != "not_observed" ||
+		stage["succeeded"].ValueState != "unsupported" ||
+		stage["opportunity_detected"].ValueState != "unsupported" ||
 		funnel.Completeness.Status != "complete" ||
 		funnel.Population.Numerator != 3 || funnel.Population.Denominator != 3 {
 		t.Fatalf("funnel states/completeness mismatch: %+v", funnel)

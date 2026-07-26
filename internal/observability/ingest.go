@@ -307,6 +307,33 @@ func (i *Ingestor) IngestUnknown(kind SourceKind, schemaFingerprint string, byte
 // never merge across lanes -- exactly the regression
 // TestSharedLogicalFixtureAcrossHookOTLPAndTranscript guards against.
 func (i *Ingestor) IngestSafeFields(fields map[string]any, adapterID string, kind SourceKind, sequence uint64) (CommitResult, error) {
+	sourceSchemaID := adapterID + ".otel/1"
+	if adapterID == FixtureAdapterID {
+		sourceSchemaID = fixtureOTLPSchema
+	}
+	return i.ingestCanonicalSafeFields(fields, adapterID, kind, sourceSchemaID, sequence)
+}
+
+// IngestSafeHookFields is the equivalent already-sanitized boundary for a
+// real adapter hook. It deliberately shares the canonical-field validator,
+// pseudonymization and commit path with OTLP while retaining hook_http
+// lineage and the adapter's hook schema identity.
+func (i *Ingestor) IngestSafeHookFields(fields map[string]any, adapterID string, sequence uint64) (CommitResult, error) {
+	if adapterID == "" || adapterID == FixtureAdapterID {
+		return CommitResult{}, errors.New("invalid_hook_adapter_identity")
+	}
+	return i.ingestCanonicalSafeFields(
+		fields, adapterID, SourceHook, adapterID+".hook/1", sequence,
+	)
+}
+
+func (i *Ingestor) ingestCanonicalSafeFields(
+	fields map[string]any,
+	adapterID string,
+	kind SourceKind,
+	sourceSchemaID string,
+	sequence uint64,
+) (CommitResult, error) {
 	allowed := map[string]bool{
 		"event_id": true, "session_id": true, "observed_at": true, "event_type": true,
 		"outcome": true, "value_state": true, "model": true, "tool_name": true,
@@ -394,10 +421,6 @@ func (i *Ingestor) IngestSafeFields(fields map[string]any, adapterID string, kin
 		if value != nil && *value < 0 {
 			return CommitResult{}, errors.New("unsafe_otlp_field")
 		}
-	}
-	sourceSchemaID := adapterID + ".otel/1"
-	if adapterID == FixtureAdapterID {
-		sourceSchemaID = fixtureOTLPSchema
 	}
 	record := privacy.SafeRecord{
 		RecordID: recordID, IdempotencyKey: idempotency,

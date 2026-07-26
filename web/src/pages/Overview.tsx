@@ -172,9 +172,19 @@ export function Overview() {
           />
           <KpiCard
             label="Success ratio"
-            value={executed > 0 ? Math.round((100 * succeeded) / executed) : null}
+            value={
+              succeededRow?.value_state !== "unsupported" && executed > 0
+                ? Math.round((100 * succeeded) / executed)
+                : null
+            }
             unit="%"
-            state={executed > 0 ? funnelRowState(succeededRow?.value_state) : "not_observed"}
+            state={
+              succeededRow?.value_state === "unsupported"
+                ? "unsupported"
+                : executed > 0
+                  ? funnelRowState(succeededRow?.value_state)
+                  : "not_observed"
+            }
           />
         </div>
         {funnelRows.length > 0 ? (
@@ -191,9 +201,10 @@ export function Overview() {
           </p>
         )}
         <GapNote>
-          Installed and enabled are current inventory observations. Later stages
-          require runtime lifecycle evidence and remain “Not observed” when the
-          active agent interface emits no qualifying signal.
+          Installed and enabled are current inventory observations. Native lifecycle
+          identities are correlated to exactly one component installation before they
+          enter later stages. Universal skill/plugin success is unsupported because
+          current agent interfaces expose no component-terminal outcome.
         </GapNote>
       </Panel>
 

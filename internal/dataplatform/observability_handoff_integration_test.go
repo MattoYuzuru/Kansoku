@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"kansoku.local/kansoku/internal/adaptersdk"
 	"kansoku.local/kansoku/internal/observability"
 )
 
@@ -181,6 +182,101 @@ func TestObservabilityHandoffCreatesVersionedPublicAPICostEstimate(t *testing.T)
 	}
 }
 
+func TestObservabilityHandoffProjectsOnlyUniquelyResolvedLifecycleEvidence(t *testing.T) {
+	pool := freshSchema(t, testDSN(t))
+	ctx := context.Background()
+	handoff, err := NewObservabilityHandoff(pool, 5*time.Second)
+	if err != nil {
+		t.Fatalf("NewObservabilityHandoff: %v", err)
+	}
+	observedAt := time.Date(2026, 7, 26, 8, 0, 0, 0, time.UTC)
+	if err := EnsureInventoryInstallation(ctx, pool, "ain_native_01", "codex"); err != nil {
+		t.Fatal(err)
+	}
+	installationNode := adaptersdk.Node{
+		NodeID: "node_lifecycle_installation", Kind: adaptersdk.NodeAgentInstallation,
+		DeclaredName: "codex", SourceScope: adaptersdk.ScopeUser,
+		Fingerprint: inventoryTestFingerprint("lifecycle-installation"),
+	}
+	skillNode := inventoryTestNode(
+		"node_lifecycle_skill", adaptersdk.NodeSkillIdentity, "kansoku-noop-canary",
+	)
+	snapshot := adaptersdk.InventorySnapshot{
+		SnapshotID: "snap_lifecycle_1", AdapterID: "codex", AdapterVersion: "0.145.0",
+		InstallationID: "ain_native_01", ObservedAt: observedAt,
+		Fingerprint: inventoryTestFingerprint("lifecycle-snapshot"),
+		Nodes:       []adaptersdk.Node{installationNode, skillNode},
+		Edges: []adaptersdk.Edge{
+			inventoryTestEnabledEdge("edge_lifecycle_skill", skillNode.NodeID, installationNode.NodeID),
+		},
+	}
+	if _, err := PersistInventorySnapshot(ctx, pool, snapshot, "complete"); err != nil {
+		t.Fatal(err)
+	}
+
+	invoked := nativeProjectionEvent(
+		"evt_native_skill_invoked_01", "component.invoked", observedAt.Add(time.Minute),
+		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
+	)
+	invoked.Subject = observability.Subject{Kind: "skill", ComponentID: "kansoku-noop-canary"}
+	invoked.Outcome = "succeeded" // ingress processing outcome, not component success
+	for i := 0; i < 2; i++ {
+		if err := handoff.PersistNormalizedFact(invoked, nativeProjectionEvidence(invoked)); err != nil {
+			t.Fatalf("PersistNormalizedFact lifecycle replay %d: %v", i, err)
+		}
+	}
+
+	var eventComponentID, stage string
+	var lifecycleCount int64
+	if err := pool.QueryRow(ctx, `
+		SELECT component_id FROM events WHERE event_id = $1
+	`, invoked.EventID).Scan(&eventComponentID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*), max(lifecycle_stage)
+		FROM component_lifecycle_events
+	`).Scan(&lifecycleCount, &stage); err != nil {
+		t.Fatal(err)
+	}
+	if eventComponentID != skillNode.NodeID || lifecycleCount != 1 || stage != "invoked" {
+		t.Fatalf("lifecycle projection = component %q count %d stage %q", eventComponentID, lifecycleCount, stage)
+	}
+
+	funnel, err := ComponentLifecycleFunnel(
+		ctx, pool, "skill", observedAt.Add(-time.Minute), observedAt.Add(time.Hour),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byStage := make(map[string]FunnelStageRow)
+	for _, row := range funnel.Data {
+		byStage[row.Stage] = row
+	}
+	if byStage["invoked"].ComponentCount != 1 || byStage["invoked"].EventCount != 1 {
+		t.Fatalf("resolved lifecycle event was missing or double-counted: %+v", byStage["invoked"])
+	}
+	if byStage["succeeded"].ValueState != "unsupported" ||
+		byStage["succeeded"].ComponentCount != 0 {
+		t.Fatalf("ingress outcome was promoted to component success: %+v", byStage["succeeded"])
+	}
+
+	unmatched := nativeProjectionEvent(
+		"evt_native_skill_unmatched_01", "component.loaded", observedAt.Add(2*time.Minute),
+		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
+	)
+	unmatched.Subject = observability.Subject{Kind: "skill", ComponentID: "unknown-skill"}
+	if err := handoff.PersistNormalizedFact(unmatched, nativeProjectionEvidence(unmatched)); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM component_lifecycle_events`).Scan(&lifecycleCount); err != nil {
+		t.Fatal(err)
+	}
+	if lifecycleCount != 1 {
+		t.Fatalf("unmatched identity was promoted into lifecycle: count=%d", lifecycleCount)
+	}
+}
+
 func nativeProjectionEvent(eventID, eventType string, observedAt time.Time, sessionID, turnID string) observability.Event {
 	sequence := uint64(1)
 	switch eventType {
@@ -190,6 +286,8 @@ func nativeProjectionEvent(eventID, eventType string, observedAt time.Time, sess
 		sequence = 4
 	case "model.requested":
 		sequence = 3
+	case "component.loaded", "component.invoked", "component.executed":
+		sequence = 5
 	}
 	return observability.Event{
 		SpecVersion: observability.EventSpecVersion,

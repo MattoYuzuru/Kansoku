@@ -127,6 +127,9 @@ func validSource(source SourceRef) bool {
 	if source.Kind == SourceAdapterBatch || source.SchemaID == expected {
 		return true
 	}
+	if source.Kind == SourceHook {
+		return source.SchemaID == "codex.hook/1" || source.SchemaID == "claude.hook/1"
+	}
 	if source.Kind == SourceOTLPLog || source.Kind == SourceOTLPSpan || source.Kind == SourceOTLPMetric {
 		return source.SchemaID == "codex.otel/1" || source.SchemaID == "claude.otel/1"
 	}

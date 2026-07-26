@@ -90,7 +90,7 @@ export interface FunnelStageRow {
   stage: LifecycleStage;
   component_count: number;
   event_count: number;
-  value_state: "complete" | "numeric_zero" | "not_observed" | "unknown";
+  value_state: "complete" | "numeric_zero" | "not_observed" | "unsupported" | "unknown";
 }
 export interface FunnelResponse {
   data: FunnelStageRow[];

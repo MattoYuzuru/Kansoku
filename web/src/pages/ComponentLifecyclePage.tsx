@@ -96,9 +96,19 @@ export function ComponentLifecyclePage({
           />
           <KpiCard
             label="Success ratio"
-            value={executed > 0 ? Math.round((100 * succeeded) / executed) : null}
+            value={
+              succeededRow?.value_state !== "unsupported" && executed > 0
+                ? Math.round((100 * succeeded) / executed)
+                : null
+            }
             unit="%"
-            state={executed > 0 ? rowState(succeededRow?.value_state) : "not_observed"}
+            state={
+              succeededRow?.value_state === "unsupported"
+                ? "unsupported"
+                : executed > 0
+                  ? rowState(succeededRow?.value_state)
+                  : "not_observed"
+            }
           />
         </div>
         {rows.length > 0 ? (
@@ -116,9 +126,11 @@ export function ComponentLifecyclePage({
         )}
         <GapNote>
           Installed and enabled come from the latest bounded, read-only inventory
-          snapshot in this range. Exposed, invoked, loaded, executed, and succeeded
-          require runtime evidence; zero with “Not observed” means no qualifying
-          native or reconstructed signal was seen, not that the component failed.{" "}
+          snapshot in this range. Invoked and loaded accept only native or uniquely
+          inventory-resolved runtime evidence. Executed requires an unambiguous owned
+          action. Universal component success is unsupported because the agent interfaces
+          publish no terminal skill/plugin outcome; a successful session or child tool
+          call is never promoted to component success.{" "}
           Cold/unused reason codes are not shown: neither inventory nor native
           lifecycle telemetry provides a bounded reason-code dimension.
           {extraGapNote ? ` ${extraGapNote}` : ""}

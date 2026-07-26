@@ -47,16 +47,17 @@ func (h *ObservabilityHandoff) Pool() *pgxpool.Pool {
 // scopes are filled with stable, bounded identifiers based only on existing
 // pseudonyms and closed catalog values.
 type ObservabilityFactScope struct {
-	DeviceID            string
-	AgentInstallationID string
-	SurfaceID           string
-	ProjectID           string
-	SessionID           string
-	TurnID              string
-	ComponentID         string
-	AdapterVersionID    string
-	SourceInstanceID    string
-	DimensionScope      string
+	DeviceID                string
+	AgentInstallationID     string
+	SurfaceID               string
+	ProjectID               string
+	SessionID               string
+	TurnID                  string
+	ComponentID             string
+	ComponentInstallationID string
+	AdapterVersionID        string
+	SourceInstanceID        string
+	DimensionScope          string
 }
 
 func handoffID(kind string, values ...string) string {
@@ -137,6 +138,11 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 	scope := ObservabilityScope(event)
 	ctx, cancel := context.WithTimeout(context.Background(), h.timeout)
 	defer cancel()
+	var err error
+	scope, err = h.resolveInventoryLifecycleComponent(ctx, event, scope)
+	if err != nil {
+		return err
+	}
 	if err := EnsureDimensions(ctx, h.pool, DimensionRefs{
 		DeviceID:            scope.DeviceID,
 		AgentInstallationID: scope.AgentInstallationID,
@@ -208,6 +214,71 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 	return h.persistProjections(ctx, event, scope)
 }
 
+// resolveInventoryLifecycleComponent correlates a native, identity-only
+// component name against the current inventory for the same installation.
+// Exactly one match is required. Zero or multiple matches remain durable
+// unmatched facts and are never promoted into the inventory-backed funnel.
+func (h *ObservabilityHandoff) resolveInventoryLifecycleComponent(
+	ctx context.Context,
+	event observability.Event,
+	scope ObservabilityFactScope,
+) (ObservabilityFactScope, error) {
+	if !isComponentLifecycleEvent(event.EventType) ||
+		scope.ComponentID == "" || event.Subject.Kind == "" {
+		return scope, nil
+	}
+	rows, err := h.pool.Query(ctx, `
+		SELECT c.component_id, ci.component_installation_id
+		FROM component_inventory_state cis
+		JOIN component_installations ci
+		  ON ci.component_installation_id = cis.component_installation_id
+		JOIN component_versions cv
+		  ON cv.component_version_id = ci.component_version_id
+		JOIN components c ON c.component_id = cv.component_id
+		WHERE ci.agent_installation_id = $1
+		  AND c.kind = $2
+		  AND c.declared_name = $3
+		ORDER BY c.component_id
+		LIMIT 2
+	`, scope.AgentInstallationID, databaseComponentKind(event.Subject.Kind), scope.ComponentID)
+	if err != nil {
+		return scope, err
+	}
+	defer rows.Close()
+	type match struct {
+		componentID             string
+		componentInstallationID string
+	}
+	var matches []match
+	for rows.Next() {
+		var candidate match
+		if err := rows.Scan(&candidate.componentID, &candidate.componentInstallationID); err != nil {
+			return scope, err
+		}
+		matches = append(matches, candidate)
+	}
+	if err := rows.Err(); err != nil {
+		return scope, err
+	}
+	if len(matches) != 1 {
+		return scope, nil
+	}
+	scope.ComponentID = matches[0].componentID
+	scope.ComponentInstallationID = matches[0].componentInstallationID
+	scope.DimensionScope = scope.AgentInstallationID + "|" + scope.SurfaceID + "|" +
+		scope.ComponentID + "|" + event.EventType
+	return scope, nil
+}
+
+func isComponentLifecycleEvent(eventType string) bool {
+	switch eventType {
+	case "component.installed", "component.loaded", "component.invoked", "component.executed":
+		return true
+	default:
+		return false
+	}
+}
+
 func (h *ObservabilityHandoff) persistSourceWatermark(ctx context.Context, event observability.Event, scope ObservabilityFactScope) error {
 	_, err := h.pool.Exec(ctx, `
 		INSERT INTO source_watermarks (
@@ -251,6 +322,24 @@ func providerForAdapter(adapterID string) string {
 
 func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event observability.Event, scope ObservabilityFactScope) error {
 	switch event.EventType {
+	case "component.installed", "component.loaded", "component.invoked", "component.executed":
+		if scope.ComponentInstallationID == "" {
+			return nil
+		}
+		stage := map[string]string{
+			"component.installed": "installed",
+			"component.loaded":    "loaded",
+			"component.invoked":   "invoked",
+			"component.executed":  "executed",
+		}[event.EventType]
+		_, err := h.pool.Exec(ctx, `
+			INSERT INTO component_lifecycle_events (
+				component_lifecycle_event_id, component_installation_id,
+				observed_at, lifecycle_stage
+			) VALUES ($1,$2,$3,$4)
+			ON CONFLICT (component_lifecycle_event_id) DO NOTHING
+		`, event.EventID, scope.ComponentInstallationID, event.ObservedAt, stage)
+		return err
 	case "prompt.submitted":
 		_, err := h.pool.Exec(ctx, `
 			INSERT INTO prompt_features (

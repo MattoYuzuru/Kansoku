@@ -9,7 +9,7 @@ import (
 
 // FormulaVersionComponentFunnel1 is the registered formula version for the
 // component lifecycle funnel query.
-const FormulaVersionComponentFunnel1 = "component_lifecycle_funnel/3"
+const FormulaVersionComponentFunnel1 = "component_lifecycle_funnel/4"
 
 // canonicalLifecycleStages mirrors contracts/capabilities.yaml
 // `lifecycle.canonical_progression` plus the parallel `opportunity_detected`
@@ -32,7 +32,9 @@ var canonicalLifecycleStages = []string{
 // ComponentLifecycleFunnel executes the "component_lifecycle_funnel"
 // budgeted query: for one component kind (skill/plugin/mcp/hook/command),
 // the distinct-component count and raw event count at each canonical
-// lifecycle stage observed inside the half-open [from, to) range. Serves
+// lifecycle stage observed inside the half-open [from, to) range. Stages
+// whose upstream interface has no universal signal are explicitly
+// unsupported rather than silently represented as an observed zero. Serves
 // the overview component funnel and the /components/skills,
 // /components/plugins per-kind lifecycle panels.
 //
@@ -92,6 +94,10 @@ func ComponentLifecycleFunnel(ctx context.Context, pool *pgxpool.Pool, component
 			JOIN components c ON c.component_id = e.component_id
 			WHERE e.observed_at >= $1 AND e.observed_at < $2
 				AND e.event_type IN ('component.installed','component.loaded','component.invoked','component.executed')
+				AND NOT EXISTS (
+					SELECT 1 FROM component_lifecycle_events cle
+					WHERE cle.component_lifecycle_event_id = e.event_id
+				)
 				AND ($3 = '' OR c.kind = $3)
 		)
 		SELECT lifecycle_stage,
@@ -136,6 +142,9 @@ func ComponentLifecycleFunnel(ctx context.Context, pool *pgxpool.Pool, component
 			valueState := "unknown"
 			if installedCount > 0 {
 				valueState = "not_observed"
+				if stage == "opportunity_detected" || stage == "succeeded" {
+					valueState = "unsupported"
+				}
 				if stage == "installed" || stage == "enabled" {
 					valueState = "numeric_zero"
 				}
