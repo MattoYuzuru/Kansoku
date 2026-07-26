@@ -1,35 +1,32 @@
-/*
- * Agent detail ("/agents/:id") — version markers; activity/model mix;
- * capability coverage; evidence sources (contracts/dashboard.yaml panelIds:
- * agent-detail-usage, agent-detail-coverage).
- *
- * KNOWN GAP: no backend endpoint filters any breakdown/timeline to a single
- * agent. This page fetches agent_breakdown_range for the whole selected
- * range and finds the row whose entity_id matches the route's opaque :id
- * (never anything but the opaque id appears in the URL, per
- * safe_url_policy). That row only distinguishes event/success/failure
- * counts — activity.sessions/activity.prompts/model.requests/model.tokens
- * cannot be honestly derived from it, so each is rendered `unsupported`
- * rather than approximated from the event count. agent-detail-coverage's
- * two declared metrics (collection.coverage_ratio,
- * collection.active_source_gap_seconds) have no durable backing table at
- * all and are rendered unsupported outright.
- *
- * A real per-agent time-series/filter endpoint is a reasonable Session 11+
- * follow-up; this page does not fabricate one now.
- */
 import { useMemo } from "react";
+import { DataTable, type Column } from "../components/DataTable";
 import { KpiCard } from "../components/KpiCard";
-import { Panel, UnsupportedPanel } from "../components/Panel";
+import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { StatusBadge } from "../components/StatusBadge";
 import { deriveViewState } from "../api/client";
-import { useAgentBreakdown } from "../api/queries";
+import { useAgentProfile } from "../api/queries";
 import { useRange } from "../hooks/useRange";
+import { microsToUsd } from "../lib/format";
+import type { AgentProfile } from "../api/types";
 
 export interface AgentDetailProps {
-  /** Opaque alias from the route, safe_url_policy compliant. */
   alias: string;
+}
+
+type ModelRow = AgentProfile["models"][number];
+type SourceRow = AgentProfile["sources"][number];
+
+function shortID(value: string): string {
+  return value.length > 22 ? `${value.slice(0, 18)}…` : value;
+}
+
+function displayLabel(value: string): string {
+  return value
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export function AgentDetail({ alias }: AgentDetailProps) {
@@ -38,65 +35,130 @@ export function AgentDetail({ alias }: AgentDetailProps) {
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],
   );
-  const breakdown = useAgentBreakdown(rangeParams);
+  const profile = useAgentProfile(alias, rangeParams);
+  const data = profile.data?.data;
+  const state = deriveViewState(profile.data, { isLoading: profile.isLoading });
+  const identity = data?.identity;
+  const activity = data?.activity;
+  const title = identity?.display_alias ||
+    (identity?.display_name ? displayLabel(identity.display_name) : "Unknown agent");
 
-  const rows = breakdown.data?.data?.data ?? [];
-  const row = rows.find((r) => r.entity_id === alias);
-  const state = deriveViewState(breakdown.data, { isLoading: breakdown.isLoading });
-  const rowFoundState = breakdown.isLoading ? "loading" : row ? state : "not_observed";
+  const modelColumns: Column<ModelRow>[] = [
+    { key: "model", header: "Model", render: (row) => row.model_id },
+    { key: "requests", header: "Requests", align: "right", render: (row) => row.request_count.toLocaleString() },
+    {
+      key: "tokens",
+      header: "Input / cache / output",
+      align: "right",
+      render: (row) =>
+        `${row.input_tokens.toLocaleString()} / ${row.cached_input_tokens.toLocaleString()} / ${row.output_tokens.toLocaleString()}`,
+    },
+    {
+      key: "p95",
+      header: "p95",
+      align: "right",
+      render: (row) => row.percentiles?.p95 == null ? "Not observed" : `${Math.round(row.percentiles.p95)} ms`,
+    },
+    {
+      key: "errors",
+      header: "Failed",
+      align: "right",
+      render: (row) => `${row.failure_count} / ${row.success_count + row.failure_count}`,
+    },
+    {
+      key: "cost",
+      header: "API-equivalent cost",
+      align: "right",
+      render: (row) =>
+        row.costed_request_count > 0
+          ? `$${microsToUsd(row.estimated_cost_micros).toFixed(2)}`
+          : "Not observed",
+    },
+  ];
+
+  const sourceColumns: Column<SourceRow>[] = [
+    { key: "kind", header: "Evidence lane", render: (row) => row.source_kind },
+    {
+      key: "state",
+      header: "Health",
+      render: (row) => (
+        <StatusBadge
+          state={row.state === "producing" ? "complete" : row.state === "degraded" ? "degraded" : "not_observed"}
+          reason={`${row.fact_count} facts, ${row.evidence_count} evidence rows, ${row.gap_count} gaps`}
+        />
+      ),
+    },
+    { key: "facts", header: "Facts", align: "right", render: (row) => row.fact_count.toLocaleString() },
+    { key: "evidence", header: "Evidence", align: "right", render: (row) => row.evidence_count.toLocaleString() },
+    { key: "version", header: "Adapter version", render: (row) => row.adapter_version },
+    {
+      key: "last_seen",
+      header: "Last observed",
+      render: (row) => row.last_observed_at ? new Date(row.last_observed_at).toLocaleString() : "Not observed",
+    },
+  ];
 
   return (
     <section className="k-page">
       <header className="k-page__head">
-        <h1 className="t-page-title">Agent {alias}</h1>
+        <h1 className="t-page-title">{title}</h1>
         <p className="k-page__wire t-caption">
-          Version markers; activity/model mix; capability coverage; evidence sources.
+          {identity
+            ? `${displayLabel(identity.provider_id)} · ${displayLabel(identity.surface_kind)} · ${shortID(identity.agent_installation_id)}`
+            : `Loading installation ${shortID(alias)}`}
         </p>
       </header>
 
-      <Panel title="Event activity" actions={<RangeControl range={range} />}>
-        {!breakdown.isLoading && !row && (
-          <p className="t-body" style={{ color: "var(--text-muted)" }}>
-            No event activity found for this agent installation in the selected range.
+      <Panel title="Installation identity" actions={<RangeControl range={range} />}>
+        <div className="k-grid k-grid--kpis">
+          <KpiCard label="Events" value={activity?.event_count ?? null} state={state} />
+          <KpiCard label="Sessions" value={activity?.session_count ?? null} state={state} />
+          <KpiCard label="Prompts" value={activity?.prompt_count ?? null} state={state} />
+          <KpiCard label="Tool calls" value={activity?.tool_call_count ?? null} state={state} />
+          <KpiCard label="Components" value={activity?.component_count ?? null} state={state} />
+          <KpiCard
+            label="Open incidents"
+            value={activity?.open_incident_count ?? null}
+            state={(activity?.open_incident_count ?? 0) > 0 ? "degraded" : state}
+          />
+        </div>
+        {identity && (
+          <p className="t-caption" style={{ color: "var(--text-faint)" }}>
+            Agent {identity.agent_version || "version not observed"} · adapter{" "}
+            {identity.adapter_version || "version not observed"} · identity provenance{" "}
+            {identity.source_provenance}. The opaque <code>{shortID(identity.agent_installation_id)}</code>{" "}
+            remains a secondary diagnostic key.
           </p>
         )}
-        <div className="k-grid k-grid--kpis">
-          <KpiCard label="Events" value={row?.event_count ?? null} state={rowFoundState} />
-          <KpiCard label="Succeeded" value={row?.success_count ?? null} state={rowFoundState} />
-          <KpiCard label="Failed" value={row?.failure_count ?? null} state={rowFoundState} />
-        </div>
-        <div className="k-grid k-grid--kpis">
-          <KpiCard label="Sessions" value={null} state="unsupported" />
-          <KpiCard label="Prompts" value={null} state="unsupported" />
-          <KpiCard label="Model requests" value={null} state="unsupported" />
-          <KpiCard label="Model tokens" value={null} state="unsupported" />
-        </div>
-        <p className="t-caption" style={{ color: "var(--text-faint)" }}>
-          <StatusBadge state="unsupported" glyphOnly /> Sessions, prompts and model
-          request/token counts are not shown per-agent: the only per-agent breakdown
-          endpoint (<code>agent_breakdown_range</code>) groups the raw <code>events</code>{" "}
-          table and distinguishes only event/success/failure counts, not session,
-          prompt or model-operation identity. A dedicated per-agent endpoint is a
-          reasonable follow-up, not something this page approximates from the event
-          count.
-        </p>
       </Panel>
 
-      <UnsupportedPanel
-        title="Collection coverage"
-        reason={
-          <>
-            <code>collection.coverage_ratio</code> and{" "}
-            <code>collection.active_source_gap_seconds</code> have no durable backing
-            table anywhere in the schema — see <code>internal/runtime/diagnostics.go</code>.
-          </>
-        }
-      />
+      <Panel title="Per-model usage">
+        <DataTable
+          columns={modelColumns}
+          rows={data?.models ?? []}
+          rowKey={(row) => row.model_id}
+          emptyMessage={profile.isLoading ? "Loading…" : "No exactly attributed model responses in this range."}
+        />
+        <GapNote>
+          Population {data?.population.numerator ?? 0} / {data?.population.denominator ?? 0};
+          non-exact installation attribution exclusions{" "}
+          {data?.exclusions.non_exact_installation_attribution ?? 0}. Cost is an
+          API-equivalent estimate, never a subscription invoice.
+        </GapNote>
+      </Panel>
 
-      <UnsupportedPanel
-        title="Version markers & capability coverage"
-        reason="No backend endpoint reports per-agent adapter-version history or per-agent capability coverage today; version and capability data are only available as fleet-wide inventory counts on /agents."
-      />
+      <Panel title="Source and bridge matrix">
+        <DataTable
+          columns={sourceColumns}
+          rows={data?.sources ?? []}
+          rowKey={(row) => row.source_instance_id}
+          emptyMessage={profile.isLoading ? "Loading…" : "No evidence lane observed in this range."}
+        />
+        <GapNote>
+          Bridge health is independent. A missing evidence bridge does not erase or
+          downgrade facts already proven by OTel, hooks, or another lane.
+        </GapNote>
+      </Panel>
     </section>
   );
 }

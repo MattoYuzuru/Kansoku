@@ -23,6 +23,7 @@ import type {
   InventoryCounts,
   MCPUptimeResponse,
   ModelUsageResponse,
+  AgentProfile,
   CollectionHealthSnapshot,
   PrivacyCanaryHistoryResponse,
   PromptShapeResponse,
@@ -246,6 +247,15 @@ export function useAgentBreakdown(range: RangeParams) {
         { budget_id: "agent_breakdown_range", ...range },
         signal,
       ),
+  });
+}
+
+export function useAgentProfile(id: string, range: RangeParams) {
+  return useQuery({
+    queryKey: rk("agent-profile", { id, ...range }),
+    queryFn: ({ signal }) =>
+      apiGet<AgentProfile>(`/api/v1/agents/${encodeURIComponent(id)}`, { ...range }, signal),
+    enabled: Boolean(id),
   });
 }
 

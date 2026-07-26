@@ -56,9 +56,16 @@ export function Agents() {
       header: "Agent",
       render: (r) => (
         <Link href={`/agents/${encodeURIComponent(r.entity_id)}`} className="t-table-cell">
-          {agentLabel(r.agent_id)}
+          {r.display_alias || r.display_name || agentLabel(r.agent_id)}
         </Link>
       ),
+    },
+    { key: "provider", header: "Provider", render: (r) => r.provider_id || r.agent_id || "Unknown" },
+    { key: "surface", header: "Surface", render: (r) => r.surface_kind || "Unknown" },
+    {
+      key: "version",
+      header: "Version",
+      render: (r) => r.agent_version || r.adapter_version || "Not observed",
     },
     {
       key: "entity_id",

@@ -59,6 +59,12 @@ export interface QueryResponse {
 export interface EntityRow {
   entity_id: string;
   agent_id?: string;
+  provider_id?: string;
+  display_name?: string;
+  display_alias?: string;
+  surface_kind?: string;
+  agent_version?: string;
+  adapter_version?: string;
   event_count: number;
   success_count: number;
   failure_count: number;
@@ -66,6 +72,58 @@ export interface EntityRow {
   estimated_cost_micros?: number;
   value?: number | null;
   percentiles?: Percentiles;
+}
+
+export interface AgentProfile {
+  identity: {
+    agent_installation_id: string;
+    adapter_id: string;
+    provider_id: string;
+    display_name: string;
+    display_alias?: string;
+    surface_kind: string;
+    agent_version?: string;
+    adapter_version?: string;
+    completeness: DataCompleteness["status"];
+    source_provenance: string;
+  };
+  activity: {
+    event_count: number;
+    session_count: number;
+    prompt_count: number;
+    success_count: number;
+    failure_count: number;
+    tool_call_count: number;
+    component_count: number;
+    open_incident_count: number;
+  };
+  models: Array<{
+    model_id: string;
+    request_count: number;
+    input_tokens: number;
+    cached_input_tokens: number;
+    output_tokens: number;
+    costed_request_count: number;
+    estimated_cost_micros: number;
+    success_count: number;
+    failure_count: number;
+    percentiles?: Percentiles;
+  }>;
+  sources: Array<{
+    source_instance_id: string;
+    source_kind: string;
+    adapter_version: string;
+    fact_count: number;
+    evidence_count: number;
+    last_observed_at?: string;
+    gap_count: number;
+    state: string;
+  }>;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+  freshness: Freshness;
 }
 export interface EntityBreakdownResponse {
   data: EntityRow[];
