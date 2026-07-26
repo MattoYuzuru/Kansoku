@@ -230,9 +230,11 @@
   0008 adds non-rewriting installation/session/model attribution; agent profiles expose exact
   per-model populations and independent source health. Real PostgreSQL cross-lane reconciliation,
   production restart, ten-sink bridge privacy, browser, backup and repeated restore gates pass.
-- **14 — planned/P1 (approved 2026-07-26):** skill analytics moves from one false universal funnel
-  to availability/runtime/optimization planes; optimization stays unsupported until Session 20.
-  Profiles contain evidence and file-tree metadata, not file contents.
+- **14 — implemented/P1 (2026-07-26; live gate green):** skill analytics now uses independent
+  installed/enabled/exposed/invoked/loaded evidence planes, exact/unresolved/ambiguous identity,
+  complete-window cold semantics and metadata-only profiles. A real Codex 0.145.0 App Server Luna
+  canary reconciles exactly; privacy, browser, PostgreSQL and repeated restore gates pass.
+  Optimization stays unsupported until Session 20.
 - **15 — planned/P1 (approved 2026-07-26):** MCP inventory, protocol connections and calls become
   independent evidence contours with server/tool profiles and a privacy-safe live no-op canary.
 - **16 — planned/P2 (approved 2026-07-26):** plugin bundle graph and child usage reuse stabilized

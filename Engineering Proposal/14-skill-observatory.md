@@ -2,7 +2,9 @@
 
 ## Status
 
-Approved for planning on 2026-07-26. Implementation has not started.
+Implemented on 2026-07-26. The fixture, PostgreSQL, live Codex App Server, production browser,
+privacy, backup and repeated restore exit gates are green. See
+`reports/session-14-reconciliation.md`.
 
 ## Purpose
 
@@ -87,3 +89,17 @@ A namespaced no-op skill is installed, enabled, exposed and invoked through supp
 profile reconciles inventory and runtime facts exactly; duplicate lanes do not inflate counts;
 ambiguous child activity stays unattributed; a missing source changes completeness rather than
 usage; and no terminal success is shown without a component-specific contract.
+
+## Implementation reconciliation
+
+The implemented contract stores availability and runtime assertions independently and preserves
+legacy lifecycle history without promotion. Codex CLI 0.145.0 App Server proved exposure through
+`skills/list`; an explicit skill input appeared as a typed `userMessage` in `item/started`, not in
+the empty `turn/started.items` array. That observed mapping is pinned to
+`codex.bridge/0.145.0`. It yields separate `invoked` and `loaded` assertions only because this
+reviewed bridge rule declares both; core component logic has no Codex branch.
+
+The live no-op population reconciled to installed=1, enabled=1, exposed>=1, invoked=1 and loaded=1,
+with exact identity and one unique session. Outcome remains `unsupported`. The production list
+reports cold as `enabled AND exposed in a complete observation window AND invoked=0`, formula
+`skill.cold_count/1`, with population and identity/source exclusions returned beside it.

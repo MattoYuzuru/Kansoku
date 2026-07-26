@@ -169,3 +169,28 @@ and use an explicitly named approved fallback rather than relabeling evidence.
 
 The no-op skill's evidence planes reconcile exactly, the old funnel no longer promises impossible
 universal stages, and every unsupported or excluded result identifies the source/capability reason.
+
+## Implemented reality (2026-07-26)
+
+- Migration 0009 adds durable assertions, terminal contracts, observation windows and metadata-only
+  file-tree summaries. Its down migration removes only Session 14 projections; shared incident
+  history is retained.
+- The exact resolver is scoped by agent installation, component kind, declared identity and
+  inventory state. Zero and multiple candidates persist as unresolved/ambiguous evidence with an
+  internal keyed pseudonym and create idempotent incidents; neither is promoted to a component.
+- Inventory scans create independent installed/enabled assertions. The optional App Server bridge
+  creates model-visible exposure windows from the reviewed 0.145.0 `skills/list` response.
+- In the local 0.145.0 executable, typed skill selection is emitted as `item/started` with a
+  `userMessage` skill-content item. `turn/started.items` was empty. Top-level `emittedAtMs` is the
+  emission timestamp. The bridge accepts this exact schema and immediately discards paths and
+  content.
+- `skill.cold_count/1` uses numerator `cold skills` and denominator `enabled skills with complete
+  exposure coverage`; unresolved identity, ambiguous identity and incomplete/missing exposure
+  windows are explicit exclusions. An enabled skill without a provable exposure window is
+  `not_observed`, not cold.
+- `/api/v1/skills` and `/api/v1/skills/:id` expose exact populations, exclusions, completeness,
+  evidence/source matrices and metadata-only file-tree summaries. No content route was added.
+- The old universal Skills funnel was removed from Overview and Skills. No session/tool/hook state
+  is interpreted as terminal skill success without a registered terminal contract.
+
+The live and deterministic evidence is reconciled in `reports/session-14-reconciliation.md`.
