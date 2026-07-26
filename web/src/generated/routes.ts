@@ -1,6 +1,6 @@
 // AUTO-GENERATED from contracts/dashboard.yaml by web/scripts/gen-routes.mjs.
 // Do not edit by hand. Regenerate: `npm run gen:routes` (runs on prebuild).
-// contract_version: 1.0.0, schema_version: kansoku.dashboard/1
+// contract_version: 1.1.0, schema_version: kansoku.dashboard/1
 
 export interface RouteMeta {
   readonly path: string;
@@ -98,10 +98,12 @@ export const ROUTES: readonly RouteMeta[] = [
   {
     "path": "/reliability",
     "title": "Reliability",
-    "wireframe": "coverage timeline; source gaps/watermarks; drift/mismatch tables; incident list",
+    "wireframe": "URL-addressable health, incidents and quarantine tabs; signed-keyset incident table; incident profile with lineage, occurrence history and safe debug bundle; metadata-only structural quarantine profiles",
     "panelIds": [
       "reliability-coverage",
-      "reliability-drift"
+      "reliability-drift",
+      "reliability-incidents",
+      "reliability-quarantine"
     ]
   },
   {

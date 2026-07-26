@@ -292,12 +292,93 @@ export interface PrivacyCanaryHistoryResponse {
 /* ---- /api/v1/incidents ---- */
 export interface Incident {
   incident_id: string;
-  installation_id: string;
-  source_id: string;
+  detector_state: "open" | "recovering" | "resolved";
+  triage_state: "new" | "acknowledged" | "investigating" | "action_ready";
+  triage_note_category: string | null;
+  installation: { state: ViewValueState; value: string | null };
+  source: { state: ViewValueState; value: string | null };
   capability_id: string;
   failure_class: string;
+  severity: string;
   first_seen_at: string;
+  last_seen_at: string;
+  resolved_at: string | null;
+  occurrence_count: number;
+  occurrence_retention_excluded_count: number;
+  affected_interval_from: string;
+  affected_interval_to: string;
+  adapter_version: string | null;
+  schema_fingerprint: string | null;
+  source_schema_version: string | null;
+  parser_version: string | null;
   recovery_criteria: string;
+  recovery_observed_at: string | null;
+  recovery_audit_run_id: string | null;
+  recovery_evidence_ref: string | null;
+  evidence_ref: string;
+  projection: "ingress" | "integrity";
+}
+export type ViewValueState =
+  | "observed"
+  | "unsupported"
+  | "not_observed"
+  | "redacted"
+  | "unknown";
+export interface CursorPage<T> {
+  data: T[];
+  has_more: boolean;
+  next_cursor?: string;
+  total_state: "exact" | "lower_bound" | "unknown";
+  total_lower_bound: number;
+  formula_version: string;
+  exclusions: string[];
+  completeness: string;
+}
+export type IncidentPage = CursorPage<Incident>;
+export interface IncidentOccurrence {
+  occurrence_id: string;
+  incident_id: string;
+  observed_at: string;
+  evidence_ref: string;
+  schema_fingerprint: string | null;
+  safe_error_class: string;
+  record_count: number;
+  byte_count: number;
+}
+export interface QuarantineManifest {
+  quarantine_id: string;
+  incident_id: string;
+  source_kind: string;
+  source_instance: { state: ViewValueState; value: string | null };
+  signal_kind: string;
+  event_type: { state: ViewValueState; value: string | null };
+  structural_field_paths: string[];
+  primitive_types: string[];
+  shape_value_state: ViewValueState;
+  schema_fingerprint: string;
+  adapter_version: string | null;
+  source_schema_version: string | null;
+  parser_version: string | null;
+  classification: string;
+  rejection_reason: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  occurrence_count: number;
+  total_record_count: number;
+  total_byte_count: number;
+  disposition: "unresolved" | "fixture_added" | "supported" | "unsupported";
+}
+export type QuarantinePage = CursorPage<QuarantineManifest>;
+export interface IncidentDebugBundle {
+  schema_version: string;
+  incident: Incident;
+  structural_manifest: QuarantineManifest | null;
+  occurrence_count: number;
+  contract_locators: string[];
+  fixture_locators: string[];
+  validation_commands: string[];
+  agent_prompt: string;
+  exclusions: string[];
 }
 
 /* ---- /api/v1/completeness ---- */

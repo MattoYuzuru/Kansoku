@@ -43,7 +43,10 @@ function useCountUp(target: number | null, precision: number): number {
     const start = performance.now();
     const duration = 220; // §4 #7
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
+      // Virtual-time/headless clocks and resumed background tabs may report
+      // a frame timestamp before the effect's start timestamp. Clamp both
+      // bounds so a positive KPI can never animate through a negative value.
+      const t = Math.max(0, Math.min(1, (now - start) / duration));
       // ease-out cubic for a settled feel
       const eased = 1 - Math.pow(1 - t, 3);
       const current = from + (target - from) * eased;

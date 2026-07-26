@@ -15,7 +15,10 @@ import type {
   ComponentTopologyResponse,
   EntityBreakdownResponse,
   FunnelResponse,
+  IncidentDebugBundle,
   Incident,
+  IncidentOccurrence,
+  IncidentPage,
   InventoryComponentResponse,
   InventoryCounts,
   MCPUptimeResponse,
@@ -23,6 +26,8 @@ import type {
   CollectionHealthSnapshot,
   PrivacyCanaryHistoryResponse,
   PromptShapeResponse,
+  QuarantineManifest,
+  QuarantinePage,
   ReliabilityCountsResponse,
   ReliabilityTimelineResponse,
   SystemSnapshotResponse,
@@ -137,10 +142,88 @@ export function usePrivacyCanaryHistory(range: RangeParams) {
   });
 }
 
-export function useIncidents() {
+export interface IncidentQueryParams {
+  state?: string;
+  triage?: string;
+  adapter?: string;
+  source?: string;
+  capability?: string;
+  failure?: string;
+  from?: string;
+  to?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export function useIncidents(params: IncidentQueryParams = {}) {
   return useQuery({
-    queryKey: rk("incidents"),
-    queryFn: ({ signal }) => apiGet<Incident[]>("/api/v1/incidents", undefined, signal),
+    queryKey: rk("incidents", params),
+    queryFn: ({ signal }) => apiGet<IncidentPage>("/api/v1/incidents", { ...params }, signal),
+  });
+}
+
+export function useIncident(id?: string) {
+  return useQuery({
+    queryKey: rk("incident", id),
+    queryFn: ({ signal }) => apiGet<Incident>(`/api/v1/incidents/${id}`, undefined, signal),
+    enabled: Boolean(id),
+  });
+}
+
+export function useIncidentOccurrences(id?: string, cursor?: string) {
+  return useQuery({
+    queryKey: rk("incident-occurrences", id, cursor),
+    queryFn: ({ signal }) =>
+      apiGet<{
+        data: IncidentOccurrence[];
+        has_more: boolean;
+        next_cursor?: string;
+        total_state: string;
+        total_lower_bound: number;
+        formula_version: string;
+        exclusions: string[];
+        completeness: string;
+      }>(`/api/v1/incidents/${id}/occurrences`, { cursor, limit: 25 }, signal),
+    enabled: Boolean(id),
+  });
+}
+
+export function useIncidentDebugBundle(id?: string) {
+  return useQuery({
+    queryKey: rk("incident-debug-bundle", id),
+    queryFn: ({ signal }) =>
+      apiGet<IncidentDebugBundle>(
+        `/api/v1/incidents/${id}/debug-bundle`,
+        { format: "json" },
+        signal,
+      ),
+    enabled: Boolean(id),
+  });
+}
+
+export function useQuarantine(
+  params: {
+    fingerprint?: string;
+    source?: string;
+    from?: string;
+    to?: string;
+    cursor?: string;
+    limit?: number;
+  } = {},
+) {
+  return useQuery({
+    queryKey: rk("quarantine", params),
+    queryFn: ({ signal }) =>
+      apiGet<QuarantinePage>("/api/v1/quarantine", { ...params }, signal),
+  });
+}
+
+export function useQuarantineManifest(id?: string) {
+  return useQuery({
+    queryKey: rk("quarantine-manifest", id),
+    queryFn: ({ signal }) =>
+      apiGet<QuarantineManifest>(`/api/v1/quarantine/${id}`, undefined, signal),
+    enabled: Boolean(id),
   });
 }
 

@@ -228,13 +228,13 @@ export function Overview() {
             </div>
             <StatusBadge state={incidents.isLoading ? "unknown" : "complete"} glyphOnly />
             <span className="t-body" style={{ marginLeft: 8 }}>
-              {incidents.data?.data?.length ?? 0}
+              {incidents.data?.data?.data?.length ?? 0}
             </span>
           </div>
         </div>
         <DataTable
           columns={incidentColumns}
-          rows={(incidents.data?.data ?? []).slice(0, 10)}
+          rows={(incidents.data?.data?.data ?? []).slice(0, 10)}
           rowKey={(r) => r.incident_id}
           emptyMessage={incidents.isLoading ? "Loading…" : "No open incidents."}
         />
