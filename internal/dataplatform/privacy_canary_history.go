@@ -9,7 +9,7 @@ import (
 
 // FormulaVersionPrivacyCanaryHistory1 is the registered formula version for
 // the privacy canary check history query.
-const FormulaVersionPrivacyCanaryHistory1 = "privacy_canary_history/1"
+const FormulaVersionPrivacyCanaryHistory1 = "privacy_canary_history/2"
 
 // privacyCanaryCheckID/privacyCanarySourceID are the exact literal values
 // internal/integrity/storageops.go's RetentionDiskBackupCheck writes for
@@ -24,7 +24,7 @@ const (
 )
 
 // PrivacyCanaryHistory executes the "privacy_canary_history_range" budgeted
-// query: one row per calendar day inside the half-open [from, to) range
+// query: one row per requested calendar bucket inside the half-open [from, to) range
 // with the pass/fail count of the integrity privacy-canary check observed
 // that day, from integrity_audit_checks (check_id =
 // "stage_9_retention_disk_and_backup", source_id = "privacy-canary") joined

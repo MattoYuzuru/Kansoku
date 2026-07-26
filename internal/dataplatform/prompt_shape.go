@@ -9,10 +9,10 @@ import (
 
 // FormulaVersionPromptShape1 is the registered formula version for the
 // prompt shape query.
-const FormulaVersionPromptShape1 = "prompt_shape/2"
+const FormulaVersionPromptShape1 = "prompt_shape/3"
 
 // PromptShape executes the "prompt_shape_range" budgeted query: one row per
-// calendar day inside the half-open [from, to) range with the submitted
+// requested calendar bucket inside the half-open [from, to) range with the submitted
 // prompt count and exact percentile_cont character-length percentiles from
 // native OTel prompt metadata, with the older UTF-8 byte measurement kept as
 // a fallback for hook/transcript sources.

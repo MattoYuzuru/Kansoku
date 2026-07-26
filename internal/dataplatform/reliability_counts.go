@@ -9,15 +9,15 @@ import (
 
 // FormulaVersionReliabilityCounts1 is the registered formula version for the
 // reliability counts query.
-const FormulaVersionReliabilityCounts1 = "reliability_counts/1"
+const FormulaVersionReliabilityCounts1 = "reliability_counts/2"
 
 // ReliabilityCounts executes the "reliability_counts_range" budgeted query:
-// one row per calendar day inside the half-open [from, to) range with
+// one row per requested calendar bucket inside the half-open [from, to) range with
 // reliability.unknown_schema_count (from schema_quarantine_metadata,
 // bucketed by its own observed_at) and reliability.reconciliation_mismatch_count
 // (from reconciliation_mismatches, which has no timestamp column of its
 // own -- see migrations/0001_core_schema.up.sql -- so it is bucketed by the
-// day its parent reconciliation_runs.started_at falls on). Serves the "/"
+// period its parent reconciliation_runs.started_at falls in). Serves the "/"
 // overview-incidents panel and /reliability "reliability-drift" panel.
 //
 // Neither internal/runtime/api.go's health() nor completeness() handler

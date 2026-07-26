@@ -9,10 +9,10 @@ import (
 
 // FormulaVersionModelUsage1 is the registered formula version for the model
 // usage + cost time-series query.
-const FormulaVersionModelUsage1 = "model_usage/2"
+const FormulaVersionModelUsage1 = "model_usage/3"
 
 // ModelUsage executes the "model_usage_range" budgeted query: one row per
-// calendar day inside the half-open [from, to) range with model request
+// requested calendar bucket inside the half-open [from, to) range with model request
 // count, provider-reported token sum and estimated cost (all backed
 // directly by model_operations/token_usage and provider-reported cost, with
 // cost_estimates as a fallback), plus latency percentiles and error ratio

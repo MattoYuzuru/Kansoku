@@ -9,10 +9,10 @@ import (
 
 // FormulaVersionActivityTimeline1 is the registered formula version for the
 // activity timeline query.
-const FormulaVersionActivityTimeline1 = "activity_timeline/2"
+const FormulaVersionActivityTimeline1 = "activity_timeline/3"
 
 // ActivityTimeline executes the "activity_timeline_range" budgeted query:
-// one row per calendar day inside the half-open [from, to) range with
+// one row per requested calendar bucket inside the half-open [from, to) range with
 // distinct session/prompt counts and a reconstructed active-duration
 // estimate. Serves the "/" overview-activity panel and the /activity
 // activity-timeline panel (activity.sessions, activity.prompts,

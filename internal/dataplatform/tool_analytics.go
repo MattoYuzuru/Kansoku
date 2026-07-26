@@ -9,10 +9,10 @@ import (
 
 // FormulaVersionToolAnalytics1 is the registered formula version for the
 // tool analytics query.
-const FormulaVersionToolAnalytics1 = "tool_analytics/1"
+const FormulaVersionToolAnalytics1 = "tool_analytics/2"
 
 // ToolAnalytics executes the "tool_analytics_range" budgeted query: one row
-// per calendar day inside the half-open [from, to) range with tool_calls
+// per requested calendar bucket inside the half-open [from, to) range with tool_calls
 // volume, success/failure split and exact percentile_cont latency,
 // optionally restricted to one component_id (an MCP server or any other
 // component). An empty componentID selects every component, matching

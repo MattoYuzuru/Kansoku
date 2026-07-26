@@ -9,10 +9,10 @@ import (
 
 // FormulaVersionReliabilityTimeline1 is the registered formula version for
 // the reliability coverage timeline query.
-const FormulaVersionReliabilityTimeline1 = "reliability_coverage_timeline/1"
+const FormulaVersionReliabilityTimeline1 = "reliability_coverage_timeline/2"
 
 // ReliabilityCoverageTimeline executes the "reliability_coverage_timeline"
-// budgeted query: one row per (source, calendar day, status) combination
+// budgeted query: one row per (source, requested calendar bucket, status) combination
 // recorded in completeness_intervals whose interval overlaps the half-open
 // [from, to) range. Serves the /reliability "coverage timeline; source
 // gaps/watermarks" panel.
