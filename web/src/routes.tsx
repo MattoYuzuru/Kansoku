@@ -26,6 +26,7 @@ const SkillDetail = lazy(() => import("./pages/SkillDetail").then((m) => ({ defa
 const Plugins = lazy(() => import("./pages/Plugins").then((m) => ({ default: m.Plugins })));
 const MCP = lazy(() => import("./pages/MCP").then((m) => ({ default: m.MCP })));
 const MCPServerDetail = lazy(() => import("./pages/MCPServerDetail").then((m) => ({ default: m.MCPServerDetail })));
+const MCPToolDetail = lazy(() => import("./pages/MCPToolDetail").then((m) => ({ default: m.MCPToolDetail })));
 const Tools = lazy(() => import("./pages/Tools").then((m) => ({ default: m.Tools })));
 const Reliability = lazy(() => import("./pages/Reliability").then((m) => ({ default: m.Reliability })));
 const Privacy = lazy(() => import("./pages/Privacy").then((m) => ({ default: m.Privacy })));
@@ -91,6 +92,14 @@ function MCPServerDetailRoute() {
   return <MCPServerDetail id={id} />;
 }
 
+function MCPToolDetailRoute() {
+  const params = useParams();
+  const serverID = params.id ?? "";
+  const toolID = params.toolID ?? "";
+  useEffect(() => setTitle(`MCP tool ${toolID}`), [toolID]);
+  return <MCPToolDetail serverID={serverID} toolID={toolID} />;
+}
+
 function NotFound() {
   useEffect(() => setTitle("Not found"), []);
   return (
@@ -120,6 +129,9 @@ export function AppRoutes() {
         </Route>
         <Route path="/components/skills/:id">
           <SkillDetailRoute />
+        </Route>
+        <Route path="/components/mcp/:id/tools/:toolID">
+          <MCPToolDetailRoute />
         </Route>
         <Route path="/components/mcp/:id">
           <MCPServerDetailRoute />

@@ -4,46 +4,18 @@ import (
 	"context"
 	"errors"
 	"regexp"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"kansoku.local/kansoku/internal/adaptersdk"
 )
 
 var safeMCPIdentity = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:@|-]{0,127}$`)
 
-// MCPEvidenceFrame is the closed metadata-only ingestion shape used by
-// adapter bridges and the bounded live canary. It deliberately has no fields
-// capable of carrying arguments, results, errors, URLs, commands or env.
-type MCPEvidenceFrame struct {
-	Kind                string    `json:"kind"`
-	ServerID            string    `json:"server_id"`
-	ServerName          string    `json:"server_name"`
-	ToolID              string    `json:"tool_id,omitempty"`
-	ToolName            string    `json:"tool_name,omitempty"`
-	AgentInstallationID string    `json:"agent_installation_id"`
-	SessionID           string    `json:"session_id,omitempty"`
-	SourceInstanceID    string    `json:"source_instance_id"`
-	State               string    `json:"state,omitempty"`
-	Scope               string    `json:"scope,omitempty"`
-	Transport           string    `json:"transport,omitempty"`
-	Locality            string    `json:"locality,omitempty"`
-	Configured          *bool     `json:"configured,omitempty"`
-	Enabled             *bool     `json:"enabled,omitempty"`
-	Completeness        string    `json:"completeness,omitempty"`
-	LogicalCallID       string    `json:"logical_call_id,omitempty"`
-	AttemptID           string    `json:"attempt_id,omitempty"`
-	DurationMS          *int64    `json:"duration_ms,omitempty"`
-	FailureClass        string    `json:"failure_class,omitempty"`
-	ApprovalDecision    string    `json:"approval_decision,omitempty"`
-	ApprovalSource      string    `json:"approval_source,omitempty"`
-	PageNumber          int       `json:"page_number,omitempty"`
-	Revision            string    `json:"revision,omitempty"`
-	ObservedAt          time.Time `json:"observed_at"`
-	AdapterVersion      string    `json:"adapter_version"`
-	SchemaVersion       string    `json:"schema_version"`
-	IdempotencyKey      string    `json:"idempotency_key"`
-}
+// MCPEvidenceFrame remains exported here as a compatibility alias for the
+// CLI and live-canary callers. The owning contract lives in adaptersdk so
+// every adapter maps into one agent-independent frame.
+type MCPEvidenceFrame = adaptersdk.MCPEvidenceFrame
 
 func PersistMCPEvidence(ctx context.Context, pool *pgxpool.Pool, f MCPEvidenceFrame) error {
 	if pool == nil || !safeMCPIdentity.MatchString(f.ServerID) || !safeMCPIdentity.MatchString(f.ServerName) ||

@@ -127,10 +127,11 @@ Kansoku раз в пять минут сканирует только явно �
 fingerprint и lineage snapshot; содержимое `SKILL.md`, команды MCP, env и credentials не
 сохраняются.
 
-Overview показывает funnel как разные классы доказательств:
+Overview и component observatories показывают независимые классы доказательств:
 
 - `Installed`/`Enabled` — текущее состояние из inventory snapshot;
-- `Invoked`/`Executed`/`Succeeded` — только реальные lifecycle-события агента;
+- `Exposed`/`Invoked`/`Loaded` — только реальные lifecycle-события поддерживаемого источника;
+- terminal outcome появляется только у компонента с зарегистрированным terminal contract;
 - `not_observed` означает, что текущий upstream такого события не прислал, а не нулевое
   использование.
 
@@ -144,6 +145,11 @@ Plugin, найденный в конфигурации/каталоге, но н
 disabled. Наличие plugin marketplace или cache само по себе не считается установкой. MCP
 показывается только после явной конфигурации; тестовый MCP или plugin не включается Kansoku
 автоматически.
+
+MCP observatory дополнительно разделяет configuration/inventory, protocol connection и call
+lifecycle. Configured не означает connected, `isError=false` не означает успех пользовательской
+задачи, а ноль calls не называется unused без полного окна exposure. Аргументы, результаты,
+ошибки, URL, команды, environment и resource URI не сохраняются.
 
 ## Подключение через hooks
 

@@ -13,6 +13,7 @@ package dataplatform
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -755,5 +756,43 @@ func TestMCPObservatoryContoursReconcileAgainstPostgres(t *testing.T) {
 			t.Fatal("p95=nil want 57.5")
 		}
 		t.Fatalf("p95=%v want 57.5", *profile.CallP95MS)
+	}
+	tools, err := MCPPrimitiveList(ctx, pool, "mcp_noop_server", base.Add(-time.Second), base.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tools.Population != (Population{Numerator: 2, Denominator: 2}) || len(tools.Data) != 2 {
+		t.Fatalf("unexpected tool list: %+v", tools)
+	}
+	toolProfile, err := MCPToolProfile(ctx, pool, "mcp_noop_server", "mcp_tool_a", base.Add(-time.Second), base.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if toolProfile.Parent.ServerComponentID != "mcp_noop_server" || toolProfile.Identity.ToolComponentID != "mcp_tool_a" ||
+		toolProfile.Outcomes.Started == 0 || toolProfile.Population.Denominator != toolProfile.Outcomes.Started {
+		t.Fatalf("unexpected tool profile: %+v", toolProfile)
+	}
+	if _, err := MCPToolProfile(ctx, pool, "mcp_noop_server", "missing_tool", base.Add(-time.Second), base.Add(time.Hour)); !errors.Is(err, ErrMCPPrimitiveNotFound) {
+		t.Fatalf("missing tool error=%v", err)
+	}
+	partial := server
+	partial.ServerID, partial.ServerName = "mcp_partial_server", "source-loss-canary"
+	partial.SourceInstanceID, partial.Completeness = "src_mcp_source_loss", "partial"
+	partial.IdempotencyKey = "partial-server-1"
+	if err := PersistMCPEvidence(ctx, pool, partial); err != nil {
+		t.Fatal(err)
+	}
+	degraded, err := MCPObservatory(ctx, pool, base.Add(-time.Second), base.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if degraded.Population != (Population{Numerator: 1, Denominator: 2}) || degraded.Exclusions["incomplete_pagination"] != 1 {
+		t.Fatalf("source loss must degrade only inventory coverage: %+v", degraded)
+	}
+	for _, candidate := range degraded.Data {
+		if candidate.ServerComponentID == "mcp_partial_server" &&
+			(candidate.Connection.Status != "not_observed" || candidate.Calls.Status != "not_observed" || !candidate.Configured) {
+			t.Fatalf("configured inventory must remain while runtime contours degrade: %+v", candidate)
+		}
 	}
 }

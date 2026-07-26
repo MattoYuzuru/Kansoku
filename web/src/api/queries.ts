@@ -37,6 +37,8 @@ import type {
   SkillProfileResponse,
   MCPObservatoryResponse,
   MCPServerProfileResponse,
+  MCPPrimitiveListResponse,
+  MCPToolProfileResponse,
 } from "./types";
 
 export interface RangeParams {
@@ -344,6 +346,28 @@ export function useMCPServerProfile(id: string, range: RangeParams) {
     queryFn: ({ signal }) =>
       apiGet<MCPServerProfileResponse>(`/api/v1/components/mcp/${encodeURIComponent(id)}`, { ...range }, signal),
     enabled: Boolean(id),
+  });
+}
+
+export function useMCPPrimitiveList(serverID: string, range: RangeParams) {
+  return useQuery({
+    queryKey: rk("mcp-primitive-list", { serverID, ...range }),
+    queryFn: ({ signal }) =>
+      apiGet<MCPPrimitiveListResponse>(`/api/v1/components/mcp/${encodeURIComponent(serverID)}/tools`, { ...range }, signal),
+    enabled: Boolean(serverID),
+  });
+}
+
+export function useMCPToolProfile(serverID: string, toolID: string, range: RangeParams) {
+  return useQuery({
+    queryKey: rk("mcp-tool-profile", { serverID, toolID, ...range }),
+    queryFn: ({ signal }) =>
+      apiGet<MCPToolProfileResponse>(
+        `/api/v1/components/mcp/${encodeURIComponent(serverID)}/tools/${encodeURIComponent(toolID)}`,
+        { ...range },
+        signal,
+      ),
+    enabled: Boolean(serverID && toolID),
   });
 }
 

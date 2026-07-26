@@ -443,6 +443,25 @@ export interface MCPServerProfileResponse {
   exclusions: Record<string, number>;
   completeness: DataCompleteness;
 }
+export interface MCPPrimitiveListResponse {
+  data: MCPPrimitiveRow[];
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+}
+export interface MCPToolProfileResponse {
+  identity: MCPPrimitiveRow;
+  parent: MCPServerRow;
+  outcomes: MCPCallOutcomeCounts;
+  call_p95_ms?: number;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+  inventory: MCPContourSupport;
+  calls: MCPContourSupport;
+}
 
 /* ---- /api/v1/reliability/counts ---- */
 export interface ReliabilityCountsDayRow {

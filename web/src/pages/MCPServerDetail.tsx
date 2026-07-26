@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "wouter";
 import { useMCPServerProfile } from "../api/queries";
 import type { MCPPrimitiveRow } from "../api/types";
 import { DataTable, type Column } from "../components/DataTable";
@@ -12,7 +13,9 @@ export function MCPServerDetail({id}:{id:string}) {
   const params=useMemo(()=>({from:range.from,to:range.to,granularity:range.granularity,timezone:range.timezone}),[range.from,range.to,range.granularity,range.timezone]);
   const query=useMCPServerProfile(id,params); const p=query.data?.data; const i=p?.identity; const o=p?.outcomes;
   const columns:Column<MCPPrimitiveRow>[]=[
-    {key:"tool",header:"Advertised primitive",render:(r)=>r.declared_name},
+    {key:"tool",header:"Advertised primitive",render:(r)=>r.kind==="tool"
+      ? <Link href={`/components/mcp/${encodeURIComponent(id)}/tools/${encodeURIComponent(r.tool_component_id)}`}>{r.declared_name}</Link>
+      : r.declared_name},
     {key:"kind",header:"Kind",render:(r)=>r.kind},
     {key:"bytes",header:"Structural bytes",align:"right",render:(r)=>(r.description_byte_count??0)+(r.schema_byte_count??0)},
     {key:"coverage",header:"Enumeration",render:(r)=>r.enumeration_completeness},

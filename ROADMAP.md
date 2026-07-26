@@ -235,8 +235,12 @@
   complete-window cold semantics and metadata-only profiles. A real Codex 0.145.0 App Server Luna
   canary reconciles exactly; privacy, browser, PostgreSQL and repeated restore gates pass.
   Optimization stays unsupported until Session 20.
-- **15 — planned/P1 (approved 2026-07-26):** MCP inventory, protocol connections and calls become
-  independent evidence contours with server/tool profiles and a privacy-safe live no-op canary.
+- **15 — implemented/P1 (2026-07-26; live gate green):** MCP configuration/inventory, protocol
+  connection and call lifecycle are independent closed evidence contours. Migration 0010, generic
+  Codex/Claude adapter mapping, server/tool APIs and profiles, observed-only uptime, exact
+  start/terminal reconciliation, privacy-safe no-op protocol/real-Codex canaries, production
+  restart, browser, PostgreSQL and repeated restore gates pass. Codex 0.145.0's failure to follow
+  the fixture `nextCursor` is exposed as incomplete enumeration rather than fabricated coverage.
 - **16 — planned/P2 (approved 2026-07-26):** plugin bundle graph and child usage reuse stabilized
   skill/MCP relations. There is no universal plugin-success metric.
 - **17 — planned/P2 (approved 2026-07-26):** Kansoku measures its own bounded operational

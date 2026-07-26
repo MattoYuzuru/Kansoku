@@ -5,6 +5,7 @@ import sys
 import time
 
 PROTOCOL = "2025-11-25"
+ERROR_FIRST = "--error-first" in sys.argv
 
 def send(value):
     sys.stdout.write(json.dumps(value, separators=(",", ":")) + "\n")
@@ -31,18 +32,20 @@ for line in sys.stdin:
     elif method == "tools/list":
         cursor = request.get("params", {}).get("cursor")
         if not cursor:
+            name = "nothing.error" if ERROR_FIRST else "nothing.success"
             result(request_id, {
                 "tools": [{
-                    "name": "nothing.success",
+                    "name": name,
                     "description": "Deterministic metadata-only no-op.",
                     "inputSchema": {"type": "object", "additionalProperties": True},
                 }],
                 "nextCursor": "page-2",
             })
         else:
+            name = "nothing.success" if ERROR_FIRST else "nothing.error"
             result(request_id, {
                 "tools": [{
-                    "name": "nothing.error",
+                    "name": name,
                     "description": "Deterministic protocol-level execution error.",
                     "inputSchema": {"type": "object", "additionalProperties": True},
                 }]

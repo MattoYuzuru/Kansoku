@@ -2,7 +2,8 @@
 
 ## Status
 
-Approved for planning on 2026-07-26. Implementation has not started.
+Implemented on 2026-07-26. Live exit gate green; see
+`reports/session-15-reconciliation.md` and ADR 0018.
 
 ## Purpose
 
@@ -101,3 +102,24 @@ disconnects and reconnects, then produces one deterministic success and one `isE
 bounded timeout/cancel/deny cases. Inventory reconciles exactly, starts and terminals pair 1:1,
 percentile and uptime denominators are auditable, Codex and Claude share the same core model, and
 secret-like arguments/results/errors/resource identifiers are absent from every sink.
+
+## Implementation reconciliation
+
+Migration 0010 adds four closed, lineage-bearing assertion tables for server inventory,
+advertised primitives, connection transitions and call lifecycle. The adapter-owned
+`MCPEvidenceFrame` is shared by Codex, Claude and future adapters; the persistence and dashboard
+layers branch on MCP capability/state, never an agent brand.
+
+The delivered read-only UI/API surface is:
+
+- `/api/v1/components/mcp` and `/components/mcp`;
+- `/api/v1/components/mcp/{server_id}` and `/components/mcp/{server_id}`;
+- `/api/v1/components/mcp/{server_id}/tools`;
+- `/api/v1/components/mcp/{server_id}/tools/{tool_id}` and
+  `/components/mcp/{server_id}/tools/{tool_id}`.
+
+Reality narrowed two planning assumptions. Codex CLI 0.145.0 exposed the first advertised tool but
+did not follow the fixture's `nextCursor`; Kansoku records incomplete enumeration instead of
+inventing the second item. Claude Code 2.1.197 does not default-safely expose exact third-party
+identity, so the generic Claude mapper accepts an exact safe source when present and otherwise
+returns `not_observed`. Kansoku did not enable content-bearing detailed telemetry.

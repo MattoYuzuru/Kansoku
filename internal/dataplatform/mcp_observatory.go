@@ -13,7 +13,10 @@ const (
 	FormulaVersionMCPUptime2      = "mcp.observable_uptime/2"
 )
 
-var ErrMCPServerNotFound = errors.New("mcp_server_not_found")
+var (
+	ErrMCPServerNotFound    = errors.New("mcp_server_not_found")
+	ErrMCPPrimitiveNotFound = errors.New("mcp_primitive_not_found")
+)
 
 type MCPContourSupport struct {
 	Status       string `json:"status"`
@@ -81,6 +84,27 @@ type MCPServerProfileResponse struct {
 	Population     Population           `json:"population"`
 	Exclusions     map[string]int64     `json:"exclusions"`
 	Completeness   Completeness         `json:"completeness"`
+}
+
+type MCPPrimitiveListResponse struct {
+	Data           []MCPPrimitiveRow `json:"data"`
+	FormulaVersion string            `json:"formula_version"`
+	Population     Population        `json:"population"`
+	Exclusions     map[string]int64  `json:"exclusions"`
+	Completeness   Completeness      `json:"completeness"`
+}
+
+type MCPToolProfileResponse struct {
+	Identity       MCPPrimitiveRow      `json:"identity"`
+	Parent         MCPServerRow         `json:"parent"`
+	Outcomes       MCPCallOutcomeCounts `json:"outcomes"`
+	CallP95MS      *float64             `json:"call_p95_ms,omitempty"`
+	FormulaVersion string               `json:"formula_version"`
+	Population     Population           `json:"population"`
+	Exclusions     map[string]int64     `json:"exclusions"`
+	Completeness   Completeness         `json:"completeness"`
+	Inventory      MCPContourSupport    `json:"inventory"`
+	Calls          MCPContourSupport    `json:"calls"`
 }
 
 func MCPObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (MCPObservatoryResponse, error) {
@@ -236,5 +260,99 @@ func MCPServerProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, 
 	}
 	response.Population = Population{Numerator: identity.TerminalCount, Denominator: identity.CallCount}
 	response.Completeness = completenessFor(identity.TerminalCount, identity.CallCount)
+	return response, nil
+}
+
+func MCPPrimitiveList(ctx context.Context, pool *pgxpool.Pool, serverID string, from, to time.Time) (MCPPrimitiveListResponse, error) {
+	profile, err := MCPServerProfile(ctx, pool, serverID, from, to)
+	if err != nil {
+		return MCPPrimitiveListResponse{}, err
+	}
+	complete := int64(0)
+	for _, primitive := range profile.Primitives {
+		if primitive.EnumerationCompleteness == "complete" {
+			complete++
+		}
+	}
+	denominator := int64(len(profile.Primitives))
+	return MCPPrimitiveListResponse{
+		Data:           profile.Primitives,
+		FormulaVersion: "mcp.primitive_list/1",
+		Population:     Population{Numerator: complete, Denominator: denominator},
+		Exclusions:     map[string]int64{"incomplete_pagination": denominator - complete},
+		Completeness:   completenessFor(complete, denominator),
+	}, nil
+}
+
+func MCPToolProfile(ctx context.Context, pool *pgxpool.Pool, serverID, toolID string, from, to time.Time) (MCPToolProfileResponse, error) {
+	server, err := MCPServerProfile(ctx, pool, serverID, from, to)
+	if err != nil {
+		return MCPToolProfileResponse{}, err
+	}
+	var identity *MCPPrimitiveRow
+	for i := range server.Primitives {
+		if server.Primitives[i].ToolComponentID == toolID && server.Primitives[i].Kind == "tool" {
+			identity = &server.Primitives[i]
+			break
+		}
+	}
+	if identity == nil {
+		return MCPToolProfileResponse{}, ErrMCPPrimitiveNotFound
+	}
+	budget := Budgets["mcp_server_profile_range"]
+	conn, release, err := acquireBudgeted(ctx, pool, budget.MaxMS)
+	if err != nil {
+		return MCPToolProfileResponse{}, err
+	}
+	defer release()
+	response := MCPToolProfileResponse{
+		Identity:       *identity,
+		Parent:         server.Identity,
+		FormulaVersion: "mcp.tool_profile/1",
+		Exclusions:     map[string]int64{},
+		Inventory:      MCPContourSupport{Status: "supported", Completeness: identity.EnumerationCompleteness},
+	}
+	var terminals int64
+	err = conn.QueryRow(ctx, `
+		SELECT count(DISTINCT logical_call_id) FILTER(WHERE state='started'),
+			count(DISTINCT logical_call_id) FILTER(WHERE state='completed'),
+			count(DISTINCT logical_call_id) FILTER(WHERE state='execution_error'),
+			count(DISTINCT logical_call_id) FILTER(WHERE state='protocol_error'),
+			count(DISTINCT logical_call_id) FILTER(WHERE state='cancelled'),
+			count(DISTINCT logical_call_id) FILTER(WHERE state='timed_out'),
+			count(DISTINCT logical_call_id) FILTER(WHERE state='denied'),
+			count(DISTINCT logical_call_id) FILTER(WHERE state='transport_lost'),
+			count(DISTINCT logical_call_id) FILTER(WHERE state='incomplete'),
+			count(DISTINCT logical_call_id) FILTER(
+				WHERE state IN ('completed','execution_error','protocol_error','cancelled','timed_out','transport_lost','incomplete')
+				AND EXISTS (
+					SELECT 1 FROM mcp_call_assertions s
+					WHERE s.server_component_id=$1 AND s.tool_component_id=$2
+					  AND s.logical_call_id=mcp_call_assertions.logical_call_id AND s.state='started'
+					  AND s.observed_at >= $3 AND s.observed_at < $4
+				)
+			),
+			percentile_cont(0.95) WITHIN GROUP(ORDER BY duration_ms) FILTER(
+				WHERE duration_ms IS NOT NULL AND state IN ('completed','execution_error','protocol_error','cancelled','timed_out','transport_lost')
+			)
+		FROM mcp_call_assertions
+		WHERE server_component_id=$1 AND tool_component_id=$2 AND observed_at >= $3 AND observed_at < $4
+	`, serverID, toolID, from, to).Scan(
+		&response.Outcomes.Started, &response.Outcomes.Completed, &response.Outcomes.ExecutionError,
+		&response.Outcomes.ProtocolError, &response.Outcomes.Cancelled, &response.Outcomes.TimedOut,
+		&response.Outcomes.Denied, &response.Outcomes.TransportLost, &response.Outcomes.Incomplete,
+		&terminals, &response.CallP95MS,
+	)
+	if err != nil {
+		return MCPToolProfileResponse{}, err
+	}
+	response.Population = Population{Numerator: terminals, Denominator: response.Outcomes.Started}
+	response.Completeness = completenessFor(terminals, response.Outcomes.Started)
+	if identity.EnumerationCompleteness == "complete" {
+		response.Calls = MCPContourSupport{Status: "supported", Completeness: response.Completeness.Status}
+	} else {
+		response.Calls = MCPContourSupport{Status: "not_observed", Completeness: "unknown"}
+		response.Exclusions["incomplete_pagination"] = 1
+	}
 	return response, nil
 }

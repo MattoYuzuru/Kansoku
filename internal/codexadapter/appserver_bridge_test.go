@@ -116,6 +116,19 @@ func TestAppServerBridgeMapsMCPStartAndIsErrorTerminalWithoutPayload(t *testing.
 			t.Fatalf("raw MCP payload survived: %q", raw)
 		}
 	}
+	sinks, err := privacy.SerializeAllSinks(records, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sinks) != 10 {
+		t.Fatalf("sink count=%d want 10", len(sinks))
+	}
+	if matches := privacy.ScanCanaries(sinks, map[string]string{"argument": "sk-raw", "result": "raw error"}); len(matches) != 0 {
+		t.Fatalf("raw MCP content reached sinks: %#v", matches)
+	}
+	if matches := privacy.ScanSecretFormats(sinks); len(matches) != 0 {
+		t.Fatalf("secret-shaped MCP argument reached sinks: %#v", matches)
+	}
 }
 
 func TestAppServerBridgeUnknownSchemaIsMetadataOnlyAndDegradesOnlyBridge(t *testing.T) {

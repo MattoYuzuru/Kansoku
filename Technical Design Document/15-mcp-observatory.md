@@ -1,5 +1,24 @@
 # TDD 15 — MCP observatory
 
+## Implemented reality
+
+Session 15 implements the three contours in migration 0010 as append-only closed assertions over
+the existing `components` and `component_relations` graph. `internal/adaptersdk.MCPEvidenceFrame`
+is the shared metadata-only boundary; `internal/dataplatform.PersistMCPEvidence` is a compatibility
+alias consumer, not an agent-specific schema. Unknown or unsafe identity is rejected or remains
+not observed.
+
+The server list/profile, primitive list and tool profile queries publish formula version,
+numerator, denominator, exclusions and completeness. Tool calls count only observed starts and
+paired logical terminals; policy denial remains a separate decision outcome. Observable uptime is
+only the sum of intervals between actual transitions. Backup manifests include all four MCP
+tables, and the dump and manifest counts share one exported repeatable-read PostgreSQL snapshot.
+
+The live no-op server implements MCP 2025-11-25 initialization, paginated `tools/list`,
+`notifications/tools/list_changed`, `isError=false` and `isError=true`. Protocol error, timeout,
+cancellation, denial, transport loss and missing terminal are asserted as separate deterministic
+canary cases. A direct protocol observer/proxy remains rejected as invasive.
+
 ## Architecture
 
 Extend the existing inventory graph, `mcp_connections` and `tool_calls` rather than creating a

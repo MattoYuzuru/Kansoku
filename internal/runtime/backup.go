@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"kansoku.local/kansoku/internal/dataplatform"
 	"kansoku.local/kansoku/internal/integrity"
@@ -44,6 +45,8 @@ var backupTableGroups = map[string][]string{
 		"session_installation_attributions",
 		"component_terminal_contracts", "component_assertions",
 		"component_observation_windows", "component_file_tree_metadata",
+		"mcp_server_observations", "mcp_primitive_observations",
+		"mcp_connection_assertions", "mcp_call_assertions",
 		"source_watermarks", "completeness_intervals", "ingest_failures",
 		"schema_quarantine_metadata", "reconciliation_runs",
 		"reconciliation_mismatches", "audit_runs", "audit_checks",
@@ -238,8 +241,20 @@ func (s *OperationsService) Backup(ctx context.Context, _ BackupRequest) (any, e
 		return nil, err
 	}
 	defer cleanup()
+	snapshotTx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
+	})
+	if err != nil {
+		return nil, errors.New("backup_snapshot_start_failed")
+	}
+	defer func() { _ = snapshotTx.Rollback(context.WithoutCancel(ctx)) }()
+	var snapshotID string
+	if err := snapshotTx.QueryRow(ctx, `SELECT pg_export_snapshot()`).Scan(&snapshotID); err != nil {
+		return nil, errors.New("backup_snapshot_export_failed")
+	}
 	args := []string{
 		"--format=custom", "--no-owner", "--no-acl",
+		"--snapshot=" + snapshotID,
 		"--host=" + s.config.Database.Host,
 		fmt.Sprintf("--port=%d", s.config.Database.Port),
 		"--username=" + s.config.Database.User,
@@ -256,13 +271,16 @@ func (s *OperationsService) Backup(ctx context.Context, _ BackupRequest) (any, e
 	if err != nil {
 		return nil, err
 	}
-	counts, err := s.tableCounts(ctx, s.pool)
+	counts, err := s.tableCounts(ctx, snapshotTx)
 	if err != nil {
 		return nil, errors.New("backup_count_snapshot_failed")
 	}
-	formulaVersion, adapterVersions, err := s.registryVersions(ctx)
+	formulaVersion, adapterVersions, err := registryVersionsForPool(ctx, snapshotTx)
 	if err != nil {
 		return nil, errors.New("backup_registry_snapshot_failed")
+	}
+	if err := snapshotTx.Commit(ctx); err != nil {
+		return nil, errors.New("backup_snapshot_commit_failed")
 	}
 	manifest := NativeBackupManifest{
 		BackupVersion: BackupVersion, AppVersion: AppVersion,
@@ -456,7 +474,12 @@ func verifyRestoredSemantics(ctx context.Context, restored *pgxpool.Pool, manife
 	return nil
 }
 
-func registryVersionsForPool(ctx context.Context, pool *pgxpool.Pool) (string, []string, error) {
+type backupQuerier interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func registryVersionsForPool(ctx context.Context, pool backupQuerier) (string, []string, error) {
 	var formulas []string
 	rows, err := pool.Query(ctx, `SELECT formula_id || '/' || version::text FROM formula_versions ORDER BY formula_id, version`)
 	if err != nil {
@@ -556,7 +579,7 @@ func (s *OperationsService) pgPassFile() (string, func(), error) {
 	return path, cleanup, nil
 }
 
-func (s *OperationsService) tableCounts(ctx context.Context, pool *pgxpool.Pool) (map[string]int64, error) {
+func (s *OperationsService) tableCounts(ctx context.Context, pool backupQuerier) (map[string]int64, error) {
 	counts := map[string]int64{}
 	groups := make([]string, 0, len(backupTableGroups))
 	for group := range backupTableGroups {
