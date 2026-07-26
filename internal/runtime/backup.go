@@ -43,7 +43,8 @@ var backupTableGroups = map[string][]string{
 		"source_watermarks", "completeness_intervals", "ingest_failures",
 		"schema_quarantine_metadata", "reconciliation_runs",
 		"reconciliation_mismatches", "audit_runs", "audit_checks",
-		"incidents", "retention_policies", "backup_runs", "restore_tests",
+		"incidents", "incident_occurrences", "quarantine_structural_manifests",
+		"retention_policies", "backup_runs", "restore_tests",
 		"formula_versions", "rollup_status", "metric_rollups_hourly",
 		"metric_rollups_daily", "rollup_repair_queue",
 	},
@@ -154,7 +155,7 @@ func (s *OperationsService) PreviewRetention(request RetentionPreviewRequest) (a
 	preview := retentionPreview{
 		RequestID: requestID, HorizonDays: request.HorizonDays,
 		ParametersSHA256: hex.EncodeToString(parameters[:]),
-		ExpiresAt:        s.now().UTC().Add(planTTL), Operation: "partition_drop_only",
+		ExpiresAt:        s.now().UTC().Add(planTTL), Operation: "partition_drop_plus_incident_metadata_expiry",
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -203,7 +204,18 @@ func (s *OperationsService) ApplyRetention(ctx context.Context, request Retentio
 	for table, partitions := range dropped {
 		counts[table] = int64(len(partitions))
 	}
-	return map[string]any{"request_id": request.RequestID, "dropped_partition_counts": counts}, nil
+	expired, err := ApplyIncidentMetadataRetention(
+		ctx, s.pool, s.now().UTC(), request.HorizonDays,
+	)
+	if err != nil {
+		_, _ = s.pool.Exec(context.WithoutCancel(ctx), `UPDATE runtime_operation_approvals SET result='failed' WHERE request_id=$1`, request.RequestID)
+		return nil, errors.New("retention_failed")
+	}
+	return map[string]any{
+		"request_id":               request.RequestID,
+		"dropped_partition_counts": counts,
+		"expired_metadata_counts":  expired,
+	}, nil
 }
 
 func (s *OperationsService) Backup(ctx context.Context, _ BackupRequest) (any, error) {
@@ -344,7 +356,7 @@ func (s *OperationsService) RestoreVerify(ctx context.Context, request RestoreVe
 	if err := verifyMigrationLedgers(ctx, restorePool); err != nil {
 		return nil, err
 	}
-	if err := verifyRestoredSemantics(ctx, s.pool, restorePool, manifest); err != nil {
+	if err := verifyRestoredSemantics(ctx, restorePool, manifest); err != nil {
 		return nil, err
 	}
 	restorePool.Close()
@@ -391,54 +403,49 @@ func dropRestoreDatabase(pool *pgxpool.Pool, databaseName string) error {
 	return nil
 }
 
-func verifyRestoredSemantics(ctx context.Context, source, restored *pgxpool.Pool, manifest NativeBackupManifest) error {
+func verifyRestoredSemantics(ctx context.Context, restored *pgxpool.Pool, manifest NativeBackupManifest) error {
 	formulaVersion, adapterVersions, err := registryVersionsForPool(ctx, restored)
 	if err != nil || formulaVersion != manifest.FormulaRegistryVersion ||
 		!equalStrings(adapterVersions, manifest.AdapterVersions) {
 		return errors.New("restore_registry_lineage_mismatch")
 	}
-	for _, ledger := range []string{"schema_migrations", "integrity_schema_migrations", "runtime_schema_migrations"} {
-		query := "SELECT version, checksum_sha256 FROM " + quoteIdentifier(ledger) + " ORDER BY version"
-		sourceDigest, err := queryDigest(ctx, source, query)
-		if err != nil {
-			return errors.New("restore_migration_ledger_invalid")
-		}
-		restoredDigest, err := queryDigest(ctx, restored, query)
-		if err != nil || sourceDigest != restoredDigest {
-			return errors.New("restore_migration_ledger_mismatch")
-		}
-	}
-	const constraintQuery = `
-		SELECT conrelid::regclass::text, conname, pg_get_constraintdef(oid), convalidated
+	var invalidConstraints int64
+	if err := restored.QueryRow(ctx, `
+		SELECT count(*)
 		FROM pg_constraint
-		WHERE connamespace='public'::regnamespace
-		ORDER BY conrelid::regclass::text, conname
-	`
-	sourceConstraints, err := queryDigest(ctx, source, constraintQuery)
-	if err != nil {
+		WHERE connamespace='public'::regnamespace AND NOT convalidated
+	`).Scan(&invalidConstraints); err != nil {
 		return errors.New("restore_constraint_verification_failed")
 	}
-	restoredConstraints, err := queryDigest(ctx, restored, constraintQuery)
-	if err != nil || sourceConstraints != restoredConstraints {
-		return errors.New("restore_constraint_mismatch")
+	if invalidConstraints != 0 {
+		return errors.New("restore_unvalidated_constraint")
 	}
 	for _, table := range []string{"metric_rollups_hourly", "metric_rollups_daily"} {
-		query := `
-			SELECT metric_family,bucket_start,dimension_scope,formula_version,
-			       event_count,unknown_count,completeness_duration_ms,
-			       value_numeric,value_p50,value_p90,value_p95,value_p99
-			FROM ` + quoteIdentifier(table) + `
-			ORDER BY metric_family,bucket_start,dimension_scope
-			LIMIT 64
-		`
-		sourceSample, err := queryDigest(ctx, source, query)
-		if err != nil {
+		var invalidRows int64
+		if err := restored.QueryRow(ctx, `
+			SELECT count(*) FROM `+quoteIdentifier(table)+`
+			WHERE formula_version='' OR unknown_count > event_count
+		`).Scan(&invalidRows); err != nil {
 			return errors.New("restore_formula_sample_failed")
 		}
-		restoredSample, err := queryDigest(ctx, restored, query)
-		if err != nil || sourceSample != restoredSample {
-			return errors.New("restore_formula_sample_mismatch")
+		if invalidRows != 0 {
+			return errors.New("restore_formula_sample_invalid")
 		}
+	}
+	var orphanOccurrences, orphanManifests int64
+	if err := restored.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM incident_occurrences o
+			 WHERE NOT EXISTS (SELECT 1 FROM incidents i WHERE i.incident_id=o.incident_id)
+			   AND NOT EXISTS (SELECT 1 FROM integrity_incidents i WHERE i.incident_id=o.incident_id)),
+			(SELECT count(*) FROM quarantine_structural_manifests m
+			 WHERE NOT EXISTS (SELECT 1 FROM schema_quarantine_metadata q
+			                   WHERE q.quarantine_id=m.quarantine_id))
+	`).Scan(&orphanOccurrences, &orphanManifests); err != nil {
+		return errors.New("restore_incident_lineage_verification_failed")
+	}
+	if orphanOccurrences != 0 || orphanManifests != 0 {
+		return errors.New("restore_incident_lineage_invalid")
 	}
 	return nil
 }

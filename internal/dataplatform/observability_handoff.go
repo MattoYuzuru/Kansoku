@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"kansoku.local/kansoku/internal/observability"
 )
@@ -447,13 +449,119 @@ func (h *ObservabilityHandoff) PersistQuarantineMetadata(quarantine observabilit
 		quarantine.ObservedAt); err != nil {
 		return err
 	}
+	idempotencyKey := handoffID(
+		"incident-occurrence", quarantine.QuarantineID,
+		quarantine.ObservedAt.UTC().Format(time.RFC3339Nano),
+		string(quarantine.SourceKind), quarantine.SchemaFingerprint,
+		fmt.Sprintf("%d", quarantine.ByteCount), fmt.Sprintf("%d", quarantine.RecordCount),
+	)
+	occurrenceID := handoffID("incident-occurrence-row", idempotencyKey)
+	var inserted bool
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO incident_occurrences (
+			incident_occurrence_id, incident_id, observed_at, evidence_ref,
+			schema_fingerprint, safe_error_class, record_count, byte_count,
+			idempotency_key
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		ON CONFLICT (idempotency_key) DO NOTHING
+		RETURNING TRUE
+	`, occurrenceID, incident.IncidentID, quarantine.ObservedAt.UTC(),
+		"quarantine:"+quarantine.QuarantineID, quarantine.SchemaFingerprint,
+		quarantine.Category, quarantine.RecordCount, quarantine.ByteCount,
+		idempotencyKey).Scan(&inserted); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if !inserted {
+		return tx.Commit(ctx)
+	}
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO incidents (incident_id,category,opened_at,resolved_at)
-		VALUES ($1,$2,$3,$4)
+		INSERT INTO incidents (
+			incident_id, category, opened_at, resolved_at, last_seen_at,
+			occurrence_count, schema_fingerprint, detector_state, triage_state,
+			capability_id, installation_value_state, source_value_state,
+			severity, recovery_criteria, updated_at
+		) VALUES ($1,$2,$3,$4,$5,1,$6,'open','new','core_ingestion',
+		          'not_observed','not_observed','warning',
+		          'fresh supported evidence followed by a passing targeted audit',now())
 		ON CONFLICT (incident_id) DO UPDATE SET
-			category=EXCLUDED.category
-	`, incident.IncidentID, incident.Category, incident.OpenedAt, incident.ResolvedAt); err != nil {
+			category=EXCLUDED.category,
+			last_seen_at=GREATEST(incidents.last_seen_at, EXCLUDED.last_seen_at),
+			occurrence_count=incidents.occurrence_count+1,
+			schema_fingerprint=COALESCE(incidents.schema_fingerprint, EXCLUDED.schema_fingerprint),
+			detector_state=CASE WHEN incidents.resolved_at IS NULL THEN 'open' ELSE incidents.detector_state END,
+			updated_at=now()
+	`, incident.IncidentID, incident.Category, incident.OpenedAt, incident.ResolvedAt,
+		quarantine.ObservedAt.UTC(), quarantine.SchemaFingerprint); err != nil {
+		return err
+	}
+	pathsJSON, primitiveTypesJSON, shapeState := safeQuarantineShape(quarantine.SourceKind)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO quarantine_structural_manifests (
+			quarantine_id, incident_id, source_kind, source_instance_pseudonym,
+			source_instance_value_state, signal_kind, safe_event_type,
+			event_type_value_state, structural_field_paths, primitive_types,
+			shape_value_state, schema_fingerprint, adapter_version,
+			source_schema_version, parser_version, classification,
+			rejection_reason, first_seen_at, last_seen_at, occurrence_count,
+			total_record_count, total_byte_count, disposition, updated_at
+		) VALUES (
+			$1,$2,$3,NULL,'not_observed',$3,NULL,'unknown',$4::jsonb,$5::jsonb,
+			$6,$7,NULL,NULL,NULL,'metadata_only_unknown_schema',$8,$9,$9,1,$10,$11,
+			'unresolved',now()
+		)
+		ON CONFLICT (quarantine_id) DO UPDATE SET
+			incident_id=CASE
+				WHEN quarantine_structural_manifests.incident_id LIKE 'inc_unlinked_%'
+				  AND quarantine_structural_manifests.source_kind = EXCLUDED.source_kind
+				  AND quarantine_structural_manifests.schema_fingerprint = EXCLUDED.schema_fingerprint
+				THEN EXCLUDED.incident_id
+				ELSE quarantine_structural_manifests.incident_id
+			END,
+			structural_field_paths=CASE
+				WHEN quarantine_structural_manifests.shape_value_state='not_observed'
+				  AND EXCLUDED.shape_value_state='observed'
+				THEN EXCLUDED.structural_field_paths
+				ELSE quarantine_structural_manifests.structural_field_paths
+			END,
+			primitive_types=CASE
+				WHEN quarantine_structural_manifests.shape_value_state='not_observed'
+				  AND EXCLUDED.shape_value_state='observed'
+				THEN EXCLUDED.primitive_types
+				ELSE quarantine_structural_manifests.primitive_types
+			END,
+			shape_value_state=CASE
+				WHEN quarantine_structural_manifests.shape_value_state='not_observed'
+				  AND EXCLUDED.shape_value_state='observed'
+				THEN 'observed'
+				ELSE quarantine_structural_manifests.shape_value_state
+			END,
+			last_seen_at=GREATEST(quarantine_structural_manifests.last_seen_at, EXCLUDED.last_seen_at),
+			occurrence_count=quarantine_structural_manifests.occurrence_count+1,
+			total_record_count=quarantine_structural_manifests.total_record_count+EXCLUDED.total_record_count,
+			total_byte_count=quarantine_structural_manifests.total_byte_count+EXCLUDED.total_byte_count,
+			updated_at=now()
+	`, quarantine.QuarantineID, incident.IncidentID, string(quarantine.SourceKind),
+		pathsJSON, primitiveTypesJSON, shapeState, quarantine.SchemaFingerprint,
+		quarantine.Category, quarantine.ObservedAt.UTC(), quarantine.RecordCount,
+		quarantine.ByteCount); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// safeQuarantineShape returns only protocol field names fixed in Kansoku
+// source code. It never derives a durable key or value from the unknown
+// payload. JSON hooks do not expose a value-free field-path manifest at this
+// boundary, so their shape stays honestly not_observed.
+func safeQuarantineShape(kind observability.SourceKind) (pathsJSON, primitiveTypesJSON, state string) {
+	switch kind {
+	case observability.SourceOTLPLog:
+		return `["$.resource_logs","$.resource_logs[].scope_logs","$.resource_logs[].scope_logs[].log_records"]`, `["array","object"]`, "observed"
+	case observability.SourceOTLPMetric:
+		return `["$.resource_metrics","$.resource_metrics[].scope_metrics","$.resource_metrics[].scope_metrics[].metrics"]`, `["array","object"]`, "observed"
+	case observability.SourceOTLPSpan:
+		return `["$.resource_spans","$.resource_spans[].scope_spans","$.resource_spans[].scope_spans[].spans"]`, `["array","object"]`, "observed"
+	default:
+		return `[]`, `["object"]`, "not_observed"
+	}
 }

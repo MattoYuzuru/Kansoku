@@ -299,7 +299,11 @@ func updateIncidentDetailOnFinding(ctx context.Context, tx pgx.Tx, detail Integr
 }
 
 func resolveIncident(ctx context.Context, tx pgx.Tx, incidentID string, resolvedAt time.Time) error {
-	if _, err := tx.Exec(ctx, `UPDATE integrity_incidents SET resolved_at = $2, updated_at = now() WHERE incident_id = $1`, incidentID, resolvedAt.UTC()); err != nil {
+	if _, err := tx.Exec(ctx, `
+		UPDATE integrity_incidents
+		SET resolved_at = $2, detector_state = 'resolved', updated_at = now()
+		WHERE incident_id = $1
+	`, incidentID, resolvedAt.UTC()); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE integrity_incident_details SET resolved_at = $2, updated_at = now() WHERE incident_id = $1`, incidentID, resolvedAt.UTC()); err != nil {

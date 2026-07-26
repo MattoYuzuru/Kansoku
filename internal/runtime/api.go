@@ -15,8 +15,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"kansoku.local/kansoku/internal/dataplatform"
-	"kansoku.local/kansoku/internal/integrity"
 	"kansoku.local/kansoku/internal/localhttp"
+	"kansoku.local/kansoku/internal/privacy"
 )
 
 const APIVersion = "kansoku.api/1"
@@ -70,6 +70,7 @@ type API struct {
 	jobs       *JobManager
 	operations AdminOperations
 	config     Config
+	cursorKey  []byte
 }
 
 func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIngressQueue, plans *PlanManager, jobs *JobManager, operations AdminOperations) (http.Handler, error) {
@@ -84,13 +85,21 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 	if err != nil {
 		return nil, err
 	}
-	api := &API{pool: pool, queue: queue, plans: plans, jobs: jobs, operations: operations, config: config}
+	cursorKey := secrets.AuditHMAC
+	if len(cursorKey) < minSecretBytes {
+		cursorKey = secrets.CSRF
+	}
+	api := &API{
+		pool: pool, queue: queue, plans: plans, jobs: jobs, operations: operations,
+		config: config, cursorKey: append([]byte(nil), cursorKey...),
+	}
 	mux := http.NewServeMux()
 	for route, handler := range map[string]http.HandlerFunc{
 		"/api/v1/inventory":                     api.inventory,
 		"/api/v1/analytics":                     api.analytics,
 		"/api/v1/health":                        api.health,
 		"/api/v1/incidents":                     api.incidents,
+		"/api/v1/quarantine":                    api.quarantine,
 		"/api/v1/completeness":                  api.completeness,
 		"/api/v1/operations/jobs":               api.jobRuns,
 		"/api/v1/components/mcp/topology":       api.mcpTopology,
@@ -107,6 +116,17 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 	} {
 		mux.Handle(route, readGuard.Wrap(localhttp.RouteUIStream, handler))
 	}
+	incidentRead := readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.incidentResource))
+	incidentMutation := mutationGuard.Wrap(localhttp.RouteUIMutation, http.HandlerFunc(api.incidentResource))
+	mux.Handle("/api/v1/incidents/", http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.Method {
+		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+			incidentMutation.ServeHTTP(writer, request)
+		default:
+			incidentRead.ServeHTTP(writer, request)
+		}
+	}))
+	mux.Handle("/api/v1/quarantine/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.quarantineResource)))
 	for route, handler := range map[string]http.HandlerFunc{
 		"/api/v1/plans/preview":           api.planPreview,
 		"/api/v1/plans/apply":             api.planApply,
@@ -608,68 +628,7 @@ func (a *API) health(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (a *API) incidents(writer http.ResponseWriter, request *http.Request) {
-	ctx, cancel := context.WithTimeout(request.Context(), a.config.QueryTimeout())
-	defer cancel()
-	incidents, err := integrity.ListOpenIncidents(ctx, a.pool)
-	if err != nil {
-		a.writeError(writer, http.StatusServiceUnavailable, "incidents_unavailable")
-		return
-	}
-	if len(incidents) > 500 {
-		incidents = incidents[:500]
-	}
-	type safeIncident struct {
-		IncidentID       string    `json:"incident_id"`
-		InstallationID   string    `json:"installation_id"`
-		SourceID         string    `json:"source_id"`
-		CapabilityID     string    `json:"capability_id"`
-		FailureClass     string    `json:"failure_class"`
-		FirstSeenAt      time.Time `json:"first_seen_at"`
-		RecoveryCriteria string    `json:"recovery_criteria"`
-	}
-	safe := make([]safeIncident, 0, len(incidents))
-	for _, incident := range incidents {
-		safe = append(safe, safeIncident{
-			IncidentID: incident.IncidentID, InstallationID: incident.InstallationID,
-			SourceID: incident.SourceID, CapabilityID: incident.CapabilityID,
-			FailureClass: string(incident.FailureClass), FirstSeenAt: incident.FirstSeenAt,
-			RecoveryCriteria: incident.RecoveryCriteria,
-		})
-	}
-	// Unknown-schema records are durably quarantined by the observability
-	// ingress before the integrity audit runs. They therefore live in the
-	// original incidents table, while audit findings live in
-	// integrity_incidents + integrity_incident_details. Both are real open
-	// incidents and must be visible through the one public incident API.
-	rows, err := a.pool.Query(ctx, `
-		SELECT incident_id, category, opened_at
-		FROM incidents
-		WHERE resolved_at IS NULL
-		ORDER BY opened_at
-		LIMIT $1
-	`, 500-len(safe))
-	if err != nil {
-		a.writeError(writer, http.StatusServiceUnavailable, "incidents_unavailable")
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var incident safeIncident
-		if err := rows.Scan(&incident.IncidentID, &incident.FailureClass, &incident.FirstSeenAt); err != nil {
-			a.writeError(writer, http.StatusServiceUnavailable, "incidents_unavailable")
-			return
-		}
-		incident.InstallationID = "not_observed"
-		incident.SourceID = "not_observed"
-		incident.CapabilityID = "core_ingestion"
-		incident.RecoveryCriteria = "ingest a supported schema and complete a successful replay"
-		safe = append(safe, incident)
-	}
-	if err := rows.Err(); err != nil {
-		a.writeError(writer, http.StatusServiceUnavailable, "incidents_unavailable")
-		return
-	}
-	a.write(writer, http.StatusOK, safe, map[string]any{"status": "complete", "exclusions": []string{"user_notes"}})
+	a.listIncidents(writer, request)
 }
 
 func (a *API) completeness(writer http.ResponseWriter, request *http.Request) {
@@ -826,7 +785,9 @@ func (a *API) write(writer http.ResponseWriter, status int, data, completeness a
 	}
 	envelope := APIEnvelope{APIVersion: APIVersion, RequestID: requestID, Data: data, Completeness: completeness}
 	encoded, err := json.Marshal(envelope)
-	if err != nil || int64(len(encoded)) > a.config.ResponseMaxBytes || containsForbiddenResponseKey(encoded) {
+	if err != nil || int64(len(encoded)) > a.config.ResponseMaxBytes ||
+		containsForbiddenResponseKey(encoded) ||
+		len(privacy.ScanSecretFormats(privacy.SinkSnapshot{"api": encoded})) != 0 {
 		http.Error(writer, "response_policy_violation", http.StatusInternalServerError)
 		return
 	}

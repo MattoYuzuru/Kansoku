@@ -135,13 +135,46 @@ func (s *FileStore) Commit(request CommitRequest) (CommitResult, error) {
 	if request.Watermark != nil {
 		next.Watermarks[request.Watermark.SourceID] = *request.Watermark
 	}
+	newQuarantineOccurrence := request.Quarantine == nil
 	if request.Quarantine != nil {
-		next.Quarantine = append(next.Quarantine, *request.Quarantine)
+		newQuarantineOccurrence = true
+		for index := range next.Quarantine {
+			existing := next.Quarantine[index]
+			if existing.QuarantineID != request.Quarantine.QuarantineID {
+				continue
+			}
+			if existing.ObservedAt.Equal(request.Quarantine.ObservedAt) &&
+				existing.ByteCount == request.Quarantine.ByteCount &&
+				existing.RecordCount == request.Quarantine.RecordCount &&
+				existing.Category == request.Quarantine.Category {
+				newQuarantineOccurrence = false
+			} else {
+				next.Quarantine[index] = *request.Quarantine
+			}
+			break
+		}
+		if newQuarantineOccurrence {
+			found := false
+			for _, existing := range next.Quarantine {
+				if existing.QuarantineID == request.Quarantine.QuarantineID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				next.Quarantine = append(next.Quarantine, *request.Quarantine)
+			}
+		}
 	}
 	if request.Incident != nil {
 		incident := *request.Incident
 		if existing, ok := next.Incidents[incident.IncidentID]; ok {
-			incident.OccurrenceCount = existing.OccurrenceCount + 1
+			if newQuarantineOccurrence {
+				incident.OccurrenceCount = existing.OccurrenceCount + 1
+			} else {
+				incident.OccurrenceCount = existing.OccurrenceCount
+				incident.LastObserved = existing.LastObserved
+			}
 		} else if incident.OccurrenceCount == 0 {
 			incident.OccurrenceCount = 1
 		}
@@ -444,4 +477,16 @@ func CheckDurableSpool(path string, maxBytes int64) error {
 func NewIncident(category string, source SourceKind, at time.Time) Incident {
 	id := "inc_" + stableID("incident/1", category, string(source))[:32]
 	return Incident{IncidentID: id, Capability: "core_ingestion", Category: category, Completeness: Degraded, OpenedAt: at.UTC(), LastObserved: at.UTC()}
+}
+
+// NewSchemaIncident groups unknown-schema failures by their structural
+// fingerprint as well as source and category. A second unknown shape on the
+// same transport must remain an independently actionable incident; a replay
+// of the same shape retains the same identity.
+func NewSchemaIncident(category string, source SourceKind, schemaFingerprint string, at time.Time) Incident {
+	id := "inc_" + stableID("incident-schema/1", category, string(source), schemaFingerprint)[:32]
+	return Incident{
+		IncidentID: id, Capability: "core_ingestion", Category: category,
+		Completeness: Degraded, OpenedAt: at.UTC(), LastObserved: at.UTC(),
+	}
 }

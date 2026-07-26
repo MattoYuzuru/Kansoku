@@ -200,9 +200,18 @@ func NewAppliance(ctx context.Context, config Config, secrets Secrets, integrity
 		},
 		JobRetention: func(jobCtx context.Context) (map[string]int64, error) {
 			dropped, err := dataplatform.ApplyRetention(jobCtx, pool, time.Now().UTC(), config.RetentionDays)
+			if err != nil {
+				return nil, err
+			}
 			counts := map[string]int64{}
 			for table, values := range dropped {
 				counts[table] = int64(len(values))
+			}
+			expired, err := ApplyIncidentMetadataRetention(
+				jobCtx, pool, time.Now().UTC(), config.RetentionDays,
+			)
+			for table, count := range expired {
+				counts[table] = count
 			}
 			return counts, err
 		},

@@ -65,6 +65,7 @@ func NewDefaultIntegrityRunner(
 	unknown := integrity.NewUnknownSchemaAndLagCheck(func(context.Context) ([]integrity.SourceIntegritySnapshot, error) {
 		return nil, nil
 	})
+	incidentWorkbench := integrity.NewIncidentWorkbenchAuditCheck(pool)
 	rollup := integrity.NewRollupFormulaDBIntegrityCheck(
 		pool,
 		func(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
@@ -96,7 +97,7 @@ func NewDefaultIntegrityRunner(
 		Pool: pool, AdapterRegistry: registry,
 		Checks: []integrity.Check{
 			discovery, endpoints, freshness, adapterAudit, synthetic,
-			reconciliation, unknown, rollup, storage, liveCanary,
+			reconciliation, unknown, incidentWorkbench, rollup, storage, liveCanary,
 		},
 		ReportSigningKeyID: "runtime-audit-hmac/1",
 		ReportSigningKey:   secrets.AuditHMAC,

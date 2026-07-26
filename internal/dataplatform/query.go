@@ -28,6 +28,12 @@ var Budgets = map[string]QueryBudget{
 	"component_inventory_current":   {ID: "component_inventory_current", MaxMS: 100},
 	"reliability_coverage_timeline": {ID: "reliability_coverage_timeline", MaxMS: 150},
 	"mcp_topology":                  {ID: "mcp_topology", MaxMS: 100},
+	"incident_list":                 {ID: "incident_list", MaxMS: 150},
+	"incident_detail":               {ID: "incident_detail", MaxMS: 100},
+	"incident_occurrences":          {ID: "incident_occurrences", MaxMS: 100},
+	"quarantine_list":               {ID: "quarantine_list", MaxMS: 150},
+	"quarantine_detail":             {ID: "quarantine_detail", MaxMS: 100},
+	"incident_debug_bundle":         {ID: "incident_debug_bundle", MaxMS: 150},
 	// Wave 1b (Session 10 continuation) budgets. Not yet mirrored into
 	// contracts/data-platform/query-contract.yaml `budgets.queries` or the
 	// contracts/data-platform-policy-locks.yaml semantic_sha256 chain, the

@@ -152,7 +152,7 @@ func (i *Ingestor) ingestJSON(raw []byte, kind SourceKind, sequence uint64, chec
 		// FixtureSourceSchema()'s enum never declared.
 		quarantineID := "qua_" + stableID("quarantine/1", safeErr.SourceSchemaID, safeErr.SchemaFingerprint, safeErr.Category, safeErr.FieldPath)[:32]
 		quarantine := Quarantine{QuarantineID: quarantineID, SourceKind: kind, SchemaFingerprint: safeErr.SchemaFingerprint, Category: safeErr.Category, ByteCount: safeErr.TotalBytes, RecordCount: safeErr.RecordCount, ObservedAt: i.now().UTC()}
-		incident := NewIncident(safeErr.Category, kind, i.now())
+		incident := NewSchemaIncident(safeErr.Category, kind, safeErr.SchemaFingerprint, i.now())
 		_, commitErr := i.store.Commit(CommitRequest{Quarantine: &quarantine, Incident: &incident, Checkpoint: checkpoint})
 		if commitErr != nil {
 			return CommitResult{}, commitErr
@@ -251,7 +251,7 @@ func (i *Ingestor) IngestUnknown(kind SourceKind, schemaFingerprint string, byte
 	}
 	now := i.now().UTC()
 	quarantine := Quarantine{QuarantineID: "qua_" + stableID("quarantine/1", string(kind), schemaFingerprint)[:32], SourceKind: kind, SchemaFingerprint: schemaFingerprint, Category: "unknown_schema", ByteCount: byteCount, RecordCount: recordCount, ObservedAt: now}
-	incident := NewIncident("unknown_schema", kind, now)
+	incident := NewSchemaIncident("unknown_schema", kind, schemaFingerprint, now)
 	watermark := Watermark{SourceID: string(kind), Lifecycle: SourceDegraded, LastDiscovered: now, LastObserved: now, LastCommitted: now, ExpectedCadenceMS: 30_000, GapCount: 1}
 	if _, err := i.store.Commit(CommitRequest{Quarantine: &quarantine, Incident: &incident, Watermark: &watermark}); err != nil {
 		return err

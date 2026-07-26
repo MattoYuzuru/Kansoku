@@ -1,0 +1,27 @@
+DROP INDEX IF EXISTS idx_quarantine_manifests_page;
+DROP TABLE IF EXISTS quarantine_structural_manifests;
+DROP INDEX IF EXISTS idx_incident_occurrences_page;
+DROP TABLE IF EXISTS incident_occurrences;
+DROP INDEX IF EXISTS idx_incidents_workbench_page;
+
+ALTER TABLE incidents DROP COLUMN IF EXISTS updated_at;
+ALTER TABLE incidents DROP COLUMN IF EXISTS recovery_evidence_ref;
+ALTER TABLE incidents DROP COLUMN IF EXISTS recovery_audit_run_id;
+ALTER TABLE incidents DROP COLUMN IF EXISTS recovery_observed_at;
+ALTER TABLE incidents DROP COLUMN IF EXISTS recovery_criteria;
+ALTER TABLE incidents DROP COLUMN IF EXISTS parser_version;
+ALTER TABLE incidents DROP COLUMN IF EXISTS source_schema_version;
+ALTER TABLE incidents DROP COLUMN IF EXISTS adapter_version;
+ALTER TABLE incidents DROP COLUMN IF EXISTS severity;
+ALTER TABLE incidents DROP COLUMN IF EXISTS source_value_state;
+ALTER TABLE incidents DROP COLUMN IF EXISTS source_id;
+ALTER TABLE incidents DROP COLUMN IF EXISTS installation_value_state;
+ALTER TABLE incidents DROP COLUMN IF EXISTS installation_id;
+ALTER TABLE incidents DROP COLUMN IF EXISTS capability_id;
+ALTER TABLE incidents DROP COLUMN IF EXISTS triage_note_category;
+ALTER TABLE incidents DROP COLUMN IF EXISTS triage_state;
+ALTER TABLE incidents DROP COLUMN IF EXISTS detector_state;
+ALTER TABLE incidents DROP COLUMN IF EXISTS schema_fingerprint;
+ALTER TABLE incidents DROP COLUMN IF EXISTS occurrence_count;
+ALTER TABLE incidents DROP COLUMN IF EXISTS occurrence_retention_excluded_count;
+ALTER TABLE incidents DROP COLUMN IF EXISTS last_seen_at;
