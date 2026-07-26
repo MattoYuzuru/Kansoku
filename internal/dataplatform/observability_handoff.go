@@ -60,6 +60,9 @@ type ObservabilityFactScope struct {
 	AdapterVersionID        string
 	SourceInstanceID        string
 	DimensionScope          string
+	ComponentResolution     string
+	ComponentCandidateCount int
+	DeclaredComponentPseudo string
 }
 
 func handoffID(kind string, values ...string) string {
@@ -98,6 +101,10 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 		turnID = handoffID("turn", sessionID, event.EventID)
 	}
 	componentID := event.Subject.ComponentID
+	declaredComponentPseudo := ""
+	if componentID != "" {
+		declaredComponentPseudo = handoffID("declared-component", componentID)
+	}
 	adapterVersionID := handoffID(
 		"adapter-version", event.Source.AdapterID, event.Source.AdapterVersion,
 	)
@@ -106,15 +113,17 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 		event.Source.AdapterVersion, string(event.Source.Kind),
 	)
 	return ObservabilityFactScope{
-		DeviceID:            deviceID,
-		AgentInstallationID: installationID,
-		SurfaceID:           surfaceID,
-		ProjectID:           projectID,
-		SessionID:           sessionID,
-		TurnID:              turnID,
-		ComponentID:         componentID,
-		AdapterVersionID:    adapterVersionID,
-		SourceInstanceID:    sourceInstanceID,
+		DeviceID:                deviceID,
+		AgentInstallationID:     installationID,
+		SurfaceID:               surfaceID,
+		ProjectID:               projectID,
+		SessionID:               sessionID,
+		TurnID:                  turnID,
+		ComponentID:             componentID,
+		AdapterVersionID:        adapterVersionID,
+		SourceInstanceID:        sourceInstanceID,
+		ComponentResolution:     "unresolved",
+		DeclaredComponentPseudo: declaredComponentPseudo,
 		DimensionScope: installationID + "|" + surfaceID + "|" +
 			componentID + "|" + event.EventType,
 	}
@@ -123,7 +132,8 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 func eventCarriesTurn(eventType string) bool {
 	switch eventType {
 	case "prompt.submitted", "tool.called", "model.requested", "model.responded",
-		"component.installed", "component.loaded", "component.invoked", "component.executed":
+		"component.installed", "component.enabled", "component.exposed",
+		"component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
 		return false
@@ -216,24 +226,36 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 	if err := h.persistSourceWatermark(ctx, event, scope); err != nil {
 		return err
 	}
-	return h.persistProjections(ctx, event, scope)
+	return h.persistProjections(ctx, event, evidence, scope)
 }
 
 // resolveInventoryLifecycleComponent correlates a native, identity-only
 // component name against the current inventory for the same installation.
 // Exactly one match is required. Zero or multiple matches remain durable
-// unmatched facts and are never promoted into the inventory-backed funnel.
+// assertions and incidents, without selecting a candidate or leaking the
+// declared identity into the fact dimensions.
 func (h *ObservabilityHandoff) resolveInventoryLifecycleComponent(
 	ctx context.Context,
 	event observability.Event,
 	scope ObservabilityFactScope,
 ) (ObservabilityFactScope, error) {
-	if !isComponentLifecycleEvent(event.EventType) ||
-		scope.ComponentID == "" || event.Subject.Kind == "" {
+	if !isComponentLifecycleEvent(event.EventType) {
 		return scope, nil
 	}
-	rows, err := h.pool.Query(ctx, `
-		SELECT c.component_id, ci.component_installation_id
+	declaredIdentity := scope.ComponentID
+	scope.ComponentID = ""
+	scope.ComponentInstallationID = ""
+	scope.ComponentResolution = "unresolved"
+	scope.ComponentCandidateCount = 0
+	scope.DimensionScope = scope.AgentInstallationID + "|" + scope.SurfaceID + "|" +
+		scope.DeclaredComponentPseudo + "|" + event.EventType
+	if declaredIdentity == "" || event.Subject.Kind == "" {
+		return scope, nil
+	}
+	var candidateCount int
+	var componentID, componentInstallationID *string
+	err := h.pool.QueryRow(ctx, `
+		SELECT count(*)::integer, min(c.component_id), min(ci.component_installation_id)
 		FROM component_inventory_state cis
 		JOIN component_installations ci
 		  ON ci.component_installation_id = cis.component_installation_id
@@ -243,33 +265,25 @@ func (h *ObservabilityHandoff) resolveInventoryLifecycleComponent(
 		WHERE ci.agent_installation_id = $1
 		  AND c.kind = $2
 		  AND c.declared_name = $3
-		ORDER BY c.component_id
-		LIMIT 2
-	`, scope.AgentInstallationID, databaseComponentKind(event.Subject.Kind), scope.ComponentID)
+	`, scope.AgentInstallationID, databaseComponentKind(event.Subject.Kind), declaredIdentity).
+		Scan(&candidateCount, &componentID, &componentInstallationID)
 	if err != nil {
 		return scope, err
 	}
-	defer rows.Close()
-	type match struct {
-		componentID             string
-		componentInstallationID string
-	}
-	var matches []match
-	for rows.Next() {
-		var candidate match
-		if err := rows.Scan(&candidate.componentID, &candidate.componentInstallationID); err != nil {
-			return scope, err
-		}
-		matches = append(matches, candidate)
-	}
-	if err := rows.Err(); err != nil {
-		return scope, err
-	}
-	if len(matches) != 1 {
+	scope.ComponentCandidateCount = candidateCount
+	if candidateCount == 0 {
 		return scope, nil
 	}
-	scope.ComponentID = matches[0].componentID
-	scope.ComponentInstallationID = matches[0].componentInstallationID
+	if candidateCount > 1 {
+		scope.ComponentResolution = "ambiguous"
+		return scope, nil
+	}
+	if componentID == nil || componentInstallationID == nil {
+		return scope, errors.New("component_identity_exact_candidate_missing")
+	}
+	scope.ComponentResolution = "exact"
+	scope.ComponentID = *componentID
+	scope.ComponentInstallationID = *componentInstallationID
 	scope.DimensionScope = scope.AgentInstallationID + "|" + scope.SurfaceID + "|" +
 		scope.ComponentID + "|" + event.EventType
 	return scope, nil
@@ -277,7 +291,8 @@ func (h *ObservabilityHandoff) resolveInventoryLifecycleComponent(
 
 func isComponentLifecycleEvent(eventType string) bool {
 	switch eventType {
-	case "component.installed", "component.loaded", "component.invoked", "component.executed":
+	case "component.installed", "component.enabled", "component.exposed",
+		"component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
 		return false
@@ -314,26 +329,101 @@ func databaseComponentKind(kind string) string {
 	}
 }
 
-func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event observability.Event, scope ObservabilityFactScope) error {
+func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event observability.Event, evidence observability.Evidence, scope ObservabilityFactScope) error {
 	switch event.EventType {
-	case "component.installed", "component.loaded", "component.invoked", "component.executed":
-		if scope.ComponentInstallationID == "" {
-			return nil
-		}
+	case "component.installed", "component.enabled", "component.exposed",
+		"component.loaded", "component.invoked", "component.executed":
 		stage := map[string]string{
 			"component.installed": "installed",
+			"component.enabled":   "enabled",
+			"component.exposed":   "exposed",
 			"component.loaded":    "loaded",
 			"component.invoked":   "invoked",
 			"component.executed":  "executed",
 		}[event.EventType]
-		_, err := h.pool.Exec(ctx, `
-			INSERT INTO component_lifecycle_events (
-				component_lifecycle_event_id, component_installation_id,
-				observed_at, lifecycle_stage
-			) VALUES ($1,$2,$3,$4)
-			ON CONFLICT (component_lifecycle_event_id) DO NOTHING
-		`, event.EventID, scope.ComponentInstallationID, event.ObservedAt, stage)
-		return err
+		if stage == "executed" {
+			if scope.ComponentInstallationID == "" {
+				return nil
+			}
+			_, err := h.pool.Exec(ctx, `
+				INSERT INTO component_lifecycle_events (
+					component_lifecycle_event_id, component_installation_id,
+					observed_at, lifecycle_stage
+				) VALUES ($1,$2,$3,$4)
+				ON CONFLICT (component_lifecycle_event_id) DO NOTHING
+			`, event.EventID, scope.ComponentInstallationID, event.ObservedAt, stage)
+			return err
+		}
+		tx, err := h.pool.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = tx.Rollback(ctx) }()
+		if scope.ComponentInstallationID != "" {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO component_lifecycle_events (
+					component_lifecycle_event_id, component_installation_id,
+					observed_at, lifecycle_stage
+				) VALUES ($1,$2,$3,$4)
+				ON CONFLICT (component_lifecycle_event_id) DO NOTHING
+			`, event.EventID, scope.ComponentInstallationID, event.ObservedAt, stage); err != nil {
+				return err
+			}
+		}
+		mode := "not_observed"
+		if event.Source.Kind == observability.SourceEvidenceBridge && stage == "invoked" {
+			mode = "explicit"
+		}
+		assertionID := handoffID("component-assertion", evidence.EvidenceID, stage)
+		result, err := tx.Exec(ctx, `
+			INSERT INTO component_assertions (
+				assertion_id, component_installation_id, agent_installation_id,
+				session_id, turn_id, event_id, evidence_id, assertion_kind, mode,
+				evidence_tier, confidence, source_instance_id, adapter_version,
+				schema_version, observed_at, idempotency_key, identity_resolution,
+				declared_identity_pseudonym, candidate_count
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+				$17,$18,$19)
+			ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
+		`, assertionID, nullableString(scope.ComponentInstallationID),
+			scope.AgentInstallationID, nullableString(scope.SessionID),
+			nullableString(scope.TurnID), event.EventID, evidence.EvidenceID, stage,
+			mode, string(evidence.Tier), evidence.Confidence, scope.SourceInstanceID,
+			event.Source.AdapterVersion, event.Source.SchemaID, event.ObservedAt,
+			evidence.EvidenceID+":"+stage, scope.ComponentResolution,
+			scope.DeclaredComponentPseudo, scope.ComponentCandidateCount)
+		if err != nil {
+			return err
+		}
+		if result.RowsAffected() == 0 || scope.ComponentResolution == "exact" {
+			if result.RowsAffected() > 0 && scope.ComponentResolution == "exact" &&
+				stage == "exposed" {
+				if _, err := tx.Exec(ctx, `
+					INSERT INTO component_observation_windows (
+						observation_window_id, component_installation_id,
+						source_instance_id, plane, window_start, window_end,
+						completeness, idempotency_key
+					) VALUES (
+						$1,$2,$3,'availability',$4::timestamptz,
+						$4::timestamptz + interval '1 microsecond',
+						$5,$6
+					)
+					ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
+				`, handoffID("component-observation-window", assertionID),
+					scope.ComponentInstallationID, scope.SourceInstanceID,
+					event.ObservedAt.UTC(), string(evidence.Completeness),
+					evidence.EvidenceID+":exposure-window"); err != nil {
+					return err
+				}
+			}
+			return tx.Commit(ctx)
+		}
+		if err := persistComponentIdentityIncident(
+			ctx, tx, event, evidence, scope, assertionID,
+		); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
 	case "prompt.submitted":
 		_, err := h.pool.Exec(ctx, `
 			INSERT INTO prompt_features (
@@ -420,6 +510,67 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 	default:
 		return nil
 	}
+}
+
+func persistComponentIdentityIncident(
+	ctx context.Context,
+	tx pgx.Tx,
+	event observability.Event,
+	evidence observability.Evidence,
+	scope ObservabilityFactScope,
+	assertionID string,
+) error {
+	category := "component_identity_" + scope.ComponentResolution
+	incidentID := handoffID(
+		"component-identity-incident", category, scope.AgentInstallationID,
+		scope.DeclaredComponentPseudo,
+	)
+	idempotencyKey := handoffID(
+		"component-identity-occurrence", evidence.EvidenceID,
+		scope.ComponentResolution,
+	)
+	occurrenceID := handoffID("component-identity-occurrence-row", idempotencyKey)
+	var inserted bool
+	err := tx.QueryRow(ctx, `
+		INSERT INTO incident_occurrences (
+			incident_occurrence_id, incident_id, observed_at, evidence_ref,
+			safe_error_class, record_count, byte_count, idempotency_key
+		) VALUES ($1,$2,$3,$4,$5,1,0,$6)
+		ON CONFLICT (idempotency_key) DO NOTHING
+		RETURNING TRUE
+	`, occurrenceID, incidentID, event.ObservedAt.UTC(),
+		"component-assertion:"+assertionID, category, idempotencyKey).
+		Scan(&inserted)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if !inserted {
+		return nil
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO incidents (
+			incident_id, category, opened_at, resolved_at, last_seen_at,
+			occurrence_count, detector_state, triage_state, capability_id,
+			installation_id, installation_value_state, source_id,
+			source_value_state, severity, adapter_version,
+			source_schema_version, recovery_criteria, updated_at
+		) VALUES (
+			$1,$2,$3,NULL,$3,1,'open','new','skill_observatory',
+			$4,'observed',$5,'observed','warning',$6,$7,
+			'exact inventory identity followed by a passing targeted audit',now()
+		)
+		ON CONFLICT (incident_id) DO UPDATE SET
+			last_seen_at=GREATEST(incidents.last_seen_at, EXCLUDED.last_seen_at),
+			occurrence_count=incidents.occurrence_count+1,
+			detector_state='open',
+			resolved_at=NULL,
+			adapter_version=EXCLUDED.adapter_version,
+			source_schema_version=EXCLUDED.source_schema_version,
+			updated_at=now()
+	`, incidentID, category, event.ObservedAt.UTC(),
+		scope.AgentInstallationID, scope.SourceInstanceID,
+		event.Source.AdapterVersion, event.Source.SchemaID)
+	return err
 }
 
 func (h *ObservabilityHandoff) PersistQuarantineMetadata(quarantine observability.Quarantine, incident observability.Incident) error {

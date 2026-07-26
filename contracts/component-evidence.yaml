@@ -1,0 +1,45 @@
+{
+  "schema_version": "kansoku.component-evidence/2",
+  "contract_version": "2.0.0",
+  "effective_at": "2026-07-26",
+  "planes": {
+    "availability": ["installed", "enabled", "exposed"],
+    "runtime": ["invoked", "loaded", "child_activity", "outcome"],
+    "optimization": {
+      "states": ["eligible", "selected", "missed"],
+      "support": "unsupported_until_session_20"
+    }
+  },
+  "assertion": {
+    "kinds": ["installed", "enabled", "exposed", "invoked", "loaded", "child_activity", "outcome"],
+    "modes": ["explicit", "proactive", "nested", "not_observed"],
+    "identity_resolution": ["exact", "unresolved", "ambiguous"],
+    "evidence_tiers": ["corroborated", "native", "reconstructed", "inferred"],
+    "outcomes": ["succeeded", "failed", "cancelled", "timed_out", "denied", "unknown"],
+    "dedupe": "source_instance_id plus idempotency_key; logical populations dedupe by assertion_kind plus component_installation_id plus native causal identity",
+    "outcome_rule": "outcome requires a non-empty registered terminal_contract_id; without one the value state is unsupported"
+  },
+  "identity": {
+    "scope": ["agent_installation_id", "component_kind", "declared_name_or_native_id", "observed_interval"],
+    "promotion": "exactly one inventory match",
+    "zero_matches": "durable unresolved evidence plus incident",
+    "multiple_matches": "durable plural candidates plus incident; no winner"
+  },
+  "cold": {
+    "formula_version": "skill.cold_count/1",
+    "eligible": "enabled and exposed inside a complete exposure observation window",
+    "numerator": "eligible skills with zero exact invoked assertions",
+    "exclusions": ["partial_or_missing_exposure_window", "unresolved_or_ambiguous_identity"],
+    "zero_rule": "installed but not provably exposed is not_observed, never cold"
+  },
+  "file_tree_metadata": {
+    "allowed_fields": ["node_pseudonym", "parent_pseudonym", "entry_kind", "depth", "byte_count"],
+    "prohibited_fields": ["name", "path", "content", "hash_of_content"],
+    "content_endpoint": false
+  },
+  "historical_compatibility": {
+    "executed": "legacy evidence only; never converted to invoked or outcome",
+    "succeeded": "legacy evidence only unless its original row already carries a valid terminal contract",
+    "rewrite": false
+  }
+}

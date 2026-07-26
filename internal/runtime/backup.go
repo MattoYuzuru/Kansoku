@@ -42,6 +42,8 @@ var backupTableGroups = map[string][]string{
 		"component_inventory_state", "inventory_collection_status",
 		"agent_installation_profiles", "source_installation_attributions",
 		"session_installation_attributions",
+		"component_terminal_contracts", "component_assertions",
+		"component_observation_windows", "component_file_tree_metadata",
 		"source_watermarks", "completeness_intervals", "ingest_failures",
 		"schema_quarantine_metadata", "reconciliation_runs",
 		"reconciliation_mismatches", "audit_runs", "audit_checks",

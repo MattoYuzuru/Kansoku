@@ -83,7 +83,8 @@ func validValueState(value string) bool {
 func validEventType(value string) bool {
 	switch value {
 	case "session.started", "prompt.submitted", "component.executed", "session.stopped",
-		"model.requested", "model.responded", "component.installed", "component.loaded", "component.invoked",
+		"model.requested", "model.responded", "component.installed", "component.enabled",
+		"component.exposed", "component.loaded", "component.invoked",
 		"source.observed",
 		// "tool.called" is appended (never replacing component.executed) for
 		// Gap A: it is the real, already-tested canonical event type both

@@ -44,6 +44,7 @@ BUDGET_IDS = {
     "hourly_rollup_range_30d", "daily_rollup_range_1y", "session_drilldown", "percentile_recompute_bucket",
     "agent_breakdown_range", "agent_profile_range", "model_breakdown_range", "component_breakdown_range",
     "component_lifecycle_funnel", "component_inventory_current",
+    "skill_observatory_range", "skill_profile_range",
     "reliability_coverage_timeline", "mcp_topology", "incident_list",
     "incident_detail", "incident_occurrences", "quarantine_list", "quarantine_detail",
     "incident_debug_bundle",

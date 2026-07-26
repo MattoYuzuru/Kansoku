@@ -153,7 +153,8 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 
 func eventCarriesComponent(eventType string) bool {
 	switch eventType {
-	case "tool.called", "component.installed", "component.loaded", "component.invoked", "component.executed":
+	case "tool.called", "component.installed", "component.enabled", "component.exposed",
+		"component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
 		return false

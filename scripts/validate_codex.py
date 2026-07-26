@@ -201,6 +201,14 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("Codex App Server bridge must remain pinned to reviewed schema 0.145.0")
     if app_server_bridge.get("target_scope") != "explicit_local" or app_server_bridge.get("network_grade") != "loopback_only":
         errors.append("Codex App Server bridge target must remain explicit local loopback")
+    accepted_methods = set(app_server_bridge.get("accepted_methods", []))
+    if not {"skills/list", "skills/list response", "turn/started"}.issubset(accepted_methods):
+        errors.append("Codex App Server bridge must retain the reviewed skill list request/response and turn-start surfaces")
+    projections = app_server_bridge.get("emitting_projections", {})
+    if projections.get("skills/list_enabled_response") != "component.exposed":
+        errors.append("enabled skills/list response must project component.exposed")
+    if "codex-app-server-skill-input-load/1" not in str(projections.get("turn/started_skill_input", "")):
+        errors.append("typed skill input invoked/load projection must retain its explicit versioned rule")
     prohibited = set(app_server_bridge.get("prohibited_surfaces", []))
     if not {"messages", "reasoning", "arguments", "results", "errors", "paths", "environment", "uris"}.issubset(prohibited):
         errors.append("Codex App Server prohibited content surface set weakened")

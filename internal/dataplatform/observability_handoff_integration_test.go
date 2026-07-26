@@ -182,7 +182,7 @@ func TestObservabilityHandoffCreatesVersionedPublicAPICostEstimate(t *testing.T)
 	}
 }
 
-func TestObservabilityHandoffProjectsOnlyUniquelyResolvedLifecycleEvidence(t *testing.T) {
+func TestObservabilityHandoffPersistsExactUnresolvedAndAmbiguousComponentIdentity(t *testing.T) {
 	pool := freshSchema(t, testDSN(t))
 	ctx := context.Background()
 	handoff, err := NewObservabilityHandoff(pool, 5*time.Second)
@@ -261,6 +261,27 @@ func TestObservabilityHandoffProjectsOnlyUniquelyResolvedLifecycleEvidence(t *te
 		t.Fatalf("ingress outcome was promoted to component success: %+v", byStage["succeeded"])
 	}
 
+	exposed := nativeProjectionEvent(
+		"evt_native_skill_exposed_01", "component.exposed", observedAt.Add(90*time.Second),
+		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
+	)
+	exposed.Subject = observability.Subject{Kind: "skill", ComponentID: "kansoku-noop-canary"}
+	if err := handoff.PersistNormalizedFact(exposed, nativeProjectionEvidence(exposed)); err != nil {
+		t.Fatal(err)
+	}
+	var exposureWindows int64
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM component_observation_windows
+		WHERE component_installation_id=$1 AND plane='availability'
+		  AND completeness='complete'
+	`, inventoryID("component-installation", "ain_native_01", skillNode.NodeID)).
+		Scan(&exposureWindows); err != nil {
+		t.Fatal(err)
+	}
+	if exposureWindows != 1 {
+		t.Fatalf("exact exposed evidence windows=%d want 1", exposureWindows)
+	}
+
 	unmatched := nativeProjectionEvent(
 		"evt_native_skill_unmatched_01", "component.loaded", observedAt.Add(2*time.Minute),
 		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
@@ -272,8 +293,85 @@ func TestObservabilityHandoffProjectsOnlyUniquelyResolvedLifecycleEvidence(t *te
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM component_lifecycle_events`).Scan(&lifecycleCount); err != nil {
 		t.Fatal(err)
 	}
-	if lifecycleCount != 1 {
+	if lifecycleCount != 2 {
 		t.Fatalf("unmatched identity was promoted into lifecycle: count=%d", lifecycleCount)
+	}
+	var unmatchedComponentID *string
+	var unmatchedResolution, unmatchedPseudo string
+	var unmatchedCandidates int
+	if err := pool.QueryRow(ctx, `
+		SELECT e.component_id, ca.identity_resolution,
+		       ca.declared_identity_pseudonym, ca.candidate_count
+		FROM events e
+		JOIN component_assertions ca ON ca.event_id=e.event_id
+		WHERE e.event_id=$1
+	`, unmatched.EventID).Scan(
+		&unmatchedComponentID, &unmatchedResolution, &unmatchedPseudo, &unmatchedCandidates,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if unmatchedComponentID != nil || unmatchedResolution != "unresolved" ||
+		unmatchedCandidates != 0 || unmatchedPseudo == "" ||
+		unmatchedPseudo == unmatched.Subject.ComponentID {
+		t.Fatalf("unresolved identity was not safely retained: component=%v resolution=%q candidates=%d pseudo=%q",
+			unmatchedComponentID, unmatchedResolution, unmatchedCandidates, unmatchedPseudo)
+	}
+
+	duplicateNode := inventoryTestNode(
+		"node_lifecycle_skill_duplicate", adaptersdk.NodeSkillIdentity,
+		"kansoku-noop-canary",
+	)
+	duplicateSnapshot := adaptersdk.InventorySnapshot{
+		SnapshotID: "snap_lifecycle_2", AdapterID: "codex", AdapterVersion: "0.145.0",
+		InstallationID: "ain_native_01", ObservedAt: observedAt.Add(3 * time.Minute),
+		Fingerprint: inventoryTestFingerprint("lifecycle-snapshot-duplicate"),
+		Nodes:       []adaptersdk.Node{installationNode, skillNode, duplicateNode},
+		Edges: []adaptersdk.Edge{
+			inventoryTestEnabledEdge("edge_lifecycle_skill_duplicate", duplicateNode.NodeID, installationNode.NodeID),
+		},
+	}
+	if _, err := PersistInventorySnapshot(ctx, pool, duplicateSnapshot, "complete"); err != nil {
+		t.Fatal(err)
+	}
+	ambiguous := nativeProjectionEvent(
+		"evt_native_skill_ambiguous_01", "component.loaded", observedAt.Add(4*time.Minute),
+		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
+	)
+	ambiguous.Subject = observability.Subject{Kind: "skill", ComponentID: "kansoku-noop-canary"}
+	if err := handoff.PersistNormalizedFact(ambiguous, nativeProjectionEvidence(ambiguous)); err != nil {
+		t.Fatal(err)
+	}
+	var ambiguousComponentID *string
+	var ambiguousResolution string
+	var ambiguousCandidates int
+	if err := pool.QueryRow(ctx, `
+		SELECT e.component_id, ca.identity_resolution, ca.candidate_count
+		FROM events e
+		JOIN component_assertions ca ON ca.event_id=e.event_id
+		WHERE e.event_id=$1
+	`, ambiguous.EventID).Scan(
+		&ambiguousComponentID, &ambiguousResolution, &ambiguousCandidates,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if ambiguousComponentID != nil || ambiguousResolution != "ambiguous" ||
+		ambiguousCandidates != 2 {
+		t.Fatalf("ambiguous identity selected a winner: component=%v resolution=%q candidates=%d",
+			ambiguousComponentID, ambiguousResolution, ambiguousCandidates)
+	}
+	var identityIncidents, identityOccurrences int64
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM incidents
+			 WHERE category IN ('component_identity_unresolved','component_identity_ambiguous')),
+			(SELECT count(*) FROM incident_occurrences
+			 WHERE safe_error_class IN ('component_identity_unresolved','component_identity_ambiguous'))
+	`).Scan(&identityIncidents, &identityOccurrences); err != nil {
+		t.Fatal(err)
+	}
+	if identityIncidents != 2 || identityOccurrences != 2 {
+		t.Fatalf("identity incident evidence = incidents %d occurrences %d, want 2/2",
+			identityIncidents, identityOccurrences)
 	}
 }
 

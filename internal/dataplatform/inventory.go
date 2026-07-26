@@ -105,6 +105,29 @@ func PersistInventorySnapshot(
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	adapterVersionID := inventoryID(
+		"adapter-version", snapshot.AdapterID, snapshot.AdapterVersion,
+	)
+	sourceInstanceID := inventoryID(
+		"source-instance", snapshot.InstallationID, snapshot.AdapterID,
+		snapshot.AdapterVersion, "inventory-scan",
+	)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO adapter_versions (adapter_version_id, adapter_id, version)
+		VALUES ($1,$2,$3)
+		ON CONFLICT (adapter_version_id) DO NOTHING
+	`, adapterVersionID, snapshot.AdapterID, snapshot.AdapterVersion); err != nil {
+		return InventoryPersistResult{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO source_instances (
+			source_instance_id, adapter_version_id, source_kind
+		) VALUES ($1,$2,'inventory_scan')
+		ON CONFLICT (source_instance_id) DO NOTHING
+	`, sourceInstanceID, adapterVersionID); err != nil {
+		return InventoryPersistResult{}, err
+	}
+
 	commandTag, err := tx.Exec(ctx, `
 		INSERT INTO inventory_snapshots (
 			snapshot_id, adapter_id, adapter_version, agent_installation_id,
@@ -225,6 +248,32 @@ func PersistInventorySnapshot(
 		`, componentInstallationID, node.NodeID, enabledNodes[node.NodeID],
 			snapshot.ObservedAt.UTC(), snapshot.SnapshotID); err != nil {
 			return InventoryPersistResult{}, err
+		}
+		assertionKinds := []string{"installed"}
+		if enabledNodes[node.NodeID] {
+			assertionKinds = append(assertionKinds, "enabled")
+		}
+		for _, assertionKind := range assertionKinds {
+			idempotencyKey := snapshot.SnapshotID + ":" + node.NodeID + ":" + assertionKind
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO component_assertions (
+					assertion_id, component_installation_id,
+					agent_installation_id, assertion_kind, mode,
+					evidence_tier, confidence, source_instance_id,
+					adapter_version, schema_version, observed_at,
+					idempotency_key, identity_resolution,
+					declared_identity_pseudonym, candidate_count
+				) VALUES (
+					$1,$2,$3,$4,'not_observed','native',1,$5,$6,
+					'kansoku.inventory-snapshot/1',$7,$8,'exact',$9,1
+				)
+				ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
+			`, inventoryID("component-assertion", idempotencyKey),
+				componentInstallationID, snapshot.InstallationID, assertionKind,
+				sourceInstanceID, snapshot.AdapterVersion, snapshot.ObservedAt.UTC(),
+				idempotencyKey, inventoryID("declared-component", node.DeclaredName)); err != nil {
+				return InventoryPersistResult{}, err
+			}
 		}
 		result.InstalledComponentCount++
 		if enabledNodes[node.NodeID] {

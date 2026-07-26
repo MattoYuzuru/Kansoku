@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -30,12 +31,15 @@ const (
 // duration of projectFrame; content-bearing fields have no destination in
 // either the bridge state or its sink.
 type AppServerBridge struct {
-	key        []byte
-	now        func() time.Time
-	mu         sync.Mutex
-	health     adaptersdk.BridgeHealth
-	checkpoint adaptersdk.BridgeCheckpoint
+	key                 []byte
+	now                 func() time.Time
+	mu                  sync.Mutex
+	health              adaptersdk.BridgeHealth
+	checkpoint          adaptersdk.BridgeCheckpoint
+	pendingSkillsListID string
 }
+
+var bridgeSkillNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 
 func NewAppServerBridge(key []byte, now func() time.Time) (*AppServerBridge, error) {
 	if len(key) < 32 {
@@ -63,6 +67,7 @@ func (b *AppServerBridge) Manifest() adaptersdk.BridgeManifest {
 		SchemaVersions:         []string{AppServerSchemaVersion},
 		Capabilities: []adaptersdk.CapabilityID{
 			adaptersdk.CapabilityActivitySessions,
+			adaptersdk.CapabilityComponentsSkillInvocation,
 			adaptersdk.CapabilityComponentsMCPLifecycle,
 			adaptersdk.CapabilityIngestionEvidenceBridge,
 		},
@@ -120,26 +125,28 @@ func (b *AppServerBridge) Connect(ctx context.Context, target adaptersdk.BridgeT
 			b.reject(ctx, sink, "frame_limit_exceeded", int64(len(scanner.Bytes())))
 			return errors.New("bridge_frame_limit_exceeded")
 		}
-		record, emit, category := b.projectFrame(scanner.Bytes(), sequence)
+		records, category := b.projectFrame(scanner.Bytes(), sequence)
 		if category != "" {
 			if err := b.reject(ctx, sink, category, int64(len(scanner.Bytes()))); err != nil {
 				return err
 			}
 			continue
 		}
-		if !emit {
+		if len(records) == 0 {
 			continue
 		}
-		if err := sink.Accept(ctx, record); err != nil {
-			b.setLifecycle(adaptersdk.BridgeDegraded, "sink_unavailable")
-			return err
+		for _, record := range records {
+			if err := sink.Accept(ctx, record); err != nil {
+				b.setLifecycle(adaptersdk.BridgeDegraded, "sink_unavailable")
+				return err
+			}
 		}
 		b.mu.Lock()
 		b.health.Lifecycle = adaptersdk.BridgeProducing
-		b.health.AcceptedFrames++
-		b.health.LastObservedAt = record.ObservedAt
+		b.health.AcceptedFrames += uint64(len(records))
+		b.health.LastObservedAt = records[len(records)-1].ObservedAt
 		b.checkpoint = adaptersdk.BridgeCheckpoint{
-			Sequence: sequence, LastObservedAt: record.ObservedAt, ReplaySupported: false,
+			Sequence: sequence, LastObservedAt: records[len(records)-1].ObservedAt, ReplaySupported: false,
 		}
 		b.mu.Unlock()
 	}
@@ -189,21 +196,36 @@ func (b *AppServerBridge) reject(ctx context.Context, sink adaptersdk.SafeAssert
 }
 
 type appServerEnvelope struct {
-	Method string          `json:"method"`
-	Params json.RawMessage `json:"params"`
+	JSONRPC string          `json:"jsonrpc,omitempty"`
+	ID      json.RawMessage `json:"id,omitempty"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+	Result  json.RawMessage `json:"result,omitempty"`
 }
 
-func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) (privacy.SafeRecord, bool, string) {
+func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.SafeRecord, string) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var envelope appServerEnvelope
-	if err := decoder.Decode(&envelope); err != nil || envelope.Method == "" || len(envelope.Params) == 0 {
-		return privacy.SafeRecord{}, false, "unknown_or_invalid_frame_schema"
+	if err := decoder.Decode(&envelope); err != nil ||
+		(envelope.Method == "" && len(envelope.Result) == 0) {
+		return nil, "unknown_or_invalid_frame_schema"
 	}
 	if decoder.Decode(&struct{}{}) != io.EOF {
-		return privacy.SafeRecord{}, false, "trailing_frame_json"
+		return nil, "trailing_frame_json"
+	}
+	if envelope.Method == "" {
+		return b.projectSkillsListResponse(envelope, sequence)
 	}
 	switch envelope.Method {
+	case "skills/list":
+		if len(envelope.ID) == 0 || len(envelope.Params) == 0 {
+			return nil, "invalid_skills_list_request"
+		}
+		b.mu.Lock()
+		b.pendingSkillsListID = string(envelope.ID)
+		b.mu.Unlock()
+		return nil, ""
 	case "thread/started":
 		var params struct {
 			Thread struct {
@@ -216,30 +238,67 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) (privacy.Saf
 		if json.Unmarshal(envelope.Params, &params) != nil || params.Thread.ID == "" ||
 			params.Thread.SessionID == "" || params.Thread.CLIVersion != AppServerSchemaVersion ||
 			params.Thread.CreatedAt <= 0 {
-			return privacy.SafeRecord{}, false, "invalid_thread_started"
+			return nil, "invalid_thread_started"
 		}
-		return b.safeRecord(
+		return []privacy.SafeRecord{b.safeRecord(
 			params.Thread.ID, params.Thread.SessionID, "", "session.started",
 			"unknown", "", "", time.Unix(params.Thread.CreatedAt, 0), sequence,
 			privacy.RedactionCounts{PromptFields: 1, PathFields: 2, SourceFields: 1},
-		), true, ""
+		)}, ""
 	case "turn/started":
 		var params struct {
 			ThreadID string `json:"threadId"`
 			Turn     struct {
 				ID        string `json:"id"`
 				StartedAt *int64 `json:"startedAt"`
+				Items     []struct {
+					Type    string `json:"type"`
+					Content []struct {
+						Type string `json:"type"`
+						Name string `json:"name"`
+						Path string `json:"path"`
+					} `json:"content"`
+				} `json:"items"`
 			} `json:"turn"`
 		}
 		if json.Unmarshal(envelope.Params, &params) != nil || params.ThreadID == "" ||
 			params.Turn.ID == "" || params.Turn.StartedAt == nil {
-			return privacy.SafeRecord{}, false, "invalid_turn_started"
+			return nil, "invalid_turn_started"
 		}
-		return b.safeRecord(
+		observedAt := time.Unix(*params.Turn.StartedAt, 0)
+		records := []privacy.SafeRecord{b.safeRecord(
 			params.Turn.ID, params.ThreadID, params.Turn.ID, "prompt.submitted",
-			"unknown", "", "", time.Unix(*params.Turn.StartedAt, 0), sequence,
+			"unknown", "", "", observedAt, sequence,
 			privacy.RedactionCounts{PromptFields: 1},
-		), true, ""
+		)}
+		skillCount := 0
+		for _, item := range params.Turn.Items {
+			if item.Type != "userMessage" {
+				continue
+			}
+			for _, input := range item.Content {
+				if input.Type != "skill" {
+					continue
+				}
+				if !bridgeSkillNamePattern.MatchString(input.Name) || input.Path == "" {
+					return nil, "invalid_skill_input"
+				}
+				skillCount++
+				if skillCount > 16 {
+					return nil, "skill_input_limit_exceeded"
+				}
+				nativeID := params.Turn.ID + ":skill:" + input.Name
+				records = append(records,
+					b.safeRecord(nativeID+":invoked", params.ThreadID, params.Turn.ID,
+						"component.invoked", "unknown", input.Name, "skill", observedAt,
+						sequence, privacy.RedactionCounts{PathFields: 1, PromptFields: 1}),
+					b.safeRecord(nativeID+":loaded", params.ThreadID, params.Turn.ID,
+						"component.loaded", "unknown", input.Name, "skill", observedAt,
+						sequence, privacy.RedactionCounts{PathFields: 1, PromptFields: 1}),
+				)
+			}
+		}
+		return records, ""
 	case "item/completed":
 		var params struct {
 			ThreadID      string `json:"threadId"`
@@ -257,12 +316,12 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) (privacy.Saf
 		if json.Unmarshal(envelope.Params, &params) != nil || params.Item.Type != "mcpToolCall" {
 			// Every content-only item type is deliberately discarded before
 			// the sink; it is a known frame, not an unknown schema incident.
-			return privacy.SafeRecord{}, false, ""
+			return nil, ""
 		}
 		if params.ThreadID == "" || params.TurnID == "" || params.Item.ID == "" ||
 			params.Item.Server == "" || params.Item.Tool == "" || params.CompletedAtMS <= 0 ||
 			len(params.Item.Server)+len(params.Item.Tool) > 120 {
-			return privacy.SafeRecord{}, false, "invalid_mcp_item_completed"
+			return nil, "invalid_mcp_item_completed"
 		}
 		outcome := bridgeOutcome(params.Item.Status)
 		record := b.safeRecord(
@@ -272,12 +331,57 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) (privacy.Saf
 			privacy.RedactionCounts{ToolIOFields: 3, ExceptionFields: 1, SensitiveIdentifierFields: 1},
 		)
 		record.Telemetry.DurationMS = params.Item.DurationMS
-		return record, true, ""
+		return []privacy.SafeRecord{record}, ""
 	case "item/started", "turn/completed", "skills/changed":
-		return privacy.SafeRecord{}, false, ""
+		return nil, ""
 	default:
-		return privacy.SafeRecord{}, false, "unsupported_bridge_method"
+		return nil, "unsupported_bridge_method"
 	}
+}
+
+func (b *AppServerBridge) projectSkillsListResponse(envelope appServerEnvelope, sequence uint64) ([]privacy.SafeRecord, string) {
+	b.mu.Lock()
+	expectedID := b.pendingSkillsListID
+	if expectedID != "" && expectedID == string(envelope.ID) {
+		b.pendingSkillsListID = ""
+	}
+	b.mu.Unlock()
+	if expectedID == "" || expectedID != string(envelope.ID) {
+		return nil, "unmatched_bridge_response"
+	}
+	var result struct {
+		Data []struct {
+			Skills []struct {
+				Name    string `json:"name"`
+				Path    string `json:"path"`
+				Enabled bool   `json:"enabled"`
+			} `json:"skills"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(envelope.Result, &result) != nil {
+		return nil, "invalid_skills_list_response"
+	}
+	now := b.now().UTC()
+	var records []privacy.SafeRecord
+	for _, entry := range result.Data {
+		for _, skill := range entry.Skills {
+			if !skill.Enabled {
+				continue
+			}
+			if !bridgeSkillNamePattern.MatchString(skill.Name) || skill.Path == "" {
+				return nil, "invalid_skills_list_response"
+			}
+			if len(records) >= 4096 {
+				return nil, "skills_list_limit_exceeded"
+			}
+			records = append(records, b.safeRecord(
+				"skills-list:"+skill.Name, "skills-list", "", "component.exposed",
+				"unknown", skill.Name, "skill", now, sequence,
+				privacy.RedactionCounts{PathFields: 1, SourceFields: 1},
+			))
+		}
+	}
+	return records, ""
 }
 
 func bridgeOutcome(status string) string {

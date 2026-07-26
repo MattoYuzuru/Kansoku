@@ -55,7 +55,7 @@ func TestInventorySnapshotPersistsIdempotentlyAndBacksLifecycleFunnel(t *testing
 		second.InstalledComponentCount != 3 || second.EnabledComponentCount != 2 {
 		t.Fatalf("idempotent replay inserted data: %+v", second)
 	}
-	var snapshots, nodes, components, states int64
+	var snapshots, nodes, components, states, assertions int64
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM inventory_snapshots`).Scan(&snapshots); err != nil {
 		t.Fatal(err)
 	}
@@ -68,8 +68,15 @@ func TestInventorySnapshotPersistsIdempotentlyAndBacksLifecycleFunnel(t *testing
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM component_inventory_state`).Scan(&states); err != nil {
 		t.Fatal(err)
 	}
-	if snapshots != 1 || nodes != 5 || components != 3 || states != 3 {
-		t.Fatalf("snapshot projection mismatch: snapshots=%d nodes=%d components=%d states=%d", snapshots, nodes, components, states)
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM component_assertions
+		WHERE assertion_kind IN ('installed','enabled')
+	`).Scan(&assertions); err != nil {
+		t.Fatal(err)
+	}
+	if snapshots != 1 || nodes != 5 || components != 3 || states != 3 || assertions != 5 {
+		t.Fatalf("snapshot projection mismatch: snapshots=%d nodes=%d components=%d states=%d assertions=%d",
+			snapshots, nodes, components, states, assertions)
 	}
 	var lastSeen time.Time
 	if err := pool.QueryRow(ctx, `

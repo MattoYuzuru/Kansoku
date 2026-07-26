@@ -11,6 +11,7 @@
     {"policy_version": "codex.hooks-and-otel/4", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "423dd9fcbc70240b4a2edb312c88b3f07c944d039fe3ada108f5ab1b7290bfa5"},
     {"policy_version": "codex.hooks-and-otel/5", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "6ee1368fe0b7f76b1b9af55607f815906ae8556865df2b27b509b87aac8fcae9"},
     {"policy_version": "codex.manifest/2", "registry": "contracts/codex/manifest.yaml", "semantic_sha256": "15a2f3958907450a10b18edfa1f23245e220401fa8933750d325d57c4e8d58bb"},
-    {"policy_version": "codex.app-server-bridge/1", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "8558137473b8674b51d4fd97fd53d7ebded2aa4d13635d79b61243c8cf3b4bf5"}
+    {"policy_version": "codex.app-server-bridge/1", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "8558137473b8674b51d4fd97fd53d7ebded2aa4d13635d79b61243c8cf3b4bf5"},
+    {"policy_version": "codex.app-server-bridge/2", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "d528d373cd3d0ed1d7950c6eb6b8621e47320e7da0262eaa0940d8301237e4d0"}
   ]
 }

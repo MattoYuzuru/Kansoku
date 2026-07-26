@@ -138,6 +138,7 @@ func TestAppServerBridgeUnknownSchemaIsMetadataOnlyAndDegradesOnlyBridge(t *test
 	manifestCapabilities := bridge.Manifest().Capabilities
 	if !reflect.DeepEqual(manifestCapabilities, []adaptersdk.CapabilityID{
 		adaptersdk.CapabilityActivitySessions,
+		adaptersdk.CapabilityComponentsSkillInvocation,
 		adaptersdk.CapabilityComponentsMCPLifecycle,
 		adaptersdk.CapabilityIngestionEvidenceBridge,
 	}) {
@@ -165,5 +166,45 @@ func TestAppServerBridgeRejectsWrongVersionAndOversizeFrames(t *testing.T) {
 	}, sink)
 	if err == nil {
 		t.Fatal("oversize frame accepted")
+	}
+}
+
+func TestAppServerBridgeProjectsSkillExposureInvocationAndLoadWithoutPath(t *testing.T) {
+	bridge := appServerTestBridge(t)
+	sink := &adaptersdk.MemoryAssertionSink{}
+	canaryPath := "/private/KANSOKU_SKILL_PATH_MUST_NOT_PERSIST/SKILL.md"
+	frames := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":7,"method":"skills/list","params":{"cwds":["/private/work"],"forceReload":true}}`,
+		`{"jsonrpc":"2.0","id":7,"result":{"data":[{"cwd":"/private/work","errors":[],"skills":[{"name":"kansoku-noop-skill","path":"` + canaryPath + `","enabled":true,"scope":"user","description":"content is discarded"}]}]}}`,
+		`{"method":"turn/started","params":{"threadId":"thr-skill","turn":{"id":"turn-skill","startedAt":1785060001,"status":"inProgress","items":[{"type":"userMessage","id":"msg-skill","content":[{"type":"skill","name":"kansoku-noop-skill","path":"` + canaryPath + `"},{"type":"text","text":"raw prompt is discarded"}]}]}}}`,
+	}, "\n")
+	if err := bridge.Connect(context.Background(), adaptersdk.BridgeTarget{
+		Installation: adaptersdk.Installation{InstallationID: "ain-safe", AdapterID: AdapterID},
+		Protocol:     AppServerProtocolVersion, SchemaVersion: AppServerSchemaVersion,
+		Frames: strings.NewReader(frames),
+	}, sink); err != nil {
+		t.Fatal(err)
+	}
+	records := sink.Records()
+	var events []string
+	for _, record := range records {
+		events = append(events, record.EventType)
+		if record.Tool.ID != nil && *record.Tool.ID == "kansoku-noop-skill" &&
+			record.ComponentKind != "skill" {
+			t.Fatalf("skill identity lost its kind: %#v", record)
+		}
+	}
+	want := []string{"component.exposed", "prompt.submitted", "component.invoked", "component.loaded"}
+	if !reflect.DeepEqual(events, want) {
+		t.Fatalf("events=%v want %v", events, want)
+	}
+	sinks, err := privacy.SerializeAllSinks(records, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matches := privacy.ScanCanaries(sinks, map[string]string{
+		"path": canaryPath, "prompt": "raw prompt is discarded", "description": "content is discarded",
+	}); len(matches) != 0 {
+		t.Fatalf("skill content reached sinks: %#v", matches)
 	}
 }

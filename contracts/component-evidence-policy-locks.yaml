@@ -1,0 +1,11 @@
+{
+  "schema_version": "kansoku.component-evidence-policy-locks/1",
+  "effective_at": "2026-07-26",
+  "locks": [
+    {
+      "policy_version": "component-evidence/1",
+      "registry": "contracts/component-evidence.yaml",
+      "semantic_sha256": "5913a02dd1c74eb8dcc0077007fb43a0b0d45337a12c1d87bd7cf8d01f33b564"
+    }
+  ]
+}
