@@ -33,6 +33,8 @@ import type {
   ReliabilityTimelineResponse,
   SystemSnapshotResponse,
   ToolAnalyticsResponse,
+  SkillObservatoryResponse,
+  SkillProfileResponse,
 } from "./types";
 
 export interface RangeParams {
@@ -306,6 +308,23 @@ export function useComponentInventory(componentKind = "") {
         { kind: componentKind },
         signal,
       ),
+  });
+}
+
+export function useSkills(range: RangeParams) {
+  return useQuery({
+    queryKey: rk("skills", range),
+    queryFn: ({ signal }) =>
+      apiGet<SkillObservatoryResponse>("/api/v1/skills", { ...range }, signal),
+  });
+}
+
+export function useSkillProfile(id: string, range: RangeParams) {
+  return useQuery({
+    queryKey: rk("skill-profile", { id, ...range }),
+    queryFn: ({ signal }) =>
+      apiGet<SkillProfileResponse>(`/api/v1/skills/${encodeURIComponent(id)}`, { ...range }, signal),
+    enabled: Boolean(id),
   });
 }
 

@@ -30,6 +30,7 @@ EXPECTED_ROUTES = {
     "/agents/:id",
     "/models",
     "/components/skills",
+    "/components/skills/:id",
     "/components/plugins",
     "/components/mcp",
     "/tools",

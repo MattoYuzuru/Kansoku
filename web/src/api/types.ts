@@ -292,6 +292,94 @@ export interface MCPUptimeResponse {
   // no freshness field on this endpoint
 }
 
+/* ---- /api/v1/skills and /api/v1/skills/:id ---- */
+export interface SkillModeCounts {
+  explicit: number;
+  proactive: number;
+  nested: number;
+}
+export interface SkillObservatoryRow {
+  component_installation_id: string;
+  component_id: string;
+  declared_name: string;
+  version?: string;
+  version_state: string;
+  source_scope: string;
+  agent_id: string;
+  agent_installation_id: string;
+  installed: boolean;
+  enabled: boolean;
+  exposed_count: number;
+  invoked_count: number;
+  loaded_count: number;
+  child_activity_count: number;
+  unique_sessions: number;
+  active_days: number;
+  last_invoked_at?: string;
+  modes: SkillModeCounts;
+  cold_state: "cold" | "used" | "not_observed";
+  outcome_state: "observed" | "unsupported";
+  completeness: string;
+}
+export interface SkillPlaneCounts {
+  installed: number;
+  enabled: number;
+  exposed: number;
+  invoked: number;
+  loaded: number;
+  cold: number;
+}
+export interface SkillObservatoryResponse {
+  data: SkillObservatoryRow[];
+  counts: SkillPlaneCounts;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+  freshness: Freshness;
+}
+export interface SkillAssertionRow {
+  assertion_id: string;
+  assertion_kind: string;
+  mode: string;
+  evidence_tier: string;
+  confidence: number;
+  source_kind: string;
+  schema_version: string;
+  observed_at: string;
+  identity_resolution: string;
+  candidate_count: number;
+  outcome?: string;
+  terminal_contract_id?: string;
+}
+export interface SkillSourceRow {
+  source_instance_id: string;
+  source_kind: string;
+  assertion_count: number;
+  exact_count: number;
+  last_observed_at?: string;
+  completeness: string;
+}
+export interface SkillFileTreeSummary {
+  inventory_snapshot_id: string;
+  file_count: number;
+  directory_count: number;
+  total_bytes: number;
+  max_depth: number;
+}
+export interface SkillProfileResponse {
+  identity: SkillObservatoryRow;
+  assertions: SkillAssertionRow[];
+  sources: SkillSourceRow[];
+  file_tree: SkillFileTreeSummary[];
+  incident_count: number;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+  freshness: Freshness;
+}
+
 /* ---- /api/v1/reliability/counts ---- */
 export interface ReliabilityCountsDayRow {
   day: string;

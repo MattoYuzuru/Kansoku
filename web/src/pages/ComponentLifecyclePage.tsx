@@ -28,8 +28,6 @@ const STAGE_LABELS: Record<string, string> = {
   exposed: "Exposed",
   invoked: "Invoked",
   loaded: "Loaded",
-  executed: "Executed",
-  succeeded: "Succeeded",
 };
 
 export interface ComponentLifecyclePageProps {
@@ -58,12 +56,11 @@ export function ComponentLifecyclePage({
   const state = deriveViewState(funnel.data, { isLoading: funnel.isLoading });
   const installedRow = rows.find((r) => r.stage === "installed");
   const enabledRow = rows.find((r) => r.stage === "enabled");
-  const executedRow = rows.find((r) => r.stage === "executed");
-  const succeededRow = rows.find((r) => r.stage === "succeeded");
   const installed = installedRow?.component_count ?? 0;
   const enabled = enabledRow?.component_count ?? 0;
-  const executed = executedRow?.component_count ?? 0;
-  const succeeded = succeededRow?.component_count ?? 0;
+  const evidenceRows = rows.filter((row) =>
+    ["installed", "enabled", "exposed", "invoked", "loaded"].includes(row.stage),
+  );
   const rowState = (valueState: string | undefined): ViewState =>
     funnel.isLoading ? "loading" : ((valueState as ViewState | undefined) ?? state);
   const inventoryColumns: Column<InventoryComponentRow>[] = [
@@ -85,7 +82,7 @@ export function ComponentLifecyclePage({
         <p className="k-page__wire t-caption">{wireframe}</p>
       </header>
 
-      <Panel title="Lifecycle funnel" actions={<RangeControl range={range} />}>
+      <Panel title="Availability and runtime evidence" actions={<RangeControl range={range} />}>
         <div className="k-grid k-grid--kpis">
           <KpiCard label="Installed" value={installed} state={rowState(installedRow?.value_state)} />
           <KpiCard
@@ -94,29 +91,13 @@ export function ComponentLifecyclePage({
             unit="%"
             state={installed > 0 ? rowState(enabledRow?.value_state) : "not_observed"}
           />
-          <KpiCard
-            label="Success ratio"
-            value={
-              succeededRow?.value_state !== "unsupported" && executed > 0
-                ? Math.round((100 * succeeded) / executed)
-                : null
-            }
-            unit="%"
-            state={
-              succeededRow?.value_state === "unsupported"
-                ? "unsupported"
-                : executed > 0
-                  ? rowState(succeededRow?.value_state)
-                  : "not_observed"
-            }
-          />
         </div>
-        {rows.length > 0 ? (
+        {evidenceRows.length > 0 ? (
           <ChartContainer
-            ariaLabel={`${title} lifecycle funnel by stage`}
+            ariaLabel={`${title} availability and runtime evidence by assertion`}
             option={funnelBarOption(
-              rows.map((r) => STAGE_LABELS[r.stage] ?? r.stage),
-              rows.map((r) => r.component_count),
+              evidenceRows.map((r) => STAGE_LABELS[r.stage] ?? r.stage),
+              evidenceRows.map((r) => r.component_count),
             )}
           />
         ) : (
@@ -126,11 +107,12 @@ export function ComponentLifecyclePage({
         )}
         <GapNote>
           Installed and enabled come from the latest bounded, read-only inventory
-          snapshot in this range. Invoked and loaded accept only native or uniquely
-          inventory-resolved runtime evidence. Executed requires an unambiguous owned
-          action. Universal component success is unsupported because the agent interfaces
-          publish no terminal skill/plugin outcome; a successful session or child tool
-          call is never promoted to component success.{" "}
+          snapshot in this range. Availability and runtime evidence are independent;
+          later assertions are not conversion stages. Invoked and loaded accept only
+          native or uniquely inventory-resolved runtime evidence. Universal component
+          execution and success are unsupported because the agent interfaces publish
+          no terminal skill/plugin contract; a successful session or child tool call
+          is never promoted to component success.{" "}
           Cold/unused reason codes are not shown: neither inventory nor native
           lifecycle telemetry provides a bounded reason-code dimension.
           {extraGapNote ? ` ${extraGapNote}` : ""}

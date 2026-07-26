@@ -13,11 +13,11 @@ export const ROUTES: readonly RouteMeta[] = [
   {
     "path": "/",
     "title": "Overview",
-    "wireframe": "health strip; KPI row; activity/model trend; component funnel; incident list",
+    "wireframe": "health strip; KPI row; activity/model trend; independent skill evidence planes; incident list",
     "panelIds": [
       "overview-collection-health",
       "overview-activity",
-      "overview-component-funnel",
+      "overview-skill-evidence",
       "overview-incidents"
     ]
   },
@@ -66,9 +66,17 @@ export const ROUTES: readonly RouteMeta[] = [
   {
     "path": "/components/skills",
     "title": "Skills",
-    "wireframe": "lifecycle funnel; activation/success; cold/unused reasons; evidence table",
+    "wireframe": "independent availability and runtime evidence planes; exact cold population; linked skill profiles",
     "panelIds": [
-      "skill-lifecycle"
+      "skill-evidence-planes"
+    ]
+  },
+  {
+    "path": "/components/skills/:id",
+    "title": "Skill detail",
+    "wireframe": "identity and provenance; availability/runtime assertion timeline; source matrix; attributed children; incidents; file-tree metadata only",
+    "panelIds": [
+      "skill-detail-evidence"
     ]
   },
   {
@@ -76,7 +84,7 @@ export const ROUTES: readonly RouteMeta[] = [
     "title": "Plugins",
     "wireframe": "plugin tree; child lifecycle; version adoption; cold/stale reasons",
     "panelIds": [
-      "plugin-lifecycle"
+      "plugin-evidence"
     ]
   },
   {

@@ -1,6 +1,6 @@
 /*
- * Overview ("/") — health strip; KPI row; activity/model trend; component
- * funnel; incident list (contracts/dashboard.yaml panelIds:
+ * Overview ("/") — health strip; KPI row; activity/model trend; independent
+ * skill evidence planes; incident list (contracts/dashboard.yaml panelIds:
  * overview-collection-health, overview-activity, overview-component-funnel,
  * overview-incidents).
  *
@@ -16,30 +16,19 @@ import { GapNote, Panel } from "../components/Panel";
 import { PercentageDisplay } from "../components/PercentageDisplay";
 import { RangeControl } from "../components/RangeControl";
 import { StatusBadge } from "../components/StatusBadge";
-import { deriveViewState, type ViewState } from "../api/client";
+import { deriveViewState } from "../api/client";
 import {
   useActivityTimeline,
   useCompletenessSummary,
-  useComponentLifecycleFunnel,
   useIncidents,
   useModelUsage,
   useReliabilityCounts,
+  useSkills,
 } from "../api/queries";
 import { useRange } from "../hooks/useRange";
 import { sum } from "../lib/format";
-import { bucketedTimeSeriesOption, funnelBarOption } from "../components/chartOptions";
+import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { Incident } from "../api/types";
-
-const STAGE_LABELS: Record<string, string> = {
-  opportunity_detected: "Opportunity detected",
-  installed: "Installed",
-  enabled: "Enabled",
-  exposed: "Exposed",
-  invoked: "Invoked",
-  loaded: "Loaded",
-  executed: "Executed",
-  succeeded: "Succeeded",
-};
 
 export function Overview() {
   const range = useRange();
@@ -50,7 +39,7 @@ export function Overview() {
 
   const activity = useActivityTimeline(rangeParams);
   const modelUsage = useModelUsage(rangeParams);
-  const funnel = useComponentLifecycleFunnel(rangeParams, "");
+  const skills = useSkills(rangeParams);
   const reliabilityCounts = useReliabilityCounts(rangeParams);
   const incidents = useIncidents();
   const completeness = useCompletenessSummary();
@@ -72,18 +61,8 @@ export function Overview() {
     (reliabilityCounts.data?.data?.data ?? []).map((r) => r.unknown_schema_count),
   );
 
-  const funnelRows = funnel.data?.data?.data ?? [];
-  const funnelState = deriveViewState(funnel.data, { isLoading: funnel.isLoading });
-  const installedRow = funnelRows.find((r) => r.stage === "installed");
-  const enabledRow = funnelRows.find((r) => r.stage === "enabled");
-  const executedRow = funnelRows.find((r) => r.stage === "executed");
-  const succeededRow = funnelRows.find((r) => r.stage === "succeeded");
-  const installed = installedRow?.component_count ?? 0;
-  const enabled = enabledRow?.component_count ?? 0;
-  const executed = executedRow?.component_count ?? 0;
-  const succeeded = succeededRow?.component_count ?? 0;
-  const funnelRowState = (valueState: string | undefined): ViewState =>
-    funnel.isLoading ? "loading" : ((valueState as ViewState | undefined) ?? funnelState);
+  const skillState = deriveViewState(skills.data, { isLoading: skills.isLoading });
+  const skillCounts = skills.data?.data?.counts;
 
   const incidentColumns: Column<Incident>[] = [
     { key: "incident_id", header: "Incident", render: (r) => r.incident_id },
@@ -101,7 +80,7 @@ export function Overview() {
       <header className="k-page__head">
         <h1 className="t-page-title">Overview</h1>
         <p className="k-page__wire t-caption">
-          Health strip, activity/model trend, component lifecycle funnel, incidents.
+          Health strip, activity/model trend, skill evidence planes, incidents.
         </p>
       </header>
 
@@ -157,54 +136,19 @@ export function Overview() {
         )}
       </Panel>
 
-      <Panel title="Component lifecycle funnel (all kinds)">
+      <Panel title="Skill evidence planes">
         <div className="k-grid k-grid--kpis">
-          <KpiCard
-            label="Installed"
-            value={installed}
-            state={funnelRowState(installedRow?.value_state)}
-          />
-          <KpiCard
-            label="Enablement ratio"
-            value={installed > 0 ? Math.round((100 * enabled) / installed) : null}
-            unit="%"
-            state={installed > 0 ? funnelRowState(enabledRow?.value_state) : "not_observed"}
-          />
-          <KpiCard
-            label="Success ratio"
-            value={
-              succeededRow?.value_state !== "unsupported" && executed > 0
-                ? Math.round((100 * succeeded) / executed)
-                : null
-            }
-            unit="%"
-            state={
-              succeededRow?.value_state === "unsupported"
-                ? "unsupported"
-                : executed > 0
-                  ? funnelRowState(succeededRow?.value_state)
-                  : "not_observed"
-            }
-          />
+          <KpiCard label="Installed" value={skillCounts?.installed ?? 0} state={skillState} />
+          <KpiCard label="Enabled" value={skillCounts?.enabled ?? 0} state={skillState} />
+          <KpiCard label="Exposed" value={skillCounts?.exposed ?? 0} state={skillState} />
+          <KpiCard label="Invoked" value={skillCounts?.invoked ?? 0} state={skillState} />
+          <KpiCard label="Loaded" value={skillCounts?.loaded ?? 0} state={skillState} />
+          <KpiCard label="Cold" value={skillCounts?.cold ?? 0} state={skillState} />
         </div>
-        {funnelRows.length > 0 ? (
-          <ChartContainer
-            ariaLabel="Component lifecycle funnel by stage"
-            option={funnelBarOption(
-              funnelRows.map((r) => STAGE_LABELS[r.stage] ?? r.stage),
-              funnelRows.map((r) => r.component_count),
-            )}
-          />
-        ) : (
-          <p className="t-body" style={{ color: "var(--text-muted)" }}>
-            {funnel.isLoading ? "Loading…" : "No component lifecycle events observed in this range."}
-          </p>
-        )}
         <GapNote>
-          Installed and enabled are current inventory observations. Native lifecycle
-          identities are correlated to exactly one component installation before they
-          enter later stages. Universal skill/plugin success is unsupported because
-          current agent interfaces expose no component-terminal outcome.
+          Availability and runtime are independent populations. Cold requires a
+          complete exposure window. “Executed” is not a universal skill state, and
+          outcome remains unsupported without a registered terminal contract.
         </GapNote>
       </Panel>
 

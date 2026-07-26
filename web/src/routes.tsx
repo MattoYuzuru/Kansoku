@@ -22,6 +22,7 @@ const Agents = lazy(() => import("./pages/Agents").then((m) => ({ default: m.Age
 const AgentDetail = lazy(() => import("./pages/AgentDetail").then((m) => ({ default: m.AgentDetail })));
 const Models = lazy(() => import("./pages/Models").then((m) => ({ default: m.Models })));
 const Skills = lazy(() => import("./pages/Skills").then((m) => ({ default: m.Skills })));
+const SkillDetail = lazy(() => import("./pages/SkillDetail").then((m) => ({ default: m.SkillDetail })));
 const Plugins = lazy(() => import("./pages/Plugins").then((m) => ({ default: m.Plugins })));
 const MCP = lazy(() => import("./pages/MCP").then((m) => ({ default: m.MCP })));
 const Tools = lazy(() => import("./pages/Tools").then((m) => ({ default: m.Tools })));
@@ -75,6 +76,13 @@ function AgentDetailRoute() {
   return <AgentDetail alias={alias} />;
 }
 
+function SkillDetailRoute() {
+  const params = useParams();
+  const id = params.id ?? "";
+  useEffect(() => setTitle(`Skill ${id}`), [id]);
+  return <SkillDetail id={id} />;
+}
+
 function NotFound() {
   useEffect(() => setTitle("Not found"), []);
   return (
@@ -101,6 +109,9 @@ export function AppRoutes() {
         ))}
         <Route path="/agents/:id">
           <AgentDetailRoute />
+        </Route>
+        <Route path="/components/skills/:id">
+          <SkillDetailRoute />
         </Route>
         <Route>
           <NotFound />

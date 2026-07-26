@@ -11,11 +11,11 @@
   },
   "routes": [
     {
-      "path": "/", "title": "Overview", "wireframe": "health strip; KPI row; activity/model trend; component funnel; incident list",
+      "path": "/", "title": "Overview", "wireframe": "health strip; KPI row; activity/model trend; independent skill evidence planes; incident list",
       "panels": [
         {"id": "overview-collection-health", "question_ids": ["Q-COLLECTION-HEALTH"], "metrics": ["collection.coverage_ratio", "collection.completeness_duration_seconds", "collection.acknowledged_durability_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
         {"id": "overview-activity", "question_ids": ["Q-ACTIVITY-RHYTHM", "Q-MODEL-USAGE"], "metrics": ["activity.sessions", "activity.prompts", "model.tokens"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
-        {"id": "overview-component-funnel", "question_ids": ["Q-COMPONENT-LIFECYCLE"], "metrics": ["component.lifecycle_count", "component.activation_ratio", "component.success_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
+        {"id": "overview-skill-evidence", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
         {"id": "overview-incidents", "question_ids": ["Q-UPDATE-DRIFT"], "metrics": ["reliability.unknown_schema_count", "reliability.reconciliation_mismatch_count"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
       ]
     },
@@ -52,15 +52,21 @@
       ]
     },
     {
-      "path": "/components/skills", "title": "Skills", "wireframe": "lifecycle funnel; activation/success; cold/unused reasons; evidence table",
+      "path": "/components/skills", "title": "Skills", "wireframe": "independent availability and runtime evidence planes; exact cold population; linked skill profiles",
       "panels": [
-        {"id": "skill-lifecycle", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio", "component.success_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+        {"id": "skill-evidence-planes", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/components/skills/:id", "title": "Skill detail", "wireframe": "identity and provenance; availability/runtime assertion timeline; source matrix; attributed children; incidents; file-tree metadata only",
+      "panels": [
+        {"id": "skill-detail-evidence", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
       ]
     },
     {
       "path": "/components/plugins", "title": "Plugins", "wireframe": "plugin tree; child lifecycle; version adoption; cold/stale reasons",
       "panels": [
-        {"id": "plugin-lifecycle", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio", "component.success_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+        {"id": "plugin-evidence", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
       ]
     },
     {

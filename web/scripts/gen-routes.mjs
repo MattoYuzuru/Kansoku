@@ -22,9 +22,9 @@ try {
   );
 }
 
-if (!Array.isArray(contract.routes) || contract.routes.length !== 14) {
+if (!Array.isArray(contract.routes) || contract.routes.length !== 15) {
   throw new Error(
-    `expected exactly 14 routes in the contract, found ${contract.routes?.length}`,
+    `expected exactly 15 routes in the contract, found ${contract.routes?.length}`,
   );
 }
 
