@@ -102,6 +102,7 @@ each closed and paired with a `*-policy-locks.yaml` (append-only trust root) and
 | How do I run this locally / wire a real agent to it? | `README.md` |
 
 `Engineering Proposal/`, `Technical Design Document/`, and `adr/` share the same session numbering
-(01–11 for the first two; ADRs are one-per-material-decision so the count doesn't match 1:1).
+(01–20 for the first two; 12–20 are approved plans rather than implementation claims, and ADRs are
+one-per-material-decision so the count doesn't match 1:1).
 `tests/fixtures/session-NN/` holds the sanitized fixtures each session's contract tests replay
 against; `benchmarks/session-01/` holds the one existing perf-benchmark harness.

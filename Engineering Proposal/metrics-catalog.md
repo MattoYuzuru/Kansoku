@@ -83,11 +83,15 @@ Never store raw prompt, normalized prompt, n-grams, embeddings or stable content
 
 ## Skills
 
-- installed → enabled → exposed → invoked → loaded → executed → succeeded funnel;
+- availability plane: installed → enabled → exposed;
+- runtime evidence plane: invoked, loaded, uniquely attributed child activity and terminal outcome
+  only when a versioned component-specific contract exists;
 - explicit vs implicit invocation share;
 - unique sessions/users/projects and repeat-use rate;
-- success, failure, fallback and median duration by skill/version;
-- opportunity count, activation recall and false-positive estimate for opt-in classifier;
+- success, failure, fallback and duration by skill/version only over a common terminal-contract
+  population; successful sessions/tools never substitute for skill outcome;
+- opportunity/eligibility, activation recall and false-positive estimate remain Session 20 research
+  and are absent from primary UI until the classifier/privacy/formula gate passes;
 - unused, cold, newly adopted, declining and resurrected skills;
 - co-activation matrix and common sequences;
 - scripts/references actually used, if observable without content capture;
@@ -96,18 +100,28 @@ Never store raw prompt, normalized prompt, n-grams, embeddings or stable content
 
 ## Plugins
 
-- installed/enabled/active versions and marketplace/source;
+- installed/enabled/loaded versions and marketplace/source;
 - share of sessions with any bundled component usage;
 - bundled skill, MCP, hook and command usage as separate children;
-- activation funnel, failures after upgrade and version adoption curve;
+- load history, child failures after upgrade and version adoption curve;
 - permissions/trust state and stale configuration;
 - plugin value view: used components / shipped components, with completeness caveat.
 
+Plugin success is not universal. Outcomes remain on the exact child component unless a separately
+registered plugin terminal contract exists.
+
 ## MCP and tools
 
-- server connection attempts, uptime, handshake latency and disconnects;
-- advertised/allowed/disabled/called tools;
-- calls, success, error, timeout, cancellation, retry and latency percentiles;
+- configuration/inventory, protocol connection and call lifecycle are independent evidence
+  contours; configured never implies connected/exposed/called;
+- negotiated protocol/capabilities/server version, enumeration completeness, list errors and
+  list-changed churn;
+- server connection attempts, observable uptime, handshake latency, reconnects and disconnects;
+- advertised/allowed/disabled/called tools plus structural schema fingerprints and safe
+  description/schema byte counts;
+- calls split into completed `isError=false`, tool execution error, JSON-RPC/protocol error,
+  timeout, cancellation, policy denial, transport loss and incomplete terminal state;
+- retry/recovery and latency percentiles only with causal call identity;
 - approvals requested/granted/denied and policy blocks;
 - request/response byte counts only when natively available and safe;
 - top error classes with version markers;
@@ -164,11 +178,13 @@ These are workflow diagnostics, not measures of developer worth or individual pe
 Every percentage is rendered with its formula. Examples:
 
 ```text
-skill activation rate = invoked eligible skills / exposed eligible skills
-activation recall      = invoked opportunities / detected opportunities
-MCP success rate       = successful terminal calls / terminal calls
-source coverage        = normalized eligible events / expected eligible events
-active plugin share    = plugins with child usage / enabled plugins
+skill selection rate     = invoked skills / exposed skills with complete exposure evidence
+skill outcome ratio      = successful terminal invocations / terminal invocations sharing one contract
+activation recall        = selected eligible assertions / eligible assertions (Session 20 only)
+MCP completion ratio     = completed isError=false calls / observed terminal calls
+MCP execution error rate = isError=true calls / observed terminal calls
+source coverage          = normalized eligible events / expected eligible events
+active plugin share      = plugins with exact child usage / enabled plugins with complete child graph
 ```
 
 If the denominator is unknown, Kansoku shows `unknown`, not `0%`. Small denominators show the raw

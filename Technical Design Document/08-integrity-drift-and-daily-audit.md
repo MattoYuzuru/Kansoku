@@ -80,6 +80,11 @@ session.started
 Capabilities without native nodes have adapter-specific expected alternatives. Missing/extra/
 misordered events create precise check failures.
 
+Planning reconciliation (2026-07-26): `component.succeeded` in this historical example is not a
+universal skill/plugin requirement. Session 14 requires a component-specific terminal contract
+before the node may appear; canaries without that contract end at the strongest supported
+invoked/loaded/child assertion and report outcome as unsupported.
+
 ## Drift fingerprints
 
 Fingerprint source schema from safe structural metadata: event/type names, field paths and primitive

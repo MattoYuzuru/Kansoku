@@ -16,6 +16,16 @@
 8. [Integrity, drift and daily audit](08-integrity-drift-and-daily-audit.md)
 9. [Local runtime and operations](09-local-runtime-and-operations.md)
 10. [Dashboard, hardening and evolution](10-dashboard-hardening-and-evolution.md)
+11. [Real-agent gap closure](11-real-agent-gap-closure.md)
+12. [Incident workbench and safe quarantine](12-incident-workbench-and-safe-quarantine.md)
+13. [Agent evidence bridge and model observatory](13-agent-evidence-and-model-observatory.md)
+14. [Skill observatory](14-skill-observatory.md)
+15. [MCP observatory](15-mcp-observatory.md)
+16. [Plugin observatory](16-plugin-observatory.md)
+17. [System self-observability](17-system-self-observability.md)
+18. [Design system and content access](18-design-system-and-content-access.md)
+19. [Local control plane and assisted remediation](19-local-control-plane-and-assisted-remediation.md)
+20. [Opportunity evaluation lab](20-opportunity-evaluation-lab.md)
 
 ## Shared product artifacts
 
@@ -28,4 +38,3 @@
 Every implementation session begins by reviewing its proposal. If empirical evidence invalidates a
 decision, update the proposal and add an ADR; do not allow code to become the undocumented source
 of product truth.
-

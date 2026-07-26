@@ -1,4 +1,4 @@
-# Kansoku: ten-session roadmap
+# Kansoku: deliberate-session roadmap
 
 Каждая сессия рассчитана на отдельный рабочий цикл: исследование, утверждение решений,
 реализацию, тесты, review и обновление документации. Это порядок зависимостей, а не обещание
@@ -18,6 +18,15 @@
 | 09 | Local runtime and backend | API, Docker Compose, scheduler, backup/restore и resource controls | 7-day soak переживает restarts без silent loss и duplicate inflation |
 | 10 | Dashboard, hardening and release | Полный UX, accessibility, review, packaging и evolution loop | Privacy/reliability/performance gates зелёные; fresh install воспроизводим |
 | 11 | Real-agent gap closure | Adapter-aware OTLP dispatch, hook installer file-writer, host inventory scan | Реальная локальная сессия Codex/Claude Code даёт видимую активность на дашборде без ручных правок кода |
+| 12 | Incident workbench and safe quarantine | Единое пагинированное расследование incidents/quarantine в Reliability | Unknown schema дедуплицируется, объясняется безопасным manifest и закрывается только свежим recovery evidence |
+| 13 | Agent evidence bridge and model observatory | Расширяемый rich-evidence bridge плюс per-agent/per-model профили | Codex/Claude/fake bridge не дублируют факты и не требуют agent-name branching в core |
+| 14 | Skill observatory | Availability/runtime evidence planes и кликабельные skill-профили | Exact invocation/load evidence сходится; universal executed/succeeded больше не обещаются |
+| 15 | MCP observatory | Server/tool inventory, protocol connection и call lifecycle profiles | No-op MCP доказывает inventory/connect/call/error/timeout/cancel без raw content |
+| 16 | Plugin observatory | Plugin bundle graph, load evidence и child usage | Canary plugin показывает точные skill/MCP relations без fabricated plugin success |
+| 17 | System self-observability | CPU/RSS/disk/growth/ingest/query/backup/restore telemetry | Controlled load и restore failure видимы при измеренном bounded overhead |
+| 18 | Design system and content access | Visual regression и полный opt-in skill/plugin content viewer | Все presets/UI states согласованы; viewer проходит containment/privacy gates |
+| 19 | Local control plane and assisted remediation | Reversible component changes и approval-gated incident agent workflow | Ни один write/commit/restart/resolution не обходит preview, confirmation и fresh evidence |
+| 20 | Opportunity evaluation lab | Research contract для eligible/selected/missed | До privacy/false-positive/formula approval production metric отсутствует |
 
 ## Progress
 
@@ -208,6 +217,27 @@
   work. `claude.transcript`, Session 07b (Gemini/Cursor), the `kansoku
   doctor`/`configure` CLI, live-CLI canary automation and the DB-restart/failed-restore scenarios
   (ADR 0011) remain out of scope, unchanged.
+- **12 — planned/P0 (approved 2026-07-26):** Reliability becomes the one metadata-only incident and
+  quarantine workbench with keyset pagination, structural manifests, profiles, debug bundles and
+  fresh-evidence recovery. Raw unknown JSON remains prohibited.
+- **13 — planned/P0 (approved 2026-07-26):** a generic adapter-owned evidence bridge, with Codex App
+  Server as its first optional version-pinned implementation, delivers useful agent/model profiles
+  while proving cross-agent extensibility and cross-lane deduplication.
+- **14 — planned/P1 (approved 2026-07-26):** skill analytics moves from one false universal funnel
+  to availability/runtime/optimization planes; optimization stays unsupported until Session 20.
+  Profiles contain evidence and file-tree metadata, not file contents.
+- **15 — planned/P1 (approved 2026-07-26):** MCP inventory, protocol connections and calls become
+  independent evidence contours with server/tool profiles and a privacy-safe live no-op canary.
+- **16 — planned/P2 (approved 2026-07-26):** plugin bundle graph and child usage reuse stabilized
+  skill/MCP relations. There is no universal plugin-success metric.
+- **17 — planned/P2 (approved 2026-07-26):** Kansoku measures its own bounded operational
+  time-series separately from agent ingress.
+- **18 — planned/P3 (approved 2026-07-26):** design-system/browser regression and the complete
+  opt-in transient skill/plugin content viewer land together; no partial viewer ships earlier.
+- **19 — deferred/P4:** enable/disable and assisted incident remediation require a new threat model
+  and accepted read-only reconciliation evidence from Sessions 12–18.
+- **20 — research backlog:** opportunity detection requires deterministic eligibility semantics,
+  privacy proof and false-positive evaluation before any production implementation.
 
 ## Dependency graph
 
@@ -215,12 +245,22 @@
 01 -> 02 -> 03 -> 04 -> 05 -> 06 -> 07 -> 08 -> 09 -> 10 -> 11
                    \-----------------------> analytics/UI fixtures
                                  \-> 07b (Gemini/Cursor, backlog, non-blocking)
+
+11 -> 12 -> 13 -> 14 -> 15 -> 16 -> 17 -> 18 -> 19
+                         \-----------------------> 20 (research backlog)
 ```
 
 Sessions 06 and 07 могут делить parser fixtures, но не должны идти параллельно до стабилизации
 Adapter SDK в Session 05. Frontend spikes допустимы раньше, однако production UI строится только
 после фиксации semantics и completeness states. 07b остаётся валидной будущей сессией, но больше не
-блокирует 08-10.
+блокирует основной путь. Sessions 12–15 выполняются строго последовательно: Incident Workbench
+должен принять failures новых bridges; Agent Evidence Bridge должен стабилизировать attribution до
+Skills/MCP; MCP предшествует Plugins, потому что plugin graph может владеть MCP servers/tools.
+Sessions 19–20 не разрешены как скрытая часть более раннего implementation scope.
+
+Самодостаточный implementation handoff для следующего агента, который последовательно закрывает
+Sessions 12–15, находится в
+[`prompts/session-12-to-15-implementation.md`](prompts/session-12-to-15-implementation.md).
 
 ## Cross-session deliverables
 

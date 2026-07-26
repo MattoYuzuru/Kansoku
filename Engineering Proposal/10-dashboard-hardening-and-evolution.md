@@ -27,6 +27,11 @@ latency/errors and version markers.
 Separate tabs for skills, plugins, MCP and tools. Lifecycle funnels, cold/unused/stale lists,
 co-activation matrix, plugin component tree, MCP health/latency/failures and opportunity recall.
 
+Planning reconciliation (2026-07-26): Sessions 14–16 supersede the assumption that every component
+shares one lifecycle funnel. Skills use separate availability/runtime evidence planes, plugins use
+bundle/load plus child usage, and MCP separates inventory, connection and calls. Opportunity recall
+is deferred to the Session 20 research gate rather than appearing as a generic unsupported panel.
+
 ### 5. Reliability
 
 Coverage timeline, source watermarks, reconciliation mismatches, unknown schemas, daily audit,
@@ -105,4 +110,3 @@ After the ten sessions, improvements continue through evidence:
 Every metric in the MVP catalog has a clear home, formula and completeness display; no page exposes
 prohibited data; fresh-install and restore tests pass; supported adapter claims match live evidence;
 the dashboard remains fast on all standard ranges; residual risks and future work are explicit.
-

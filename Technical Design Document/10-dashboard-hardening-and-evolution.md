@@ -93,14 +93,23 @@ show count, median/p95 and completeness.
 
 ### Component funnel
 
-Installed/enabled/exposed/invoked/loaded/executed/succeeded counts, conversion between adjacent
-observable stages, missing-stage hatching and evidence tier filter. Never divide by unsupported stage.
+The original Session 10 design used installed/enabled/exposed/invoked/loaded/executed/succeeded as
+one funnel. The 2026-07-26 evidence review found that model invalid for instruction components:
+inventory availability, runtime selection/load, child activity and terminal outcome do not form one
+universally observable sequence. Session 14 therefore replaces this panel with independent
+Availability and Runtime evidence summaries, while Session 20 owns any later Optimization plane.
+Until that contract migration lands, unsupported later stages remain explicit and are never divided
+or rendered as zero.
 
 ### Component explorer
 
 Sortable virtualized table: trend sparkline, lifecycle counts, last used, success, opportunity
 recall, source/version, completeness and cold/stale reason. Drill-down shows co-activation and
 evidence without transcript text.
+
+Session 14 removes universal success and opportunity columns from this common table. Outcome is
+shown only for a shared component-specific terminal contract; opportunity remains absent until the
+Session 20 research gate passes.
 
 ### Reliability timeline
 

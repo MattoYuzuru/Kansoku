@@ -357,6 +357,60 @@ loads on invocation and can persist across turns, but neither that persistence n
 session proves a terminal skill outcome. Kansoku therefore records only identity-resolved native
 loaded/invoked assertions and leaves universal component success unsupported.
 
+## 2026-07-26 Sessions 12–20 planning re-check
+
+- Codex App Server protocol:
+  <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
+- Codex skills:
+  <https://learn.chatgpt.com/docs/build-skills>
+- Codex hooks:
+  <https://learn.chatgpt.com/docs/hooks>
+- Codex advanced configuration and OTel:
+  <https://learn.chatgpt.com/docs/config-file/config-advanced>
+- Claude Code monitoring:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Claude Code hooks:
+  <https://code.claude.com/docs/en/hooks>
+- Claude Code skills:
+  <https://code.claude.com/docs/en/skills>
+- Model Context Protocol lifecycle:
+  <https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle>
+- Model Context Protocol tools:
+  <https://modelcontextprotocol.io/specification/2025-11-25/server/tools>
+- Model Context Protocol progress and cancellation:
+  <https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress>,
+  <https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/cancellation>
+- OpenTelemetry HTTP metrics semantic conventions:
+  <https://opentelemetry.io/docs/specs/semconv/http/http-metrics/>
+- OpenTelemetry process/runtime resource semantic conventions:
+  <https://opentelemetry.io/docs/specs/semconv/resource/process/>
+- Retrieved: 2026-07-26.
+- Locally observed versions remain Codex CLI `0.145.0` and Claude Code `2.1.197`; documentation
+  behavior beyond those local versions is not live evidence.
+
+Design note: the Codex App Server README documents `skills/list`, skill configuration writes,
+plugin inventory/read methods, `mcpServerStatus/list` and typed `mcpToolCall` items. It is a
+main-branch local application protocol, not a stable OTel contract. Session 13 therefore treats it
+as the first optional version-pinned implementation of a generic adapter-owned evidence bridge.
+Content-bearing prompts/messages/reasoning, tool or MCP arguments/results/errors, resources and
+paths remain prohibited before any queue, log or durable assertion.
+
+The MCP specification separates initialization/version/capability negotiation, normal operation
+and shutdown. `tools/list` is paginated and may emit list-changed notifications. `tools/call`
+distinguishes JSON-RPC/protocol errors from tool execution errors reported with `isError=true`.
+Progress, cancellation and timeouts are independent signals. Session 15 keeps configuration,
+connection and call evidence separate and never interprets `isError=false` as success of the user's
+task.
+
+Claude Code documents `skill_activated`, `plugin_loaded` and MCP server connection events, but
+third-party identity and detailed MCP/tool names can be gated with a setting that also increases
+upstream exposure of arguments/input. Kansoku does not enable that setting by default. Redacted
+identity remains redacted or unresolved rather than being guessed.
+
+OpenTelemetry HTTP metrics use low-cardinality route templates for server duration dimensions.
+Process resource attributes may include command lines, arguments, executable paths and owner data;
+Session 17 explicitly excludes those surfaces from system self-observability.
+
 ## Source maintenance policy
 
 For every supported agent release:
