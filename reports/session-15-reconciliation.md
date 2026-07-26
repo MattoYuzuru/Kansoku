@@ -76,15 +76,21 @@ Additional MCP bridge scans covered secret-shaped arguments, results, error text
 environment, auth and resource URI. Database and production-log scans found zero raw marker
 matches.
 
-Migration 0010 was applied to production at `2026-07-26 16:37:53.885369+00`. The tested image
-before the final source reconciliation was
-`sha256:7cce3c4a4b98d57ada33ea3032898959be8c3cc919227d8508fe240b0ab33aec`
-and started healthy at `2026-07-26T17:02:16.644140762Z`.
+Migration 0010 was applied to production at `2026-07-26 16:37:53.885369+00`. The final image built
+from commit `6013cee` is
+`sha256:232737147156bfc68334bc0911f1befd72aa07f14931626b82a0b0466551bb57`;
+it started at `2026-07-26T17:14:00.274682217Z` and is healthy.
 
 Backup `backup_8c96219fca64dd4bcf4bf46fc5d1c6b8` (archive SHA-256
 `5036b1ae22a98b47d862f6670b352959350c451619fa43361609674244abd209`) captured schema migration
 0010 and exact MCP counts 1 server, 2 primitives, 5 connections and 15 call assertions. Two
 independent isolated restore-verification runs passed.
+
+After the final image restart, backup `backup_70c8c7ef6d88ee565bc997886c75946e`
+(archive SHA-256
+`404d5379bcf175839349a7da34a5b8f99815d3c71e72327c015144f16c7668d7`) captured schema
+migration 0010 and the same exact MCP counts. Two further isolated restore-verification runs
+passed concurrently with exact table counts.
 
 The first concurrent backup attempt exposed a race: `pg_dump` and manifest counts used different
 snapshots. The final implementation exports one read-only repeatable-read snapshot and uses it for
@@ -108,8 +114,15 @@ npm --prefix web run typecheck
 web/scripts/build-and-embed.sh
 ```
 
-Headless Chrome verified the production MCP list and server profile against the API. The final pass
-also covers the tool route introduced during reconciliation.
+Chrome 150 headless verified the final production MCP list, server profile and tool profile against
+the API. The four API reads returned HTTP 200 with formula/population:
+
+```text
+mcp.observatory/1    1/1
+mcp.server_profile/1 7/7
+mcp.primitive_list/1 2/2
+mcp.tool_profile/1   1/1
+```
 
 ## Debug scaffolding and residual risks
 
