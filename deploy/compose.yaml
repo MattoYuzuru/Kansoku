@@ -25,7 +25,7 @@
         {"type": "bind", "source": "${KANSOKU_CODEX_HOME_CORPORATE:-./empty-agent-state}", "target": "/agent-state/codex/state/corporate", "read_only": true},
         {"type": "bind", "source": "${KANSOKU_CODEX_USER_SKILLS:-./empty-agent-state}", "target": "/agent-state/codex/skills/user", "read_only": true},
         {"type": "bind", "source": "${KANSOKU_CODEX_SYSTEM_SKILLS:-./empty-agent-state}", "target": "/agent-state/codex/skills/system", "read_only": true},
-        {"type": "bind", "source": "${KANSOKU_CLAUDE_HOME:-./empty-agent-state}", "target": "/agent-state/claude", "read_only": true},
+        {"type": "bind", "source": "${KANSOKU_CLAUDE_HOME:-./empty-agent-state}/settings.json", "target": "/agent-state/claude/settings.json", "read_only": true},
         {"type": "bind", "source": "${KANSOKU_CLAUDE_USER_SKILLS:-./empty-agent-state}", "target": "/agent-state/claude/skills/user", "read_only": true},
         {"type": "bind", "source": "${KANSOKU_CLAUDE_REPOSITORY_SKILLS:-./empty-agent-state}", "target": "/agent-state/claude/skills/repository", "read_only": true},
         {"type": "bind", "source": "${KANSOKU_CLAUDE_SYSTEM_SKILLS:-./empty-agent-state}", "target": "/agent-state/claude/skills/system", "read_only": true},
