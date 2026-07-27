@@ -29,6 +29,8 @@
         {"type": "bind", "source": "${KANSOKU_CLAUDE_USER_SKILLS:-./empty-agent-state}", "target": "/agent-state/claude/skills/user", "read_only": true},
         {"type": "bind", "source": "${KANSOKU_CLAUDE_REPOSITORY_SKILLS:-./empty-agent-state}", "target": "/agent-state/claude/skills/repository", "read_only": true},
         {"type": "bind", "source": "${KANSOKU_CLAUDE_SYSTEM_SKILLS:-./empty-agent-state}", "target": "/agent-state/claude/skills/system", "read_only": true},
+        {"type": "bind", "source": "${KANSOKU_CLAUDE_HOME:-./empty-agent-state}/plugins/installed_plugins.json", "target": "/agent-state/claude/plugins/installed_plugins.json", "read_only": true},
+        {"type": "bind", "source": "${KANSOKU_CLAUDE_PLUGIN_CACHE:-./empty-agent-state}", "target": "/agent-state/claude/plugins/cache", "read_only": true},
         {"type": "volume", "source": "kansoku-data", "target": "/var/lib/kansoku"},
         {"type": "volume", "source": "kansoku-backups", "target": "/var/lib/kansoku-backups"}
       ],

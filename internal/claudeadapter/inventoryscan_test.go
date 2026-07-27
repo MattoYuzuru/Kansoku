@@ -45,6 +45,50 @@ func writeSkillManifest(t *testing.T, dir, name, description string) {
 	}
 }
 
+// writePluginCacheVersion writes one version-hash directory's
+// .claude-plugin/plugin.json under <stateRoot>/plugins/cache/<marketplace>/
+// <pluginFolder>/<versionHash>/, mirroring Claude Code's real on-disk plugin
+// cache layout. Pass declaredName == "" to omit plugin.json entirely, so a
+// test can exercise the folder-name fallback.
+func writePluginCacheVersion(t *testing.T, stateRoot, marketplace, pluginFolder, versionHash, declaredName string) string {
+	t.Helper()
+	versionDir := filepath.Join(stateRoot, "plugins", "cache", marketplace, pluginFolder, versionHash)
+	if err := os.MkdirAll(versionDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if declaredName != "" {
+		manifestDir := filepath.Join(versionDir, ".claude-plugin")
+		if err := os.MkdirAll(manifestDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		content := `{"name": "` + declaredName + `", "description": "irrelevant"}`
+		if err := os.WriteFile(filepath.Join(manifestDir, "plugin.json"), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return versionDir
+}
+
+func writeInstalledPlugins(t *testing.T, stateRoot string, activeVersions map[string]string) {
+	t.Helper()
+	pluginsDir := filepath.Join(stateRoot, "plugins")
+	if err := os.MkdirAll(pluginsDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	entries := make(map[string][]map[string]string, len(activeVersions))
+	for name, version := range activeVersions {
+		entries[name] = []map[string]string{{"version": version}}
+	}
+	payload := map[string]any{"version": 2, "plugins": entries}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pluginsDir, "installed_plugins.json"), encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestInventoryScansRealPluginsAndMCPServersFromSettingsJSONThroughHostView(t *testing.T) {
 	stateRoot := t.TempDir()
 	writeSettingsJSON(t, stateRoot, `{
@@ -318,4 +362,319 @@ func TestScanHostInventoryScansSkillsEvenWhenSettingsJSONAbsent(t *testing.T) {
 	if len(input.StandaloneSkills) != 1 || input.StandaloneSkills[0].Name != "lonely-skill" {
 		t.Fatalf("expected exactly one skill named lonely-skill, got %+v", input.StandaloneSkills)
 	}
+}
+
+// TestScanPluginCacheDiscoversArbitraryMarketplacesAndPluginsGenerically
+// proves the scan performs genuine dynamic discovery -- made-up marketplace/
+// plugin/skill names never referenced by any literal string in the scanner
+// itself -- rather than hardcoding any specific structure (the user's
+// explicit requirement: a real host may have many such structures).
+func TestScanPluginCacheDiscoversArbitraryMarketplacesAndPluginsGenerically(t *testing.T) {
+	stateRoot := t.TempDir()
+	firstDir := writePluginCacheVersion(t, stateRoot, "quasar-bazaar", "widget-forge", "v1-hash", "widget-forge")
+	writeSkillManifest(t, filepath.Join(firstDir, "skills", "widget-skill"), "widget-skill", "bundled by widget-forge")
+	writePluginCacheVersion(t, stateRoot, "nebula-exchange", "gizmo-kit", "v2-hash", "gizmo-kit")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{InstallationID: "inst-cache-1", StateRoot: stateRoot}
+	input, scanned := claudeadapter.ScanHostInventory(host, target)
+	if !scanned {
+		t.Fatal("expected the plugin cache scan to be reported as completed")
+	}
+	pluginNames := map[string]claudeadapter.PluginDescriptor{}
+	for _, plugin := range input.Plugins {
+		pluginNames[plugin.Name] = plugin
+	}
+	widget, ok := pluginNames["widget-forge@quasar-bazaar"]
+	if !ok {
+		t.Fatalf("expected a discovered plugin named widget-forge@quasar-bazaar, got %+v", input.Plugins)
+	}
+	if len(widget.BundledSkills) != 1 || widget.BundledSkills[0].Name != "widget-skill" {
+		t.Fatalf("expected widget-forge's bundled skill to be discovered, got %+v", widget.BundledSkills)
+	}
+	if _, ok := pluginNames["gizmo-kit@nebula-exchange"]; !ok {
+		t.Fatalf("expected a discovered plugin named gizmo-kit@nebula-exchange, got %+v", input.Plugins)
+	}
+	marketNames := map[string]bool{}
+	for _, marketplace := range input.Marketplaces {
+		marketNames[marketplace.Name] = true
+	}
+	if !marketNames["quasar-bazaar"] || !marketNames["nebula-exchange"] {
+		t.Fatalf("expected both discovered marketplaces present, got %+v", input.Marketplaces)
+	}
+}
+
+// TestScanPluginCacheMergesIntoConfiguredPluginWithoutCollision proves the
+// "merge, don't duplicate" design: a plugin already named in settings.json's
+// enabledPlugins gets enriched by its matching cache entry (BundledSkills,
+// Version, FromMarketplace) as a single node, never a second, colliding one.
+func TestScanPluginCacheMergesIntoConfiguredPluginWithoutCollision(t *testing.T) {
+	stateRoot := t.TempDir()
+	writeSettingsJSON(t, stateRoot, `{"enabledPlugins": {"formatter-plugin@acme-market": true}}`)
+	versionDir := writePluginCacheVersion(t, stateRoot, "acme-market", "formatter-plugin", "hash-1", "formatter-plugin")
+	writeSkillManifest(t, filepath.Join(versionDir, "skills", "format-skill"), "format-skill", "bundled formatter skill")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := claudeadapter.New()
+	target := adaptersdk.Installation{InstallationID: "inst-cache-2", AdapterID: claudeadapter.AdapterID, StateRoot: stateRoot}
+	snapshot, err := adapter.Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var pluginNodes []adaptersdk.Node
+	var bundledSkill *adaptersdk.Node
+	for i, node := range snapshot.Nodes {
+		if node.DeclaredName == "formatter-plugin@acme-market" {
+			pluginNodes = append(pluginNodes, node)
+		}
+		if node.Kind == adaptersdk.NodeSkillIdentity && node.DeclaredName == "format-skill" {
+			bundledSkill = &snapshot.Nodes[i]
+		}
+	}
+	if len(pluginNodes) != 1 {
+		t.Fatalf("expected exactly one merged plugin node, got %d: %+v", len(pluginNodes), pluginNodes)
+	}
+	if pluginNodes[0].Kind != adaptersdk.NodePluginPackage || pluginNodes[0].CachedOnly {
+		t.Fatalf("merged plugin must remain a configured plugin_package, not CachedOnly, got %+v", pluginNodes[0])
+	}
+	if bundledSkill == nil {
+		t.Fatal("expected the cache-discovered bundled skill to appear in the merged plugin's inventory")
+	}
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeCollidesWith && (edge.FromNode == pluginNodes[0].NodeID || edge.ToNode == pluginNodes[0].NodeID) {
+			t.Fatal("a plugin enriched by its own matching cache entry must never collide with itself")
+		}
+		if edge.Kind == adaptersdk.EdgeEnabledFor && edge.FromNode == pluginNodes[0].NodeID {
+			// expected: settings.json marked it enabled
+		}
+	}
+}
+
+// TestScanPluginCachePluginAbsentFromSettingsBecomesCacheOnly proves a
+// plugin discovered only in the cache (never named in settings.json's
+// enabledPlugins) surfaces as a CachedOnly cache_artifact, per the
+// cache_rule -- presence in cache alone is never treated as "installed".
+func TestScanPluginCachePluginAbsentFromSettingsBecomesCacheOnly(t *testing.T) {
+	stateRoot := t.TempDir()
+	writePluginCacheVersion(t, stateRoot, "acme-market", "unconfigured-plugin", "hash-1", "unconfigured-plugin")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := claudeadapter.New()
+	target := adaptersdk.Installation{InstallationID: "inst-cache-3", AdapterID: claudeadapter.AdapterID, StateRoot: stateRoot}
+	snapshot, err := adapter.Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found *adaptersdk.Node
+	for i, node := range snapshot.Nodes {
+		if node.DeclaredName == "unconfigured-plugin@acme-market" {
+			found = &snapshot.Nodes[i]
+		}
+	}
+	if found == nil {
+		t.Fatal("expected a cache-only plugin node to appear")
+	}
+	if found.Kind != adaptersdk.NodeCacheArtifact || !found.CachedOnly {
+		t.Fatalf("expected a CachedOnly cache_artifact node, got %+v", found)
+	}
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeEnabledFor && edge.FromNode == found.NodeID {
+			t.Fatal("a cache-only plugin must never receive an enabled_for edge")
+		}
+	}
+}
+
+// TestScanPluginCacheMultipleVersionsResolvesActiveViaInstalledPluginsJSON
+// proves the multi-version disambiguation rule: when installed_plugins.json
+// names one of two on-disk version-hash directories as active, exactly that
+// one merges into the configured plugin entry, and the other stale version
+// remains a separate CachedOnly node colliding with it by name.
+func TestScanPluginCacheMultipleVersionsResolvesActiveViaInstalledPluginsJSON(t *testing.T) {
+	stateRoot := t.TempDir()
+	writeSettingsJSON(t, stateRoot, `{"enabledPlugins": {"multi-version-plugin@acme-market": true}}`)
+	writePluginCacheVersion(t, stateRoot, "acme-market", "multi-version-plugin", "hash-old", "multi-version-plugin")
+	writePluginCacheVersion(t, stateRoot, "acme-market", "multi-version-plugin", "hash-new", "multi-version-plugin")
+	writeInstalledPlugins(t, stateRoot, map[string]string{"multi-version-plugin@acme-market": "hash-new"})
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := claudeadapter.New()
+	target := adaptersdk.Installation{InstallationID: "inst-cache-4", AdapterID: claudeadapter.AdapterID, StateRoot: stateRoot}
+	snapshot, err := adapter.Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var matches []adaptersdk.Node
+	for _, node := range snapshot.Nodes {
+		if node.DeclaredName == "multi-version-plugin@acme-market" {
+			matches = append(matches, node)
+		}
+	}
+	if len(matches) != 2 {
+		t.Fatalf("expected two distinct nodes (merged-active + stale cache-only), got %d: %+v", len(matches), matches)
+	}
+	var active, stale *adaptersdk.Node
+	for i := range matches {
+		if matches[i].Version == "hash-new" {
+			active = &matches[i]
+		}
+		if matches[i].Version == "hash-old" {
+			stale = &matches[i]
+		}
+	}
+	if active == nil || stale == nil {
+		t.Fatalf("expected one hash-new and one hash-old node, got %+v", matches)
+	}
+	if active.CachedOnly {
+		t.Fatal("the version named active by installed_plugins.json must merge into the configured (non-cache-only) entry")
+	}
+	if !stale.CachedOnly {
+		t.Fatal("the stale, non-active version must remain a separate cache-only entry")
+	}
+	collided := false
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeCollidesWith &&
+			((edge.FromNode == active.NodeID && edge.ToNode == stale.NodeID) ||
+				(edge.FromNode == stale.NodeID && edge.ToNode == active.NodeID)) {
+			collided = true
+		}
+	}
+	if !collided {
+		t.Fatal("expected the active and stale same-named plugin versions to be linked by a collides_with edge")
+	}
+}
+
+// TestScanPluginCacheMultipleVersionsWithoutInstalledPluginsJSONStaySafe
+// proves the safe-degradation rule: with no installed_plugins.json to
+// disambiguate, an ambiguous multi-version plugin never guesses which
+// version is active -- every version becomes CachedOnly instead of a wrong
+// "exact" merge.
+func TestScanPluginCacheMultipleVersionsWithoutInstalledPluginsJSONStaySafe(t *testing.T) {
+	stateRoot := t.TempDir()
+	writeSettingsJSON(t, stateRoot, `{"enabledPlugins": {"ambiguous-plugin@acme-market": true}}`)
+	writePluginCacheVersion(t, stateRoot, "acme-market", "ambiguous-plugin", "hash-a", "ambiguous-plugin")
+	writePluginCacheVersion(t, stateRoot, "acme-market", "ambiguous-plugin", "hash-b", "ambiguous-plugin")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{InstallationID: "inst-cache-5", StateRoot: stateRoot}
+	input, scanned := claudeadapter.ScanHostInventory(host, target)
+	if !scanned {
+		t.Fatal("expected the scan to complete")
+	}
+	var configured *claudeadapter.PluginDescriptor
+	cacheOnlyCount := 0
+	for i, plugin := range input.Plugins {
+		if plugin.Name != "ambiguous-plugin@acme-market" {
+			continue
+		}
+		if plugin.CachedOnly {
+			cacheOnlyCount++
+			continue
+		}
+		configured = &input.Plugins[i]
+	}
+	// With no installed_plugins.json to disambiguate two candidate versions,
+	// no cache candidate may merge into the settings.json-configured entry --
+	// it must remain exactly as settings.json seeded it (no Version, not
+	// CachedOnly), while both ambiguous cache versions surface separately as
+	// CachedOnly entries. Fabricating a merge here would be a wrong guess.
+	if configured == nil || configured.Version != "" {
+		t.Fatalf("expected the configured entry to remain unmerged (no Version), got %+v", configured)
+	}
+	if cacheOnlyCount != 2 {
+		t.Fatalf("expected both ambiguous versions present as separate CachedOnly entries, got %d", cacheOnlyCount)
+	}
+}
+
+// TestScanPluginCacheNeverPersistsManifestOrSkillContent mirrors the
+// existing secret-canary test style: a plugin.json/SKILL.md carrying a
+// secret-shaped value must never reach the serialized inventory snapshot,
+// and no raw scanned path may leak via PathPseudonym.
+func TestScanPluginCacheNeverPersistsManifestOrSkillContent(t *testing.T) {
+	stateRoot := t.TempDir()
+	writeSettingsJSON(t, stateRoot, `{"enabledPlugins": {"canary-plugin@acme-market": true}}`)
+	versionDir := writePluginCacheVersion(t, stateRoot, "acme-market", "canary-plugin", "hash-1", "canary-plugin")
+	writeSkillManifest(t, filepath.Join(versionDir, "skills", "canary-skill"),
+		"canary-skill", "secret-shaped value sk-live-plugin-cache-must-not-persist")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := claudeadapter.New()
+	target := adaptersdk.Installation{InstallationID: "inst-cache-6", AdapterID: claudeadapter.AdapterID, StateRoot: stateRoot}
+	snapshot, err := adapter.Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized := string(raw)
+	if strings.Contains(serialized, "sk-live-plugin-cache-must-not-persist") {
+		t.Fatal("secret-shaped skill content from the plugin cache must never reach the inventory snapshot")
+	}
+	if strings.Contains(serialized, stateRoot) {
+		t.Fatal("the raw scanned state root path must never reach the inventory snapshot")
+	}
+	for _, node := range snapshot.Nodes {
+		if node.PathPseudonym != "" && strings.Contains(node.PathPseudonym, stateRoot) {
+			t.Fatal("path pseudonym must never contain the raw scanned path")
+		}
+	}
+}
+
+// TestScanPluginCacheObservedIndependentlyOfSettingsAndSkillScans proves the
+// three scan sources (settings.json, standalone skill roots, plugin cache)
+// each independently contribute to "scanned", mirroring
+// TestScanHostInventoryScansSkillsEvenWhenSettingsJSONAbsent: an absent
+// plugin cache root must not blank out an otherwise-successful settings.json
+// scan, and a present plugin cache root must report scanned=true even when
+// settings.json and the standalone skill roots are both absent.
+func TestScanPluginCacheObservedIndependentlyOfSettingsAndSkillScans(t *testing.T) {
+	t.Run("settings.json present, cache absent", func(t *testing.T) {
+		stateRoot := t.TempDir()
+		writeSettingsJSON(t, stateRoot, `{"enabledPlugins": {}, "mcpServers": {}}`)
+		host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+		if err != nil {
+			t.Fatal(err)
+		}
+		target := adaptersdk.Installation{InstallationID: "inst-cache-7a", StateRoot: stateRoot}
+		_, scanned := claudeadapter.ScanHostInventory(host, target)
+		if !scanned {
+			t.Fatal("an absent plugin cache root must not blank out an otherwise-successful settings.json scan")
+		}
+	})
+	t.Run("cache present, settings.json and skill roots absent", func(t *testing.T) {
+		stateRoot := t.TempDir()
+		writePluginCacheVersion(t, stateRoot, "acme-market", "lonely-cache-plugin", "hash-1", "lonely-cache-plugin")
+		host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+		if err != nil {
+			t.Fatal(err)
+		}
+		target := adaptersdk.Installation{InstallationID: "inst-cache-7b", StateRoot: stateRoot}
+		input, scanned := claudeadapter.ScanHostInventory(host, target)
+		if !scanned {
+			t.Fatal("a present, listable plugin cache root must report scanned=true on its own")
+		}
+		found := false
+		for _, plugin := range input.Plugins {
+			if plugin.Name == "lonely-cache-plugin@acme-market" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("expected the cache-only plugin to be discovered, got %+v", input.Plugins)
+		}
+	})
 }

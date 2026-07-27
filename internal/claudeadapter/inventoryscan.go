@@ -28,6 +28,24 @@ const maxScannedEntries = 256
 // ReadConfigProbe already bounds each individual file read.
 const maxSkillManifests = 512
 
+// maxPluginCacheMarketplaces bounds how many top-level marketplace
+// directories one scan of the plugin cache root reads.
+const maxPluginCacheMarketplaces = 64
+
+// maxPluginCachePlugins bounds how many version-hash directories, summed
+// across every marketplace/plugin folder, one plugin-cache scan reads --
+// the per-directory-level ListDirectoryProbe calls are themselves bounded to
+// 512 entries each, but a host with many marketplaces times many plugins
+// times many stale versions could still add up to an unbounded parse
+// without this running total.
+const maxPluginCachePlugins = 1024
+
+// maxPluginCacheVersionsPerPlugin bounds how many version-hash directories
+// one plugin folder contributes, so a single plugin with an unusually deep
+// version history cannot starve the shared maxPluginCachePlugins budget
+// away from every other plugin folder.
+const maxPluginCacheVersionsPerPlugin = 8
+
 // skillNameLine matches a bounded `name: <value>` frontmatter key, identical
 // to codexadapter's pattern since Claude Code's documented SKILL.md
 // frontmatter uses the same shape.
@@ -53,6 +71,39 @@ type claudeMCPServerConfigJSON struct {
 	Disabled bool `json:"disabled"`
 }
 
+// pluginCacheRoot is Claude Code's documented plugin-cache tree:
+// <marketplace>/<plugin-folder>/<version-hash>/, discovered dynamically at
+// scan time -- never hardcode a marketplace or plugin name here, since a
+// real host may have many such structures, not just one.
+func pluginCacheRoot(stateRoot string) string {
+	return filepath.Join(stateRoot, "plugins", "cache")
+}
+
+// installedPluginsPath is Claude Code's pointer file naming which
+// version-hash directory is the currently active install for each
+// "<plugin>@<marketplace>" composite name.
+func installedPluginsPath(stateRoot string) string {
+	return filepath.Join(stateRoot, "plugins", "installed_plugins.json")
+}
+
+// pluginManifestShape is the closed, bounded subset of a version-hash
+// directory's .claude-plugin/plugin.json this scan ever decodes -- only the
+// declared name, matching the "no content beyond identity" discipline
+// already applied to settings.json's mcpServers entries.
+type pluginManifestShape struct {
+	Name string `json:"name"`
+}
+
+// installedPluginsShape is the closed, bounded subset of
+// installed_plugins.json this scan ever decodes.
+type installedPluginsShape struct {
+	Plugins map[string][]installedPluginEntry `json:"plugins"`
+}
+
+type installedPluginEntry struct {
+	Version string `json:"version"`
+}
+
 // ScanHostInventory performs the bounded, read-only host scan TDD 11
 // section C requires: it reads Claude Code's settings.json enabledPlugins/
 // mcpServers keys through host.ReadConfigProbe (never a raw unbounded
@@ -67,6 +118,7 @@ func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation
 		return input, false
 	}
 	scanned := false
+	pluginsByName := map[string]*PluginDescriptor{}
 
 	settingsPath := filepath.Join(target.StateRoot, settingsFileName)
 	result, err := host.ReadConfigProbe(settingsPath)
@@ -89,13 +141,14 @@ func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation
 				if enabled {
 					activeEnabledFor = target.InstallationID
 				}
-				input.Plugins = append(input.Plugins, PluginDescriptor{
+				descriptor := PluginDescriptor{
 					Name:             name,
 					Scope:            adaptersdk.ScopeUser,
 					ActiveEnabledFor: activeEnabledFor,
 					PathPseudonym:    pathPseudonym,
 					Fingerprint:      stableHex("plugin-config", name, boolString(enabled)),
-				})
+				}
+				pluginsByName[name] = &descriptor
 			}
 
 			mcpNames := sortedKeysMCP(shape.MCPServers, maxScannedEntries)
@@ -121,7 +174,256 @@ func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation
 		input.StandaloneSkills = append(input.StandaloneSkills, skills...)
 	}
 
+	marketplaces, cacheCandidates, cacheObserved := scanPluginCache(host, target.StateRoot)
+	if cacheObserved {
+		scanned = true
+	}
+	input.Marketplaces = marketplaces
+	activeVersions := readActivePluginVersions(host, target.StateRoot)
+	extraCacheOnly := mergePluginCacheCandidates(pluginsByName, cacheCandidates, activeVersions)
+
+	input.Plugins = make([]PluginDescriptor, 0, len(pluginsByName)+len(extraCacheOnly))
+	for _, descriptor := range pluginsByName {
+		input.Plugins = append(input.Plugins, *descriptor)
+	}
+	input.Plugins = append(input.Plugins, extraCacheOnly...)
+	sort.Slice(input.Plugins, func(i, j int) bool {
+		if input.Plugins[i].Name == input.Plugins[j].Name {
+			return input.Plugins[i].Version < input.Plugins[j].Version
+		}
+		return input.Plugins[i].Name < input.Plugins[j].Name
+	})
+	sort.Slice(input.Marketplaces, func(i, j int) bool {
+		return input.Marketplaces[i].Name < input.Marketplaces[j].Name
+	})
+
 	return input, scanned
+}
+
+// scanPluginCache performs the bounded, read-only walk of Claude Code's
+// plugin-cache tree: <stateRoot>/plugins/cache/<marketplace>/<plugin-folder>/
+// <version-hash>/. Every level -- marketplace name, plugin folder, version
+// hash -- is discovered from the directory listing itself; none is ever
+// hardcoded, since a real host may have many such structures, each with its
+// own marketplace/plugin names. One PluginDescriptor candidate is returned
+// per version-hash directory found; ScanHostInventory decides which
+// candidate(s) merge into an already-configured settings.json entry and
+// which remain distinct cache-only artifacts.
+func scanPluginCache(host *adaptersdk.HostView, stateRoot string) (marketplaces []MarketplaceDescriptor, candidates []PluginDescriptor, observed bool) {
+	root := pluginCacheRoot(stateRoot)
+	probe, err := host.ReadProbe(root)
+	if err != nil || !probe.Exists {
+		return nil, nil, false
+	}
+	marketEntries, err := host.ListDirectoryProbe(root)
+	if err != nil {
+		return nil, nil, false
+	}
+
+	marketNames := make([]string, 0, len(marketEntries))
+	for _, entry := range marketEntries {
+		if !entry.IsDir && !entry.IsSymlink {
+			continue
+		}
+		marketNames = append(marketNames, entry.Name)
+	}
+	sort.Strings(marketNames)
+	if len(marketNames) > maxPluginCacheMarketplaces {
+		marketNames = marketNames[:maxPluginCacheMarketplaces]
+	}
+
+	pluginBudget := maxPluginCachePlugins
+	for _, marketName := range marketNames {
+		marketDir := filepath.Join(root, marketName)
+		candidatesBefore := len(candidates)
+
+		pluginEntries, err := host.ListDirectoryProbe(marketDir)
+		if err != nil {
+			continue
+		}
+		pluginFolders := make([]string, 0, len(pluginEntries))
+		for _, entry := range pluginEntries {
+			if !entry.IsDir && !entry.IsSymlink {
+				continue
+			}
+			pluginFolders = append(pluginFolders, entry.Name)
+		}
+		sort.Strings(pluginFolders)
+
+		for _, pluginFolder := range pluginFolders {
+			if pluginBudget <= 0 {
+				break
+			}
+			pluginDir := filepath.Join(marketDir, pluginFolder)
+			versionEntries, err := host.ListDirectoryProbe(pluginDir)
+			if err != nil {
+				continue
+			}
+			versionNames := make([]string, 0, len(versionEntries))
+			for _, entry := range versionEntries {
+				if !entry.IsDir && !entry.IsSymlink {
+					continue
+				}
+				versionNames = append(versionNames, entry.Name)
+			}
+			sort.Strings(versionNames)
+			if len(versionNames) > maxPluginCacheVersionsPerPlugin {
+				versionNames = versionNames[:maxPluginCacheVersionsPerPlugin]
+			}
+
+			for _, versionHash := range versionNames {
+				if pluginBudget <= 0 {
+					break
+				}
+				versionDir := filepath.Join(pluginDir, versionHash)
+				declaredName := readPluginManifestName(host, versionDir, pluginFolder)
+				composite := declaredName + "@" + marketName
+				skills, _ := scanSkillRoot(host, filepath.Join(versionDir, "skills"), adaptersdk.ScopePluginCache)
+				candidates = append(candidates, PluginDescriptor{
+					Name:            composite,
+					Version:         versionHash,
+					Scope:           adaptersdk.ScopePluginCache,
+					FromMarketplace: marketName,
+					PathPseudonym:   host.PseudonymizePath(versionDir),
+					Fingerprint:     stableHex("plugin-cache", composite, versionHash),
+					BundledSkills:   skills,
+				})
+				pluginBudget--
+			}
+		}
+
+		// Only a marketplace directory that actually contributed at least one
+		// real plugin candidate becomes a MarketplaceDescriptor -- an empty or
+		// otherwise-content-free top-level directory (e.g. a placeholder used
+		// when no real plugin cache is mounted) must never fabricate a
+		// marketplace node with nothing bundled underneath it.
+		if len(candidates) > candidatesBefore {
+			marketplaces = append(marketplaces, MarketplaceDescriptor{
+				Name:          marketName,
+				PathPseudonym: host.PseudonymizePath(marketDir),
+				Fingerprint:   stableHex("marketplace-cache", marketName),
+			})
+		}
+	}
+
+	return marketplaces, candidates, true
+}
+
+// readPluginManifestName reads one version-hash directory's
+// .claude-plugin/plugin.json for its declared name, falling back to the
+// plugin's cache folder name when the manifest is absent, unreadable,
+// truncated or declares an empty name -- the folder name is always a safe
+// fallback here since it is the same identity Claude Code's own
+// installed_plugins.json keys by.
+func readPluginManifestName(host *adaptersdk.HostView, versionDir, fallback string) string {
+	manifestPath := filepath.Join(versionDir, ".claude-plugin", "plugin.json")
+	result, err := host.ReadConfigProbe(manifestPath)
+	if err != nil || !result.Exists || result.Truncated {
+		return fallback
+	}
+	var shape pluginManifestShape
+	if json.Unmarshal(result.Content, &shape) != nil || shape.Name == "" {
+		return fallback
+	}
+	return shape.Name
+}
+
+// readActivePluginVersions reads installed_plugins.json's composite-name ->
+// active-version-hash pointer, used only to disambiguate which cache
+// version-hash directory is the currently installed one when more than one
+// exists for the same plugin folder. A missing, unreadable, truncated or
+// malformed file returns nil -- callers then treat every candidate version
+// for an ambiguous plugin as cache-only rather than guessing which is
+// active.
+func readActivePluginVersions(host *adaptersdk.HostView, stateRoot string) map[string]string {
+	result, err := host.ReadConfigProbe(installedPluginsPath(stateRoot))
+	if err != nil || !result.Exists || result.Truncated {
+		return nil
+	}
+	var shape installedPluginsShape
+	if json.Unmarshal(result.Content, &shape) != nil {
+		return nil
+	}
+	versions := make(map[string]string, len(shape.Plugins))
+	for name, entries := range shape.Plugins {
+		if len(entries) == 0 || entries[0].Version == "" {
+			continue
+		}
+		versions[name] = entries[0].Version
+	}
+	return versions
+}
+
+// mergePluginCacheCandidates applies the "merge, don't duplicate" rule: a
+// cache candidate whose composite name already has a settings.json-seeded
+// entry in pluginsByName is folded into that same descriptor (enriching it
+// with Version/FromMarketplace/BundledSkills) rather than creating a second
+// node that would collide with it. When more than one version-hash
+// directory exists for the same composite name, activeVersions disambiguates
+// which one is the real bundling source for a configured entry; every other
+// version becomes its own separate CachedOnly entry, returned here for the
+// caller to append directly. A composite name absent from pluginsByName has
+// no configured entry to merge into at all, so every one of its candidates
+// becomes a separate CachedOnly entry instead.
+func mergePluginCacheCandidates(pluginsByName map[string]*PluginDescriptor, candidates []PluginDescriptor, activeVersions map[string]string) []PluginDescriptor {
+	grouped := make(map[string][]PluginDescriptor, len(candidates))
+	for _, candidate := range candidates {
+		grouped[candidate.Name] = append(grouped[candidate.Name], candidate)
+	}
+
+	names := make([]string, 0, len(grouped))
+	for name := range grouped {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var extraCacheOnly []PluginDescriptor
+	for _, name := range names {
+		group := grouped[name]
+		existing, configured := pluginsByName[name]
+		if !configured {
+			for _, candidate := range group {
+				candidate.CachedOnly = true
+				extraCacheOnly = append(extraCacheOnly, candidate)
+			}
+			continue
+		}
+		if len(group) == 1 {
+			mergePluginCacheData(existing, group[0])
+			continue
+		}
+		mergedIndex := -1
+		if activeHash, ok := activeVersions[name]; ok {
+			for i, candidate := range group {
+				if candidate.Version == activeHash {
+					mergedIndex = i
+					break
+				}
+			}
+		}
+		for i, candidate := range group {
+			if i == mergedIndex {
+				mergePluginCacheData(existing, candidate)
+				continue
+			}
+			candidate.CachedOnly = true
+			extraCacheOnly = append(extraCacheOnly, candidate)
+		}
+	}
+	return extraCacheOnly
+}
+
+// mergePluginCacheData enriches an already-configured plugin entry (seeded
+// from settings.json's enabledPlugins) with the one cache version-hash
+// directory that is its actual bundling source. CachedOnly and
+// ActiveEnabledFor are left untouched: whether this plugin is configured/
+// enabled is decided purely by settings.json, never by cache presence.
+func mergePluginCacheData(target *PluginDescriptor, cache PluginDescriptor) {
+	target.Version = cache.Version
+	target.FromMarketplace = cache.FromMarketplace
+	target.PathPseudonym = cache.PathPseudonym
+	target.BundledSkills = cache.BundledSkills
+	target.Fingerprint = stableHex("plugin-config-cache", target.Name, boolString(target.ActiveEnabledFor != ""), cache.Fingerprint)
 }
 
 // skillRoot pairs one documented Claude Code skill directory with the

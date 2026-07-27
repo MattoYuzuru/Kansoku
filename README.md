@@ -71,6 +71,7 @@ KANSOKU_CLAUDE_HOME=/absolute/path/to/.claude
 KANSOKU_CLAUDE_USER_SKILLS=/absolute/path/to/.claude/skills
 KANSOKU_CLAUDE_REPOSITORY_SKILLS=/absolute/path/to/repo/.claude/skills
 KANSOKU_CLAUDE_SYSTEM_SKILLS=/absolute/path/to/system-skills
+KANSOKU_CLAUDE_PLUGIN_CACHE=/absolute/path/to/.claude/plugins/cache
 EOF
 
 # 4. Поднять стек

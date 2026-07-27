@@ -336,6 +336,35 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		addMCPServer(mcp, nil)
 	}
 
+	// marketNodeByName holds at most one canonical node per marketplace name,
+	// built from input.Marketplaces first (richer PathPseudonym/Fingerprint)
+	// so that any plugin.FromMarketplace pointer below reuses it instead of
+	// minting a second node for the same real-world marketplace -- two
+	// nodes for one marketplace would either collide spuriously (different
+	// NodeIDs, same name) or, worse, share an identical NodeID whenever more
+	// than one plugin points at the same not-yet-seen marketplace name,
+	// which validateInventorySnapshot rejects outright as a duplicate node.
+	// marketplaceByName still records every observed marketplace node (not
+	// just the canonical one) so a genuine ambiguity -- two distinct
+	// input.Marketplaces entries sharing a name but a different
+	// PathPseudonym -- still collides as intended.
+	marketNodeByName := map[string]adaptersdk.Node{}
+	for _, marketplace := range input.Marketplaces {
+		marketNode := adaptersdk.Node{
+			NodeID:        "node_" + stableHex("marketplace", marketplace.Name, marketplace.PathPseudonym),
+			Kind:          adaptersdk.NodeCacheArtifact,
+			DeclaredName:  marketplace.Name,
+			SourceScope:   adaptersdk.ScopeMarketplace,
+			PathPseudonym: marketplace.PathPseudonym,
+			Fingerprint:   marketplace.Fingerprint,
+		}
+		nodes = append(nodes, marketNode)
+		marketplaceByName[marketplace.Name] = append(marketplaceByName[marketplace.Name], marketNode)
+		if _, exists := marketNodeByName[marketplace.Name]; !exists {
+			marketNodeByName[marketplace.Name] = marketNode
+		}
+	}
+
 	for _, plugin := range input.Plugins {
 		kind := adaptersdk.NodePluginPackage
 		scope := plugin.Scope
@@ -367,15 +396,19 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 			})
 		}
 		if plugin.FromMarketplace != "" {
-			marketNode := adaptersdk.Node{
-				NodeID:       "node_" + stableHex("marketplace", plugin.FromMarketplace),
-				Kind:         adaptersdk.NodeCacheArtifact,
-				DeclaredName: plugin.FromMarketplace,
-				SourceScope:  adaptersdk.ScopeMarketplace,
-				Fingerprint:  stableHex("marketplace-fp", plugin.FromMarketplace),
+			marketNode, exists := marketNodeByName[plugin.FromMarketplace]
+			if !exists {
+				marketNode = adaptersdk.Node{
+					NodeID:       "node_" + stableHex("marketplace", plugin.FromMarketplace),
+					Kind:         adaptersdk.NodeCacheArtifact,
+					DeclaredName: plugin.FromMarketplace,
+					SourceScope:  adaptersdk.ScopeMarketplace,
+					Fingerprint:  stableHex("marketplace-fp", plugin.FromMarketplace),
+				}
+				nodes = append(nodes, marketNode)
+				marketplaceByName[plugin.FromMarketplace] = append(marketplaceByName[plugin.FromMarketplace], marketNode)
+				marketNodeByName[plugin.FromMarketplace] = marketNode
 			}
-			nodes = append(nodes, marketNode)
-			marketplaceByName[plugin.FromMarketplace] = append(marketplaceByName[plugin.FromMarketplace], marketNode)
 			edges = append(edges, adaptersdk.Edge{
 				EdgeID: "edge_" + stableHex("plugin-configured-in-marketplace", pluginNode.NodeID, marketNode.NodeID),
 				Kind:   adaptersdk.EdgeConfiguredIn, FromNode: pluginNode.NodeID, ToNode: marketNode.NodeID,
@@ -410,19 +443,6 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 			node := addMCPServer(mcp, &pluginNode)
 			edges = append(edges, edgeBundles(pluginNode, node))
 		}
-	}
-
-	for _, marketplace := range input.Marketplaces {
-		marketNode := adaptersdk.Node{
-			NodeID:        "node_" + stableHex("marketplace", marketplace.Name, marketplace.PathPseudonym),
-			Kind:          adaptersdk.NodeCacheArtifact,
-			DeclaredName:  marketplace.Name,
-			SourceScope:   adaptersdk.ScopeMarketplace,
-			PathPseudonym: marketplace.PathPseudonym,
-			Fingerprint:   marketplace.Fingerprint,
-		}
-		nodes = append(nodes, marketNode)
-		marketplaceByName[marketplace.Name] = append(marketplaceByName[marketplace.Name], marketNode)
 	}
 
 	edges = append(edges, collisionEdges(skillByName, "skill-collision")...)
