@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.data-platform-schema/1",
-  "contract_version": "1.3.0",
-  "effective_at": "2026-07-26",
+  "contract_version": "1.4.0",
+  "effective_at": "2026-07-29",
   "engine": {"product": "PostgreSQL", "major_version": 18, "image_digest": "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15", "volume_path": "/var/lib/postgresql"},
   "migration_policy": {
     "tool": "kansoku_embedded_sql_migrator",
@@ -36,7 +36,8 @@
     "nonnegative_counts": "CHECK (count >= 0) on every count/duration/byte column",
     "confidence_range": "CHECK (confidence >= 0 AND confidence <= 1)",
     "source_lineage": "NOT NULL foreign key to source_instances and adapter_versions on every fact row",
-    "eav_policy": "no generic entity-attribute-value table is used for primary analytics; sanitized adapter extension fields use a bounded JSONB column with adapter/schema version and byte-size CHECK constraint"
+    "eav_policy": "no generic entity-attribute-value table is used for primary analytics; sanitized adapter extension fields use a bounded JSONB column with adapter/schema version and byte-size CHECK constraint",
+    "current_inventory_projection": "component_inventory_state_is_a_replaceable_current_projection_only_a_complete_snapshot_not_older_than_current_state_may_remove_absent_nodes; older_replay_and_partial_degraded_unknown_snapshots_preserve_the_last_complete_projection; immutable_inventory_snapshots_components_and_historical_assertions_are_never_deleted_or_rewritten"
   },
   "jsonb_extension_fields": {
     "columns": ["events.source_extension", "tool_calls.source_extension"],

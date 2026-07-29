@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,6 +58,8 @@ type DiagnosticsRequest struct{}
 type AdminOperations interface {
 	PreviewRetention(RetentionPreviewRequest) (any, error)
 	ApplyRetention(context.Context, RetentionApplyRequest) (any, error)
+	PreviewProjectionRepair(context.Context, ProjectionRepairPreviewRequest) (any, error)
+	ApplyProjectionRepair(context.Context, ProjectionRepairApplyRequest) (any, error)
 	Export(context.Context, ExportRequest) (any, error)
 	Import(context.Context, ImportRequest) (any, error)
 	Backup(context.Context, BackupRequest) (any, error)
@@ -135,15 +139,17 @@ func NewAPI(config Config, secrets Secrets, pool *pgxpool.Pool, queue *DurableIn
 	mux.Handle("/api/v1/plugins/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.pluginResource)))
 	mux.Handle("/api/v1/components/mcp/", readGuard.Wrap(localhttp.RouteUIStream, http.HandlerFunc(api.mcpResource)))
 	for route, handler := range map[string]http.HandlerFunc{
-		"/api/v1/plans/preview":           api.planPreview,
-		"/api/v1/plans/apply":             api.planApply,
-		"/api/v1/admin/retention/preview": api.retentionPreview,
-		"/api/v1/admin/retention/apply":   api.retentionApply,
-		"/api/v1/admin/export":            api.export,
-		"/api/v1/admin/import":            api.importData,
-		"/api/v1/admin/backup":            api.backup,
-		"/api/v1/admin/restore-verify":    api.restoreVerify,
-		"/api/v1/admin/diagnostics":       api.diagnostics,
+		"/api/v1/plans/preview":                   api.planPreview,
+		"/api/v1/plans/apply":                     api.planApply,
+		"/api/v1/admin/retention/preview":         api.retentionPreview,
+		"/api/v1/admin/retention/apply":           api.retentionApply,
+		"/api/v1/admin/projection-repair/preview": api.projectionRepairPreview,
+		"/api/v1/admin/projection-repair/apply":   api.projectionRepairApply,
+		"/api/v1/admin/export":                    api.export,
+		"/api/v1/admin/import":                    api.importData,
+		"/api/v1/admin/backup":                    api.backup,
+		"/api/v1/admin/restore-verify":            api.restoreVerify,
+		"/api/v1/admin/diagnostics":               api.diagnostics,
 	} {
 		mux.Handle(route, mutationGuard.Wrap(localhttp.RouteUIMutation, handler))
 	}
@@ -574,7 +580,27 @@ func (a *API) systemSnapshot(writer http.ResponseWriter, request *http.Request) 
 		a.writeError(writer, http.StatusServiceUnavailable, "analytics_unavailable")
 		return
 	}
-	a.write(writer, http.StatusOK, result, entityCoverage(result.Population, result.Completeness))
+	queueMetrics, err := a.queue.Metrics()
+	if err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "capacity_unavailable")
+		return
+	}
+	capacity, err := collectCapacitySnapshot(ctx, a.pool, a.config, queueMetrics)
+	if err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "capacity_unavailable")
+		return
+	}
+	data := struct {
+		dataplatform.SystemSnapshotResponse
+		Capacity CapacitySnapshot `json:"capacity"`
+	}{SystemSnapshotResponse: result, Capacity: capacity}
+	a.write(writer, http.StatusOK, data, map[string]any{
+		"status":       capacity.Completeness,
+		"completeness": capacity.Completeness,
+		"numerator":    int64(capacity.Numerator) + result.Population.Numerator,
+		"denominator":  int64(capacity.Denominator) + result.Population.Denominator,
+		"exclusions":   capacity.Exclusions,
+	})
 }
 
 // privacyCanaryHistory serves the /privacy "privacy-canary" panel: per-day
@@ -616,6 +642,152 @@ func (a *API) health(writer http.ResponseWriter, request *http.Request) {
 		a.writeError(writer, http.StatusServiceUnavailable, "ingress_workers_draining")
 		return
 	}
+	capacity, err := collectCapacitySnapshot(ctx, a.pool, a.config, metrics)
+	if err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "capacity_health_unavailable")
+		return
+	}
+	var durableLastSuccessful *time.Time
+	if err := a.pool.QueryRow(ctx, `SELECT max(ingested_at) FROM events`).Scan(&durableLastSuccessful); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "ingestion_health_unavailable")
+		return
+	}
+	var recordedLastSuccessful, recordedLastRejected *time.Time
+	var recordedBackpressure, recordedDurability uint64
+	if err := a.pool.QueryRow(ctx, `
+		SELECT max(last_successful_ingest_at),max(last_rejected_ingest_at),
+		       COALESCE(sum(backpressure_rejected_total),0),
+		       COALESCE(sum(durability_unavailable_total),0)
+		FROM runtime_ingestion_health
+	`).Scan(
+		&recordedLastSuccessful, &recordedLastRejected,
+		&recordedBackpressure, &recordedDurability,
+	); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "ingestion_health_unavailable")
+		return
+	}
+	lastSuccessful := latestObservedTime(
+		nullableTime(metrics.LastSuccessfulIngest),
+		durableLastSuccessful,
+		recordedLastSuccessful,
+	)
+	lastRejected := latestObservedTime(
+		nullableTime(metrics.LastRejectedIngest),
+		recordedLastRejected,
+	)
+	backpressureRejected := maxUint64(metrics.BackpressureRejected, recordedBackpressure)
+	durabilityUnavailable := maxUint64(metrics.DurabilityUnavailable, recordedDurability)
+	sourceFreshness := []map[string]any{}
+	sourceObserved := 0
+	sourceDenominator := len(productionSources)
+	sourceExclusions := []string{}
+	sourceState := "pass"
+	healthNow := time.Now().UTC()
+	observedProductionSources := map[string]bool{}
+	rows, err := a.pool.Query(ctx, `
+		SELECT si.source_kind, max(sw.last_committed_at), max(sw.last_observed_at),
+		       sum(sw.gap_count), bool_or(sw.inactivity)
+		FROM source_instances si
+		JOIN source_watermarks sw ON sw.source_instance_id = si.source_instance_id
+		GROUP BY si.source_kind
+		ORDER BY si.source_kind
+	`)
+	if err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "source_freshness_unavailable")
+		return
+	}
+	for rows.Next() {
+		var sourceKind string
+		var lastCommitted, lastObserved *time.Time
+		var gaps int64
+		var inactive bool
+		if err := rows.Scan(&sourceKind, &lastCommitted, &lastObserved, &gaps, &inactive); err != nil {
+			rows.Close()
+			a.writeError(writer, http.StatusServiceUnavailable, "source_freshness_unavailable")
+			return
+		}
+		freshnessState, clockState := sourceWatermarkHealthState(
+			lastCommitted, lastObserved, gaps, inactive, healthNow,
+		)
+		sourceState = worstHealthState(sourceState, freshnessState)
+		if freshnessState != "pass" {
+			sourceExclusions = append(
+				sourceExclusions,
+				sourceKind+" source freshness is "+freshnessState,
+			)
+		}
+		sourceFreshness = append(sourceFreshness, map[string]any{
+			"source_kind": sourceKind, "last_committed_at": lastCommitted,
+			"last_observed_at": lastObserved, "gap_count": gaps,
+			"inactivity": inactive, "value_state": "observed",
+			"freshness_state": freshnessState, "clock_state": clockState,
+		})
+		observedProductionSources[sourceKind] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "source_freshness_unavailable")
+		return
+	}
+	sourceObserved = len(observedProductionSources)
+	if sourceObserved < len(productionSources) {
+		sourceExclusions = append(
+			sourceExclusions,
+			"production source lanes without committed freshness evidence are not observed",
+		)
+	}
+	rows, err = a.pool.Query(ctx, `
+		SELECT source_id,state,value_state,last_attempted_at,last_successful_at,
+		       last_error_class,updated_at
+		FROM runtime_source_health
+		ORDER BY source_id
+	`)
+	if err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "source_health_unavailable")
+		return
+	}
+	for rows.Next() {
+		var sourceID, state, valueState string
+		var lastAttempted, lastSuccessful *time.Time
+		var errorClass *string
+		var updatedAt time.Time
+		if err := rows.Scan(
+			&sourceID, &state, &valueState, &lastAttempted, &lastSuccessful,
+			&errorClass, &updatedAt,
+		); err != nil {
+			rows.Close()
+			a.writeError(writer, http.StatusServiceUnavailable, "source_health_unavailable")
+			return
+		}
+		currentSourceState := runtimeSourceHealthState(state, valueState)
+		sourceState = worstHealthState(sourceState, currentSourceState)
+		if currentSourceState != "pass" {
+			sourceExclusions = append(
+				sourceExclusions,
+				sourceID+" source health is "+currentSourceState,
+			)
+		}
+		sourceFreshness = append(sourceFreshness, map[string]any{
+			"source_id": sourceID, "state": state, "value_state": valueState,
+			"last_attempted_at": lastAttempted, "last_successful_at": lastSuccessful,
+			"last_error_class": errorClass, "updated_at": updatedAt,
+			"freshness_state": currentSourceState,
+		})
+		sourceDenominator++
+		if valueState == "observed" {
+			sourceObserved++
+		} else {
+			sourceExclusions = append(
+				sourceExclusions,
+				sourceID+" source state is "+valueState,
+			)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "source_health_unavailable")
+		return
+	}
 	var openIncidents int64
 	if err := a.pool.QueryRow(ctx, `
 		SELECT count(*) FROM (
@@ -627,11 +799,163 @@ func (a *API) health(writer http.ResponseWriter, request *http.Request) {
 		a.writeError(writer, http.StatusServiceUnavailable, "integrity_health_unavailable")
 		return
 	}
+	var pendingProjections int64
+	var oldestPendingProjection *time.Time
+	if err := a.pool.QueryRow(ctx, `
+		SELECT count(*), min(first_enqueued_at)
+		FROM observability_projection_receipts
+	`).Scan(&pendingProjections, &oldestPendingProjection); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "projection_health_unavailable")
+		return
+	}
+	overall := worstHealthState(
+		capacity.Database.State, capacity.Checkpoint.State, capacity.Filesystem.State,
+		sourceState,
+	)
+	if lastRejected != nil &&
+		(lastSuccessful == nil || lastRejected.After(*lastSuccessful)) {
+		overall = worstHealthState(overall, "degraded")
+	}
+	if metrics.CounterPersistenceUnavailable {
+		overall = worstHealthState(overall, "degraded")
+	}
+	if pendingProjections > 0 {
+		overall = worstHealthState(overall, "degraded")
+	}
+	var totalSpoolBytes, totalSpoolBudget int64
+	for source, bytes := range metrics.SpoolBytes {
+		totalSpoolBytes += bytes
+		totalSpoolBudget += metrics.SpoolCapacityBytes[source]
+	}
+	spoolState := budgetState(totalSpoolBytes, totalSpoolBudget, .70, .85, .95)
+	overall = worstHealthState(overall, spoolState)
+	mirrorBytes := int64(0)
+	mirrorState := "archived_or_not_present"
+	if info, statErr := os.Stat(filepath.Join(a.config.DataDir, "mirror", "state.json")); statErr == nil {
+		mirrorBytes = info.Size()
+		mirrorState = "critical"
+		overall = worstHealthState(overall, "critical")
+	}
 	a.write(writer, http.StatusOK, map[string]any{
-		"database": "pass", "migration_ledgers": "pass", "spool": "pass",
+		"status":   overall,
+		"database": "pass", "migration_ledgers": "pass", "spool": spoolState,
 		"workers": "pass", "open_incident_count": openIncidents,
-		"queue_depth": metrics.Depth, "oldest_spooled_at": metrics.OldestSpoolRecord,
-	}, map[string]any{"status": "complete", "exclusions": []string{}})
+		"pending_projection_count":     pendingProjections,
+		"oldest_pending_projection_at": oldestPendingProjection,
+		"queue_depth":                  metrics.Depth, "oldest_spooled_at": metrics.OldestSpoolRecord,
+		"spool_bytes": metrics.SpoolBytes, "spool_budget_bytes": metrics.SpoolCapacityBytes,
+		"last_successful_ingest_at":    lastSuccessful,
+		"last_rejected_ingest_at":      lastRejected,
+		"backpressure_rejected_total":  backpressureRejected,
+		"durability_unavailable_total": durabilityUnavailable,
+		"counter_scope":                "restart_durable",
+		"counter_persistence": map[string]any{
+			"state": map[bool]string{false: "pass", true: "degraded"}[metrics.CounterPersistenceUnavailable],
+		},
+		"database_budget": capacity.Database,
+		"storage_components": map[string]any{
+			"table_heap": capacity.TableHeap, "indexes": capacity.Indexes,
+			"wal_headroom": capacity.WALHeadroom, "temporary_files": capacity.TemporaryFiles,
+			"backups": capacity.Backups, "filesystem": capacity.Filesystem,
+		},
+		"checkpoint_usage": capacity.Checkpoint,
+		"source_state":     sourceState,
+		"legacy_mirror": map[string]any{
+			"current_bytes": mirrorBytes, "state": mirrorState,
+		},
+		"source_freshness": sourceFreshness,
+	}, map[string]any{
+		"status":       overall,
+		"completeness": capacity.Completeness,
+		"numerator":    capacity.Numerator + sourceObserved,
+		"denominator":  capacity.Denominator + sourceDenominator,
+		"exclusions": appendHealthExclusions(
+			append(capacity.Exclusions, sourceExclusions...),
+			metrics.CounterPersistenceUnavailable,
+		),
+	})
+}
+
+func sourceWatermarkHealthState(
+	lastCommitted, lastObserved *time.Time,
+	gaps int64,
+	inactive bool,
+	now time.Time,
+) (string, string) {
+	clockState := "not_observed"
+	if lastObserved != nil {
+		clockState = "source_rfc3339"
+		if lastObserved.After(now.UTC().Add(5 * time.Minute)) {
+			clockState = "source_clock_skewed"
+		}
+	}
+	if lastCommitted == nil || inactive || gaps > 0 ||
+		clockState == "source_clock_skewed" {
+		return "degraded", clockState
+	}
+	return "pass", clockState
+}
+
+func runtimeSourceHealthState(state, valueState string) string {
+	switch {
+	case state == "degraded", valueState == "unknown":
+		return "degraded"
+	case state == "configured" && valueState == "not_observed":
+		return "pass"
+	case state == "producing" && valueState == "observed":
+		return "pass"
+	case state == "unsupported" && valueState == "unsupported":
+		return "pass"
+	default:
+		return "degraded"
+	}
+}
+
+func worstHealthState(states ...string) string {
+	rank := map[string]int{"pass": 0, "warning": 1, "degraded": 2, "critical": 3, "unknown": 2}
+	result := "pass"
+	for _, state := range states {
+		if rank[state] > rank[result] {
+			result = state
+		}
+	}
+	return result
+}
+
+func nullableTime(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+	copy := value.UTC()
+	return &copy
+}
+
+func latestObservedTime(values ...*time.Time) *time.Time {
+	var latest *time.Time
+	for _, value := range values {
+		if value == nil {
+			continue
+		}
+		if latest == nil || value.After(*latest) {
+			copy := value.UTC()
+			latest = &copy
+		}
+	}
+	return latest
+}
+
+func maxUint64(left, right uint64) uint64 {
+	if left > right {
+		return left
+	}
+	return right
+}
+
+func appendHealthExclusions(exclusions []string, counterPersistenceUnavailable bool) []string {
+	if counterPersistenceUnavailable {
+		return append(exclusions, "ingestion counter persistence is temporarily unavailable")
+	}
+	return exclusions
 }
 
 func (a *API) incidents(writer http.ResponseWriter, request *http.Request) {
@@ -713,6 +1037,24 @@ func (a *API) retentionApply(writer http.ResponseWriter, request *http.Request) 
 		return
 	}
 	result, err := a.operations.ApplyRetention(request.Context(), input)
+	a.adminResult(writer, result, err)
+}
+
+func (a *API) projectionRepairPreview(writer http.ResponseWriter, request *http.Request) {
+	var input ProjectionRepairPreviewRequest
+	if !a.decode(writer, request, &input) {
+		return
+	}
+	result, err := a.operations.PreviewProjectionRepair(request.Context(), input)
+	a.adminResult(writer, result, err)
+}
+
+func (a *API) projectionRepairApply(writer http.ResponseWriter, request *http.Request) {
+	var input ProjectionRepairApplyRequest
+	if !a.decode(writer, request, &input) {
+		return
+	}
+	result, err := a.operations.ApplyProjectionRepair(request.Context(), input)
 	a.adminResult(writer, result, err)
 }
 

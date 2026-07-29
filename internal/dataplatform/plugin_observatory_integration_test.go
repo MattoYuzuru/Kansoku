@@ -54,9 +54,11 @@ func TestPluginGraphLoadChildAttributionUpgradeDisableAndSourceLoss(t *testing.T
 			assertion_id,component_installation_id,agent_installation_id,
 			assertion_kind,mode,evidence_tier,confidence,source_instance_id,
 			adapter_version,schema_version,observed_at,idempotency_key,
-			identity_resolution,declared_identity_pseudonym,candidate_count
+			identity_resolution,declared_identity_pseudonym,candidate_count,
+			component_kind
 		) VALUES ('assert_plugin_loaded',$1,$2,'loaded','not_observed','native',1,$3,
-			'0.145.0','codex.plugin_loaded/1',$4,'plugin-loaded-1','exact',$5,1)
+			'0.145.0','codex.plugin_loaded/1',$4,'plugin-loaded-1','exact',$5,1,
+			'plugin')
 	`, pluginInstallationID, snapshot.InstallationID, sourceID, base.Add(5*time.Minute),
 		inventoryID("declared-component", plugin.DeclaredName)); err != nil {
 		t.Fatal(err)

@@ -16,6 +16,8 @@ import (
 
 const defaultObservabilityHandoffTimeout = 15 * time.Second
 
+var ErrObservabilityProjectionPending = errors.New("observability_projection_pending")
+
 // ObservabilityHandoff is the production normalized-ingress to PostgreSQL
 // handoff. It consumes the same closed Event/Evidence pair committed by the
 // public hook and OTLP ingress, rather than exposing a second audit-only
@@ -64,6 +66,14 @@ type ObservabilityFactScope struct {
 	ComponentResolution     string
 	ComponentCandidateCount int
 	DeclaredComponentPseudo string
+	ComponentKind           string
+	QualifiedIdentity       string
+	IdentitySource          string
+	OwnerPluginIdentity     string
+	InvocationMode          string
+	UpstreamIdentityHash    string
+	ComponentSourceScope    string
+	ResolutionVersion       int64
 }
 
 func handoffID(kind string, values ...string) string {
@@ -125,6 +135,14 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 		SourceInstanceID:        sourceInstanceID,
 		ComponentResolution:     "unresolved",
 		DeclaredComponentPseudo: declaredComponentPseudo,
+		ComponentKind:           databaseComponentKind(event.Subject.Kind),
+		QualifiedIdentity:       event.ComponentEvidence.QualifiedIdentity,
+		IdentitySource:          event.ComponentEvidence.IdentitySource,
+		OwnerPluginIdentity:     event.ComponentEvidence.OwnerPluginIdentity,
+		InvocationMode:          event.ComponentEvidence.InvocationMode,
+		UpstreamIdentityHash:    event.ComponentEvidence.UpstreamIdentityHash,
+		ComponentSourceScope:    event.ComponentEvidence.SourceScope,
+		ResolutionVersion:       1,
 		DimensionScope: installationID + "|" + surfaceID + "|" +
 			componentID + "|" + event.EventType,
 	}
@@ -134,7 +152,7 @@ func eventCarriesTurn(eventType string) bool {
 	switch eventType {
 	case "prompt.submitted", "tool.called", "model.requested", "model.responded",
 		"component.installed", "component.enabled", "component.exposed",
-		"component.loaded", "component.invoked", "component.executed":
+		"component.requested", "component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
 		return false
@@ -201,6 +219,11 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		ValueState:          event.ValueState,
 		Outcome:             event.Outcome,
 		CorrelationStatus:   string(event.CorrelationStatus),
+		ProjectionInput: &ObservabilityProjectionInput{
+			SpecVersion: ProjectionInputSpecVersion,
+			Event:       event,
+			Evidence:    evidence,
+		},
 	}, EvidenceRow{
 		EvidenceID:        evidence.EvidenceID,
 		EventID:           evidence.EventID,
@@ -225,9 +248,45 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		return nil
 	}
 	if err := h.persistSourceWatermark(ctx, event, scope); err != nil {
-		return err
+		h.markProjectionFailure(ctx, event, evidence, "source_watermark_failed", true)
+		return ErrObservabilityProjectionPending
 	}
-	return h.persistProjections(ctx, event, evidence, scope)
+	if err := h.persistProjections(ctx, event, evidence, scope); err != nil {
+		h.markProjectionFailure(ctx, event, evidence, "derived_projection_failed", true)
+		return ErrObservabilityProjectionPending
+	}
+	if _, err := h.pool.Exec(ctx, `
+		DELETE FROM observability_projection_receipts
+		WHERE evidence_id=$1 AND observed_at=$2
+	`, evidence.EvidenceID, event.ObservedAt.UTC()); err != nil {
+		h.markProjectionFailure(ctx, event, evidence, "projection_receipt_cleanup_failed", true)
+		return ErrObservabilityProjectionPending
+	}
+	return nil
+}
+
+func (h *ObservabilityHandoff) markProjectionFailure(
+	ctx context.Context,
+	event observability.Event,
+	evidence observability.Evidence,
+	errorClass string,
+	retryable bool,
+) {
+	state := "permanent_error"
+	if retryable {
+		state = "retryable"
+	}
+	_, _ = h.pool.Exec(ctx, `
+		UPDATE observability_projection_receipts
+		SET state=$3, attempt_count=attempt_count+1,
+		    last_error_class=$4, last_attempted_at=now()
+		WHERE evidence_id=$1 AND observed_at=$2
+	`, evidence.EvidenceID, event.ObservedAt.UTC(), state, errorClass)
+	_, _ = h.pool.Exec(ctx, `
+		INSERT INTO ingest_failures (ingest_failure_id, category, observed_at)
+		VALUES ($1,$2,$3)
+		ON CONFLICT (ingest_failure_id) DO NOTHING
+	`, handoffID("projection-failure", event.EventID, errorClass), errorClass, event.ObservedAt.UTC())
 }
 
 // resolveInventoryLifecycleComponent correlates a native, identity-only
@@ -251,22 +310,64 @@ func (h *ObservabilityHandoff) resolveInventoryLifecycleComponent(
 	scope.DimensionScope = scope.AgentInstallationID + "|" + scope.SurfaceID + "|" +
 		scope.DeclaredComponentPseudo + "|" + event.EventType
 	if declaredIdentity == "" || event.Subject.Kind == "" {
+		if scope.IdentitySource == "redacted" || scope.UpstreamIdentityHash != "" {
+			scope.ComponentResolution = "redacted"
+		}
 		return scope, nil
 	}
 	var candidateCount int
 	var componentID, componentInstallationID *string
 	err := h.pool.QueryRow(ctx, `
-		SELECT count(*)::integer, min(c.component_id), min(ci.component_installation_id)
-		FROM component_inventory_state cis
-		JOIN component_installations ci
-		  ON ci.component_installation_id = cis.component_installation_id
-		JOIN component_versions cv
-		  ON cv.component_version_id = ci.component_version_id
-		JOIN components c ON c.component_id = cv.component_id
-		WHERE ci.agent_installation_id = $1
-		  AND c.kind = $2
-		  AND c.declared_name = $3
-	`, scope.AgentInstallationID, databaseComponentKind(event.Subject.Kind), declaredIdentity).
+		WITH candidates AS (
+			SELECT DISTINCT c.component_id, ci.component_installation_id
+			FROM component_inventory_state cis
+			JOIN component_installations ci
+			  ON ci.component_installation_id = cis.component_installation_id
+			JOIN component_versions cv
+			  ON cv.component_version_id = ci.component_version_id
+			JOIN components c ON c.component_id = cv.component_id
+			LEFT JOIN inventory_nodes node
+			  ON node.snapshot_id = cis.last_snapshot_id
+			 AND node.node_id = cis.inventory_node_id
+			LEFT JOIN inventory_edges ownership
+			  ON ownership.snapshot_id = cis.last_snapshot_id
+			 AND ownership.to_node_id = cis.inventory_node_id
+			 AND ownership.kind = 'bundles'
+			LEFT JOIN inventory_nodes owner
+			  ON owner.snapshot_id = ownership.snapshot_id
+			 AND owner.node_id = ownership.from_node_id
+			 AND owner.kind = 'plugin_package'
+			WHERE ci.agent_installation_id = $1
+			  AND c.kind = $2
+			  AND (
+				($4 <> '' AND
+				 (
+				  CASE WHEN owner.declared_name IS NULL
+				       THEN c.declared_name
+				       ELSE owner.declared_name || ':' || c.declared_name
+				  END = $4
+				  OR (
+					c.kind='plugin' AND
+					split_part(c.declared_name,'@',1) = $4
+				  )
+				  OR (
+					c.kind='skill' AND owner.declared_name IS NOT NULL AND
+					split_part(owner.declared_name,'@',1) || ':' ||
+						c.declared_name = $4
+				  )
+				 ))
+				OR ($4 = '' AND (
+					c.declared_name = $3 OR
+					(c.kind='plugin' AND
+					 split_part(c.declared_name,'@',1) = $3)
+				))
+			  )
+			  AND ($5 = '' OR node.source_scope = $5)
+		)
+		SELECT count(*)::integer, min(component_id), min(component_installation_id)
+		FROM candidates
+	`, scope.AgentInstallationID, databaseComponentKind(event.Subject.Kind), declaredIdentity,
+		scope.QualifiedIdentity, scope.ComponentSourceScope).
 		Scan(&candidateCount, &componentID, &componentInstallationID)
 	if err != nil {
 		return scope, err
@@ -293,7 +394,7 @@ func (h *ObservabilityHandoff) resolveInventoryLifecycleComponent(
 func isComponentLifecycleEvent(eventType string) bool {
 	switch eventType {
 	case "component.installed", "component.enabled", "component.exposed",
-		"component.loaded", "component.invoked", "component.executed":
+		"component.requested", "component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
 		return false
@@ -333,11 +434,12 @@ func databaseComponentKind(kind string) string {
 func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event observability.Event, evidence observability.Evidence, scope ObservabilityFactScope) error {
 	switch event.EventType {
 	case "component.installed", "component.enabled", "component.exposed",
-		"component.loaded", "component.invoked", "component.executed":
+		"component.requested", "component.loaded", "component.invoked", "component.executed":
 		stage := map[string]string{
 			"component.installed": "installed",
 			"component.enabled":   "enabled",
 			"component.exposed":   "exposed",
+			"component.requested": "requested",
 			"component.loaded":    "loaded",
 			"component.invoked":   "invoked",
 			"component.executed":  "executed",
@@ -360,7 +462,7 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			return err
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
-		if scope.ComponentInstallationID != "" {
+		if scope.ComponentInstallationID != "" && stage != "requested" {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO component_lifecycle_events (
 					component_lifecycle_event_id, component_installation_id,
@@ -372,7 +474,10 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			}
 		}
 		mode := "not_observed"
-		if event.Source.Kind == observability.SourceEvidenceBridge && stage == "invoked" {
+		if scope.InvocationMode == "explicit" || scope.InvocationMode == "proactive" ||
+			scope.InvocationMode == "nested" {
+			mode = scope.InvocationMode
+		} else if event.Source.Kind == observability.SourceEvidenceBridge && stage == "invoked" {
 			mode = "explicit"
 		}
 		assertionID := handoffID("component-assertion", evidence.EvidenceID, stage)
@@ -382,9 +487,11 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 				session_id, turn_id, event_id, evidence_id, assertion_kind, mode,
 				evidence_tier, confidence, source_instance_id, adapter_version,
 				schema_version, observed_at, idempotency_key, identity_resolution,
-				declared_identity_pseudonym, candidate_count
+				declared_identity_pseudonym, candidate_count, component_kind,
+				qualified_identity, identity_source, owner_plugin_identity,
+				invocation_mode, upstream_identity_hash, resolution_version
 			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-				$17,$18,$19)
+				$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
 			ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
 		`, assertionID, nullableString(scope.ComponentInstallationID),
 			scope.AgentInstallationID, nullableString(scope.SessionID),
@@ -392,9 +499,30 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			mode, string(evidence.Tier), evidence.Confidence, scope.SourceInstanceID,
 			event.Source.AdapterVersion, event.Source.SchemaID, event.ObservedAt,
 			evidence.EvidenceID+":"+stage, scope.ComponentResolution,
-			scope.DeclaredComponentPseudo, scope.ComponentCandidateCount)
+			scope.DeclaredComponentPseudo, scope.ComponentCandidateCount,
+			scope.ComponentKind, nullableString(scope.QualifiedIdentity),
+			nullableString(scope.IdentitySource), nullableString(scope.OwnerPluginIdentity),
+			nullableString(scope.InvocationMode), nullableString(scope.UpstreamIdentityHash),
+			scope.ResolutionVersion)
 		if err != nil {
 			return err
+		}
+		if result.RowsAffected() > 0 {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO component_assertion_resolution_history (
+					resolution_history_id, assertion_id, resolution_version,
+					identity_resolution, component_installation_id, candidate_count,
+					resolver_version, resolution_trigger, resolved_at
+				) VALUES (
+					$1,$2,$3,$4,$5,$6,'component-resolver/2','initial_ingest',$7
+				)
+				ON CONFLICT (assertion_id, resolution_version) DO NOTHING
+			`, handoffID("component-resolution", assertionID, "1"), assertionID,
+				scope.ResolutionVersion, scope.ComponentResolution,
+				nullableString(scope.ComponentInstallationID),
+				scope.ComponentCandidateCount, event.ObservedAt.UTC()); err != nil {
+				return err
+			}
 		}
 		if result.RowsAffected() == 0 || scope.ComponentResolution == "exact" {
 			if result.RowsAffected() > 0 && scope.ComponentResolution == "exact" &&
@@ -702,6 +830,9 @@ func (h *ObservabilityHandoff) PersistQuarantineMetadata(quarantine observabilit
 		string(quarantine.SourceKind), quarantine.SchemaFingerprint,
 		fmt.Sprintf("%d", quarantine.ByteCount), fmt.Sprintf("%d", quarantine.RecordCount),
 	)
+	if quarantine.OccurrenceKey != "" {
+		idempotencyKey = quarantine.OccurrenceKey
+	}
 	occurrenceID := handoffID("incident-occurrence-row", idempotencyKey)
 	var inserted bool
 	if err := tx.QueryRow(ctx, `

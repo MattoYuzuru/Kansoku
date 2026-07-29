@@ -79,8 +79,9 @@ It MUST discard before logs, queues and persistence:
 - environment/config values;
 - any unknown fields.
 
-Unknown bridge schema creates metadata-only quarantine and a bridge capability incident. It does not
-fall back to parsing raw rollout content.
+An invalid owned frame creates metadata-only quarantine and a bridge capability incident. Known
+service methods and responses not owned by the bridge are filtered without quarantine. The bridge
+does not fall back to parsing raw rollout content.
 
 The bridge connects to an explicitly configured local App Server target. It does not start, stop or
 reconfigure Codex without a later ChangePlan. Reconnect uses bounded exponential backoff and a
@@ -219,4 +220,31 @@ bridge works without core agent-name branches.
 - Core provider fallback is the adapter identity. No provider is inferred from a model and the
   former agent-name provider switch was removed.
 - The first App Server implementation accepts only the locally generated Codex 0.145.0 schema
-  subset documented in `SOURCES.md`; unsupported methods become metadata-only bridge incidents.
+  subset documented in `SOURCES.md`. Invalid owned skill/plugin frames become metadata-only bridge
+  incidents; known service methods and unowned responses are ignored as multiplexed traffic.
+
+Normal runtime wiring was completed on 2026-07-29. `CodexAppServerIngress` is an authenticated
+request-scoped supervisor, not a Codex launcher or transparent CLI observer. Trusted orchestration
+binds an opaque installation ID after SafeRecord validation; no installation is read from frame
+content. Source health is `configured` without a stream, `producing/observed` after accepted typed
+records, and `degraded` after owned rejection or sink failure.
+
+Bridge `0.2.0` demultiplexes `plugin/read` alongside concurrent `skills/list` requests. Because a
+JSON-RPC metadata response has no source timestamp, plugin and skills-list snapshots use a UTC-day
+bucket and position-independent evidence key. Reconnect/retry in the same day increments only the
+existing evidence replay count; a later day is a new bounded inventory observation. `plugin/read`
+emits plugin `requested` and conditional installed/enabled assertions, plus conditional
+installed/enabled child assertions for safe skill/MCP/hook/app identities. Children carry the
+owner-qualified plugin identity. Unrepresentable names are retained as HMAC-only redacted
+assertions rather than silently dropped. Metadata read never means plugin invoked/loaded.
+
+## Versioned component resolution (2026-07-28)
+
+Dataplatform migration `0013_component_identity_resolution` additively adds component kind,
+qualified/owner identity metadata, invocation mode, upstream identity hash and resolution version.
+It creates append-only `component_assertion_resolution_history` and
+`component_assertion_current_resolution`. Inventory scans re-run the namespace-aware resolver only
+for unresolved/ambiguous/redacted evidence and append a new decision; historical assertions are
+never updated. Down migration removes the additive view/history/columns but cannot reconstruct
+consumer behavior that relied on newer resolution semantics, so production rollback is
+application-first and retains a pre-migration backup.

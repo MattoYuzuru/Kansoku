@@ -103,3 +103,34 @@ The live no-op population reconciled to installed=1, enabled=1, exposed>=1, invo
 with exact identity and one unique session. Outcome remains `unsupported`. The production list
 reports cold as `enabled AND exposed in a complete observation window AND invoked=0`, formula
 `skill.cold_count/1`, with population and identity/source exclusions returned beside it.
+
+## 2026-07-28 evidence-source amendment
+
+Skill populations and exclusions filter `component_kind = skill`; plugin assertions never
+contaminate the denominator. Claude 2.1.197 `skill_activated` maps to native invocation with
+`user-slash`, `claude-proactive` and `nested-skill` mapped to explicit, proactive and nested modes,
+including safe source/owner metadata. For ordinary Codex CLI, a `$skill` marker is only requested;
+loaded/invoked reconstruction additionally requires a matching `SKILL.md` read or independent child
+activity and remains visibly reconstructed. Hosted orchestration outside local collectors is
+`unsupported`/`not_configured`, not numeric zero.
+
+## 2026-07-29 live exactness amendment
+
+A production-image canary sent a typed 0.145.0 skill item through normal `serve`. PostgreSQL
+recorded `search-workflow` as `component_kind=skill`, `invoked`, `mode=explicit`,
+`identity_source=native_bridge`, native evidence at confidence 1.0 and one exact inventory
+candidate. Restart/reconnect duplicate replay left two assertions (invoked and loaded) and only
+incremented evidence replay counts. Claude 2.1.197 plugin/skill controls still terminate with exit
+137 before `skill_activated`; that source remains degraded/not-observed rather than zero.
+
+## 2026-07-29 catalog presentation amendment
+
+The Skills list no longer presents component-installation rows as if each were a different
+human-facing skill. It groups same-named variants inside one agent into a catalog family, ranks
+families by exact invocation count and separately reports skill names, installed variants, used
+skills, invocation events, loads and cold skills. This is a read-only presentation fold: database
+identity, collisions, source/profile/version variants and historical assertions remain unchanged.
+
+Opening a family shows its variants and a combined metadata-only exposure/invocation/load timeline.
+The profile fan-out is bounded to the eight most-used variants and states any exclusion. The default
+view uses the existing five-year retention-horizon range. `ADR 0021` owns these semantics.

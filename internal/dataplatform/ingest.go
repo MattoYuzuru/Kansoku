@@ -2,6 +2,7 @@ package dataplatform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -125,6 +126,24 @@ func InsertFact(ctx context.Context, pool *pgxpool.Pool, fact FactRow, evidence 
 	if fact.EventID != evidence.EventID {
 		return InsertResult{}, fmt.Errorf("fact/evidence event id mismatch")
 	}
+	var projectionInputSchema any
+	var projectionInputJSON any
+	if fact.ProjectionInput != nil {
+		input := fact.ProjectionInput
+		if input.SpecVersion != ProjectionInputSpecVersion ||
+			input.Event.EventID != fact.EventID ||
+			!input.Event.ObservedAt.Equal(fact.ObservedAt) ||
+			input.Evidence.EvidenceID != evidence.EvidenceID ||
+			input.Evidence.EventID != fact.EventID {
+			return InsertResult{}, fmt.Errorf("projection input mismatch")
+		}
+		encoded, err := json.Marshal(input)
+		if err != nil || len(encoded) > 32768 {
+			return InsertResult{}, fmt.Errorf("projection input invalid")
+		}
+		projectionInputSchema = ProjectionInputSpecVersion
+		projectionInputJSON = string(encoded)
+	}
 	var result InsertResult
 	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
 		if err := EnsurePartition(ctx, pool, "events", fact.ObservedAt); err != nil {
@@ -178,6 +197,24 @@ func InsertFact(ctx context.Context, pool *pgxpool.Pool, fact FactRow, evidence 
 		}
 		if err := enqueueRepairForFact(ctx, tx, fact); err != nil {
 			return err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO observability_projection_receipts (
+				event_id, observed_at, evidence_id,
+				projection_input_schema, projection_input
+			) VALUES ($1,$2,$3,$4,$5::jsonb)
+			ON CONFLICT (evidence_id, observed_at) DO UPDATE SET
+				projection_input_schema = COALESCE(
+					observability_projection_receipts.projection_input_schema,
+					EXCLUDED.projection_input_schema
+				),
+				projection_input = COALESCE(
+					observability_projection_receipts.projection_input,
+					EXCLUDED.projection_input
+				)
+		`, fact.EventID, fact.ObservedAt, evidence.EvidenceID,
+			projectionInputSchema, projectionInputJSON); err != nil {
+			return fmt.Errorf("enqueue observability projections: %w", err)
 		}
 		return nil
 	})

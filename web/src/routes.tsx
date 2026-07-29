@@ -1,5 +1,5 @@
 /*
- * wouter route table for exactly the 14 contracts/dashboard.yaml paths. Each
+ * wouter route table for the contracts/dashboard.yaml paths. Each
  * route renders its real page component, wired to the live /api/v1 surface.
  * Per-route document.title = `Kansoku · {route.title}` (or
  * `Kansoku · Agent {alias}` for /agents/:id, opaque alias only), sourced from
@@ -32,6 +32,7 @@ const Tools = lazy(() => import("./pages/Tools").then((m) => ({ default: m.Tools
 const Reliability = lazy(() => import("./pages/Reliability").then((m) => ({ default: m.Reliability })));
 const Privacy = lazy(() => import("./pages/Privacy").then((m) => ({ default: m.Privacy })));
 const System = lazy(() => import("./pages/System").then((m) => ({ default: m.System })));
+const Glossary = lazy(() => import("./pages/Glossary").then((m) => ({ default: m.Glossary })));
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
 
 const TITLE_PREFIX = "Kansoku";
@@ -62,6 +63,7 @@ const PAGE_BY_PATH: Record<string, React.ComponentType> = {
   "/reliability": Reliability,
   "/privacy": Privacy,
   "/system": System,
+  "/glossary": Glossary,
   "/settings": Settings,
 };
 

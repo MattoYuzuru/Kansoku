@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.privacy-ingress/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-21",
+  "contract_version": "1.2.0",
+  "effective_at": "2026-07-29",
   "controls": [
     {"id": "PRV-INGRESS-001", "requirement": "Only generated/typed SafeRecord and SafeError values may cross the sanitizer boundary; generic maps remain internal."},
     {"id": "PRV-INGRESS-002", "requirement": "Decoder enforces byte, depth, array, string and frame limits before any logging, tracing, retry or quarantine serialization."},
@@ -21,10 +21,22 @@
       "input_fields": ["event_id", "session_id", "observed_at", "event_type", "outcome", "value_state", "model", "tool_name", "prompt", "attachments", "response", "source_code", "tool_input", "tool_output", "command", "path", "environment", "credentials", "exception"]
     }
   ],
-  "durable_record_fields": ["record_id", "idempotency_key", "adapter_id", "adapter_version", "source_schema_id", "schema_fingerprint", "observed_at", "received_at", "confidence", "event_type", "outcome", "value_state", "model", "tool", "component_kind", "component_mentions", "prompt_features", "telemetry", "redaction_counts", "lineage"],
+  "projection_retry_input": {
+    "schema": "kansoku.projection-input/1",
+    "fields": ["spec_version", "event", "evidence"],
+    "event_shape": "internal_observability_event_closed_allowlist",
+    "evidence_shape": "internal_observability_evidence_closed_allowlist",
+    "maximum_serialized_bytes": 32768,
+    "storage": "postgresql_projection_receipt_only",
+    "retention": "deleted_after_successful_projection",
+    "legacy_rows": "not_rewritten_and_reported_as_input_absent",
+    "forbidden": ["raw_request", "raw_api_body", "prompt", "response", "tool_input", "tool_output", "source_code", "command", "environment", "credential", "unredacted_path", "generic_attributes"]
+  },
+  "durable_record_fields": ["record_id", "idempotency_key", "adapter_id", "adapter_version", "source_schema_id", "schema_fingerprint", "observed_at", "received_at", "confidence", "event_type", "outcome", "value_state", "model", "tool", "component_kind", "component_mentions", "component_evidence", "prompt_features", "telemetry", "redaction_counts", "lineage"],
   "safe_error_fields": ["incident_id", "source_schema_id", "schema_fingerprint", "field_path", "category", "total_bytes", "record_count", "observed_at", "received_at"],
   "nested_types": {
     "CatalogObservation": {"fields": {"state": "observation_state", "id": "nullable_catalog_id"}, "closed": true},
+    "ComponentEvidenceMetadata": {"fields": {"qualified_identity": "safe_component_identity", "identity_source": "safe_identity_source", "owner_plugin_identity": "safe_component_identity_or_empty", "invocation_mode": "explicit_proactive_nested_requested_or_not_observed", "upstream_identity_hash": "optional_hmac_sha256", "source_scope": "safe_source_scope_or_empty"}, "closed": true},
     "PromptFeatures": {"fields": {"state": "completeness_state", "byte_count": "nonnegative_integer", "character_count": "nonnegative_integer", "word_count": "nonnegative_integer", "line_count": "nonnegative_integer", "coarse_script": "coarse_script_enum", "code_fence_count": "nonnegative_integer", "attachment_count": "nonnegative_integer", "url_reference_count": "nonnegative_integer", "file_reference_count": "nonnegative_integer"}, "closed": true},
     "TelemetryMeasurements": {"fields": {"duration_ms": "nullable_nonnegative_integer", "prompt_character_count": "nullable_nonnegative_integer", "input_tokens": "nullable_nonnegative_integer", "cached_input_tokens": "nullable_nonnegative_integer", "output_tokens": "nullable_nonnegative_integer", "provider_cost_micros": "nullable_nonnegative_integer"}, "closed": true},
     "RedactionCounts": {"fields": {"prompt_fields": "nonnegative_integer", "attachment_fields": "nonnegative_integer", "response_fields": "nonnegative_integer", "source_fields": "nonnegative_integer", "tool_io_fields": "nonnegative_integer", "command_fields": "nonnegative_integer", "path_fields": "nonnegative_integer", "environment_fields": "nonnegative_integer", "credential_fields": "nonnegative_integer", "exception_fields": "nonnegative_integer", "sensitive_identifier_fields": "nonnegative_integer"}, "closed": true},

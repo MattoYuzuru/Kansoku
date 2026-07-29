@@ -217,20 +217,31 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 			child := adaptersdk.Node{
 				NodeID: "node_" + stableHex("plugin-skill", node.NodeID, skill.Name, string(skill.Scope), skill.PathPseudonym),
 				Kind:   adaptersdk.NodeSkillIdentity, DeclaredName: skill.Name, Version: skill.Version,
-				SourceScope: skill.Scope, PathPseudonym: skill.PathPseudonym, Fingerprint: skill.Fingerprint,
+				SourceScope: skill.Scope, PathPseudonym: skill.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: skill.Fingerprint,
 			}
 			nodes = append(nodes, child)
-			skillByNameScope[skill.Name] = append(skillByNameScope[skill.Name], child)
+			if !plugin.CachedOnly {
+				skillByNameScope[skill.Name] = append(skillByNameScope[skill.Name], child)
+			}
 			edges = append(edges, adaptersdk.Edge{
 				EdgeID: "edge_" + stableHex("bundles", node.NodeID, child.NodeID),
 				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: child.NodeID,
 			})
+			if !plugin.CachedOnly && plugin.ActiveEnabledFor != "" &&
+				skill.Enabled && !skill.Disabled {
+				edges = append(edges, adaptersdk.Edge{
+					EdgeID: "edge_" + stableHex("plugin-skill-enabled", child.NodeID, installationNode.NodeID),
+					Kind:   adaptersdk.EdgeEnabledFor, FromNode: child.NodeID, ToNode: installationNode.NodeID,
+				})
+			}
 		}
 		for _, command := range plugin.BundledCommands {
 			child := adaptersdk.Node{
 				NodeID: "node_" + stableHex("plugin-command", node.NodeID, command.Name, string(command.Scope), command.PathPseudonym),
 				Kind:   adaptersdk.NodeCustomCommandDefinition, DeclaredName: command.Name,
-				SourceScope: command.Scope, PathPseudonym: command.PathPseudonym, Fingerprint: command.Fingerprint,
+				SourceScope: command.Scope, PathPseudonym: command.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: command.Fingerprint,
 			}
 			nodes = append(nodes, child)
 			edges = append(edges, adaptersdk.Edge{
@@ -242,7 +253,8 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 			child := adaptersdk.Node{
 				NodeID: "node_" + stableHex("plugin-hook", node.NodeID, hook.Name, string(hook.Scope), hook.PathPseudonym),
 				Kind:   adaptersdk.NodeHookDefinition, DeclaredName: hook.Name,
-				SourceScope: hook.Scope, PathPseudonym: hook.PathPseudonym, Fingerprint: hook.Fingerprint,
+				SourceScope: hook.Scope, PathPseudonym: hook.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: hook.Fingerprint,
 			}
 			nodes = append(nodes, child)
 			edges = append(edges, adaptersdk.Edge{
@@ -254,10 +266,13 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 			server := adaptersdk.Node{
 				NodeID: "node_" + stableHex("plugin-mcp", node.NodeID, mcp.Name, string(mcp.Scope), mcp.PathPseudonym),
 				Kind:   adaptersdk.NodeMCPServerInstance, DeclaredName: mcp.Name,
-				SourceScope: mcp.Scope, PathPseudonym: mcp.PathPseudonym, Fingerprint: mcp.Fingerprint,
+				SourceScope: mcp.Scope, PathPseudonym: mcp.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: mcp.Fingerprint,
 			}
 			nodes = append(nodes, server)
-			mcpByName[mcp.Name] = append(mcpByName[mcp.Name], server)
+			if !plugin.CachedOnly {
+				mcpByName[mcp.Name] = append(mcpByName[mcp.Name], server)
+			}
 			edges = append(edges, adaptersdk.Edge{
 				EdgeID: "edge_" + stableHex("bundles", node.NodeID, server.NodeID),
 				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: server.NodeID,
@@ -268,7 +283,8 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 				tool := adaptersdk.Node{
 					NodeID: "node_" + stableHex("mcp-tool", server.NodeID, toolName),
 					Kind:   adaptersdk.NodeMCPTool, DeclaredName: toolName,
-					SourceScope: mcp.Scope, Fingerprint: stableHex("mcp-tool-fp", server.NodeID, toolName),
+					SourceScope: mcp.Scope, CachedOnly: plugin.CachedOnly,
+					Fingerprint: stableHex("mcp-tool-fp", server.NodeID, toolName),
 				}
 				nodes = append(nodes, tool)
 				edges = append(edges, adaptersdk.Edge{
@@ -281,7 +297,8 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 			child := adaptersdk.Node{
 				NodeID: "node_" + stableHex("plugin-app", node.NodeID, app.Name, string(app.Scope), app.PathPseudonym),
 				Kind:   adaptersdk.NodeAppDefinition, DeclaredName: app.Name,
-				SourceScope: app.Scope, PathPseudonym: app.PathPseudonym, Fingerprint: app.Fingerprint,
+				SourceScope: app.Scope, PathPseudonym: app.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: app.Fingerprint,
 			}
 			nodes = append(nodes, child)
 			edges = append(edges, adaptersdk.Edge{

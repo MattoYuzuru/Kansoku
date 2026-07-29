@@ -201,14 +201,27 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("Codex App Server bridge must remain pinned to reviewed schema 0.145.0")
     if app_server_bridge.get("target_scope") != "explicit_local" or app_server_bridge.get("network_grade") != "loopback_only":
         errors.append("Codex App Server bridge target must remain explicit local loopback")
+    if "supervised_by_serve_at_authenticated_bounded_POST_/v1/evidence-bridges/codex-app-server" not in \
+            str(app_server_bridge.get("support_grade", "")) or \
+            "not_evidence_for_ordinary_CLI" not in str(app_server_bridge.get("support_grade", "")):
+        errors.append("Codex App Server bridge supervised route or ordinary-CLI limitation changed")
     accepted_methods = set(app_server_bridge.get("accepted_methods", []))
     if not {"skills/list", "skills/list response", "turn/started", "plugin/read", "plugin/read response"}.issubset(accepted_methods):
         errors.append("Codex App Server bridge must retain the reviewed skill list request/response and turn-start surfaces")
     projections = app_server_bridge.get("emitting_projections", {})
     if projections.get("skills/list_enabled_response") != "component.exposed":
         errors.append("enabled skills/list response must project component.exposed")
-    if "snapshot-scoped bundles/provides" not in str(projections.get("plugin/read_response", "")):
-        errors.append("plugin/read response must project only metadata into snapshot-scoped plugin bundle relations")
+    plugin_projection = str(projections.get("plugin/read_response", ""))
+    if not all(fragment in plugin_projection for fragment in (
+        "UTC-day-bucketed metadata snapshot with position-independent idempotency",
+        "component.requested",
+        "component.installed",
+        "component.enabled",
+        "owner_plugin_identity",
+        "raw upstream IDs are HMAC-only",
+        "never represented as plugin invoked or loaded",
+    )):
+        errors.append("plugin/read response lifecycle/ownership/privacy semantics changed")
     if "codex-app-server-skill-input-load/1" not in str(projections.get("item/started_userMessage_skill_input", "")):
         errors.append("typed skill input invoked/load projection must retain its explicit versioned rule")
     prohibited = set(app_server_bridge.get("prohibited_surfaces", []))
@@ -216,6 +229,25 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("Codex App Server prohibited content surface set weakened")
     if "metadata_only_rejection" not in app_server_bridge.get("unknown_schema", ""):
         errors.append("Codex App Server unknown schema must remain metadata-only")
+    generated_manifest_path = (
+        ROOT / "contracts" / "codex" / "generated" /
+        "app-server-0.145.0-schema-manifest.json"
+    )
+    if not generated_manifest_path.is_file():
+        errors.append("Codex App Server generated schema hash manifest is missing")
+    else:
+        generated_manifest = load(generated_manifest_path)
+        artifacts = {
+            item.get("path"): item.get("sha256")
+            for item in generated_manifest.get("artifacts", [])
+            if isinstance(item, dict)
+        }
+        if generated_manifest.get("agent_version") != "0.145.0" or \
+                artifacts.get("ClientRequest.json") != \
+                "03e30c97136d6618273e3e9197d8621bad9ac6cfd733c0cfe09dc8754ee6ac5c" or \
+                artifacts.get("v2/PluginReadResponse.json") != \
+                "c2819939ba7a71a9deb3a1574b489124b0a20c7d2023f963ce38729300a20c45":
+            errors.append("Codex 0.145.0 plugin/read generated schema hashes changed")
 
     # -- hooks-and-otel.yaml --
     hook_source = hooks_and_otel.get("hook_source", {})
@@ -272,6 +304,17 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     rollout_source = rollout_and_inventory.get("rollout_source", {})
     if "never_a_speculative_home_directory_scan" not in str(rollout_source.get("state_root", "")):
         errors.append("codex.rollout state root resolution must never speculatively scan the home directory")
+    installation_binding = str(rollout_source.get("installation_binding", ""))
+    if not all(fragment in installation_binding for fragment in (
+        "same_configured_agent_installation_id_as_its_inventory_target",
+        "every_emitted_source_scope_uses_that_installation_and_versioned_resolution_filters_inventory_candidates_to_it",
+        "persisted_as_requested_even_when_current_inventory_is_absent_or_late",
+        "checkpoint_advancement_never_silently_drops_it",
+        "deterministic_adapter_installation_id_never_a_latest_dynamic_database_row",
+        "conflicting_installation_bindings_degrades_the_source_and_emits_no_facts",
+        "App_Server_bridge_for_the_same_logical_installation_must_receive_that_same_explicit_ID",
+    )):
+        errors.append("Codex rollout/inventory/App Server installation binding changed")
     checkpoint_fields = set(rollout_source.get("checkpoint_fields", []))
     if not {"file_identity", "byte_offset", "first_record_fingerprint", "last_record_fingerprint", "rotation_generation", "truncation_detected"}.issubset(checkpoint_fields):
         errors.append("codex.rollout checkpoint_fields must keep file identity/offset/fingerprint/rotation/truncation fields")
@@ -290,6 +333,15 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("rollout replay idempotency guarantee weakened")
     if "degraded_incident_scoped_to_codex.rollout_only" not in str(replay.get("rotation_truncation", "")):
         errors.append("rollout rotation/truncation handling must scope its degraded incident to codex.rollout only")
+    skill_evidence_rule = str(rollout_source.get("skill_evidence", ""))
+    if not all(fragment in skill_evidence_rule for fragment in (
+        "requested_only_and_is_not_gated_on_current_inventory",
+        "trailing_prose_punctuation_is_not_part_of_the_skill_identity",
+        "requires_a_matching_SKILL.md_read",
+        "user_marker_plus_corroboration_has_explicit_invocation_mode",
+        "current_identity_resolution_are_visible",
+    )):
+        errors.append("Codex CLI requested/corroborated skill evidence rule changed")
 
     inventory_source = rollout_and_inventory.get("inventory_source", {})
     if set(inventory_source.get("scopes_inventoried", [])) != set(SOURCE_SCOPES):
@@ -305,6 +357,34 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     cache_rule = str(inventory_source.get("cache_rule", ""))
     if "cache_packages_are_never_considered_enabled" not in cache_rule or "requires_an_explicit_enabled_for_edge" not in cache_rule:
         errors.append("codex.inventory cache separation rule weakened")
+    components_inventoried = set(inventory_source.get("components_inventoried", []))
+    if "plugin_bundled_skills" not in components_inventoried:
+        errors.append("codex.inventory must include plugin-bundled skills, not only standalone skill roots")
+    plugin_catalog_discovery = str(inventory_source.get("plugin_catalog_discovery", ""))
+    if not all(fragment in plugin_catalog_discovery for fragment in (
+        "read_only_one_level_bounded_walk",
+        "plugins/cache/<marketplace>/<plugin>/<version>/skills",
+        "exactly_one_cache_version",
+        "never_force_an_arbitrary_owner",
+        "deduplicated_only_when_identity_version_enabled_state_and_every_bundle_fingerprint_are_exactly_equal",
+        "otherwise_profiles_remain_distinct_colliding_candidates",
+    )):
+        errors.append("Codex plugin catalog discovery/ambiguous-version rules changed")
+    plugin_skill_identity = str(inventory_source.get("plugin_skill_identity", ""))
+    if not all(fragment in plugin_skill_identity for fragment in (
+        "bundles",
+        "plugin@marketplace:skill",
+        "cache_only_children_remain_cached_only",
+        "never_enter_installed_or_enabled_component_projections",
+    )):
+        errors.append("Codex plugin-bundled skill ownership/cache separation changed")
+    coverage_failure_rule = str(inventory_source.get("coverage_failure_rule", ""))
+    if not all(fragment in coverage_failure_rule for fragment in (
+        "unreadable_truncated_or_limit_exceeded",
+        "returns_no_partial_graph",
+        "never_complete_zero",
+    )):
+        errors.append("Codex inventory source coverage failure must remain visible and non-zero-like")
     if "never_merged" not in str(inventory_source.get("collision_rule", "")):
         errors.append("codex.inventory collision rule must never merge same-named nodes across scopes")
 
@@ -473,6 +553,82 @@ def validate_code_and_fixtures() -> list[str]:
         errors.append("internal/codexadapter must not declare a second SafeRecord/SafeError sanitizer type")
     if re.search(r"func\s+extractPromptFeatures\s*\(", core_source) or re.search(r"func\s+ExtractPromptFeatures\s*\(", core_source):
         errors.append("internal/codexadapter must reuse internal/privacy.ExtractPromptFeatures, not redeclare a second prompt-feature extractor")
+    bridge_path = codexadapter_dir / "appserver_bridge.go"
+    bridge_source = bridge_path.read_text(encoding="utf-8") if bridge_path.exists() else ""
+    if not bridge_source:
+        errors.append("internal/codexadapter/appserver_bridge.go is missing")
+    elif not all(fragment in bridge_source for fragment in (
+        'case "plugin/read":',
+        "projectPluginReadResponse",
+        '"native_bridge_plugin_read"',
+        '"upstream-plugin-identity/1"',
+        "OwnerPluginIdentity",
+        "CapabilityComponentsPluginAndCustomCmd",
+    )):
+        errors.append("Codex App Server plugin/read demux/projection implementation is incomplete")
+
+    inventory_scan_path = codexadapter_dir / "inventoryscan.go"
+    inventory_scan_source = inventory_scan_path.read_text(encoding="utf-8") if inventory_scan_path.exists() else ""
+    if not inventory_scan_source or not all(fragment in inventory_scan_source for fragment in (
+        "scanCodexPluginCache",
+        "mergeCodexPluginCacheCandidates",
+        "maxPluginCacheVersionsPerPlugin",
+        "maxPluginCacheSkillManifestsTotal",
+        "ScopePluginCache",
+        "ScopeMarketplace",
+        "return InventoryInput{InstallationID: target.InstallationID}, false",
+    )):
+        errors.append("Codex bounded plugin-cache inventory/coverage implementation is incomplete")
+    runtime_inventory_path = ROOT / "internal" / "runtime" / "inventory.go"
+    runtime_inventory_source = runtime_inventory_path.read_text(encoding="utf-8") if runtime_inventory_path.exists() else ""
+    if not runtime_inventory_source or not all(fragment in runtime_inventory_source for fragment in (
+        "adapter.Reconcile(",
+        'completeness == "unknown"',
+        '"inventory_source_coverage_absent"',
+        "normalizedInstallationID(target.AdapterID)",
+    )):
+        errors.append("runtime inventory collection must persist adapter-derived completeness, never hardcode complete")
+    if "LatestInstallationForAdapter" in runtime_inventory_source:
+        errors.append(
+            "runtime inventory collection must never bind an unconfigured target "
+            "to a dynamic latest database installation"
+        )
+    runtime_rollout_path = ROOT / "internal" / "runtime" / "codex_rollout_watcher.go"
+    runtime_rollout_source = (
+        runtime_rollout_path.read_text(encoding="utf-8")
+        if runtime_rollout_path.exists() else ""
+    )
+    if not runtime_rollout_source or not all(
+        fragment in runtime_rollout_source for fragment in (
+            "target.InstallationID",
+            "normalizedInstallationID(codexadapter.AdapterID)",
+            "codex_rollout_installation_binding_conflict",
+            "IngestSanitizedRolloutRecordForInstallation",
+            '"component.requested", "requested", "rollout_marker"',
+        )
+    ):
+        errors.append(
+            "runtime Codex rollout watcher must bind catalog lookup and evidence "
+            "to the explicit inventory installation"
+        )
+    expected_installation = "ain_9cd7c4fbf5d8df4694834d7769a3747b"
+    for relative_path in (
+        "deploy/runtime-config.json",
+        "tests/fixtures/session-09/runtime-config.json",
+    ):
+        config_path = ROOT / relative_path
+        config = load(config_path) if config_path.is_file() else {}
+        codex_targets = [
+            target
+            for target in config.get("inventory_targets", [])
+            if isinstance(target, dict) and target.get("adapter_id") == "codex"
+        ]
+        if len(codex_targets) != 1 or \
+                codex_targets[0].get("installation_id") != expected_installation:
+            errors.append(
+                f"{relative_path}: Codex inventory/rollout target must retain "
+                "its explicit deterministic installation binding"
+            )
 
     # Discovery must never speculatively scan the whole home directory, and
     # must resolve CODEX_HOME first.

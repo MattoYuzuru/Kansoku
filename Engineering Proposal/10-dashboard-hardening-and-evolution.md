@@ -110,3 +110,11 @@ After the ten sessions, improvements continue through evidence:
 Every metric in the MVP catalog has a clear home, formula and completeness display; no page exposes
 prohibited data; fresh-install and restore tests pass; supported adapter claims match live evidence;
 the dashboard remains fast on all standard ranges; residual risks and future work are explicit.
+
+## 2026-07-29 terminology amendment
+
+Operations includes a searchable Glossary route generated from the canonical glossary contract.
+Skills, Plugins and System metrics link directly to relevant definitions instead of relying on
+unexplained labels or a second frontend-only term registry. Plain definitions cover lifecycle
+states, catalog variants, plugin child attribution, database/checkpoint budgets, Docker storage,
+backpressure, mirrors, `fsync` and capacity forecasts.

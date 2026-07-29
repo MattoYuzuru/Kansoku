@@ -176,8 +176,8 @@ func TestUnrecognizedResourceStillQuarantinesAfterAdapterDispatch(t *testing.T) 
 	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
 	request := realLogRequest("some-other-cli-tool", "some.unrecognized.event", []*commonv1.KeyValue{stringKV("random.attribute", "value")})
 	err := receiver.ingestLogs(request, SourceOTLPLog)
-	if err == nil {
-		t.Fatal("unrecognized resource accepted")
+	if err != nil {
+		t.Fatalf("durable non-retryable quarantine rejected: %v", err)
 	}
 	state := store.Snapshot()
 	if len(state.Facts) != 0 || len(state.Quarantine) != 1 || len(state.Incidents) != 1 {
@@ -185,5 +185,103 @@ func TestUnrecognizedResourceStillQuarantinesAfterAdapterDispatch(t *testing.T) 
 	}
 	if state.Watermarks[string(SourceOTLPLog)].Lifecycle != SourceDegraded {
 		t.Fatal("source not degraded")
+	}
+}
+
+func TestMixedOTLPBatchQuarantinesUnknownAndDurablyProcessesFollowingClaudeRecords(t *testing.T) {
+	store, ingestor, _ := testIngestor(t, 4<<20)
+	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
+	unknown := realLogRequest(
+		"unreviewed-agent", "future.event",
+		[]*commonv1.KeyValue{stringKV("unsafe.body", "discarded")},
+	)
+	skill := realLogRequest(
+		claudeadapter.OTLPResourceServiceName, string(claudeadapter.OTelSkillActivated),
+		[]*commonv1.KeyValue{
+			stringKV(string(claudeadapter.NativeAttributeSessionID), "mixed-session"),
+			stringKV(string(claudeadapter.AttributeSkillName), "plugin-skill"),
+			stringKV(string(claudeadapter.AttributePluginName), "owner-plugin"),
+			stringKV(string(claudeadapter.AttributeInvocationTrigger), "user-slash"),
+			stringKV(string(claudeadapter.AttributeSkillSource), "plugin"),
+		},
+	)
+	plugin := realLogRequest(
+		claudeadapter.OTLPResourceServiceName, string(claudeadapter.OTelPluginLoaded),
+		[]*commonv1.KeyValue{
+			stringKV(string(claudeadapter.NativeAttributeSessionID), "mixed-session"),
+			stringKV(string(claudeadapter.AttributePluginName), "owner-plugin"),
+			stringKV(string(claudeadapter.AttributePluginScope), "user"),
+			stringKV(string(claudeadapter.AttributePluginIDHash), "opaque-upstream-id"),
+		},
+	)
+	request := &collectorlogsv1.ExportLogsServiceRequest{}
+	request.ResourceLogs = append(request.ResourceLogs, unknown.ResourceLogs...)
+	request.ResourceLogs = append(request.ResourceLogs, skill.ResourceLogs...)
+	request.ResourceLogs = append(request.ResourceLogs, plugin.ResourceLogs...)
+	if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
+		t.Fatalf("mixed batch rejected: %v", err)
+	}
+	state := store.Snapshot()
+	if len(state.Quarantine) != 1 || len(state.Incidents) != 1 || len(state.Facts) != 2 {
+		t.Fatalf("quarantine=%d incidents=%d facts=%d", len(state.Quarantine), len(state.Incidents), len(state.Facts))
+	}
+	seen := map[string]Event{}
+	for _, fact := range state.Facts {
+		seen[fact.Event.EventType] = fact.Event
+	}
+	skillEvent := seen["component.invoked"]
+	if skillEvent.Subject.Kind != "skill" ||
+		skillEvent.ComponentEvidence.QualifiedIdentity != "owner-plugin:plugin-skill" ||
+		skillEvent.ComponentEvidence.InvocationMode != "explicit" {
+		t.Fatalf("skill metadata=%+v subject=%+v", skillEvent.ComponentEvidence, skillEvent.Subject)
+	}
+	pluginEvent := seen["component.loaded"]
+	if pluginEvent.Subject.Kind != "plugin" ||
+		pluginEvent.ComponentEvidence.QualifiedIdentity != "owner-plugin" ||
+		pluginEvent.ComponentEvidence.UpstreamIdentityHash == "" {
+		t.Fatalf("plugin metadata=%+v subject=%+v", pluginEvent.ComponentEvidence, pluginEvent.Subject)
+	}
+	encoded, _ := json.Marshal(state)
+	for _, raw := range []string{"discarded", "opaque-upstream-id", "mixed-session"} {
+		if bytes.Contains(encoded, []byte(raw)) {
+			t.Fatalf("raw OTLP value persisted: %q", raw)
+		}
+	}
+}
+
+func TestClaudeSkillInvocationModesAndPluginOwnership(t *testing.T) {
+	for _, test := range []struct {
+		trigger string
+		want    string
+	}{
+		{"user-slash", "explicit"},
+		{"claude-proactive", "proactive"},
+		{"nested-skill", "nested"},
+	} {
+		t.Run(test.want, func(t *testing.T) {
+			store, ingestor, _ := testIngestor(t, 4<<20)
+			receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
+			request := realLogRequest(
+				claudeadapter.OTLPResourceServiceName,
+				string(claudeadapter.OTelSkillActivated),
+				[]*commonv1.KeyValue{
+					stringKV(string(claudeadapter.NativeAttributeSessionID), "mode-session"),
+					stringKV(string(claudeadapter.AttributeSkillName), "shared-name"),
+					stringKV(string(claudeadapter.AttributePluginName), "plugin-owner"),
+					stringKV(string(claudeadapter.AttributeInvocationTrigger), test.trigger),
+					stringKV(string(claudeadapter.AttributeSkillSource), "plugin"),
+				},
+			)
+			if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
+				t.Fatal(err)
+			}
+			for _, fact := range store.Snapshot().Facts {
+				if fact.Event.ComponentEvidence.InvocationMode != test.want ||
+					fact.Event.ComponentEvidence.OwnerPluginIdentity != "plugin-owner" ||
+					fact.Event.ComponentEvidence.QualifiedIdentity != "plugin-owner:shared-name" {
+					t.Fatalf("component metadata=%+v", fact.Event.ComponentEvidence)
+				}
+			}
+		})
 	}
 }

@@ -100,16 +100,19 @@ func PluginObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
 		WITH assertion_counts AS (
-			SELECT component_installation_id,
-				count(*) FILTER (WHERE assertion_kind='loaded' AND identity_resolution='exact') loaded_count,
-				count(DISTINCT session_id) FILTER (
-					WHERE assertion_kind='loaded' AND identity_resolution='exact' AND session_id IS NOT NULL
+			SELECT cr.component_installation_id,
+				count(*) FILTER (WHERE ca.assertion_kind='loaded' AND cr.identity_resolution='exact') loaded_count,
+				count(DISTINCT ca.session_id) FILTER (
+					WHERE ca.assertion_kind='loaded' AND cr.identity_resolution='exact' AND ca.session_id IS NOT NULL
 				) loaded_sessions,
-				count(*) FILTER (WHERE assertion_kind='child_activity' AND identity_resolution='exact') child_activity_count,
-				max(observed_at) FILTER (WHERE assertion_kind='loaded' AND identity_resolution='exact') last_loaded_at
-			FROM component_assertions
-			WHERE observed_at >= $1 AND observed_at < $2
-			GROUP BY component_installation_id
+				count(*) FILTER (WHERE ca.assertion_kind='child_activity' AND cr.identity_resolution='exact') child_activity_count,
+				max(ca.observed_at) FILTER (WHERE ca.assertion_kind='loaded' AND cr.identity_resolution='exact') last_loaded_at
+			FROM component_assertions ca
+			JOIN component_assertion_current_resolution cr
+			  ON cr.assertion_id=ca.assertion_id
+			WHERE ca.observed_at >= $1 AND ca.observed_at < $2
+			  AND ca.component_kind='plugin'
+			GROUP BY cr.component_installation_id
 		),
 		graph AS (
 			SELECT ci.component_installation_id,
@@ -213,11 +216,14 @@ func PluginObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 	}
 	var unresolved, ambiguous int64
 	if err := conn.QueryRow(ctx, `
-		SELECT count(*) FILTER (WHERE identity_resolution='unresolved'),
-			count(*) FILTER (WHERE identity_resolution='ambiguous')
-		FROM component_assertions
-		WHERE observed_at >= $1 AND observed_at < $2
-		  AND assertion_kind IN ('loaded','child_activity')
+		SELECT count(*) FILTER (WHERE cr.identity_resolution='unresolved'),
+			count(*) FILTER (WHERE cr.identity_resolution='ambiguous')
+		FROM component_assertions ca
+		JOIN component_assertion_current_resolution cr
+		  ON cr.assertion_id=ca.assertion_id
+		WHERE ca.observed_at >= $1 AND ca.observed_at < $2
+		  AND ca.component_kind = 'plugin'
+		  AND ca.assertion_kind IN ('loaded','child_activity')
 	`, from, to).Scan(&unresolved, &ambiguous); err != nil {
 		return PluginObservatoryResponse{}, err
 	}

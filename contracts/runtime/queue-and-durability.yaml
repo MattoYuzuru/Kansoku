@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.runtime-queue-and-durability/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-26",
+  "contract_version": "1.6.0",
+  "effective_at": "2026-07-29",
   "lanes": [
     {"source": "hook_http", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
     {"source": "otlp_log", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
@@ -9,10 +9,12 @@
     {"source": "otlp_metric", "capacity": 64, "workers": 1, "spool_max_bytes": 67108864},
     {"source": "transcript_jsonl", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864},
     {"source": "adapter_batch", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864},
-    {"source": "evidence_bridge", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864}
+    {"source": "evidence_bridge", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864},
+    {"source": "codex_rollout", "capacity": 16, "workers": 1, "spool_max_bytes": 67108864}
   ],
   "admission": {
-    "reservation_before_filestore_acceptance": true,
+    "reservation_before_filestore_acceptance": false,
+    "postgresql_or_emergency_spool_before_checkpoint": true,
     "per_source_capacity_independent": true,
     "global_noisy_source_starvation": "forbidden",
     "full_lane_response": {"http_status": 429, "grpc_code": "RESOURCE_EXHAUSTED", "retry_after_seconds": 1},
@@ -25,7 +27,9 @@
     "postgres_first": true,
     "spool_fallback_on_retryable_postgres_failure": true,
     "both_fail": "safe_retryable_error_no_success",
-    "unknown_schema": "metadata_only_quarantine_is_durable_before_error_response"
+    "unknown_schema": "metadata_only_quarantine_is_durable_and_aggregated_before_success_response; only transient backpressure is retryable",
+    "checkpoint_failure_after_durable_ack": "record_degraded_local_state_and_replay_idempotently_without_rejecting_the_owned_fact",
+    "projection_failure_after_canonical_commit": "retain_a_temporary_closed_metadata_only_event_and_evidence_input_with_the_postgresql_projection_receipt_and_use_the_bounded_source_spool_as_an_independent_fallback; delete_the_input_only_after_projection_success_and_keep_health_degraded_while_any_receipt_remains"
   },
   "spool": {
     "format": "strict_jsonl_typed_observability_commit_request",
@@ -36,12 +40,16 @@
     "corruption": "fail_visible_leave_bytes_unchanged",
     "replay": "strict_decode_then_postgresql_idempotent_insert_then_atomic_drain",
     "replay_order": "per_source_fifo",
-    "restart": "replay_before_listener_readiness"
+    "restart": "replay_before_listener_readiness",
+    "runtime_retry": "supervised_every_15_seconds_without_draining_a_failed_record_or_terminating_the_appliance"
   },
   "metrics": {
-    "per_lane": ["queue_depth", "oldest_queued_age_seconds", "spool_depth", "oldest_spooled_age_seconds", "accepted_total", "spooled_total", "replayed_total", "backpressure_total", "durability_failure_total"],
+    "per_lane": ["queue_depth", "oldest_queued_age_seconds", "spool_depth", "spool_bytes", "spool_budget_bytes", "oldest_spooled_age_seconds", "accepted_total", "spooled_total", "replayed_total", "backpressure_total", "durability_failure_total"],
     "bounded_cardinality": true,
-    "source_ids_from_closed_lane_vocabulary": true
+    "source_ids_from_closed_lane_vocabulary": true,
+    "ingestion_rejection_counter_scope": "postgresql_restart_durable_per_source",
+    "counter_persistence_availability": "current_state_failure_sets_degraded_and_a_subsequent_successful_recorder_write_clears_it",
+    "success_timestamp_write_rate": "at_most_once_per_source_per_second"
   },
   "shutdown": {
     "stop_new_reservations_first": true,
@@ -52,5 +60,18 @@
     "postgres_key": ["source_instance_id", "source_native_event_id", "observed_at"],
     "duplicate_replay_increments_evidence_replay_count": true,
     "duplicate_replay_never_inflates_facts": true
+  },
+  "operator_repair": {
+    "automatic_retry_interval_seconds": 15,
+    "preview_metadata_only": true,
+    "approval_audit_table": "runtime_operation_approvals",
+    "one_apply_steps": ["bounded_postgresql_projection_replay", "one_idempotent_spool_replay", "post_repair_receipt_reconciliation"],
+    "postgresql_projection_batch_limit": 256,
+    "canonical_fact_or_evidence_reinserted": false,
+    "source_replay_count_inflated": false,
+    "legacy_receipt_without_projection_input": "repairable_only_when_an_owned_sanitized_spool_frame_still_exists_otherwise_visible_incomplete",
+    "failed_record_drained": false,
+    "successful_record_completion": "projection_receipt_and_temporary_postgresql_input_deleted_and_owned_sanitized_spool_drained_idempotently",
+    "payloads_returned": false
   }
 }

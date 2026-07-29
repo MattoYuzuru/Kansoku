@@ -89,7 +89,10 @@ func OTLPSafeAttributes() []string {
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
 		"kansoku.component.kind", "kansoku.duration_ms", "kansoku.prompt_length_characters",
 		"kansoku.input_tokens", "kansoku.cached_input_tokens", "kansoku.output_tokens", "kansoku.provider_cost_micros",
-		"kansoku.turn.id",
+		"kansoku.turn.id", "kansoku.component.identity",
+		"kansoku.component.identity_source", "kansoku.component.owner_plugin",
+		"kansoku.component.invocation_mode", "kansoku.component.upstream_identity_hash",
+		"kansoku.component.source_scope",
 	}
 }
 
@@ -119,9 +122,14 @@ func DroppedOTelSurfaces() []string {
 type ClaudeComponentAttribute string
 
 const (
-	AttributeSkillName  ClaudeComponentAttribute = "skill.name"
-	AttributePluginName ClaudeComponentAttribute = "plugin.name"
-	AttributeAgentName  ClaudeComponentAttribute = "agent.name"
+	AttributeSkillName         ClaudeComponentAttribute = "skill.name"
+	AttributePluginName        ClaudeComponentAttribute = "plugin.name"
+	AttributeAgentName         ClaudeComponentAttribute = "agent.name"
+	AttributeInvocationTrigger ClaudeComponentAttribute = "invocation_trigger"
+	AttributeSkillSource       ClaudeComponentAttribute = "skill.source"
+	AttributePluginScope       ClaudeComponentAttribute = "plugin.scope"
+	AttributeEnabledVia        ClaudeComponentAttribute = "enabled_via"
+	AttributePluginIDHash      ClaudeComponentAttribute = "plugin_id_hash"
 )
 
 // DocumentedComponentAttributes is the closed, documented identity/component
@@ -129,7 +137,11 @@ const (
 // contracts/claude/hooks-and-otel.yaml's
 // otel_source.documented_attributes.identity_and_component verbatim.
 func DocumentedComponentAttributes() []ClaudeComponentAttribute {
-	return []ClaudeComponentAttribute{AttributeSkillName, AttributePluginName, AttributeAgentName}
+	return []ClaudeComponentAttribute{
+		AttributeSkillName, AttributePluginName, AttributeAgentName,
+		AttributeInvocationTrigger, AttributeSkillSource, AttributePluginScope,
+		AttributeEnabledVia, AttributePluginIDHash,
+	}
 }
 
 // ComponentAttributeSafeSlot returns the existing OTLPSafeAttributes() slot a
@@ -139,8 +151,18 @@ func DocumentedComponentAttributes() []ClaudeComponentAttribute {
 // skill.name/plugin.name/agent.name.
 func ComponentAttributeSafeSlot(attribute ClaudeComponentAttribute) (string, bool) {
 	switch attribute {
-	case AttributeSkillName, AttributePluginName, AttributeAgentName:
-		return "kansoku.tool.id", true
+	case AttributeSkillName, AttributeAgentName:
+		return "kansoku.component.identity", true
+	case AttributePluginName:
+		return "kansoku.component.owner_plugin", true
+	case AttributeInvocationTrigger:
+		return "kansoku.component.invocation_mode", true
+	case AttributeSkillSource, AttributePluginScope:
+		return "kansoku.component.source_scope", true
+	case AttributeEnabledVia:
+		return "kansoku.component.identity_source", true
+	case AttributePluginIDHash:
+		return "kansoku.component.upstream_identity_hash", true
 	default:
 		return "", false
 	}
@@ -257,9 +279,9 @@ func ExpectedOTelAttributeFingerprint(name OTelEventName) (string, bool) {
 		OTelToolResult:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
 		OTelAPIRequest:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"},
 		OTelAPIError:        {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms"},
-		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
 	}
 	required, ok := requiredByEvent[name]
 	if !ok {
@@ -329,9 +351,9 @@ func requiredOTelKeys(name OTelEventName) []string {
 		OTelToolResult:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
 		OTelAPIRequest:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"},
 		OTelAPIError:        {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms"},
-		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
 	}
 	return requiredByEvent[name]
 }

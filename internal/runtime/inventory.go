@@ -87,12 +87,6 @@ func (c *InventoryCollector) scanTarget(ctx context.Context, target InventoryTar
 	}
 	installationID := target.InstallationID
 	if installationID == "" {
-		installationID, err = dataplatform.LatestInstallationForAdapter(ctx, c.pool, target.AdapterID)
-		if err != nil {
-			return errors.New("installation_lookup_failed")
-		}
-	}
-	if installationID == "" {
 		installationID = normalizedInstallationID(target.AdapterID)
 	}
 	if err := dataplatform.EnsureInventoryInstallation(ctx, c.pool, installationID, target.AdapterID); err != nil {
@@ -105,12 +99,28 @@ func (c *InventoryCollector) scanTarget(ctx context.Context, target InventoryTar
 	if err != nil {
 		return errors.New("adapter_inventory_failed")
 	}
-	result, err := dataplatform.PersistInventorySnapshot(ctx, c.pool, snapshot, "complete")
+	reconciliation := adapter.Reconcile(
+		ctx,
+		adaptersdk.ReconcileScope{InstallationID: installationID},
+		adaptersdk.InventorySnapshot{},
+		snapshot,
+	)
+	completeness := reconciliation.Completeness
+	if completeness == "" {
+		completeness = "unknown"
+	}
+	result, err := dataplatform.PersistInventorySnapshot(ctx, c.pool, snapshot, completeness)
 	if err != nil {
 		return errors.New("inventory_persistence_failed")
 	}
+	state := completeness
+	errorClass := ""
+	if completeness == "unknown" {
+		state = "not_observed"
+		errorClass = "inventory_source_coverage_absent"
+	}
 	return c.recordStatus(
-		ctx, target, installationID, "complete", "", &snapshot,
+		ctx, target, installationID, state, errorClass, &snapshot,
 		result.NodeCount, result.EdgeCount,
 	)
 }

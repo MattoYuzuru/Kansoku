@@ -575,6 +575,70 @@ export interface SystemSnapshotResponse {
   // no freshness field on this endpoint
 }
 
+/* ---- /api/v1/health (runtime durability/capacity snapshot) ---- */
+export type RuntimeHealthState = "pass" | "warning" | "degraded" | "critical" | "unknown";
+export interface CapacityMeasure {
+  current_bytes: number;
+  budget_bytes: number;
+  percentage: number;
+  state: RuntimeHealthState;
+  growth_bytes_per_day: number | null;
+  estimated_exhaustion_at: string | null;
+}
+export interface StorageComponent {
+  bytes: number | null;
+  value_state: "observed" | "not_observed" | "unsupported" | "unknown";
+  notes?: string;
+}
+export interface RuntimeSourceFreshness {
+  source_kind?: string;
+  source_id?: string;
+  state?: string;
+  value_state: "observed" | "not_observed" | "unsupported" | "unknown";
+  last_observed_at?: string;
+  last_committed_at?: string;
+  last_attempted_at?: string;
+  last_successful_at?: string | null;
+  last_error_class?: string | null;
+  gap_count?: number;
+  inactivity?: boolean;
+}
+export interface RuntimeHealthResponse {
+  status: RuntimeHealthState;
+  database: string;
+  workers: string;
+  spool: string;
+  migration_ledgers: string;
+  database_budget: CapacityMeasure;
+  checkpoint_usage: CapacityMeasure;
+  legacy_mirror: { current_bytes: number; state: string };
+  spool_bytes: Record<string, number>;
+  spool_budget_bytes: Record<string, number>;
+  queue_depth: Record<string, number>;
+  source_freshness: RuntimeSourceFreshness[];
+  storage_components: {
+    backups: StorageComponent;
+    indexes: StorageComponent;
+    table_heap: StorageComponent;
+    temporary_files: StorageComponent;
+    wal_headroom: StorageComponent;
+    filesystem: {
+      available_bytes: number;
+      total_bytes: number;
+      free_percentage: number;
+      minimum_recommended_free_bytes: number;
+      state: RuntimeHealthState;
+    };
+  };
+  last_successful_ingest_at: string | null;
+  last_rejected_ingest_at: string | null;
+  backpressure_rejected_total: number;
+  durability_unavailable_total: number;
+  pending_projection_count: number;
+  oldest_pending_projection_at: string | null;
+  counter_scope: string;
+}
+
 /* ---- /api/v1/privacy/canary-history ---- */
 export interface PrivacyCanaryDayRow {
   day: string;

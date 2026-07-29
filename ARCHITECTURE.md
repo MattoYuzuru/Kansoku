@@ -14,7 +14,7 @@ prompts/responses/code ever persisted. Full pitch: `README.md`.
 
 ```
 Codex / Claude Code (real agent processes)
-   │  OTel (OTLP HTTP/gRPC)         hooks (stdin JSON)        rollout/transcript files (disk scan)
+   │ OTel (OTLP HTTP/gRPC)    hooks (stdin JSON)    explicit App Server JSONL    rollout files
    ▼                                    ▼                            ▼
 internal/observability (OTLP+hook ingress, envelope normalize)   internal/codexadapter
    │                                                              internal/claudeadapter
@@ -34,7 +34,8 @@ internal/installer     — simulate-only config-writer plans (OTel + hook instal
                          shared Plan/Approval/SimulateApply/SimulateRollback machinery, no real
                          filesystem writer today (ADR 0002/0008).
 internal/runtime       — wires everything above into the one appliance process (cmd/kansoku):
-                         API, scheduler/jobs, backup/restore, secrets, queue, soak harness.
+                         API, supervised App Server ingress, scheduler/jobs, backup/restore,
+                         restart-durable health, secrets, queue, soak harness.
 internal/crossagent    — test-only package: one logical scenario asserted once per real agent to
                          prove cross-agent portability of the canonical schema. No production code.
 cmd/privacy-canary     — standalone binary, independently verifies no raw content reaches any sink.
@@ -44,7 +45,7 @@ cmd/privacy-canary     — standalone binary, independently verifies no raw cont
 
 | Path | Purpose | Key files | Governing contracts |
 |---|---|---|---|
-| `internal/observability` | OTLP + hook ingress, canonical event envelope, normalization, durable spool | `otlp.go`, `routes.go`, `normalize.go`, `ingest.go`, `types.go` | `contracts/observability/*` |
+| `internal/observability` | OTLP + hook ingress, canonical event envelope, normalization, bounded checkpoint state, durable spool | `otlp.go`, `routes.go`, `normalize.go`, `ingest.go`, `compact_store.go`, `store.go`, `types.go` | `contracts/observability/*` |
 | `internal/privacy` | Sanitization boundary: typed `SafeRecord`/`SafeError`, redaction, sinks | `sanitizer.go`, `classification.go`, `sinks.go` | `contracts/privacy/*` |
 | `internal/dataplatform` | PostgreSQL schema, ingest, partitions, rollups, retention, durable component inventory/current state, all dashboard queries | `db.go`, `migrate.go`, `rollup.go`, `retention.go`, `inventory.go`, `component_inventory.go`, plugin graph/attribution/queries (`plugin_attribution.go`, `plugin_observatory.go`), per-panel files (`activity_timeline.go`, `tool_analytics.go`, `mcp_topology.go`, ...) | `contracts/data-platform/*`, `contracts/plugins/*` |
 | `internal/adaptersdk` | Shared `Adapter` interface, capability model, `HostView`, inventory graph, `ChangePlan` | `adapter.go`, `manifest.go`, `plan.go`, `hostview.go`; `fakeadapter/`, `wayfinder/` (conformance fixtures) | `contracts/adapter-sdk/*` |
@@ -54,7 +55,7 @@ cmd/privacy-canary     — standalone binary, independently verifies no raw cont
 | `internal/installer` | Config-writer plan protocol shared by both adapters' `PlanConfiguration` (OTel + hook targets); simulate-only | `protocol.go` | `contracts/privacy/installer.yaml`, `contracts/adapter-sdk/capabilities.yaml` |
 | `internal/integrity` | Daily audit: drift/schema/freshness/health checks, incidents, fault injection, live canary, backup cycle | `check.go`, `drift.go`, `health.go`, `incident.go`, `livecanary.go`, `scheduler.go` | `contracts/integrity/*` |
 | `internal/localhttp` | Local HTTP server security: auth (bearer tokens), CSRF, loopback binding | `security.go` | `contracts/privacy/deployment.yaml`, `contracts/runtime/auth-and-plans.yaml` |
-| `internal/runtime` | Assembles the appliance process: API surface, jobs/scheduler, read-only inventory collector, backup/export, secrets, queue, soak harness | `assembly.go`, `api.go`, domain API files (`api_incidents.go`, `api_mcp.go`, `api_plugins.go`, ...), `inventory.go`, `jobs.go`, `backup.go`, `secrets.go`, `soak.go` | `contracts/runtime/*`, domain API contracts |
+| `internal/runtime` | Assembles the appliance process: API surface, jobs/scheduler, read-only inventory/rollout collectors, supervised exact App Server ingress, PostgreSQL-authoritative durability, restart-durable ingestion health, capacity health, mirror reconciliation, backup/export, secrets, queue, soak harness | `assembly.go`, `api.go`, `capacity.go`, `mirror_migration.go`, `codex_app_server_ingress.go`, `codex_rollout_watcher.go`, `ingestion_health.go`, domain API files (`api_incidents.go`, `api_mcp.go`, `api_plugins.go`, ...), `inventory.go`, `jobs.go`, `backup.go`, `secrets.go`, `soak.go` | `contracts/runtime/*`, domain API contracts |
 | `internal/webui` | Embeds the built `web/dist` SPA (Go `embed`) and serves it | `webui.go`, `dist/` (generated, do not hand-edit) | — |
 | `cmd/kansoku` | Main binary entrypoint; wires `internal/runtime` assembly, exposes `soak` subcommand | `main.go`, `soak.go` | — |
 | `cmd/privacy-canary` | Standalone binary: independently verifies no raw content reaches any sink | `main.go` | `contracts/privacy/sinks.yaml` |
@@ -67,11 +68,11 @@ status before editing here.**
 
 | Path | Purpose |
 |---|---|
-| `web/src/pages/` | One file per dashboard route (`Overview.tsx`, `Activity.tsx`, `Agents.tsx`, `Tools.tsx`, `MCP.tsx`, `Plugins.tsx`, `PluginDetail.tsx`, `Models.tsx`, `Reliability.tsx`, `Privacy.tsx`, `Settings.tsx`, ...) — routes/panels are defined in `contracts/dashboard.yaml`, one row per page |
+| `web/src/pages/` | One file per dashboard route (`Overview.tsx`, `Activity.tsx`, `Agents.tsx`, `Tools.tsx`, `MCP.tsx`, `Plugins.tsx`, `PluginDetail.tsx`, `Models.tsx`, `Reliability.tsx`, `Privacy.tsx`, `Glossary.tsx`, `Settings.tsx`, ...) — routes/panels are defined in `contracts/dashboard.yaml`, one row per page |
 | `web/src/api/` | `client.ts` (HTTP client against `internal/localhttp`), `queries.ts` (TanStack Query hooks), `types.ts` |
 | `web/src/components/` | Shared chart/table/panel primitives (`ChartContainer`, `DataTable`, `KpiCard`, `Panel`, `PercentageDisplay`, `StatusBadge`, `Switch`, ...) |
-| `web/src/ui/`, `web/src/hooks/`, `web/src/lib/` | Icon set, `useRange` hook, formatting helpers |
-| `web/src/generated/routes.ts` | Generated from `web/scripts/gen-routes.mjs` — don't hand-edit |
+| `web/src/ui/`, `web/src/hooks/`, `web/src/lib/` | Icon set, `useRange` hook, formatting and presentation-only component catalog helpers |
+| `web/src/generated/routes.ts`, `web/src/generated/glossary.ts` | Generated from dashboard/glossary contracts by `web/scripts/gen-routes.mjs` — don't hand-edit |
 | `web/dist/`, `internal/webui/dist/` | Vite build output; `internal/webui/dist/` is a copy embedded into the Go binary via `go:embed` — both generated, not source |
 
 ## Contracts (`contracts/`)

@@ -19,7 +19,7 @@ var (
 
 func validSourceKind(kind SourceKind) bool {
 	switch kind {
-	case SourceHook, SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric, SourceTranscript, SourceAdapterBatch, SourceEvidenceBridge:
+	case SourceHook, SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric, SourceTranscript, SourceAdapterBatch, SourceEvidenceBridge, SourceCodexRollout:
 		return true
 	default:
 		return false
@@ -84,7 +84,7 @@ func validEventType(value string) bool {
 	switch value {
 	case "session.started", "prompt.submitted", "component.executed", "session.stopped",
 		"model.requested", "model.responded", "component.installed", "component.enabled",
-		"component.exposed", "component.loaded", "component.invoked",
+		"component.exposed", "component.requested", "component.loaded", "component.invoked",
 		"source.observed",
 		// "tool.called" is appended (never replacing component.executed) for
 		// Gap A: it is the real, already-tested canonical event type both
@@ -134,6 +134,9 @@ func validSource(source SourceRef) bool {
 	if source.Kind == SourceOTLPLog || source.Kind == SourceOTLPSpan || source.Kind == SourceOTLPMetric {
 		return source.SchemaID == "codex.otel/1" || source.SchemaID == "claude.otel/1"
 	}
+	if source.Kind == SourceCodexRollout {
+		return source.SchemaID == "codex.rollout/2"
+	}
 	return false
 }
 
@@ -160,6 +163,13 @@ func validateEvent(event Event, factKey string) error {
 		(event.Measurements.OutputTokens != nil && *event.Measurements.OutputTokens < 0) ||
 		(event.Measurements.ProviderCostMicros != nil && *event.Measurements.ProviderCostMicros < 0) ||
 		(event.Measurements.Count != nil && *event.Measurements.Count < 0) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.QualifiedIdentity) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.IdentitySource) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.OwnerPluginIdentity) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.InvocationMode) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.SourceScope) ||
+		(event.ComponentEvidence.UpstreamIdentityHash != "" &&
+			!pseudonymPattern.MatchString(event.ComponentEvidence.UpstreamIdentityHash)) ||
 		!validValueState(event.ValueState) || !validOutcome(event.Outcome) || !validCorrelation(event.CorrelationStatus) {
 		return errors.New("invalid_event")
 	}
@@ -291,7 +301,8 @@ func ValidateState(state DurableState) error {
 	}
 	for index, quarantine := range state.Quarantine {
 		if !hex32IDPattern.MatchString(quarantine.QuarantineID) || !validSourceKind(quarantine.SourceKind) || !fingerprintPattern.MatchString(quarantine.SchemaFingerprint) ||
-			!safeIDPattern.MatchString(quarantine.Category) || quarantine.ByteCount < 0 || quarantine.RecordCount < 0 || quarantine.ObservedAt.IsZero() {
+			!safeIDPattern.MatchString(quarantine.Category) || quarantine.ByteCount < 0 || quarantine.RecordCount < 0 || quarantine.ObservedAt.IsZero() ||
+			(quarantine.OccurrenceKey != "" && !fingerprintPattern.MatchString(quarantine.OccurrenceKey)) {
 			return fmt.Errorf("invalid_quarantine:%d", index)
 		}
 	}

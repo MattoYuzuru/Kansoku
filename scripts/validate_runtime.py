@@ -43,24 +43,27 @@ POLICY_BASE_BY_REGISTRY = {
     "contracts/runtime/runtime-and-api.yaml": "runtime.runtime-and-api",
 }
 AUTHORITATIVE_SEMANTIC_SHA256 = {
-    "contracts/runtime/auth-and-plans.yaml": "774677e401e14dabb079eecd584a803d6858fde1c5cd7701a395724bc8d19864",
-    "contracts/runtime/operations-backup-and-soak.yaml": "3b3d1e0df2a9a6aeeea01859b7f8ae485a4e6a3dffb09d865dacdcda0f1a94a2",
-    "contracts/runtime/queue-and-durability.yaml": "23efa645fc0f27b7343a6f8799bca73aadd622b02c5111ec7ad343fce490f530",
-    "contracts/runtime/runtime-and-api.yaml": "6ba710f5bfa28e3ff363bc27f6d9d3392e23781c61668c4d90f75ae425ee37e2",
+    "contracts/runtime/auth-and-plans.yaml": "0531e66da21326c918dca0c3e87d30c5724ad792da4b24b4ff4f648b8871c48f",
+    "contracts/runtime/operations-backup-and-soak.yaml": "26f1b0e34a32570e210f88c769f1fc01ce0ff1b2b6cf6b55517d9a175046391a",
+    "contracts/runtime/queue-and-durability.yaml": "bb3083f54aa07afba47ed39926e6dc5fb4cd906bc84e28c4c57a5d9bf38279ef",
+    "contracts/runtime/runtime-and-api.yaml": "181c3d99139357bd895030aa3ce213725d7d522d115a86974303807bb91b0407",
 }
 TOP_LEVEL = {
     "auth-and-plans.yaml": {
         "schema_version", "contract_version", "effective_at", "secret_files",
         "route_authorization", "plan_preview", "plan_apply", "admin_mutation",
+        "projection_repair",
     },
     "operations-backup-and-soak.yaml": {
         "schema_version", "contract_version", "effective_at", "job_state",
         "retention_and_resources", "native_backup", "portable_export_import",
-        "diagnostics", "compose_policy", "accelerated_soak",
+        "diagnostics", "one_shot_runtime_boundary", "compose_policy",
+        "accelerated_soak",
     },
     "queue-and-durability.yaml": {
         "schema_version", "contract_version", "effective_at", "lanes", "admission",
         "acknowledgement", "spool", "metrics", "shutdown", "idempotency",
+        "operator_repair",
     },
     "runtime-and-api.yaml": {
         "schema_version", "contract_version", "effective_at", "appliance",
@@ -75,6 +78,7 @@ LANES = {
     "transcript_jsonl": (16, 1),
     "adapter_batch": (16, 1),
     "evidence_bridge": (16, 1),
+    "codex_rollout": (16, 1),
 }
 READ_ROUTES = {
     "GET /api/v1/inventory", "GET /api/v1/analytics", "GET /api/v1/health",
@@ -92,11 +96,23 @@ MUTATION_ROUTES = {
     "POST /api/v1/incidents/{opaque_id}/investigating",
     "POST /api/v1/incidents/{opaque_id}/action-ready",
     "POST /api/v1/admin/retention/preview", "POST /api/v1/admin/retention/apply",
+    "POST /api/v1/admin/projection-repair/preview",
+    "POST /api/v1/admin/projection-repair/apply",
     "POST /api/v1/admin/export", "POST /api/v1/admin/import",
     "POST /api/v1/admin/backup", "POST /api/v1/admin/restore-verify",
     "POST /api/v1/admin/diagnostics",
 }
-RUNTIME_TABLES = {"runtime_job_runs", "runtime_operation_approvals", "runtime_import_receipts"}
+INGRESS_ROUTES = {
+    "POST /v1/hooks/{adapter}/{event}", "POST /v1/logs",
+    "POST /v1/metrics", "POST /v1/traces",
+    "POST /v1/adapter-events/{adapter}",
+    "POST /v1/evidence-bridges/codex-app-server",
+}
+RUNTIME_TABLES = {
+    "runtime_job_runs", "runtime_operation_approvals", "runtime_import_receipts",
+    "runtime_ingestion_health", "runtime_capacity_samples", "runtime_source_health",
+    "runtime_mirror_reconciliations",
+}
 SOAK_FAULTS = {"process_restart", "database_restart", "stop_the_world_upgrade_boundary"}
 
 
@@ -162,9 +178,13 @@ def validate(
         name = Path(path).name
         if set(document) != TOP_LEVEL[name]:
             errors.append(f"{name} top-level schema is not closed")
-        expected_effective = "2026-07-26" if name in {
-            "operations-backup-and-soak.yaml", "queue-and-durability.yaml", "runtime-and-api.yaml"
-        } else "2026-07-24"
+        if name in {
+            "auth-and-plans.yaml", "operations-backup-and-soak.yaml",
+            "queue-and-durability.yaml", "runtime-and-api.yaml",
+        }:
+            expected_effective = "2026-07-29"
+        else:
+            expected_effective = "2026-07-24"
         if document.get("effective_at") != expected_effective:
             errors.append(f"{name} effective_at changed")
 
@@ -223,7 +243,8 @@ def validate(
             runtime["startup"].get("migration_checksum_mismatch") != "fail_closed":
         errors.append("runtime strict config/secret/migration startup policy changed")
     if set(runtime["api"].get("read_routes", [])) != READ_ROUTES or \
-            set(runtime["api"].get("mutation_routes", [])) != MUTATION_ROUTES:
+            set(runtime["api"].get("mutation_routes", [])) != MUTATION_ROUTES or \
+            set(runtime["api"].get("ingress_routes", [])) != INGRESS_ROUTES:
         errors.append("runtime /api/v1 route set changed")
     if runtime["api"].get("request_max_bytes") != 1048576 or \
             runtime["api"].get("response_max_bytes") != 1048576 or \
@@ -232,6 +253,22 @@ def validate(
     forbidden = set(runtime["api"].get("raw_field_names_forbidden_recursively", []))
     if not {"prompt", "response", "content", "tool_input", "tool_output", "environment", "credential", "raw_path"} <= forbidden:
         errors.append("runtime API prohibited raw-field schema weakened")
+    source_health = runtime["api"].get("health_source_state", {})
+    if source_health.get("overall_floor") != \
+            "a degraded source state makes overall health at least degraded" or \
+            set(source_health.get("watermark_degraded_when", [])) != {
+                "missing_last_committed_at", "gap_count_positive",
+                "inactivity_true",
+                "last_observed_at_more_than_5_minutes_in_the_future",
+            } or \
+            set(source_health.get("runtime_degraded_when", [])) != {
+                "state_degraded", "value_state_unknown",
+                "invalid_state_value_combination",
+            } or \
+            set(source_health.get("non_failure_exclusions", [])) != {
+                "configured_not_observed", "unsupported_unsupported",
+            } or source_health.get("clock_state_visible") is not True:
+        errors.append("runtime source freshness health floor changed")
 
     auth = data["contracts/runtime/auth-and-plans.yaml"]
     required_secrets = set(auth["secret_files"].get("required", []))
@@ -252,6 +289,12 @@ def validate(
     if binding != ["plan_sha256", "target_id", "original_sha256", "planned_sha256", "approval_nonce"] or \
             auth["plan_apply"].get("automatic_retry") is not False:
         errors.append("runtime plan approval binding changed")
+    repair_auth = auth["projection_repair"]
+    if repair_auth.get("preview_exposes_payloads") is not False or \
+            repair_auth.get("automatic_discard") is not False or \
+            repair_auth.get("agent_configuration_write") is not False or \
+            "single_use_approval_nonce" not in repair_auth.get("apply_requires", []):
+        errors.append("runtime projection repair authorization/privacy boundary changed")
 
     queue = data["contracts/runtime/queue-and-durability.yaml"]
     actual_lanes = {
@@ -260,7 +303,8 @@ def validate(
     }
     if actual_lanes != LANES or any(row.get("spool_max_bytes") != 67108864 for row in queue.get("lanes", [])):
         errors.append("runtime queue lane/capacity registry changed")
-    if queue["admission"].get("reservation_before_filestore_acceptance") is not True or \
+    if queue["admission"].get("reservation_before_filestore_acceptance") is not False or \
+            queue["admission"].get("postgresql_or_emergency_spool_before_checkpoint") is not True or \
             queue["admission"].get("per_source_capacity_independent") is not True:
         errors.append("runtime pre-acceptance per-source reservation changed")
     ack_rule = queue["acknowledgement"]
@@ -270,8 +314,29 @@ def validate(
             "PostgreSQL or its source lane sanitized spool" not in ack_rule.get("success_rule", ""):
         errors.append("runtime durable acknowledgement rule changed")
     if queue["spool"].get("format") != "strict_jsonl_typed_observability_commit_request" or \
-            queue["spool"].get("corruption") != "fail_visible_leave_bytes_unchanged":
+            queue["spool"].get("corruption") != "fail_visible_leave_bytes_unchanged" or \
+            queue["spool"].get("runtime_retry") != \
+            "supervised_every_15_seconds_without_draining_a_failed_record_or_terminating_the_appliance":
         errors.append("runtime sanitized spool contract changed")
+    if queue["metrics"].get("ingestion_rejection_counter_scope") != \
+            "postgresql_restart_durable_per_source" or \
+            queue["metrics"].get("counter_persistence_availability") != \
+            "current_state_failure_sets_degraded_and_a_subsequent_successful_recorder_write_clears_it":
+        errors.append("runtime durable ingestion counter scope changed")
+    repair = queue["operator_repair"]
+    if repair.get("automatic_retry_interval_seconds") != 15 or \
+            repair.get("preview_metadata_only") is not True or \
+            repair.get("failed_record_drained") is not False or \
+            repair.get("payloads_returned") is not False or \
+            repair.get("postgresql_projection_batch_limit") != 256 or \
+            repair.get("canonical_fact_or_evidence_reinserted") is not False or \
+            repair.get("source_replay_count_inflated") is not False or \
+            repair.get("one_apply_steps") != [
+                "bounded_postgresql_projection_replay",
+                "one_idempotent_spool_replay",
+                "post_repair_receipt_reconciliation",
+            ]:
+        errors.append("runtime projection repair ownership/idempotency boundary changed")
 
     ops = data["contracts/runtime/operations-backup-and-soak.yaml"]
     if set(ops["job_state"].get("jobs", [])) != {
@@ -292,6 +357,20 @@ def validate(
             "environment" not in ops["diagnostics"].get("forbidden", []) or \
             "credentials" not in ops["diagnostics"].get("forbidden", []):
         errors.append("runtime diagnostics privacy boundary changed")
+    one_shot = ops["one_shot_runtime_boundary"]
+    if one_shot.get("collector_activation_owner") != \
+            "serve_via_Appliance.Run_before_listener_bind" or \
+            set(one_shot.get("commands_without_runtime_collector_activation", [])) != {
+                "backup", "restore-verify", "export", "import", "diagnostics",
+                "evidence-bridge", "mcp-evidence",
+            } or \
+            one_shot.get("agent_state_mount_required") is not False or \
+            one_shot.get("inventory_health_mutation") is not False or \
+            one_shot.get("unrelated_source_health_mutation") is not False or \
+            one_shot.get("command_owned_durable_writes_only") is not True or \
+            one_shot.get("regression_test") != \
+            "TestOneShotAssemblyDoesNotActivateRuntimeSources":
+        errors.append("runtime one-shot collector activation boundary changed")
     compose_policy = ops["compose_policy"]
     if compose_policy.get("database_host_port_published") is not False or \
             compose_policy.get("database_image") != "postgres@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15" or \
@@ -314,6 +393,7 @@ def validate_code() -> list[str]:
     required_files = {
         "config.go", "secrets.go", "migrate.go", "queue.go", "api.go", "plans.go",
         "jobs.go", "backup.go", "diagnostics.go", "assembly.go", "soak.go",
+        "codex_app_server_ingress.go", "ingestion_health.go", "projection_repair.go",
     }
     if not runtime_dir.is_dir() or not required_files <= {p.name for p in runtime_dir.glob("*.go")}:
         return ["runtime implementation file set incomplete"]
@@ -323,6 +403,11 @@ def validate_code() -> list[str]:
         "ReserveNormalizedFact", "type API struct", "NewAPI", "type PlanService",
         "type JobStore", "CreateNativeBackup", "CreateDiagnosticsBundle",
         "type Appliance struct", "RunAcceleratedSoak",
+        "NewCodexAppServerIngress", "NewPostgresIngestionHealthRecorder",
+        "PreviewProjectionRepair", "ApplyProjectionRepair",
+        "ReplayPendingProjections", "MaxProjectionRepairBatch",
+        "sourceWatermarkHealthState", "runtimeSourceHealthState",
+        "sourceState := \"pass\"", "source_state",
     ], "runtime Go implementation", errors)
     if re.search(r'json:"(?:prompt|response|content|tool_input|tool_output|environment|credential|raw_path)"', source):
         errors.append("runtime API Go types expose a prohibited raw field")
@@ -336,13 +421,55 @@ def validate_code() -> list[str]:
             '"serve"', '"health"', '"config"', '"migrate"', '"backup"',
             '"restore-verify"', '"export"', '"import"', '"diagnostics"', '"soak"',
         ], "cmd/kansoku commands", errors)
+    assembly = (runtime_dir / "assembly.go").read_text(encoding="utf-8")
+    constructor, _, serving = assembly.partition(
+        "func (a *Appliance) Run(ctx context.Context) error",
+    )
+    if ".ScanOnce(ctx)" in constructor or "appServer.Configure(ctx)" in constructor:
+        errors.append("one-shot assembly activates runtime collectors")
+    _contains_all(
+        serving,
+        [
+            "a.activateRuntimeSources(ctx)",
+            "func (a *Appliance) activateRuntimeSources",
+            "a.Inventory.ScanOnce(ctx)",
+            "a.Rollout.ScanOnce(ctx)",
+            "a.AppServer.Configure(ctx)",
+        ],
+        "serve-owned runtime source activation",
+        errors,
+    )
     migration = runtime_dir / "migrations" / "0001_runtime_operations.up.sql"
     down = runtime_dir / "migrations" / "0001_runtime_operations.down.sql"
     if not migration.exists() or not down.exists():
         errors.append("runtime migration pair missing")
     else:
-        sql = migration.read_text(encoding="utf-8")
+        sql = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((runtime_dir / "migrations").glob("*.up.sql"))
+        )
         _contains_all(sql, sorted(RUNTIME_TABLES), "runtime migration", errors)
+    projection_migration = (
+        ROOT / "internal" / "dataplatform" / "migrations" /
+        "0014_projection_repair_inputs.up.sql"
+    )
+    projection_down = projection_migration.with_name(
+        "0014_projection_repair_inputs.down.sql"
+    )
+    if not projection_migration.exists() or not projection_down.exists():
+        errors.append("projection repair input migration pair missing")
+    else:
+        _contains_all(
+            projection_migration.read_text(encoding="utf-8"),
+            [
+                "kansoku.projection-input/1",
+                "projection_input",
+                "PRIMARY KEY (evidence_id, observed_at)",
+                "32768",
+            ],
+            "projection repair migration",
+            errors,
+        )
     compose = ROOT / "deploy" / "compose.yaml"
     if not compose.exists():
         errors.append("production Compose file missing")
@@ -544,11 +671,19 @@ def _soak_runtime_config() -> dict[str, Any]:
         "database": {"host": "postgres", "port": 5432, "name": "kansoku", "user": "kansoku",
                      "ssl_mode": "disable", "connect_timeout_seconds": 10},
         "secret_files": {name: f"/run/secrets/{name}" for name in SOAK_SECRET_NAMES},
-        "queue_capacity": 64, "spool_max_bytes": 67108864, "shutdown_timeout_ms": 30000,
+        "queue_capacity": 64, "spool_max_bytes": 67108864,
+        "checkpoint_state_max_bytes": 4194304,
+        "database_soft_limit_bytes": 5368709120,
+        "database_budget_warning_fraction": 0.70,
+        "database_budget_degraded_fraction": 0.85,
+        "database_budget_critical_fraction": 0.95,
+        "storage_preflight_min_free_bytes": 26843545600,
+        "shutdown_timeout_ms": 30000,
         "query_timeout_ms": 500, "response_max_bytes": 1048576, "retention_days": 400,
         "disk_budget_fraction": 0.9, "integrity_enabled": True,
         "privacy_canary_fixture": "/usr/share/kansoku/privacy-canary.json",
         "backup_dir": "/var/lib/kansoku-backups", "diagnostics_max_bytes": 1048576,
+        "rollout_watch_interval_seconds": 5,
     }
 
 

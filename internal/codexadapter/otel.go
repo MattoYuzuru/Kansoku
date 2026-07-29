@@ -72,6 +72,9 @@ func OTLPSafeAttributes() []string {
 		"kansoku.component.kind", "kansoku.duration_ms", "kansoku.prompt_length_characters",
 		"kansoku.input_tokens", "kansoku.cached_input_tokens", "kansoku.output_tokens",
 		"kansoku.provider_cost_micros", "kansoku.turn.id",
+		"kansoku.component.identity", "kansoku.component.identity_source",
+		"kansoku.component.owner_plugin", "kansoku.component.invocation_mode",
+		"kansoku.component.upstream_identity_hash", "kansoku.component.source_scope",
 	}
 }
 

@@ -86,21 +86,42 @@ func persistPluginChildActivity(
 		return err
 	}
 	idempotency := e.IdempotencyKey + ":plugin-child:" + pluginInstallationID
-	_, err = tx.Exec(ctx, `
+	assertionID := handoffID("plugin-child-assertion", idempotency)
+	inserted, err := tx.Exec(ctx, `
 		INSERT INTO component_assertions (
 			assertion_id,component_installation_id,agent_installation_id,
 			session_id,turn_id,event_id,evidence_id,assertion_kind,mode,
 			evidence_tier,confidence,source_instance_id,adapter_version,
 			schema_version,observed_at,idempotency_key,identity_resolution,
 			declared_identity_pseudonym,candidate_count
+			,component_kind,qualified_identity,identity_source,
+			owner_plugin_identity,invocation_mode,resolution_version
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,'child_activity','not_observed',
-			$8,$9,$10,$11,$12,$13,$14,'exact',$15,1)
+			$8,$9,$10,$11,$12,$13,$14,'exact',$15,1,
+			'plugin',$16,'plugin_child_activity',$16,'not_observed',1)
 		ON CONFLICT (source_instance_id,idempotency_key) DO NOTHING
-	`, handoffID("plugin-child-assertion", idempotency),
+	`, assertionID,
 		pluginInstallationID, e.AgentInstallationID, nullableString(e.SessionID),
 		nullableString(e.TurnID), nullableString(e.EventID), nullableString(e.EvidenceID),
 		e.EvidenceTier, e.Confidence, e.SourceInstanceID, e.AdapterVersion,
 		e.SchemaVersion, e.ObservedAt.UTC(), idempotency,
-		inventoryID("declared-component", pluginName))
+		inventoryID("declared-component", pluginName), pluginName)
+	if err != nil {
+		return err
+	}
+	if inserted.RowsAffected() == 0 {
+		return nil
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO component_assertion_resolution_history (
+			resolution_history_id, assertion_id, resolution_version,
+			identity_resolution, component_installation_id, candidate_count,
+			resolver_version, resolution_trigger, resolved_at
+		) VALUES (
+			$1,$2,1,'exact',$3,1,'component-resolver/2','initial_ingest',$4
+		)
+		ON CONFLICT (assertion_id,resolution_version) DO NOTHING
+	`, handoffID("component-resolution", assertionID, "1"), assertionID,
+		pluginInstallationID, e.ObservedAt.UTC())
 	return err
 }

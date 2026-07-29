@@ -25,6 +25,12 @@
   },
   "queue_capacity": 64,
   "spool_max_bytes": 67108864,
+  "checkpoint_state_max_bytes": 4194304,
+  "database_soft_limit_bytes": 5368709120,
+  "database_budget_warning_fraction": 0.70,
+  "database_budget_degraded_fraction": 0.85,
+  "database_budget_critical_fraction": 0.95,
+  "storage_preflight_min_free_bytes": 26843545600,
   "shutdown_timeout_ms": 30000,
   "query_timeout_ms": 500,
   "response_max_bytes": 1048576,
@@ -38,6 +44,7 @@
     {
       "target_id": "codex-local",
       "adapter_id": "codex",
+      "installation_id": "ain_9cd7c4fbf5d8df4694834d7769a3747b",
       "surface_id": "cli",
       "state_root": "/agent-state/codex"
     },
@@ -48,5 +55,6 @@
       "state_root": "/agent-state/claude"
     }
   ],
-  "inventory_scan_interval_seconds": 300
+  "inventory_scan_interval_seconds": 300,
+  "rollout_watch_interval_seconds": 5
 }

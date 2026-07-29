@@ -12,7 +12,10 @@
     "build": "tsc --noEmit && vite build",
     "dev": "node scripts/gen-routes.mjs && vite",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "test:component-catalog": "node --experimental-strip-types --test tests/componentCatalog.test.ts",
+    "typecheck": "tsc --noEmit",
+    "verify:a11y-tokens": "node scripts/verify-accessibility-tokens.mjs",
+    "verify:system-browser": "node scripts/verify-system-browser.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.62.7",

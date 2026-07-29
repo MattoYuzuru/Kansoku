@@ -29,10 +29,10 @@ class Session14ComponentEvidenceContractTests(unittest.TestCase):
         contract = validate_component_evidence.load(validate_component_evidence.CONTRACT_PATH)
         current = validate_component_evidence.load(validate_component_evidence.LOCK_PATH)
         changed = copy.deepcopy(contract)
-        changed["contract_version"] = "2.0.1"
+        changed["contract_version"] = "2.1.1"
         transitioned = copy.deepcopy(current)
         transitioned["locks"].append({
-            "policy_version": "component-evidence/2",
+            "policy_version": f"component-evidence/{len(current['locks']) + 1}",
             "registry": "contracts/component-evidence.yaml",
             "semantic_sha256": validate_component_evidence.semantic_sha256(changed),
         })

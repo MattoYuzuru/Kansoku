@@ -5,13 +5,13 @@
  * §4 #7 (no animation library); it collapses to the final number immediately
  * under prefers-reduced-motion.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { StatusBadge } from "./StatusBadge";
 import type { ViewState } from "../api/client";
 import "./KpiCard.css";
 
 export interface KpiCardProps {
-  label: string;
+  label: ReactNode;
   value: number | null;
   unit?: string;
   /** Signed delta vs. the comparison period; rendered in KPI unit/delta type. */

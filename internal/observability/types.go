@@ -30,6 +30,7 @@ const (
 	SourceTranscript     SourceKind = "transcript_jsonl"
 	SourceAdapterBatch   SourceKind = "adapter_batch"
 	SourceEvidenceBridge SourceKind = "evidence_bridge"
+	SourceCodexRollout   SourceKind = "codex_rollout"
 )
 
 type SourceLifecycle string
@@ -101,6 +102,15 @@ type Subject struct {
 	ModelID            string `json:"model_id"`
 }
 
+type ComponentEvidenceMetadata struct {
+	QualifiedIdentity    string `json:"qualified_identity"`
+	IdentitySource       string `json:"identity_source"`
+	OwnerPluginIdentity  string `json:"owner_plugin_identity"`
+	InvocationMode       string `json:"invocation_mode"`
+	UpstreamIdentityHash string `json:"upstream_identity_hash"`
+	SourceScope          string `json:"source_scope"`
+}
+
 type Measurements struct {
 	DurationMS           *int64 `json:"duration_ms"`
 	Success              *bool  `json:"success"`
@@ -115,22 +125,23 @@ type Measurements struct {
 // Event is a closed durable allowlist. Raw payloads, generic attribute maps,
 // source paths and error strings deliberately have no representation here.
 type Event struct {
-	SpecVersion       string            `json:"spec_version"`
-	EventID           string            `json:"event_id"`
-	FactKey           string            `json:"fact_key"`
-	EventType         string            `json:"event_type"`
-	EmittedAt         time.Time         `json:"emitted_at"`
-	ObservedAt        time.Time         `json:"observed_at"`
-	IngestedAt        time.Time         `json:"ingested_at"`
-	TimestampQuality  string            `json:"timestamp_quality"`
-	Source            SourceRef         `json:"source"`
-	Scope             Scope             `json:"scope"`
-	Subject           Subject           `json:"subject"`
-	Measurements      Measurements      `json:"measurements"`
-	ValueState        string            `json:"value_state"`
-	Outcome           string            `json:"outcome"`
-	CorrelationStatus CorrelationStatus `json:"correlation_status"`
-	Lifecycle         []EventStage      `json:"lifecycle"`
+	SpecVersion       string                    `json:"spec_version"`
+	EventID           string                    `json:"event_id"`
+	FactKey           string                    `json:"fact_key"`
+	EventType         string                    `json:"event_type"`
+	EmittedAt         time.Time                 `json:"emitted_at"`
+	ObservedAt        time.Time                 `json:"observed_at"`
+	IngestedAt        time.Time                 `json:"ingested_at"`
+	TimestampQuality  string                    `json:"timestamp_quality"`
+	Source            SourceRef                 `json:"source"`
+	Scope             Scope                     `json:"scope"`
+	Subject           Subject                   `json:"subject"`
+	ComponentEvidence ComponentEvidenceMetadata `json:"component_evidence"`
+	Measurements      Measurements              `json:"measurements"`
+	ValueState        string                    `json:"value_state"`
+	Outcome           string                    `json:"outcome"`
+	CorrelationStatus CorrelationStatus         `json:"correlation_status"`
+	Lifecycle         []EventStage              `json:"lifecycle"`
 }
 
 type Evidence struct {
@@ -176,6 +187,9 @@ type Quarantine struct {
 	ByteCount         int64      `json:"byte_count"`
 	RecordCount       int        `json:"record_count"`
 	ObservedAt        time.Time  `json:"observed_at"`
+	// OccurrenceKey is a keyed, metadata-only replay identity. It is never
+	// derived from or reversible to raw record content.
+	OccurrenceKey string `json:"occurrence_key,omitempty"`
 }
 
 type Incident struct {

@@ -103,3 +103,15 @@ genuinely unknown or drifted schemas. Documented metadata-only records use `sour
 they are not silently dropped, projected as a second tool/model operation, or reported as schema
 drift. Native prompt IDs are pseudonymized for turn correlation and safe values carry the explicit
 `observed` state.
+
+## 2026-07-28 durability incident amendment
+
+PostgreSQL is the authoritative durable fact/evidence store. The local JSON state contains only
+bounded watermarks, importer checkpoints and replay metadata; it is not a compatibility copy of
+the historical fact corpus. Acceptance occurs only after PostgreSQL or the bounded per-lane
+emergency spool owns the sanitized record. A checkpoint write failure after that boundary degrades
+local replay health but cannot turn an already durable fact into a rejected ingest.
+
+Unknown OTLP records are metadata-only, fingerprint-bounded and occurrence-rate-limited. An
+unknown record does not abort later supported records in the same batch, and exact replay remains
+idempotent. Retryable status is reserved for transient durability/backpressure failure.

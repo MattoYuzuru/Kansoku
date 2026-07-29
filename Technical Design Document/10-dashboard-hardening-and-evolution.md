@@ -183,3 +183,11 @@ capability/version evidence record.
 All supported routes pass accessibility, privacy, reliability, performance and visual-state tests;
 formula/evidence drill-down is universal; release/restore is reproducible; the project has a safe
 adapter and metric evolution process beyond the initial ten sessions.
+
+## Contract-backed glossary route (2026-07-29)
+
+`web/scripts/gen-routes.mjs` reads both `contracts/dashboard.yaml` and
+`contracts/glossary.yaml`. It generates the route registry plus a typed term registry at build
+time. `/glossary` renders only those generated definitions, supports local search and stable term
+anchors, and performs no API call or external request. Contextual info links use the same anchors.
+The route is lazy-loaded and remains within the existing read-only dashboard authorization model.

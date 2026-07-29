@@ -262,3 +262,60 @@ export function bucketedStackedBarOption<T extends BucketedRow>(
   const dense = bucketedSeries(range, rows, series);
   return stackedBarOption(dense.categories, dense.series);
 }
+
+/** Metadata-only event dots over time; the adjacent table remains the exact accessible equivalent. */
+export function eventTimelineOption(
+  rows: readonly { observed_at: string; assertion_kind: string }[],
+  kinds: readonly string[],
+): Record<string, unknown> {
+  return {
+    color: kinds.map((_, index) => PALETTE[index % PALETTE.length]),
+    grid: { left: 100, right: 20, top: 24, bottom: 48 },
+    tooltip: { trigger: "item" },
+    xAxis: {
+      type: "time",
+      axisLine: { lineStyle: { color: "var(--border)" } },
+      axisLabel: { color: "var(--text-faint)" },
+    },
+    yAxis: {
+      type: "category",
+      data: kinds,
+      axisLine: { lineStyle: { color: "var(--border)" } },
+      axisLabel: { color: "var(--text-primary)" },
+    },
+    series: kinds.map((kind) => ({
+      name: kind,
+      type: "scatter",
+      symbolSize: 9,
+      data: rows
+        .filter((row) => row.assertion_kind === kind)
+        .map((row) => [row.observed_at, kind]),
+    })),
+  };
+}
+
+/** Horizontal ranking bars for a bounded top-N component distribution. */
+export function rankingBarOption(
+  labels: readonly string[],
+  values: readonly number[],
+): Record<string, unknown> {
+  return {
+    color: ["var(--accent-purple)"],
+    grid: { left: 160, right: 32, top: 16, bottom: 32 },
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: formatChartValue },
+    xAxis: {
+      type: "value",
+      minInterval: 1,
+      splitLine: { lineStyle: { color: "var(--hairline)" } },
+      axisLabel: { color: "var(--text-faint)" },
+    },
+    yAxis: {
+      type: "category",
+      inverse: true,
+      data: labels,
+      axisLine: { lineStyle: { color: "var(--border)" } },
+      axisLabel: { color: "var(--text-primary)", width: 140, overflow: "truncate" },
+    },
+    series: [{ type: "bar", data: values, barMaxWidth: 24 }],
+  };
+}

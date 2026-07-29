@@ -65,29 +65,34 @@ def validate(
     planes = data.get("planes", {})
     if planes.get("availability") != ["installed", "enabled", "exposed"]:
         errors.append("availability plane changed")
-    if planes.get("runtime") != ["invoked", "loaded", "child_activity", "outcome"]:
+    if planes.get("runtime") != ["requested", "invoked", "loaded", "child_activity", "outcome"]:
         errors.append("runtime plane changed")
     if planes.get("optimization", {}).get("support") != "unsupported_until_session_20":
         errors.append("optimization plane must remain unsupported until Session 20")
 
     assertion = data.get("assertion", {})
-    kinds = ["installed", "enabled", "exposed", "invoked", "loaded", "child_activity", "outcome"]
+    kinds = ["installed", "enabled", "exposed", "requested", "invoked", "loaded", "child_activity", "outcome"]
     if assertion.get("kinds") != kinds:
         errors.append("component assertion kind vocabulary changed")
-    if assertion.get("modes") != ["explicit", "proactive", "nested", "not_observed"]:
+    if assertion.get("modes") != ["explicit", "proactive", "nested", "requested", "not_observed"]:
         errors.append("component invocation mode vocabulary changed")
-    if assertion.get("identity_resolution") != ["exact", "unresolved", "ambiguous"]:
+    if assertion.get("identity_resolution") != ["exact", "unresolved", "ambiguous", "redacted"]:
         errors.append("component identity resolution vocabulary changed")
     if "terminal_contract_id" not in str(assertion.get("outcome_rule", "")):
         errors.append("outcome must require a registered terminal contract")
 
     identity = data.get("identity", {})
-    if identity.get("promotion") != "exactly one inventory match":
+    if identity.get("promotion") != "exactly one namespace-and-owner-aware inventory match":
         errors.append("identity promotion must require exactly one inventory match")
     if "incident" not in str(identity.get("zero_matches", "")):
         errors.append("zero identity matches must remain durable and incident-backed")
     if "no winner" not in str(identity.get("multiple_matches", "")):
         errors.append("ambiguous identity must never select a winner")
+    if "append-only" not in str(identity.get("resolution_history", "")) or \
+            "never rewritten" not in str(identity.get("resolution_history", "")):
+        errors.append("resolution history must be append-only and preserve the original assertion")
+    if "current" not in str(identity.get("current_resolution", "")):
+        errors.append("current resolution view is not declared")
 
     cold = data.get("cold", {})
     if cold.get("formula_version") != "skill.cold_count/1":

@@ -77,17 +77,32 @@ EOF
 # 4. Поднять стек
 docker compose -f compose.yaml up -d
 
-# 5. Дождаться healthy и проверить
+# 5. Проверить процессы и UI
 docker compose -f compose.yaml ps
 curl -s http://127.0.0.1:43100/ -o /dev/null -w '%{http_code}\n'
+
+# Capacity/ingestion health требует read bearer и может честно вернуть
+# warning/degraded/critical даже при работающем PostgreSQL.
+read_token=$(<secrets/read_bearer)
+curl -s -H "Authorization: Bearer ${read_token}" \
+  http://127.0.0.1:43100/api/v1/health
 ```
 
 Дашборд — `http://127.0.0.1:43100`. OTLP-приём (для агентов) — `http://127.0.0.1:4318`
 (HTTP) и `127.0.0.1:4317` (gRPC), оба требуют `ingress_bearer` из `secrets/ingress_bearer`.
 
-`secrets/` и `.env` — локальные и в git не попадают (см. `.gitignore`). Оба сервиса
-(`kansoku`, `postgres`) должны стать `Up ... (healthy)`; первый healthcheck может занять
-до 30 секунд после старта.
+`secrets/` и `.env` — локальные и в git не попадают (см. `.gitignore`). PostgreSQL должен стать
+`healthy`. Kansoku становится `healthy` только при полном operational `pass`; недостаток Docker
+disk, durability/backpressure или stale source намеренно оставляет контейнер `unhealthy`, хотя UI
+и read API продолжают работать. `source_state` становится как минимум `degraded` при gap,
+inactivity, неизвестном runtime state или source clock более чем на пять минут в будущем;
+`configured/not_observed` и `unsupported` остаются отдельными exclusions. Первый healthcheck может
+занять до 30 секунд после старта.
+
+По умолчанию база имеет advisory soft budget 5 GiB с порогами 70/85/95%, а не hard cap и не
+preallocation. Перед длительной эксплуатацией рекомендуется минимум 25–30 GiB свободного Docker
+disk space для БД, индексов, WAL/rollback, backup и emergency spool. Не запускайте 5 GiB soak, если
+свободное место уже ниже 20%; Kansoku не меняет allocation Docker Desktop автоматически.
 
 ## Подключение реальных агентов
 
@@ -129,13 +144,48 @@ headers = { "Authorization" = "Bearer <ingress_bearer>" }
 Проверка: откройте дашборд → Activity/Agents, там должны появиться события за последние
 минуты.
 
+**Codex App Server exact evidence** — normal `serve` принимает явно направленный JSONL stream на
+`POST http://127.0.0.1:4318/v1/evidence-bridges/codex-app-server`. Нужны тот же
+`ingress_bearer` и заголовок `X-Kansoku-Agent-Installation` с opaque installation ID из inventory.
+Request ограничен 1 MiB, отдельный stream получает отдельный JSON-RPC demux. Kansoku не запускает и
+не перенастраивает Codex: настройка producer/tee остаётся явной внешней операцией. Этот endpoint не
+является доказательством для обычной CLI-сессии, чей stream через него не проходил. Raw frames
+разбираются только в памяти; сохраняются typed identity/mode/tier/lineage и redaction counters.
+Значение заголовка должно совпадать с `installation_id` Codex target в
+`deploy/runtime-config.json`: тот же ID используется read-only inventory и rollout watcher.
+
+Если `/api/v1/health` показывает pending projection, оператор может выполнить только
+preview/approval-gated retry; автоматического discard нет:
+
+```bash
+mutation_token=$(<deploy/secrets/mutation_bearer)
+csrf_token=$(<deploy/secrets/csrf)
+
+curl -sS -X POST \
+  -H "Authorization: Bearer ${mutation_token}" \
+  -H "X-Kansoku-CSRF: ${csrf_token}" \
+  -H "Origin: http://127.0.0.1:43100" \
+  -H "Content-Type: application/json" \
+  --data '{}' \
+  http://127.0.0.1:43100/api/v1/admin/projection-repair/preview
+```
+
+Из ответа нужно вручную перенести `request_id` и `parameters_sha256`, сгенерировать новый
+одноразовый `approval_nonce` и отправить их на
+`POST /api/v1/admin/projection-repair/apply` с теми же auth/CSRF/origin headers. Один apply
+выполняет bounded PostgreSQL projection pass, один spool replay и reconciliation; он не возвращает
+сохранённый retry input и не удаляет неприменённые receipts.
+
 ### Что именно измеряет component inventory
 
 Kansoku раз в пять минут сканирует только явно смонтированные read-only roots из `.env`.
-Для Codex это профили `CODEX_HOME`, user/system skills и plugin-конфигурация. В Postgres попадают
-только нормализованные имена, scope, версия/её value state, enabled-state, pseudonym пути,
+Для Codex это профили `CODEX_HOME`, user/system skills, plugin-конфигурация и bounded
+`plugins/cache/<marketplace>/<plugin>/<version>/skills` catalog. Cache сам по себе не означает
+enabled: bundle ownership создаётся только для единственной однозначной версии настроенного
+`plugin@marketplace`, а несколько версий остаются cache-only. В Postgres попадают только
+нормализованные имена, scope, версия/её value state, enabled-state, HMAC-pseudonym пути,
 fingerprint и lineage snapshot; содержимое `SKILL.md`, команды MCP, env и credentials не
-сохраняются.
+сохраняются. Неполный scan отображается как coverage gap, а не как complete zero.
 
 Overview и component observatories показывают независимые классы доказательств:
 

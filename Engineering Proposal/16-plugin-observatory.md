@@ -55,10 +55,48 @@ Plugin identity remains a regular capability-backed component identity. Inventor
 append relation observations carrying source lineage, adapter/schema versions, completeness and an
 idempotency key; the static relation dimension is not treated as proof that an edge is current.
 Codex and Claude adapter-owned inventory descriptors produce bundle children without core
-agent-name branching. Codex `plugin/read` is version-pinned and content-bearing fields are discarded.
+agent-name branching. Codex 0.145.0 `plugin/read` is version-pinned and now demultiplexed by the
+supervised bridge. It adds only daily-bucketed `requested` and conditional installed/enabled
+metadata assertions for the plugin and owner-qualified children; content-bearing fields are
+discarded. It never fabricates plugin invocation, load or success.
+
+The production Codex inventory collector also performs a bounded, one-level, read-only walk of
+each explicitly mounted `CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills`
+catalog. This local layout is observed for Codex 0.145.0, not promoted to a universal Codex
+contract. An enabled `plugin@marketplace` is joined to bundled skill identities only when exactly
+one cached version exists. Multiple versions remain cache-only and unresolved rather than
+selecting an arbitrary owner. Cache-only plugin children never enter installed/enabled component
+projections. Scanner truncation, read failure or aggregate-limit exhaustion produces a visible
+inventory coverage gap, not a complete zero-component result. Identical copies across mounted
+profiles collapse only when identity, version, enabled state and every child fingerprint match;
+any disagreement remains an explicit collision.
+
+Codex ownership is resolved only inside one stable logical installation shared by the mounted
+inventory target and ordinary-CLI rollout watcher. Exact App Server metadata joins that population
+only when its producer supplies the same explicit installation ID; selecting a dynamic “latest”
+database installation is not an admissible identity source.
 
 The list and profile APIs expose installed/enabled/loaded planes, exact loaded-session counts,
 current bundle children, collision count, version history, assertion/source timelines, incidents,
 population, exclusions and completeness. `plugin.active_share/1` includes only enabled plugins with
 a complete current snapshot/child graph. There is no content endpoint and plugin outcome remains
 `unsupported`.
+
+## 2026-07-28 identity and native-load amendment
+
+Plugin observatory exclusions filter `component_kind = plugin`. Claude 2.1.197 `plugin_loaded`
+provides native load evidence with safe scope, `enabled_via`, owner identity and an HMAC of
+`plugin_id`; no raw upstream identifier is retained. Plugin-provided skills use owner-qualified
+identity. A unique basename may be linked to a marketplace-qualified inventory identity, while
+duplicate basenames remain ambiguous and are never selected arbitrarily.
+
+## 2026-07-29 catalog and usefulness amendment
+
+The Plugins list groups same-named variants inside one agent into one browsing row while preserving
+marketplace, cache, profile, version and collision variants. Plugin names, installed variants,
+active plugins, plugin loads and exact child uses are now separate counts.
+
+Plugin detail ranks bundled children by exact attributed use, keeps zero-use children visible and
+charts the top distribution. The UI continues to say that child activity proves a uniquely owned
+child action, not a plugin invocation or plugin-level success. `ADR 0021` owns the presentation
+fold and its bounded read behavior.

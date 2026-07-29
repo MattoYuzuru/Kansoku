@@ -4,6 +4,7 @@ import { deriveViewState } from "../api/client";
 import { useMCPObservatory } from "../api/queries";
 import type { MCPServerRow } from "../api/types";
 import { DataTable, type Column } from "../components/DataTable";
+import { GlossaryTerm } from "../components/GlossaryTerm";
 import { KpiCard } from "../components/KpiCard";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
@@ -22,7 +23,7 @@ export function MCP() {
     { key: "transport", header: "Transport", render: (r) => `${r.transport} · ${r.locality}` },
     { key: "inventory", header: "Inventory", render: (r) => `${r.tool_count} tools · ${r.enumeration_completeness}` },
     { key: "connection", header: "Connection", render: (r) => r.latest_connection_state },
-    { key: "calls", header: "Calls", align: "right", render: (r) => r.call_count },
+    { key: "calls", header: <GlossaryTerm id="call">Calls</GlossaryTerm>, align: "right", render: (r) => r.call_count },
     { key: "terminals", header: "Terminals", align: "right", render: (r) => r.terminal_count },
     { key: "uptime", header: "Observed uptime", render: (r) => r.uptime_ratio == null ? "Not observed" : `${(r.uptime_ratio*100).toFixed(1)}% (${r.connected_seconds}/${r.observable_seconds}s)` },
   ];
@@ -33,7 +34,7 @@ export function MCP() {
       <div className="k-grid k-grid--kpis">
         <KpiCard label="Configured" value={response ? rows.filter((r)=>r.configured).length : null} state={state}/>
         <KpiCard label="Connected now" value={response ? rows.filter((r)=>r.latest_connection_state==="connected").length : null} state={state}/>
-        <KpiCard label="Observed calls" value={response ? rows.reduce((n,r)=>n+r.call_count,0) : null} state={state}/>
+        <KpiCard label={<GlossaryTerm id="call">Observed calls</GlossaryTerm>} value={response ? rows.reduce((n,r)=>n+r.call_count,0) : null} state={state}/>
       </div>
       <GapNote>Configured does not mean connected, connected does not mean advertised, and protocol completion is not user-task success. Uptime covers only real observed transitions.</GapNote>
     </Panel>

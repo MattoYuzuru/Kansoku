@@ -2,15 +2,20 @@ import { useMemo } from "react";
 import { Link } from "wouter";
 import { deriveViewState, type ViewState } from "../api/client";
 import { useSkills } from "../api/queries";
-import type { SkillObservatoryRow } from "../api/types";
 import { DataTable, type Column } from "../components/DataTable";
+import { GlossaryTerm } from "../components/GlossaryTerm";
 import { KpiCard } from "../components/KpiCard";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { useRange } from "../hooks/useRange";
+import {
+  groupSkillCatalog,
+  skillCatalogStats,
+  type SkillCatalogRow,
+} from "../lib/componentCatalog";
 
 export function Skills() {
-  const range = useRange();
+  const range = useRange("all_time");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],
@@ -18,56 +23,117 @@ export function Skills() {
   const query = useSkills(rangeParams);
   const data = query.data?.data;
   const state = deriveViewState(query.data, { isLoading: query.isLoading });
-  const counts = data?.counts;
-  const columns: Column<SkillObservatoryRow>[] = [
+  const catalog = useMemo(() => groupSkillCatalog(data?.data ?? []), [data?.data]);
+  const stats = useMemo(() => skillCatalogStats(catalog), [catalog]);
+  const columns: Column<SkillCatalogRow>[] = [
     {
       key: "name",
       header: "Skill",
-      render: (row) => <Link href={`/components/skills/${row.component_installation_id}`}>{row.declared_name}</Link>,
+      render: (row) => (
+        <div>
+          <Link href={`/components/skills/${row.catalog_id}`}>{row.declared_name}</Link>
+          <div className="t-caption" style={{ color: "var(--text-faint)" }}>
+            {row.variants.length} {row.variants.length === 1 ? "variant" : "variants"}
+          </div>
+        </div>
+      ),
     },
-    { key: "scope", header: "Scope", render: (row) => row.source_scope },
-    { key: "available", header: "Availability", render: (row) =>
-      `${row.installed ? "installed" : "—"} · ${row.enabled ? "enabled" : "disabled"} · ${row.exposed_count > 0 ? "exposed" : "not observed"}` },
-    { key: "invoked", header: "Invoked", align: "right", render: (row) => row.invoked_count.toLocaleString() },
-    { key: "loaded", header: "Loaded", align: "right", render: (row) => row.loaded_count.toLocaleString() },
-    { key: "sessions", header: "Sessions", align: "right", render: (row) => row.unique_sessions.toLocaleString() },
-    { key: "cold", header: "Demand", render: (row) =>
-      row.cold_state === "not_observed" ? "Not observed" : row.cold_state === "cold" ? "Cold" : "Used" },
-    { key: "outcome", header: "Outcome", render: (row) =>
-      row.outcome_state === "unsupported" ? "Unsupported" : "Observed terminal contract" },
+    { key: "agent", header: "Agent", render: (row) => row.agent_id },
+    {
+      key: "availability",
+      header: <GlossaryTerm id="enabled">Availability</GlossaryTerm>,
+      render: (row) =>
+        `${row.enabled_variants}/${row.variants.length} enabled · ${row.exposed_count} exposures`,
+    },
+    {
+      key: "invoked",
+      header: <GlossaryTerm id="invoked">Invocations</GlossaryTerm>,
+      align: "right",
+      render: (row) => row.invoked_count.toLocaleString(),
+    },
+    {
+      key: "loaded",
+      header: <GlossaryTerm id="loaded">Loads</GlossaryTerm>,
+      align: "right",
+      render: (row) => row.loaded_count.toLocaleString(),
+    },
+    {
+      key: "last",
+      header: "Last invoked",
+      render: (row) =>
+        row.last_invoked_at ? new Date(row.last_invoked_at).toLocaleString() : "Not in range",
+    },
+    {
+      key: "demand",
+      header: <GlossaryTerm id="cold">Activity state</GlossaryTerm>,
+      render: (row) =>
+        row.cold_state === "not_observed"
+          ? "Not enough evidence"
+          : row.cold_state === "cold"
+            ? "Cold"
+            : "Used",
+    },
   ];
   return (
     <section className="k-page">
       <header className="k-page__head">
         <h1 className="t-page-title">Skills</h1>
         <p className="k-page__wire t-caption">
-          Independent availability and runtime evidence planes with exact populations.
+          One catalog row per same-named skill inside an agent, ranked by exact invocations.
         </p>
       </header>
-      <Panel title="Evidence planes" actions={<RangeControl range={range} />}>
+      <Panel
+        title="Skill usage"
+        actions={<RangeControl range={range} />}
+        caption="Counts use the selected range; the default is the five-year local retention horizon."
+      >
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Installed" value={counts?.installed ?? null} state={state} />
-          <KpiCard label="Enabled" value={counts?.enabled ?? null} state={state} />
-          <KpiCard label="Exposed" value={counts?.exposed ?? null} state={state} />
-          <KpiCard label="Invoked" value={counts?.invoked ?? null} state={state} />
-          <KpiCard label="Loaded" value={counts?.loaded ?? null} state={state} />
-          <KpiCard label="Cold" value={counts?.cold ?? null} state={(data?.completeness.status as ViewState | undefined) ?? state} />
+          <KpiCard
+            label={<GlossaryTerm id="skill_family">Skill names</GlossaryTerm>}
+            value={data ? stats.skill_families : null}
+            state={state}
+          />
+          <KpiCard
+            label={<GlossaryTerm id="component_variant">Installed variants</GlossaryTerm>}
+            value={data ? stats.installed_variants : null}
+            state={state}
+          />
+          <KpiCard
+            label="Used skills"
+            value={data ? stats.used_skills : null}
+            state={state}
+          />
+          <KpiCard
+            label={<GlossaryTerm id="invoked">Invocations</GlossaryTerm>}
+            value={data ? stats.total_invocations : null}
+            state={state}
+          />
+          <KpiCard
+            label={<GlossaryTerm id="loaded">Loads</GlossaryTerm>}
+            value={data ? stats.total_loads : null}
+            state={state}
+          />
+          <KpiCard
+            label={<GlossaryTerm id="cold">Cold skills</GlossaryTerm>}
+            value={data ? stats.cold_skills : null}
+            state={(data?.completeness.status as ViewState | undefined) ?? state}
+          />
         </div>
         <GapNote>
-          Availability and runtime are independent. “Executed” is not a universal skill state.
-          Outcome is unsupported unless an assertion names a registered terminal contract.
-          Cold requires a complete exposure window; installed but unexposed is not observed.
-          Optimization eligibility and missed opportunities remain unsupported until Session 20.
+          Same-named rows are folded only for browsing. Their source, profile and version identities
+          remain separate variants and their historical evidence is untouched. “Used skills” counts
+          catalog rows with at least one invocation; “Invocations” counts all deduplicated exact
+          invocation events. Installed but unobserved skills are not classified as cold.
         </GapNote>
       </Panel>
       <Panel
-        title="Skill inventory and evidence"
+        title="Skills ranked by use"
         caption={`Population ${data?.population.numerator ?? 0}/${data?.population.denominator ?? 0}; exclusions ${Object.values(data?.exclusions ?? {}).reduce((a, b) => a + b, 0)}.`}
       >
         <DataTable
           columns={columns}
-          rows={data?.data ?? []}
-          rowKey={(row) => row.component_installation_id}
+          rows={catalog}
+          rowKey={(row) => row.catalog_id}
           emptyMessage={query.isLoading ? "Loading…" : "No skills found by completed inventory targets."}
         />
       </Panel>

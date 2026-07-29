@@ -1,10 +1,25 @@
 package dataplatform
 
-import "time"
+import (
+	"time"
+
+	"kansoku.local/kansoku/internal/observability"
+)
 
 const (
-	SchemaSpecVersion = "kansoku.data-platform-schema/1"
+	SchemaSpecVersion          = "kansoku.data-platform-schema/1"
+	ProjectionInputSpecVersion = "kansoku.projection-input/1"
 )
+
+// ObservabilityProjectionInput is the closed, content-free normalized input
+// retained only while a derived projection is pending. Event and Evidence
+// have no generic payload, attributes, prompt, response, tool-content, path,
+// command, environment or credential fields.
+type ObservabilityProjectionInput struct {
+	SpecVersion string                 `json:"spec_version"`
+	Event       observability.Event    `json:"event"`
+	Evidence    observability.Evidence `json:"evidence"`
+}
 
 // FactRow is the normalized row shape written to the partitioned `events`
 // table. It intentionally mirrors the closed Session 03
@@ -33,6 +48,7 @@ type FactRow struct {
 	ValueState          string
 	Outcome             string
 	CorrelationStatus   string
+	ProjectionInput     *ObservabilityProjectionInput
 }
 
 // EvidenceRow mirrors internal/observability.Evidence.

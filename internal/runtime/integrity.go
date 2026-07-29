@@ -25,7 +25,7 @@ func NewDefaultIntegrityRunner(
 	guard *localhttp.Guard,
 	ingestor *observability.Ingestor,
 	receiver *observability.OTLPReceiver,
-	store *observability.FileStore,
+	store observability.StateStore,
 	handoff *dataplatform.ObservabilityHandoff,
 ) (*integrity.ProductionAssembly, error) {
 	registry := adaptersdk.NewRegistry()
@@ -57,10 +57,9 @@ func NewDefaultIntegrityRunner(
 		},
 	)
 	adapterAudit := integrity.NewAdapterFixtureAuditCheck(registry, noInstallations)
-	synthetic := integrity.NewSyntheticPipelineCheck(guard, ingestor, receiver, store, secrets.IngressBearer)
-	synthetic.Postgres = pool
-	synthetic.Handoff = handoff
-	synthetic.RequirePostgres = true
+	synthetic := integrity.NewPostgresSyntheticPipelineCheck(
+		guard, ingestor, receiver, pool, handoff, secrets.IngressBearer,
+	)
 	reconciliation := integrity.NewCrossSourceReconciliationCheck(registry, noInstallations, nil, nil)
 	unknown := integrity.NewUnknownSchemaAndLagCheck(func(context.Context) ([]integrity.SourceIntegritySnapshot, error) {
 		return nil, nil

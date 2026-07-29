@@ -119,21 +119,24 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
 		WITH assertion_counts AS (
-			SELECT component_installation_id,
-				count(*) FILTER (WHERE assertion_kind='exposed' AND identity_resolution='exact') AS exposed_count,
-				count(*) FILTER (WHERE assertion_kind='invoked' AND identity_resolution='exact') AS invoked_count,
-				count(*) FILTER (WHERE assertion_kind='loaded' AND identity_resolution='exact') AS loaded_count,
-				count(*) FILTER (WHERE assertion_kind='child_activity' AND identity_resolution='exact') AS child_count,
-				count(DISTINCT session_id) FILTER (WHERE assertion_kind='invoked' AND identity_resolution='exact') AS sessions,
-				count(DISTINCT date_trunc('day', observed_at)) FILTER (WHERE assertion_kind='invoked' AND identity_resolution='exact') AS active_days,
-				max(observed_at) FILTER (WHERE assertion_kind='invoked' AND identity_resolution='exact') AS last_invoked,
-				count(*) FILTER (WHERE assertion_kind='invoked' AND mode='explicit' AND identity_resolution='exact') AS explicit_count,
-				count(*) FILTER (WHERE assertion_kind='invoked' AND mode='proactive' AND identity_resolution='exact') AS proactive_count,
-				count(*) FILTER (WHERE assertion_kind='invoked' AND mode='nested' AND identity_resolution='exact') AS nested_count,
-				count(*) FILTER (WHERE assertion_kind='outcome' AND identity_resolution='exact') AS outcome_count
-			FROM component_assertions
-			WHERE observed_at >= $1 AND observed_at < $2
-			GROUP BY component_installation_id
+			SELECT cr.component_installation_id,
+				count(*) FILTER (WHERE ca.assertion_kind='exposed' AND cr.identity_resolution='exact') AS exposed_count,
+				count(*) FILTER (WHERE ca.assertion_kind='invoked' AND cr.identity_resolution='exact') AS invoked_count,
+				count(*) FILTER (WHERE ca.assertion_kind='loaded' AND cr.identity_resolution='exact') AS loaded_count,
+				count(*) FILTER (WHERE ca.assertion_kind='child_activity' AND cr.identity_resolution='exact') AS child_count,
+				count(DISTINCT ca.session_id) FILTER (WHERE ca.assertion_kind='invoked' AND cr.identity_resolution='exact') AS sessions,
+				count(DISTINCT date_trunc('day', ca.observed_at)) FILTER (WHERE ca.assertion_kind='invoked' AND cr.identity_resolution='exact') AS active_days,
+				max(ca.observed_at) FILTER (WHERE ca.assertion_kind='invoked' AND cr.identity_resolution='exact') AS last_invoked,
+				count(*) FILTER (WHERE ca.assertion_kind='invoked' AND ca.mode='explicit' AND cr.identity_resolution='exact') AS explicit_count,
+				count(*) FILTER (WHERE ca.assertion_kind='invoked' AND ca.mode='proactive' AND cr.identity_resolution='exact') AS proactive_count,
+				count(*) FILTER (WHERE ca.assertion_kind='invoked' AND ca.mode='nested' AND cr.identity_resolution='exact') AS nested_count,
+				count(*) FILTER (WHERE ca.assertion_kind='outcome' AND cr.identity_resolution='exact') AS outcome_count
+			FROM component_assertions ca
+			JOIN component_assertion_current_resolution cr
+			  ON cr.assertion_id=ca.assertion_id
+			WHERE ca.observed_at >= $1 AND ca.observed_at < $2
+			  AND ca.component_kind='skill'
+			GROUP BY cr.component_installation_id
 		),
 		windows AS (
 			SELECT component_installation_id,
@@ -223,10 +226,13 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 	}
 	var unresolved, ambiguous int64
 	if err := conn.QueryRow(ctx, `
-		SELECT count(*) FILTER (WHERE identity_resolution='unresolved'),
-			count(*) FILTER (WHERE identity_resolution='ambiguous')
-		FROM component_assertions
-		WHERE observed_at >= $1 AND observed_at < $2
+		SELECT count(*) FILTER (WHERE cr.identity_resolution='unresolved'),
+			count(*) FILTER (WHERE cr.identity_resolution='ambiguous')
+		FROM component_assertions ca
+		JOIN component_assertion_current_resolution cr
+		  ON cr.assertion_id=ca.assertion_id
+		WHERE ca.observed_at >= $1 AND ca.observed_at < $2
+		  AND ca.component_kind = 'skill'
 	`, from, to).Scan(&unresolved, &ambiguous); err != nil {
 		return SkillObservatoryResponse{}, err
 	}
@@ -273,11 +279,14 @@ func SkillProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to t
 	rows, err := conn.Query(ctx, `
 		SELECT ca.assertion_id, ca.assertion_kind, ca.mode, ca.evidence_tier,
 			ca.confidence, si.source_kind, ca.schema_version, ca.observed_at,
-			ca.identity_resolution, ca.candidate_count, coalesce(ca.outcome,''),
+			cr.identity_resolution, cr.candidate_count, coalesce(ca.outcome,''),
 			coalesce(ca.terminal_contract_id,'')
 		FROM component_assertions ca
+		JOIN component_assertion_current_resolution cr
+		  ON cr.assertion_id=ca.assertion_id
 		JOIN source_instances si ON si.source_instance_id=ca.source_instance_id
-		WHERE ca.component_installation_id=$1
+		WHERE cr.component_installation_id=$1
+		  AND ca.component_kind='skill'
 		  AND ca.observed_at >= $2 AND ca.observed_at < $3
 		ORDER BY ca.observed_at DESC, ca.assertion_id
 		LIMIT 500
@@ -304,11 +313,14 @@ func SkillProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to t
 	}
 	sourceRows, err := conn.Query(ctx, `
 		SELECT ca.source_instance_id, si.source_kind, count(*),
-			count(*) FILTER (WHERE ca.identity_resolution='exact'), max(ca.observed_at),
-			CASE WHEN bool_and(ca.identity_resolution='exact') THEN 'complete' ELSE 'partial' END
+			count(*) FILTER (WHERE cr.identity_resolution='exact'), max(ca.observed_at),
+			CASE WHEN bool_and(cr.identity_resolution='exact') THEN 'complete' ELSE 'partial' END
 		FROM component_assertions ca
+		JOIN component_assertion_current_resolution cr
+		  ON cr.assertion_id=ca.assertion_id
 		JOIN source_instances si ON si.source_instance_id=ca.source_instance_id
-		WHERE ca.component_installation_id=$1
+		WHERE cr.component_installation_id=$1
+		  AND ca.component_kind='skill'
 		  AND ca.observed_at >= $2 AND ca.observed_at < $3
 		GROUP BY ca.source_instance_id, si.source_kind
 		ORDER BY si.source_kind, ca.source_instance_id

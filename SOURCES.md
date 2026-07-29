@@ -525,6 +525,113 @@ third-party identity is redacted unless detailed telemetry is explicitly enabled
 installed and loaded independently and does not infer plugin success from either event or from a
 child outcome.
 
+## 2026-07-28 P0/P1 incident implementation re-check
+
+- Codex App Server protocol:
+  <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
+- Local generated JSON Schema command:
+  `codex app-server generate-json-schema --experimental --out TARGET`
+- Claude Code monitoring:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Claude Code plugins reference:
+  <https://code.claude.com/docs/en/plugins-reference>
+- PostgreSQL 18 database object-size functions:
+  <https://www.postgresql.org/docs/18/functions-admin.html#FUNCTIONS-ADMIN-DBSIZE>
+- PostgreSQL 18 cumulative statistics:
+  <https://www.postgresql.org/docs/18/monitoring-stats.html>
+- Retrieved and executable versions checked: 2026-07-28.
+- Local versions: Codex CLI `0.145.0`; Claude Code `2.1.197`; PostgreSQL `18`; Go `1.26.5`.
+
+The generated 0.145.0 App Server aggregate schema SHA-256 is
+`6008369088efb49582c6d90299ffcb378cddddf22a14ac67faa0b81b2030f27c`; selected
+JSON-RPC, `SkillsListResponse`, `ItemStartedNotification` and
+`ThreadStatusChangedNotification` hashes are recorded in
+`contracts/codex/generated/app-server-0.145.0-schema-manifest.json`. The bridge is exact-version
+only and now demultiplexes concurrent request IDs; unrelated responses and documented service
+notifications are not bridge schema failures.
+
+Claude 2.1.197 documentation and the installed executable confirm the bounded
+`skill_activated`/`invocation_trigger` and `plugin_loaded` metadata used by the mapper. Kansoku
+keeps detailed tool-content, user-prompt and raw-API-body flags disabled. PostgreSQL size functions
+support the advisory database/table/index observations; current WAL rollback headroom and current
+temporary-file occupancy are not derivable from the application role and remain explicit
+`not_observed` exclusions. The 25–30 GiB Docker free-space recommendation is a Kansoku rollback,
+backup and WAL operating envelope, not a PostgreSQL hard limit.
+
+## 2026-07-29 supervised bridge/runtime re-check
+
+- Codex App Server protocol:
+  <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
+- Local generated JSON Schema command:
+  `codex app-server generate-json-schema --experimental --out TARGET`
+- Claude Code CLI help and monitoring:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Retrieved/rechecked: 2026-07-29.
+- Executable versions unchanged: Codex CLI `0.145.0`; Claude Code `2.1.197`; PostgreSQL `18`;
+  Go `1.26.5`.
+
+The local 0.145.0 generator was rerun twice. Individual files were stable:
+`ClientRequest.json` SHA-256
+`03e30c97136d6618273e3e9197d8621bad9ac6cfd733c0cfe09dc8754ee6ac5c` and
+`v2/PluginReadResponse.json` SHA-256
+`c2819939ba7a71a9deb3a1574b489124b0a20c7d2023f963ce38729300a20c45`.
+The combined aggregate schema file changed byte order between runs, so its historical hash is not
+used alone as a compatibility proof; selected generated-file hashes are authoritative in the
+manifest and validator. The Kansoku route is a local authenticated transport around this reviewed
+JSON-RPC demultiplexer and does not claim ordinary-CLI coverage. Per operator direction no further
+Claude process was launched and no Claude configuration was changed during this phase.
+
+## 2026-07-29 Codex plugin catalog inventory re-check
+
+- Codex manual, plugin build and plugin use sections:
+  <https://developers.openai.com/plugins/build/plugins> and
+  <https://learn.chatgpt.com/docs/plugins>
+- Retrieved through the official Codex manual helper: 2026-07-29.
+- Locally observed Codex CLI version: `0.145.0`.
+
+The current official material defines a plugin as an installable package that may bundle skills,
+MCP and other capabilities; its minimal package shape includes
+`.codex-plugin/plugin.json` and `skills/<skill>/SKILL.md`. It also says Codex CLI installs plugins
+from a marketplace through `/plugins`, requires a new session for bundled skills/tools, and
+separates installed from enabled state. The official material does **not** promise the internal
+`CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>` storage layout.
+
+That cache layout was therefore treated as a version-observed 0.145.0 local source, not as a stable
+public interface. The mounted personal Codex home contained 2 marketplace directories, 12 plugin
+version directories and 67 immediate skill manifests at retrieval time, all within the declared
+64/512/2,048 scanner bounds. Kansoku reads this source through `HostView` only, never writes agent
+directories, never infers enabled from cache presence, and persists only identity metadata, HMAC
+path pseudonyms, counts and fingerprints. An absent cache and an unreadable/ambiguous cache remain
+distinct coverage states.
+
+Kansoku's installation binding is an internal lineage decision rather than an upstream Codex
+claim: the explicitly mounted home, its inventory snapshot and its ordinary-CLI rollout watcher use
+one configured opaque ID. App Server evidence joins that population only when its producer supplies
+the same ID. No official source is interpreted as permission to infer a logical installation from
+the latest database row.
+
+## 2026-07-29 browser verification re-check
+
+- Chrome Headless mode:
+  <https://developer.chrome.com/docs/chromium/headless/>
+- Chrome DevTools Protocol:
+  <https://chromedevtools.github.io/devtools-protocol/>
+- DevTools Protocol Emulation domain:
+  <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
+- DevTools Protocol Page domain:
+  <https://chromedevtools.github.io/devtools-protocol/tot/Page/>
+- WCAG 2.2:
+  <https://www.w3.org/TR/WCAG22/>
+- Retrieved/rechecked: 2026-07-29.
+- Local executable versions: Google Chrome `150.0.7871.187`; Node `26.3.0`; npm `11.16.0`.
+
+The repository browser verifier launches local Chrome headless with an ephemeral profile and uses
+CDP only for navigation, viewport/media/scale emulation, DOM/accessibility assertions and runtime
+error collection. It covers WCAG 2.2 text contrast, both half-width reflow and actual CDP page
+scale `2.0`, reduced motion, keyboard-named controls and desktop/mobile overflow. CDP tip-of-tree
+is explicitly not treated as a stable wire contract; the harness uses the local
+browser-advertised protocol endpoint.
+
 ## Source maintenance policy
 
 For every supported agent release:

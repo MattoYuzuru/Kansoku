@@ -45,6 +45,8 @@ var backupTableGroups = map[string][]string{
 		"agent_installation_profiles", "source_installation_attributions",
 		"session_installation_attributions",
 		"component_terminal_contracts", "component_assertions",
+		"component_assertion_resolution_history",
+		"observability_projection_receipts",
 		"component_observation_windows", "component_file_tree_metadata",
 		"mcp_server_observations", "mcp_primitive_observations",
 		"mcp_connection_assertions", "mcp_call_assertions",
@@ -65,6 +67,8 @@ var backupTableGroups = map[string][]string{
 	},
 	"runtime": {
 		"runtime_job_runs", "runtime_operation_approvals", "runtime_import_receipts",
+		"runtime_ingestion_health", "runtime_capacity_samples",
+		"runtime_mirror_reconciliations", "runtime_source_health",
 	},
 	"migration_ledgers": {
 		"schema_migrations", "integrity_schema_migrations", "runtime_schema_migrations",
@@ -126,16 +130,17 @@ type retentionPreview struct {
 }
 
 type OperationsService struct {
-	config     Config
-	secrets    Secrets
-	pool       *pgxpool.Pool
-	queue      *DurableIngressQueue
-	jobs       *JobManager
-	tools      NativeToolRunner
-	now        func() time.Time
-	mu         sync.Mutex
-	retention  map[string]retentionPreview
-	usedNonces map[[sha256.Size]byte]bool
+	config            Config
+	secrets           Secrets
+	pool              *pgxpool.Pool
+	queue             *DurableIngressQueue
+	jobs              *JobManager
+	tools             NativeToolRunner
+	now               func() time.Time
+	mu                sync.Mutex
+	retention         map[string]retentionPreview
+	projectionRepairs map[string]projectionRepairPreview
+	usedNonces        map[[sha256.Size]byte]bool
 }
 
 var _ AdminOperations = (*OperationsService)(nil)
@@ -147,7 +152,8 @@ func NewOperationsService(config Config, secrets Secrets, pool *pgxpool.Pool, qu
 	return &OperationsService{
 		config: config, secrets: secrets, pool: pool, queue: queue, jobs: jobs,
 		tools: execNativeTools{}, now: time.Now, retention: map[string]retentionPreview{},
-		usedNonces: map[[sha256.Size]byte]bool{},
+		projectionRepairs: map[string]projectionRepairPreview{},
+		usedNonces:        map[[sha256.Size]byte]bool{},
 	}, nil
 }
 

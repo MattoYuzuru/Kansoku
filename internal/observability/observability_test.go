@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -266,8 +267,8 @@ func TestUnknownSchemaIsMetadataOnlyQuarantineAndDegradedIncident(t *testing.T) 
 	store, ingestor, _ := testIngestor(t, 4<<20)
 	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
 	err := receiver.ingestLogs(logsRequest("unknown-001", "unreviewed/99", 1), SourceOTLPLog)
-	if err == nil {
-		t.Fatal("unknown schema accepted")
+	if err != nil {
+		t.Fatalf("durable non-retryable quarantine rejected: %v", err)
 	}
 	state := store.Snapshot()
 	if len(state.Facts) != 0 || len(state.Quarantine) != 1 || len(state.Incidents) != 1 {
@@ -658,6 +659,11 @@ func TestDurableSpoolIsBounded0600AndReplaySafe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	emptyStats, err := spool.Stats()
+	if err != nil || emptyStats.Bytes != 0 || emptyStats.Depth != 0 ||
+		emptyStats.Capacity != 8<<10 {
+		t.Fatalf("empty spool stats=%+v err=%v", emptyStats, err)
+	}
 	if err := spool.Append(request); err != nil {
 		t.Fatal(err)
 	}
@@ -840,6 +846,54 @@ func TestHTTPHookAndOTLPProtobufReuseLocalSecurityBoundary(t *testing.T) {
 	if denied.Code != http.StatusUnauthorized {
 		t.Fatalf("status=%d", denied.Code)
 	}
+}
+
+func TestEvidenceBridgeRouteReusesAuthenticatedBoundedIngress(t *testing.T) {
+	store, ingestor, _ := testIngestor(t, 4<<20)
+	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
+	bearer := bytes.Repeat([]byte("b"), 32)
+	guard, err := localhttp.NewGuard(
+		[]string{"127.0.0.1", "::1", "localhost"},
+		[]string{"http://127.0.0.1:3000", "http://[::1]:3000", "http://localhost:3000"},
+		bearer, bytes.Repeat([]byte("c"), 32), 1<<20, 120, time.Minute,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := 0
+	bridge := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		called++
+		_, _ = io.Copy(io.Discard, request.Body)
+		writer.WriteHeader(http.StatusOK)
+	})
+	handler, err := NewIngressHTTPHandlerWithEvidenceBridge(guard, ingestor, receiver, bridge)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"http://127.0.0.1:4318/v1/evidence-bridges/codex-app-server",
+		strings.NewReader("{}\n"),
+	)
+	request.Host, request.RemoteAddr = "127.0.0.1:4318", "127.0.0.1:52003"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized || called != 0 {
+		t.Fatalf("unauthenticated status=%d called=%d", response.Code, called)
+	}
+	request = httptest.NewRequest(
+		http.MethodPost,
+		"http://127.0.0.1:4318/v1/evidence-bridges/codex-app-server",
+		strings.NewReader("{}\n"),
+	)
+	request.Host, request.RemoteAddr = "127.0.0.1:4318", "127.0.0.1:52004"
+	request.Header.Set("Authorization", "Bearer "+string(bearer))
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || called != 1 {
+		t.Fatalf("authenticated status=%d called=%d", response.Code, called)
+	}
+	_ = store
 }
 
 // TestRealAdapterHookStdinPayloadsReachCodexAndClaudeHookRoutes proves TDD

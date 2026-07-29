@@ -170,9 +170,13 @@ func writeProtoSuccess(w http.ResponseWriter, response proto.Message) {
 }
 
 func writeIngestError(w http.ResponseWriter, err error) {
-	if errors.Is(err, ErrBackpressure) {
+	if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
 		w.Header().Set("Retry-After", "1")
-		writeProtoStatus(w, http.StatusServiceUnavailable, "backpressure_retryable")
+		message := "backpressure_retryable"
+		if errors.Is(err, ErrDurabilityUnavailable) {
+			message = "durability_unavailable_retryable"
+		}
+		writeProtoStatus(w, http.StatusServiceUnavailable, message)
 		return
 	}
 	writeProtoStatus(w, http.StatusBadRequest, "invalid_otlp")
@@ -243,6 +247,12 @@ func safeFields(attributes []*commonv1.KeyValue, timestamp uint64) (map[string]a
 		{"kansoku.outcome", "outcome"}, {"kansoku.value_state", "value_state"},
 		{"kansoku.model.id", "model"}, {"kansoku.tool.id", "tool_name"},
 		{"kansoku.component.kind", "component_kind"},
+		{"kansoku.component.identity", "component_identity"},
+		{"kansoku.component.identity_source", "component_identity_source"},
+		{"kansoku.component.owner_plugin", "component_owner_plugin"},
+		{"kansoku.component.invocation_mode", "component_invocation_mode"},
+		{"kansoku.component.upstream_identity_hash", "component_upstream_identity_hash"},
+		{"kansoku.component.source_scope", "component_source_scope"},
 		{"kansoku.turn.id", "turn_id"},
 	} {
 		if value := stringAttribute(attributes, optional.attr); value != "" {
@@ -333,6 +343,18 @@ func translateToSafeAttributes(kind otlpAdapterKind, attributes []*commonv1.KeyV
 				} else {
 					continue
 				}
+			}
+			if slot == "kansoku.component.invocation_mode" {
+				raw := value.GetStringValue()
+				mode := map[string]string{
+					"user-slash":       "explicit",
+					"claude-proactive": "proactive",
+					"nested-skill":     "nested",
+				}[raw]
+				if mode == "" {
+					continue
+				}
+				value = &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: mode}}
 			}
 			translated = append(translated, &commonv1.KeyValue{Key: slot, Value: value})
 		}
@@ -577,6 +599,17 @@ func (r *OTLPReceiver) ingestOneRecord(kind otlpAdapterKind, scopeName string, a
 		}
 	}
 	addAdapterEventDefaults(kind, eventName, &safeAttributes)
+	if kind == adapterClaude &&
+		(eventName == string(claudeadapter.OTelPluginInstalled) ||
+			eventName == string(claudeadapter.OTelPluginLoaded)) &&
+		stringAttribute(safeAttributes, "kansoku.component.identity") == "" {
+		if plugin := stringAttribute(safeAttributes, "kansoku.component.owner_plugin"); plugin != "" {
+			safeAttributes = append(safeAttributes, &commonv1.KeyValue{
+				Key:   "kansoku.component.identity",
+				Value: &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: plugin}},
+			})
+		}
+	}
 	fields, sequence, err := safeFields(safeAttributes, timestamp)
 	if err != nil {
 		return err
@@ -630,10 +663,8 @@ func addAdapterEventDefaults(kind otlpAdapterKind, eventName string, attributes 
 		addString("kansoku.outcome", "failed")
 	case kind == adapterClaude && eventName == string(claudeadapter.OTelSkillActivated):
 		addString("kansoku.component.kind", "skill")
-		addString("kansoku.outcome", "succeeded")
 	case kind == adapterClaude && (eventName == string(claudeadapter.OTelPluginInstalled) || eventName == string(claudeadapter.OTelPluginLoaded)):
 		addString("kansoku.component.kind", "plugin")
-		addString("kansoku.outcome", "succeeded")
 	}
 }
 
@@ -658,28 +689,46 @@ func adapterIdentity(kind otlpAdapterKind) string {
 
 func (r *OTLPReceiver) unknown(message proto.Message, kind SourceKind, records int, service, version, schema string) error {
 	fingerprint := r.ingestor.keyedIdentity("unknown-otlp-schema/1", string(kind)+"\x00"+string(message.ProtoReflect().Descriptor().FullName())+"\x00"+service+"\x00"+version+"\x00"+schema)
-	if err := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(message)), records); err != nil {
+	window := r.ingestor.now().UTC().Truncate(time.Hour).Format(time.RFC3339)
+	occurrenceKey := r.ingestor.keyedIdentity(
+		"unknown-otlp-occurrence/1",
+		string(kind)+"\x00"+fingerprint+"\x00"+window+"\x00"+
+			strconv.Itoa(records)+"\x00"+strconv.Itoa(proto.Size(message)),
+	)
+	if err := r.ingestor.ingestUnknown(kind, fingerprint, int64(proto.Size(message)), records, occurrenceKey); err != nil {
 		return err
 	}
-	return errors.New("unknown_otlp_schema")
+	return nil
 }
 
 func (r *OTLPReceiver) ingestLogs(request *collectorlogsv1.ExportLogsServiceRequest, kind SourceKind) error {
-	count := 0
 	for _, resourceLogs := range request.GetResourceLogs() {
+		count := 0
 		for _, scope := range resourceLogs.GetScopeLogs() {
 			count += len(scope.GetLogRecords())
 		}
 		adapterKind := matchAdapterResource(resourceLogs.GetResource())
 		if adapterKind == adapterNone {
 			service, version, schema := resourceIdentity(resourceLogs.GetResource())
-			return r.unknown(request, kind, count, service, version, schema)
+			if err := r.unknown(resourceLogs, kind, count, service, version, schema); err != nil {
+				return err
+			}
+			continue
 		}
 		for _, scope := range resourceLogs.GetScopeLogs() {
 			scopeName := scope.GetScope().GetName()
 			for _, record := range scope.GetLogRecords() {
 				if err := r.ingestOneRecord(adapterKind, scopeName, record.GetAttributes(), logTimestamp(record), kind); err != nil {
-					return err
+					if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+						return err
+					}
+					fingerprint := stableID(
+						"invalid-otlp-record/1", string(kind), adapterIdentity(adapterKind),
+						scopeName, nativeEventName(adapterKind, scopeName, record.GetAttributes()),
+					)
+					if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(record)), 1); quarantineErr != nil {
+						return quarantineErr
+					}
 				}
 			}
 		}
@@ -695,21 +744,33 @@ func logTimestamp(record *logsv1.LogRecord) uint64 {
 }
 
 func (r *OTLPReceiver) ingestTraces(request *collectortracev1.ExportTraceServiceRequest, kind SourceKind) error {
-	count := 0
 	for _, resourceSpans := range request.GetResourceSpans() {
+		count := 0
 		for _, scope := range resourceSpans.GetScopeSpans() {
 			count += len(scope.GetSpans())
 		}
 		adapterKind := matchAdapterResource(resourceSpans.GetResource())
 		if adapterKind == adapterNone {
 			service, version, schema := resourceIdentity(resourceSpans.GetResource())
-			return r.unknown(request, kind, count, service, version, schema)
+			if err := r.unknown(resourceSpans, kind, count, service, version, schema); err != nil {
+				return err
+			}
+			continue
 		}
 		for _, scope := range resourceSpans.GetScopeSpans() {
 			scopeName := scope.GetScope().GetName()
 			for _, span := range scope.GetSpans() {
 				if err := r.ingestOneRecord(adapterKind, scopeName, span.GetAttributes(), span.GetStartTimeUnixNano(), kind); err != nil {
-					return err
+					if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+						return err
+					}
+					fingerprint := stableID(
+						"invalid-otlp-record/1", string(kind), adapterIdentity(adapterKind),
+						scopeName, nativeEventName(adapterKind, scopeName, span.GetAttributes()),
+					)
+					if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(span)), 1); quarantineErr != nil {
+						return quarantineErr
+					}
 				}
 			}
 		}
@@ -718,12 +779,20 @@ func (r *OTLPReceiver) ingestTraces(request *collectortracev1.ExportTraceService
 }
 
 func (r *OTLPReceiver) ingestMetrics(request *collectormetricsv1.ExportMetricsServiceRequest, kind SourceKind) error {
-	count := 0
 	for _, resourceMetrics := range request.GetResourceMetrics() {
+		count := 0
 		adapterKind := matchAdapterResource(resourceMetrics.GetResource())
 		if adapterKind == adapterNone {
+			for _, scope := range resourceMetrics.GetScopeMetrics() {
+				for _, metric := range scope.GetMetrics() {
+					count += len(numberPoints(metric))
+				}
+			}
 			service, version, schema := resourceIdentity(resourceMetrics.GetResource())
-			return r.unknown(request, kind, count, service, version, schema)
+			if err := r.unknown(resourceMetrics, kind, count, service, version, schema); err != nil {
+				return err
+			}
+			continue
 		}
 		for _, scope := range resourceMetrics.GetScopeMetrics() {
 			scopeName := scope.GetScope().GetName()
@@ -732,7 +801,16 @@ func (r *OTLPReceiver) ingestMetrics(request *collectormetricsv1.ExportMetricsSe
 				count += len(points)
 				for _, point := range points {
 					if err := r.ingestOneRecord(adapterKind, scopeName, point.GetAttributes(), point.GetTimeUnixNano(), kind); err != nil {
-						return err
+						if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+							return err
+						}
+						fingerprint := stableID(
+							"invalid-otlp-record/1", string(kind), adapterIdentity(adapterKind),
+							scopeName, nativeEventName(adapterKind, scopeName, point.GetAttributes()),
+						)
+						if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(point)), 1); quarantineErr != nil {
+							return quarantineErr
+						}
 					}
 				}
 			}

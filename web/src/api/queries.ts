@@ -7,7 +7,7 @@
  * span <= 366 days); see hooks/useRange.ts for the shared UI control that
  * produces them.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { apiGet, type ApiEnvelope } from "./client";
 import type {
   ActivityTimelineResponse,
@@ -31,6 +31,7 @@ import type {
   QuarantinePage,
   ReliabilityCountsResponse,
   ReliabilityTimelineResponse,
+  RuntimeHealthResponse,
   SystemSnapshotResponse,
   ToolAnalyticsResponse,
   SkillObservatoryResponse,
@@ -136,6 +137,15 @@ export function useSystemSnapshot() {
     queryKey: rk("system-snapshot"),
     queryFn: ({ signal }) =>
       apiGet<SystemSnapshotResponse>("/api/v1/system/snapshot", undefined, signal),
+  });
+}
+
+export function useRuntimeHealth() {
+  return useQuery({
+    queryKey: rk("runtime-health"),
+    queryFn: ({ signal }) =>
+      apiGet<RuntimeHealthResponse>("/api/v1/health", undefined, signal),
+    refetchInterval: 30_000,
   });
 }
 
@@ -334,6 +344,21 @@ export function useSkillProfile(id: string, range: RangeParams) {
   });
 }
 
+export function useSkillProfiles(ids: readonly string[], range: RangeParams) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: rk("skill-profile", { id, ...range }),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        apiGet<SkillProfileResponse>(
+          `/api/v1/skills/${encodeURIComponent(id)}`,
+          { ...range },
+          signal,
+        ),
+      enabled: Boolean(id),
+    })),
+  });
+}
+
 export function usePlugins(range: RangeParams) {
   return useQuery({
     queryKey: rk("plugins", range),
@@ -348,6 +373,21 @@ export function usePluginProfile(id: string, range: RangeParams) {
     queryFn: ({ signal }) =>
       apiGet<PluginProfileResponse>(`/api/v1/plugins/${encodeURIComponent(id)}`, { ...range }, signal),
     enabled: Boolean(id),
+  });
+}
+
+export function usePluginProfiles(ids: readonly string[], range: RangeParams) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: rk("plugin-profile", { id, ...range }),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        apiGet<PluginProfileResponse>(
+          `/api/v1/plugins/${encodeURIComponent(id)}`,
+          { ...range },
+          signal,
+        ),
+      enabled: Boolean(id),
+    })),
   });
 }
 

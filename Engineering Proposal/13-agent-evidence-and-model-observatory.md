@@ -108,3 +108,26 @@ migration 0008 adds fresh exact installation attribution without rewriting ambig
 Agent list/detail APIs and UI now expose identity, activity, per-model usage, exact populations and
 independent source health. Cross-lane PostgreSQL replay, source-loss, unknown-schema, ten-sink
 privacy, production restart, browser and repeated restore verification gates pass.
+
+## 2026-07-28 component identity amendment
+
+Fresh assertions carry `component_kind`, qualified identity, identity source, optional owner plugin
+identity, invocation mode, upstream identity HMAC and resolution version. Original assertions are
+immutable. Re-resolution appends versioned history after inventory changes, and queries consume the
+current-resolution view while preserving the original resolution for audit. Namespace/owner-aware
+matching may resolve a unique qualified candidate; equal plain names remain ambiguous.
+
+## 2026-07-29 supervised bridge amendment
+
+The Codex bridge is supervised inside the ordinary appliance on the existing ingress listener and
+bearer. Each request creates an isolated JSON-RPC demultiplexer, binds the configured opaque
+installation outside the agent frame, and reports configured/producing/degraded source health.
+This is exact evidence only for App Server streams explicitly routed to the endpoint; ordinary CLI
+sessions remain rollout requested/reconstructed evidence.
+
+Bridge version `0.2.0` also owns the exact Codex 0.145.0 `plugin/read` request/response pair.
+It projects a UTC-day-bucketed, position-independent metadata snapshot: plugin `requested` plus
+conditional `installed`/`enabled`, and conditional installed/enabled child assertions with
+`owner_plugin_identity`. A metadata read is never called plugin `invoked` or `loaded`. Upstream
+IDs are HMAC-only; paths, descriptions, URLs, source objects, app templates and scheduled-task
+prompts have no durable destination.

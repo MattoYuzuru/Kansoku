@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "kansoku-canary",
+  "displayName": "Kansoku Canary",
+  "version": "1.0.0",
+  "description": "Synthetic metadata-only live canary for Claude skill and plugin observability.",
+  "author": {"name": "Kansoku"},
+  "skills": "./skills/"
+}

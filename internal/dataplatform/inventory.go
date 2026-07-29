@@ -185,11 +185,36 @@ func PersistInventorySnapshot(
 	}
 
 	enabledNodes := make(map[string]bool)
+	nodeNames := make(map[string]string, len(snapshot.Nodes))
+	for _, node := range snapshot.Nodes {
+		nodeNames[node.NodeID] = node.DeclaredName
+	}
+	ownerByChild := make(map[string]string)
 	for _, edge := range snapshot.Edges {
 		if edge.Kind == adaptersdk.EdgeEnabledFor {
 			enabledNodes[edge.FromNode] = true
 		}
+		if edge.Kind == adaptersdk.EdgeBundles && nodeNames[edge.FromNode] != "" {
+			ownerByChild[edge.ToNode] = nodeNames[edge.FromNode]
+		}
 	}
+	var newerCurrentProjectionExists bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM component_inventory_state current_state
+			JOIN component_installations installation
+			  ON installation.component_installation_id =
+			     current_state.component_installation_id
+			WHERE installation.agent_installation_id = $1
+			  AND current_state.last_seen_at > $2
+		)
+	`, snapshot.InstallationID, snapshot.ObservedAt.UTC()).Scan(
+		&newerCurrentProjectionExists,
+	); err != nil {
+		return InventoryPersistResult{}, err
+	}
+	refreshCurrentProjection := !newerCurrentProjectionExists
 	for _, node := range snapshot.Nodes {
 		componentKind, ok := inventoryComponentKind(node.Kind)
 		if !ok || node.CachedOnly {
@@ -236,18 +261,25 @@ func PersistInventorySnapshot(
 		`, componentInstallationID, componentVersionID, snapshot.InstallationID); err != nil {
 			return InventoryPersistResult{}, err
 		}
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO component_inventory_state (
-				component_installation_id, inventory_node_id, enabled,
-				first_seen_at, last_seen_at, last_snapshot_id
-			) VALUES ($1,$2,$3,$4,$4,$5)
-			ON CONFLICT (component_installation_id) DO UPDATE SET
-				enabled = EXCLUDED.enabled,
-				last_seen_at = GREATEST(component_inventory_state.last_seen_at, EXCLUDED.last_seen_at),
-				last_snapshot_id = EXCLUDED.last_snapshot_id
-		`, componentInstallationID, node.NodeID, enabledNodes[node.NodeID],
-			snapshot.ObservedAt.UTC(), snapshot.SnapshotID); err != nil {
-			return InventoryPersistResult{}, err
+		if refreshCurrentProjection {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO component_inventory_state (
+					component_installation_id, inventory_node_id, enabled,
+					first_seen_at, last_seen_at, last_snapshot_id
+				) VALUES ($1,$2,$3,$4,$4,$5)
+				ON CONFLICT (component_installation_id) DO UPDATE SET
+					enabled = EXCLUDED.enabled,
+					last_seen_at = GREATEST(
+						component_inventory_state.last_seen_at,
+						EXCLUDED.last_seen_at
+					),
+					last_snapshot_id = EXCLUDED.last_snapshot_id
+				WHERE EXCLUDED.last_seen_at >=
+				      component_inventory_state.last_seen_at
+			`, componentInstallationID, node.NodeID, enabledNodes[node.NodeID],
+				snapshot.ObservedAt.UTC(), snapshot.SnapshotID); err != nil {
+				return InventoryPersistResult{}, err
+			}
 		}
 		assertionKinds := []string{"installed"}
 		if enabledNodes[node.NodeID] {
@@ -255,24 +287,52 @@ func PersistInventorySnapshot(
 		}
 		for _, assertionKind := range assertionKinds {
 			idempotencyKey := snapshot.SnapshotID + ":" + node.NodeID + ":" + assertionKind
-			if _, err := tx.Exec(ctx, `
+			qualifiedIdentity := node.DeclaredName
+			ownerIdentity := ownerByChild[node.NodeID]
+			if ownerIdentity != "" {
+				qualifiedIdentity = ownerIdentity + ":" + node.DeclaredName
+			}
+			assertionID := inventoryID("component-assertion", idempotencyKey)
+			inserted, err := tx.Exec(ctx, `
 				INSERT INTO component_assertions (
 					assertion_id, component_installation_id,
 					agent_installation_id, assertion_kind, mode,
 					evidence_tier, confidence, source_instance_id,
 					adapter_version, schema_version, observed_at,
 					idempotency_key, identity_resolution,
-					declared_identity_pseudonym, candidate_count
+					declared_identity_pseudonym, candidate_count,
+					component_kind, qualified_identity, identity_source,
+					owner_plugin_identity, invocation_mode, resolution_version
 				) VALUES (
 					$1,$2,$3,$4,'not_observed','native',1,$5,$6,
-					'kansoku.inventory-snapshot/1',$7,$8,'exact',$9,1
+					'kansoku.inventory-snapshot/1',$7,$8,'exact',$9,1,
+					$10,$11,'inventory',NULLIF($12,''),'not_observed',1
 				)
 				ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
-			`, inventoryID("component-assertion", idempotencyKey),
+			`, assertionID,
 				componentInstallationID, snapshot.InstallationID, assertionKind,
 				sourceInstanceID, snapshot.AdapterVersion, snapshot.ObservedAt.UTC(),
-				idempotencyKey, inventoryID("declared-component", node.DeclaredName)); err != nil {
+				idempotencyKey, inventoryID("declared-component", node.DeclaredName),
+				componentKind, qualifiedIdentity, ownerIdentity)
+			if err != nil {
 				return InventoryPersistResult{}, err
+			}
+			if inserted.RowsAffected() > 0 {
+				if _, err := tx.Exec(ctx, `
+					INSERT INTO component_assertion_resolution_history (
+						resolution_history_id, assertion_id, resolution_version,
+						identity_resolution, component_installation_id,
+						candidate_count, resolver_version, resolution_trigger,
+						resolved_at
+					) VALUES (
+						$1,$2,1,'exact',$3,1,'component-resolver/2',
+						'inventory_snapshot',$4
+					)
+					ON CONFLICT (assertion_id, resolution_version) DO NOTHING
+				`, inventoryID("resolution-history", assertionID, "1"),
+					assertionID, componentInstallationID, snapshot.ObservedAt.UTC()); err != nil {
+					return InventoryPersistResult{}, err
+				}
 			}
 		}
 		result.InstalledComponentCount++
@@ -280,15 +340,145 @@ func PersistInventorySnapshot(
 			result.EnabledComponentCount++
 		}
 	}
+	if completeness == "complete" && refreshCurrentProjection {
+		// component_inventory_state is a replaceable current-state
+		// projection. A complete newer snapshot may remove entries that are
+		// no longer present; immutable snapshots, component dimensions and
+		// historical assertions remain untouched. Partial/degraded/unknown
+		// scans never prune, and an older replay cannot erase newer state.
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM component_inventory_state current_state
+			USING component_installations installation
+			WHERE current_state.component_installation_id =
+			      installation.component_installation_id
+			  AND installation.agent_installation_id = $1
+			  AND current_state.last_snapshot_id <> $2
+			  AND current_state.last_seen_at <= $3
+		`, snapshot.InstallationID, snapshot.SnapshotID, snapshot.ObservedAt.UTC()); err != nil {
+			return InventoryPersistResult{}, err
+		}
+	}
 	if err := persistInventoryRelations(
 		ctx, tx, snapshot, sourceInstanceID, completeness,
 	); err != nil {
+		return InventoryPersistResult{}, err
+	}
+	if _, err := reResolveComponentAssertions(ctx, tx, snapshot.InstallationID, snapshot.ObservedAt.UTC()); err != nil {
 		return InventoryPersistResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return InventoryPersistResult{}, err
 	}
 	return result, nil
+}
+
+// reResolveComponentAssertions appends resolution history after new
+// inventory becomes visible. The original assertion row is immutable.
+func reResolveComponentAssertions(
+	ctx context.Context,
+	tx pgx.Tx,
+	installationID string,
+	resolvedAt time.Time,
+) (int64, error) {
+	tag, err := tx.Exec(ctx, `
+		WITH current_resolution AS (
+			SELECT ca.assertion_id, ca.component_kind, ca.qualified_identity,
+			       ca.identity_source, ca.owner_plugin_identity,
+			       ca.agent_installation_id,
+			       COALESCE(cr.identity_resolution, ca.identity_resolution) AS current_state,
+			       COALESCE(cr.candidate_count, ca.candidate_count) AS current_candidates,
+			       COALESCE(cr.component_installation_id, ca.component_installation_id) AS current_installation,
+			       COALESCE(cr.resolution_version, ca.resolution_version, 0) AS current_version
+			FROM component_assertions ca
+			LEFT JOIN component_assertion_current_resolution cr
+			  ON cr.assertion_id = ca.assertion_id
+			WHERE ca.agent_installation_id = $1
+			  AND ca.component_kind IS NOT NULL
+			  AND ca.qualified_identity IS NOT NULL
+			  AND COALESCE(cr.identity_resolution, ca.identity_resolution)
+			      IN ('unresolved','ambiguous')
+		), candidate_sets AS (
+			SELECT current_resolution.*,
+			       candidates.candidate_count,
+			       candidates.component_installation_id
+			FROM current_resolution
+			CROSS JOIN LATERAL (
+				SELECT count(*)::integer AS candidate_count,
+				       min(ci.component_installation_id) AS component_installation_id
+				FROM component_inventory_state cis
+				JOIN component_installations ci
+				  ON ci.component_installation_id = cis.component_installation_id
+				JOIN component_versions cv
+				  ON cv.component_version_id = ci.component_version_id
+				JOIN components c ON c.component_id = cv.component_id
+				LEFT JOIN inventory_nodes node
+				  ON node.snapshot_id = cis.last_snapshot_id
+				 AND node.node_id = cis.inventory_node_id
+				LEFT JOIN inventory_edges ownership
+				  ON ownership.snapshot_id = cis.last_snapshot_id
+				 AND ownership.to_node_id = cis.inventory_node_id
+				 AND ownership.kind = 'bundles'
+				LEFT JOIN inventory_nodes owner
+				  ON owner.snapshot_id = ownership.snapshot_id
+				 AND owner.node_id = ownership.from_node_id
+				 AND owner.kind = 'plugin_package'
+				WHERE ci.agent_installation_id = current_resolution.agent_installation_id
+				  AND c.kind = current_resolution.component_kind
+				  AND (
+					(
+					 CASE WHEN owner.declared_name IS NULL
+					      THEN c.declared_name
+					      ELSE owner.declared_name || ':' || c.declared_name
+					 END
+					) = current_resolution.qualified_identity
+				  OR (
+					c.kind='plugin' AND
+					split_part(c.declared_name,'@',1) =
+						current_resolution.qualified_identity
+				  )
+				  OR (
+					c.kind='skill' AND owner.declared_name IS NOT NULL AND
+					split_part(owner.declared_name,'@',1) || ':' ||
+						c.declared_name =
+						current_resolution.qualified_identity
+				  )
+				  )
+			) candidates
+		), changed AS (
+			SELECT *,
+			       CASE
+			         WHEN candidate_count = 1 THEN 'exact'
+			         WHEN candidate_count > 1 THEN 'ambiguous'
+			         ELSE 'unresolved'
+			       END AS next_state
+			FROM candidate_sets
+		)
+		INSERT INTO component_assertion_resolution_history (
+			resolution_history_id, assertion_id, resolution_version,
+			identity_resolution, component_installation_id, candidate_count,
+			resolver_version, resolution_trigger, resolved_at
+		)
+		SELECT
+			'rsh_' || substr(md5(
+				assertion_id || ':' || (current_version + 1)::text ||
+				':component-resolver/2'
+			), 1, 28),
+			assertion_id, current_version + 1, next_state,
+			CASE WHEN candidate_count = 1 THEN component_installation_id ELSE NULL END,
+			candidate_count, 'component-resolver/2', 'inventory_snapshot', $2
+		FROM changed
+		WHERE next_state <> current_state
+		   OR candidate_count <> current_candidates
+		   OR (
+			candidate_count = 1 AND
+			component_installation_id IS DISTINCT FROM current_installation
+		   )
+		ON CONFLICT (assertion_id, resolution_version) DO NOTHING
+	`, installationID, resolvedAt)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 func validateInventorySnapshot(snapshot adaptersdk.InventorySnapshot, completeness string) error {

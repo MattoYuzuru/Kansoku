@@ -57,7 +57,7 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 	}
 	tier := TierNative
 	confidence := record.Confidence
-	if kind == SourceTranscript {
+	if kind == SourceTranscript || kind == SourceCodexRollout {
 		tier = TierReconstructed
 		if confidence > 0.95 {
 			confidence = 0.95
@@ -106,6 +106,8 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 		}
 	case SourceAdapterBatch:
 		schemaID = record.SourceSchemaID
+	case SourceCodexRollout:
+		schemaID = record.SourceSchemaID
 	}
 	schemaFingerprint := stableID("lane-schema/1", schemaID, record.SchemaFingerprint)
 	now = now.UTC()
@@ -132,6 +134,14 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 			InstallationID: installationID, NativeEventID: record.Lineage.SourceRecordPseudonym, Sequence: sequence,
 		}, Scope: Scope{DeviceID: deviceID, AgentInstallationID: installationID, SessionID: "ses_" + record.Lineage.SessionPseudonym[:24], TurnID: turnID},
 		Subject: Subject{Kind: subjectKind, ComponentID: componentID, ModelID: modelID},
+		ComponentEvidence: ComponentEvidenceMetadata{
+			QualifiedIdentity:    record.ComponentEvidence.QualifiedIdentity,
+			IdentitySource:       record.ComponentEvidence.IdentitySource,
+			OwnerPluginIdentity:  record.ComponentEvidence.OwnerPluginIdentity,
+			InvocationMode:       record.ComponentEvidence.InvocationMode,
+			UpstreamIdentityHash: record.ComponentEvidence.UpstreamIdentityHash,
+			SourceScope:          record.ComponentEvidence.SourceScope,
+		},
 		Measurements: Measurements{
 			DurationMS: record.Telemetry.DurationMS, Success: success,
 			PromptCharacterCount: record.Telemetry.PromptCharacterCount,
@@ -154,7 +164,7 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 func eventCarriesComponent(eventType string) bool {
 	switch eventType {
 	case "tool.called", "component.installed", "component.enabled", "component.exposed",
-		"component.loaded", "component.invoked", "component.executed":
+		"component.requested", "component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
 		return false

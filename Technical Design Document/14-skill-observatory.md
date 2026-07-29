@@ -194,3 +194,31 @@ universal stages, and every unsupported or excluded result identifies the source
   is interpreted as terminal skill success without a registered terminal contract.
 
 The live and deterministic evidence is reconciled in `reports/session-14-reconciliation.md`.
+
+## P1 observer mapping (2026-07-28)
+
+Claude OTel dispatch recognizes 2.1.197 `skill_activated`, preserving only qualified skill identity,
+source scope, optional plugin owner, trigger mode and an HMAC of upstream identity. Codex rollout
+watching is read-only, append-only, checkpointed and rotation/truncation-aware. It parses content
+transiently and persists only identity/count/trigger/lineage/redaction metadata. A marker creates
+`requested`; a matching `SKILL.md` read plus native child activity creates reconstructed
+`loaded`/`invoked` at 0.85 confidence.
+
+The App Server bridge is an exact 0.145.0 JSON-RPC demultiplexer with up to 128 concurrent pending
+request IDs. Responses are associated with their request method; known service traffic is filtered,
+and only owned invalid frames enter quarantine. Normal `serve` supervises explicit streams on the
+authenticated bounded evidence-bridge route. This remains no evidence about ordinary CLI sessions
+unless their App Server stream is explicitly routed.
+
+## Catalog-family UI projection (2026-07-29)
+
+`web/src/lib/componentCatalog.ts` derives a stable opaque family ID from component kind, agent ID
+and normalized declared name. It groups only for presentation and carries every
+`component_installation_id` as a variant. Exact invocation/load assertions are additive across
+variants; session cardinality is represented internally as lower/upper bounds and is not displayed
+as an exact family number. Cold is emitted only when every family variant is eligible and cold.
+
+The list query remains one bounded `/api/v1/skills` request. A family profile first resolves its
+variant IDs from that response and then issues at most eight existing bounded profile GETs. Assertions
+and sources deduplicate by their durable IDs before the timeline renders. No migration, source
+write, collector branch or agent configuration change is introduced.
