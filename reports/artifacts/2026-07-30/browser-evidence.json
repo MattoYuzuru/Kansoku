@@ -1,0 +1,367 @@
+{
+  "observed_at": "2026-07-29T21:58:00.744Z",
+  "browser": "Chrome/150.0.7871.187",
+  "base_url": "http://127.0.0.1:43100",
+  "source_state": "live_embedded_appliance",
+  "skill_profile": {
+    "selected": {
+      "href": "/components/skills/skf_1611d8593449fc17",
+      "label": "search-workflow"
+    },
+    "pathname": "/components/skills/skf_1611d8593449fc17",
+    "search": "",
+    "title": "Kansoku · Skill skf_1611d8593449fc17",
+    "h1": null,
+    "body_text_length": 0,
+    "root_child_count": 0,
+    "body_has_unknown_agent": false,
+    "body_has_error": false,
+    "body_has_loading": false,
+    "new_exceptions": [
+      {
+        "text": "Uncaught",
+        "description": "TypeError: Cannot read properties of null (reading 'map')\n    at http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5128\n    at Array.flatMap (<anonymous>)\n    at w (http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5105)\n    at http://127.0.0.1:43100/assets/SkillDetail-y8ZuuYOi.js:1:1113\n    at Object.S0 [as useMemo] (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:56741)\n    at f.useMemo (http://127.0.0.1:43100/assets/query-I7fzXg3t.js:17:7143)\n    at Y (http://127.0.0.1:43100/assets/SkillDetail-y8ZuuYOi.js:1:1101)\n    at kc (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:47884)\n    at vi (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:70603)\n    at $0 (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:80931)"
+      }
+    ]
+  },
+  "agent_profiles": [
+    {
+      "list_label": "codex",
+      "href": "/agents/ain_9cd7c4fbf5d8df4694834d7769a3747b",
+      "pathname": "/agents/ain_9cd7c4fbf5d8df4694834d7769a3747b",
+      "search": "",
+      "title": "Kansoku · Agent ain_9cd7c4fbf5d8df4694834d7769a3747b",
+      "h1": "Unknown agent",
+      "body_text_length": 809,
+      "root_child_count": 1,
+      "body_has_unknown_agent": true,
+      "body_has_error": false,
+      "body_has_loading": true,
+      "new_exceptions": []
+    },
+    {
+      "list_label": "claude",
+      "href": "/agents/ain_c2e4a67af4327907cd7a66172c685713",
+      "pathname": "/agents/ain_c2e4a67af4327907cd7a66172c685713",
+      "search": "",
+      "title": "Kansoku · Agent ain_c2e4a67af4327907cd7a66172c685713",
+      "h1": "Unknown agent",
+      "body_text_length": 809,
+      "root_child_count": 1,
+      "body_has_unknown_agent": true,
+      "body_has_error": false,
+      "body_has_loading": true,
+      "new_exceptions": []
+    },
+    {
+      "list_label": "fixture-agent",
+      "href": "/agents/ain_fixture",
+      "pathname": "/agents/ain_fixture",
+      "search": "",
+      "title": "Kansoku · Agent ain_fixture",
+      "h1": "Unknown agent",
+      "body_text_length": 801,
+      "root_child_count": 1,
+      "body_has_unknown_agent": true,
+      "body_has_error": false,
+      "body_has_loading": true,
+      "new_exceptions": []
+    },
+    {
+      "list_label": "codex",
+      "href": "/agents/ain_codex_final_20260729",
+      "pathname": "/agents/ain_codex_final_20260729",
+      "search": "",
+      "title": "Kansoku · Agent ain_codex_final_20260729",
+      "h1": "Unknown agent",
+      "body_text_length": 809,
+      "root_child_count": 1,
+      "body_has_unknown_agent": true,
+      "body_has_error": false,
+      "body_has_loading": true,
+      "new_exceptions": []
+    },
+    {
+      "list_label": "codex",
+      "href": "/agents/ain_codex_supervised_live",
+      "pathname": "/agents/ain_codex_supervised_live",
+      "search": "",
+      "title": "Kansoku · Agent ain_codex_supervised_live",
+      "h1": "Unknown agent",
+      "body_text_length": 809,
+      "root_child_count": 1,
+      "body_has_unknown_agent": true,
+      "body_has_error": false,
+      "body_has_loading": true,
+      "new_exceptions": []
+    }
+  ],
+  "range_persistence": {
+    "before_leave": "Last 7 days",
+    "after_return": "Last 30 days"
+  },
+  "reliability_navigation": {
+    "sentinel_after_click": null,
+    "native_select_count": 2,
+    "next_page_link_count": 1,
+    "pathname": "/reliability",
+    "search": "?tab=incidents",
+    "title": "Kansoku · Reliability",
+    "h1": "Reliability",
+    "body_text_length": 2805,
+    "root_child_count": 1,
+    "body_has_unknown_agent": false,
+    "body_has_error": false,
+    "body_has_loading": false
+  },
+  "overflow": {
+    "reliability_desktop": [
+      {
+        "label": "Ingest latency p95",
+        "text": "4,008,574.097ms",
+        "scroll_width": 268,
+        "client_width": 156,
+        "right_overflow_px": 0
+      }
+    ],
+    "system_desktop": [
+      {
+        "label": "Database size",
+        "text": "264,124,095",
+        "scroll_width": 208,
+        "client_width": 156,
+        "right_overflow_px": 0
+      }
+    ],
+    "reliability_tablet": [
+      {
+        "label": "Ingest latency p95",
+        "text": "4,008,574.097ms",
+        "scroll_width": 268,
+        "client_width": 171,
+        "right_overflow_px": 0
+      }
+    ],
+    "system_tablet": [
+      {
+        "label": "Database size",
+        "text": "264,132,287",
+        "scroll_width": 208,
+        "client_width": 171,
+        "right_overflow_px": 0
+      }
+    ],
+    "reliability_mobile": [
+      {
+        "label": "Ingest latency p95",
+        "text": "4,008,574.097ms",
+        "scroll_width": 268,
+        "client_width": 198,
+        "right_overflow_px": 0
+      }
+    ],
+    "system_mobile": [
+      {
+        "label": "Database size",
+        "text": "264,132,287",
+        "scroll_width": 208,
+        "client_width": 198,
+        "right_overflow_px": 0
+      }
+    ]
+  },
+  "theme_tokens": {
+    "before": {
+      "accent_purple": "#8B7FD6",
+      "accent_gold": "#D9B45B",
+      "row_hover_token": "#1C1C22",
+      "row_selected_token": "#22212B",
+      "active_background": "rgb(34, 33, 43)",
+      "active_marker": "rgb(217, 180, 91)"
+    },
+    "after_custom_accents": {
+      "accent_purple": "#00ff00",
+      "accent_gold": "#00ffff",
+      "row_hover_token": "#1C1C22",
+      "row_selected_token": "#22212B",
+      "active_background": "rgb(34, 33, 43)",
+      "active_marker": "rgb(0, 255, 255)"
+    }
+  },
+  "glossary_target": {
+    "found": true,
+    "animation_name": "none",
+    "animation_duration": "0s",
+    "transition_duration": "0s",
+    "border_color": "rgb(42, 42, 49)"
+  },
+  "runtime_exceptions": [
+    {
+      "text": "Uncaught",
+      "description": "TypeError: Cannot read properties of null (reading 'map')\n    at http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5128\n    at Array.flatMap (<anonymous>)\n    at w (http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5105)\n    at http://127.0.0.1:43100/assets/SkillDetail-y8ZuuYOi.js:1:1113\n    at Object.S0 [as useMemo] (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:56741)\n    at f.useMemo (http://127.0.0.1:43100/assets/query-I7fzXg3t.js:17:7143)\n    at Y (http://127.0.0.1:43100/assets/SkillDetail-y8ZuuYOi.js:1:1101)\n    at kc (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:47884)\n    at vi (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:70603)\n    at $0 (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:80931)"
+    }
+  ],
+  "failed_requests": [],
+  "api_responses": [
+    {
+      "path": "/api/v1/skills",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/skills",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/skills/inv_693516d5e2a9c77b19d3e0ced044aa91",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/inventory",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 503
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 503
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 503
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 503
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 503
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 503
+    },
+    {
+      "path": "/api/v1/activity",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/activity",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/incidents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/incidents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/incidents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/incidents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/incidents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200
+    }
+  ]
+}

@@ -632,6 +632,50 @@ scale `2.0`, reduced motion, keyboard-named controls and desktop/mobile overflow
 is explicitly not treated as a stable wire contract; the harness uses the local
 browser-advertised protocol endpoint.
 
+## 2026-07-30 defect-research interface re-check
+
+- Codex App Server:
+  <https://developers.openai.com/codex/app-server/>
+- Codex skill authoring and invocation:
+  <https://developers.openai.com/codex/skills/>
+- Claude Code monitoring and usage:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Claude organization skill analytics:
+  <https://platform.claude.com/docs/en/api/admin/analytics/skills>
+- PostgreSQL 18 ordered-set aggregates:
+  <https://www.postgresql.org/docs/18/functions-aggregate.html>
+- Retrieved/rechecked: 2026-07-30.
+- Locally observed versions: Codex CLI `0.145.0`; Claude Code `2.1.197`;
+  PostgreSQL `18.4`; Google Chrome `150.0.7871.187`; Go `1.26.5`;
+  Node `26.3.0`; npm `11.16.0`.
+
+Current Codex documentation distinguishes inventory from invocation. `skills/list` and
+`skills/changed` expose discovery and invalidation, while an App Server client can make one
+explicit request observable by sending both a `$<skill-name>` text marker and the recommended
+typed `skill` input item. The skill guide also documents implicit activation by the model. Neither
+page defines an ordinary-CLI skill-activation lifecycle notification. Kansoku may therefore count
+typed App Server requests exactly, but its ordinary-CLI rollout reconstruction remains
+version-pinned evidence with explicit coverage and must not be presented as universal exact
+activation telemetry. Current App Server plugin list/read methods are marked under development.
+
+Current Claude Code monitoring documentation still defines `skill_activated` and one
+`plugin_loaded` event per enabled plugin at session start. It additionally documents
+`skill.name`, `plugin.name`, and `agent.name` attribution on token and cost counters, a
+`success` field on `tool_result`, and `skill_name` inside Skill-tool parameters when detailed tool
+telemetry is enabled. Detailed tool telemetry also exposes content-bearing fields, so it is not a
+privacy-safe Kansoku default. These current pages may describe a newer executable than the locally
+installed `2.1.197`; sanitized version-pinned fixtures are required before adapter changes.
+
+The Claude organization analytics endpoint is a separate authenticated remote API. Its
+`invocation_count`, when enabled, is a true per-use count that can be summed over a window, while
+distinct session/conversation counts can be approximate in range mode. Kansoku does not currently
+configure this remote source, and default-deny egress means it cannot be used implicitly as a
+substitute for local telemetry.
+
+PostgreSQL `percentile_cont` remains the exact ordered-set calculation used by Kansoku for
+continuous percentiles over the selected non-null fact population. Formatting those results to two
+decimal places is a presentation decision and must not change the stored or queried population.
+
 ## Source maintenance policy
 
 For every supported agent release:
