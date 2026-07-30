@@ -199,3 +199,26 @@ adapter and metric evolution process beyond the initial ten sessions.
 time. `/glossary` renders only those generated definitions, supports local search and stable term
 anchors, and performs no API call or external request. Contextual info links use the same anchors.
 The route is lazy-loaded and remains within the existing read-only dashboard authorization model.
+
+## Reliability and model formula reconciliation (2026-07-30)
+
+`model.error_ratio/1` is materialized in `ModelUsageResponse.error_ratio_metric`. The backend sums
+daily failure, terminal and excluded populations before division. Each daily row also carries its
+own numerator, denominator and exclusions for exact table/export reconciliation. A zero numerator
+with a non-zero terminal denominator is numeric zero; an absent denominator keeps the value null.
+
+`collection_health_snapshot/2` returns separate typed fields for receive-to-commit latency,
+active-source observation age, evidence replays, late/backfill candidates and declared clock skew.
+Its population is accepted plus quarantined input, and its exclusion map counts accepted events
+whose durable receive/commit timestamps are unavailable. Receive-to-commit therefore serializes as
+absent/null and renders `not_observed`; it is not derived from source timestamps.
+
+The late/backfill candidate query excludes declared clock-skew events and uses
+`ingested_at - observed_at > 5 minutes`. Observation age is a p95 over active source watermarks,
+not an event latency percentile. Replay count comes from evidence rows in the selected interval.
+These populations remain visibly separate in Reliability.
+
+The historical `collection.ingest_latency_seconds/1` lock is retained. The current registry and
+formula fixture use `collection.ingest_latency_seconds/2` with
+`p95(durable_commit_at - received_at)` and the explicit
+`receive_or_commit_timestamp_not_observed` exclusion.

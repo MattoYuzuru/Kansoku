@@ -340,7 +340,18 @@ type ModelUsageDayRow struct {
 	UpperBoundCostCount int64        `json:"upper_bound_cost_count"`
 	Percentiles         *Percentiles `json:"percentiles,omitempty"`
 	ErrorRatio          *float64     `json:"error_ratio,omitempty"`
+	ErrorNumerator      int64        `json:"error_numerator"`
+	ErrorDenominator    int64        `json:"error_denominator"`
+	ErrorExcludedCount  int64        `json:"error_excluded_count"`
 	MatchedEventCount   int64        `json:"matched_event_count"`
+}
+
+type RatioMetric struct {
+	Value          *float64         `json:"value,omitempty"`
+	FormulaVersion string           `json:"formula_version"`
+	Population     Population       `json:"population"`
+	Exclusions     map[string]int64 `json:"exclusions"`
+	Completeness   Completeness     `json:"completeness"`
 }
 
 // ModelUsageResponse is the closed completeness-aware envelope for the
@@ -353,6 +364,7 @@ type ModelUsageResponse struct {
 	Population     Population         `json:"population"`
 	Completeness   Completeness       `json:"completeness"`
 	Freshness      Freshness          `json:"freshness"`
+	ErrorRatio     RatioMetric        `json:"error_ratio_metric"`
 }
 
 // ToolAnalyticsDayRow is one calendar day's tool-call volume/latency inside

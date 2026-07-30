@@ -175,17 +175,24 @@ func (a *API) componentInventory(writer http.ResponseWriter, request *http.Reque
 }
 
 type CollectionHealthSnapshot struct {
-	AcceptedEventCount     int64    `json:"accepted_event_count"`
-	QuarantinedRecordCount int64    `json:"quarantined_record_count"`
-	IngestLatencyP95MS     *float64 `json:"ingest_latency_p95_ms,omitempty"`
-	ActiveSourceCount      int64    `json:"active_source_count"`
-	SourceGapCount         int64    `json:"source_gap_count"`
-	OldestSourceAgeSeconds *float64 `json:"oldest_source_age_seconds,omitempty"`
-	PendingRollupCount     int64    `json:"pending_rollup_count"`
-	RollupAgeSeconds       *float64 `json:"rollup_age_seconds,omitempty"`
-	QueueDepth             int64    `json:"queue_depth"`
-	OldestQueueAgeSeconds  float64  `json:"oldest_queue_age_seconds"`
-	FormulaVersion         string   `json:"formula_version"`
+	AcceptedEventCount     int64                     `json:"accepted_event_count"`
+	QuarantinedRecordCount int64                     `json:"quarantined_record_count"`
+	ReceiveToCommitP95MS   *float64                  `json:"receive_to_commit_p95_ms,omitempty"`
+	ObservationAgeP95S     *float64                  `json:"observation_age_p95_seconds,omitempty"`
+	ReplayCount            int64                     `json:"replay_count"`
+	LateBackfillCandidates int64                     `json:"late_backfill_candidate_count"`
+	ClockSkewEventCount    int64                     `json:"clock_skew_event_count"`
+	ActiveSourceCount      int64                     `json:"active_source_count"`
+	SourceGapCount         int64                     `json:"source_gap_count"`
+	OldestSourceAgeSeconds *float64                  `json:"oldest_source_age_seconds,omitempty"`
+	PendingRollupCount     int64                     `json:"pending_rollup_count"`
+	RollupAgeSeconds       *float64                  `json:"rollup_age_seconds,omitempty"`
+	QueueDepth             int64                     `json:"queue_depth"`
+	OldestQueueAgeSeconds  float64                   `json:"oldest_queue_age_seconds"`
+	FormulaVersion         string                    `json:"formula_version"`
+	Population             dataplatform.Population   `json:"population"`
+	Exclusions             map[string]int64          `json:"exclusions"`
+	Completeness           dataplatform.Completeness `json:"completeness"`
 }
 
 func (a *API) collectionHealth(writer http.ResponseWriter, request *http.Request) {
@@ -200,12 +207,26 @@ func (a *API) collectionHealth(writer http.ResponseWriter, request *http.Request
 	var result CollectionHealthSnapshot
 	if err := a.pool.QueryRow(ctx, `
 		SELECT count(*),
-			percentile_cont(0.95) WITHIN GROUP (
-				ORDER BY extract(epoch FROM (ingested_at - observed_at)) * 1000
+			count(*) FILTER (WHERE timestamp_quality = 'source_clock_skewed'),
+			count(*) FILTER (
+				WHERE timestamp_quality <> 'source_clock_skewed'
+				  AND ingested_at - observed_at > interval '5 minutes'
 			)
 		FROM events
 		WHERE observed_at >= $1 AND observed_at < $2
-	`, from, to).Scan(&result.AcceptedEventCount, &result.IngestLatencyP95MS); err != nil {
+	`, from, to).Scan(
+		&result.AcceptedEventCount,
+		&result.ClockSkewEventCount,
+		&result.LateBackfillCandidates,
+	); err != nil {
+		a.writeError(writer, http.StatusServiceUnavailable, "collection_health_unavailable")
+		return
+	}
+	if err := a.pool.QueryRow(ctx, `
+		SELECT coalesce(sum(replay_count), 0)
+		FROM event_evidence
+		WHERE observed_at >= $1 AND observed_at < $2
+	`, from, to).Scan(&result.ReplayCount); err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "collection_health_unavailable")
 		return
 	}
@@ -220,9 +241,17 @@ func (a *API) collectionHealth(writer http.ResponseWriter, request *http.Request
 	if err := a.pool.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE NOT inactivity), coalesce(sum(gap_count), 0),
 			max(extract(epoch FROM (now() - last_committed_at)))
-				FILTER (WHERE NOT inactivity AND last_committed_at IS NOT NULL)
+				FILTER (WHERE NOT inactivity AND last_committed_at IS NOT NULL),
+			percentile_cont(0.95) WITHIN GROUP (
+				ORDER BY greatest(extract(epoch FROM (now() - last_observed_at)), 0)
+			) FILTER (WHERE NOT inactivity AND last_observed_at IS NOT NULL)
 		FROM source_watermarks
-	`).Scan(&result.ActiveSourceCount, &result.SourceGapCount, &result.OldestSourceAgeSeconds); err != nil {
+	`).Scan(
+		&result.ActiveSourceCount,
+		&result.SourceGapCount,
+		&result.OldestSourceAgeSeconds,
+		&result.ObservationAgeP95S,
+	); err != nil {
 		a.writeError(writer, http.StatusServiceUnavailable, "collection_health_unavailable")
 		return
 	}
@@ -249,15 +278,30 @@ func (a *API) collectionHealth(writer http.ResponseWriter, request *http.Request
 			}
 		}
 	}
-	result.FormulaVersion = "collection_health_snapshot/1"
+	result.FormulaVersion = "collection_health_snapshot/2"
 	denominator := result.AcceptedEventCount + result.QuarantinedRecordCount
 	completeness := "unknown"
 	if denominator > 0 {
-		completeness = "complete"
+		completeness = "partial"
+	}
+	result.Population = dataplatform.Population{
+		Numerator:   result.AcceptedEventCount,
+		Denominator: denominator,
+	}
+	result.Exclusions = map[string]int64{
+		"receive_to_commit_missing_commit_timestamp": result.AcceptedEventCount,
+	}
+	result.Completeness = dataplatform.Completeness{
+		Status:    completeness,
+		Intervals: []string{},
+	}
+	if denominator > 0 {
+		result.Completeness.CoveredRatio = float64(result.AcceptedEventCount) / float64(denominator)
 	}
 	a.write(writer, http.StatusOK, result, map[string]any{
 		"numerator": result.AcceptedEventCount, "denominator": denominator,
-		"exclusions": []string{}, "completeness": completeness,
+		"exclusions":   []string{"receive_to_commit_missing_commit_timestamp"},
+		"completeness": completeness,
 	})
 }
 

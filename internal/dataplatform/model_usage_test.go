@@ -93,6 +93,15 @@ func TestModelUsageAggregatesTokensCostAndMatchedLatencyWithinRangeAndBudget(t *
 	if day.MatchedEventCount != 1 {
 		t.Fatalf("matched_event_count = %d, want 1", day.MatchedEventCount)
 	}
+	if day.ErrorNumerator != 0 || day.ErrorDenominator != 1 || day.ErrorExcludedCount != 2 {
+		t.Fatalf("daily error population did not reconcile: %+v", day)
+	}
+	if response.ErrorRatio.FormulaVersion != FormulaVersionModelErrorRatio1 ||
+		response.ErrorRatio.Population != (Population{Numerator: 0, Denominator: 1}) ||
+		response.ErrorRatio.Exclusions["non_terminal_or_unknown_outcome"] != 2 ||
+		response.ErrorRatio.Value == nil || *response.ErrorRatio.Value != 0 {
+		t.Fatalf("range error ratio did not reconcile: %+v", response.ErrorRatio)
+	}
 	if day.Percentiles == nil || day.Percentiles.P50 == nil {
 		t.Fatalf("expected computed percentiles from the request observation, got %+v", day.Percentiles)
 	}
