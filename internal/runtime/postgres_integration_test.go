@@ -1277,6 +1277,10 @@ func TestCodexRolloutWatcherPersistsRequestedBeforeInventoryAndCorroboratesIdemp
 	lines := []string{
 		`{"type":"session_meta","timestamp":"2026-07-29T03:00:00Z","payload":{"id":"KANSOKU_RAW_SESSION_MUST_NOT_PERSIST","cli_version":"0.145.0"}}`,
 		`{"type":"turn_context","timestamp":"2026-07-29T03:00:01Z","payload":{"turn_id":"turn-canary"}}`,
+		strings.Repeat(
+			"KANSOKU_RAW_OVERSIZED_MUST_NOT_PERSIST",
+			maxRolloutWatchLineBytes/len("KANSOKU_RAW_OVERSIZED_MUST_NOT_PERSIST")+2,
+		),
 		`{"type":"event_msg","timestamp":"2026-07-29T03:00:02Z","payload":{"type":"user_message","message":"Use $late-catalog-skill KANSOKU_RAW_ROLLOUT_PROMPT_MUST_NOT_PERSIST"}}`,
 		`{"type":"response_item","timestamp":"2026-07-29T03:00:03Z","payload":{"type":"function_call","call_id":"call-canary","name":"exec_command","arguments":"{\"cmd\":\"sed -n 1,20p /synthetic/KANSOKU_RAW_ROLLOUT_PATH_MUST_NOT_PERSIST/late-catalog-skill/SKILL.md\"}"}}`,
 		`{"type":"response_item","timestamp":"2026-07-29T03:00:04Z","payload":{"type":"function_call_output","call_id":"call-canary","output":"KANSOKU_RAW_SKILL_BODY_MUST_NOT_PERSIST"}}`,
@@ -1288,6 +1292,37 @@ func TestCodexRolloutWatcherPersistsRequestedBeforeInventoryAndCorroboratesIdemp
 	}
 	if err := watcher.ScanOnce(ctx); err != nil {
 		t.Fatal(err)
+	}
+	var quarantineRows, quarantineOccurrences, quarantineBytes int64
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*),coalesce(sum(occurrence_count),0),coalesce(sum(total_byte_count),0)
+		FROM quarantine_structural_manifests
+		WHERE source_kind=$1
+	`, observability.SourceCodexRollout).Scan(
+		&quarantineRows, &quarantineOccurrences, &quarantineBytes,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if quarantineRows != 1 || quarantineOccurrences != 1 ||
+		quarantineBytes <= maxRolloutWatchLineBytes {
+		t.Fatalf(
+			"oversized quarantine rows=%d occurrences=%d bytes=%d",
+			quarantineRows, quarantineOccurrences, quarantineBytes,
+		)
+	}
+	var rolloutState, rolloutValueState, rolloutError string
+	if err := pool.QueryRow(ctx, `
+		SELECT state,value_state,coalesce(last_error_class,'')
+		FROM runtime_source_health
+		WHERE source_id='codex.rollout'
+	`).Scan(&rolloutState, &rolloutValueState, &rolloutError); err != nil {
+		t.Fatal(err)
+	}
+	if rolloutState != "producing" || rolloutValueState != "observed" || rolloutError != "" {
+		t.Fatalf(
+			"source health state=%s value=%s error=%s",
+			rolloutState, rolloutValueState, rolloutError,
+		)
 	}
 	assertState := func() {
 		t.Helper()
@@ -1344,8 +1379,24 @@ func TestCodexRolloutWatcherPersistsRequestedBeforeInventoryAndCorroboratesIdemp
 		t.Fatal(err)
 	}
 	assertState()
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*),coalesce(sum(occurrence_count),0)
+		FROM quarantine_structural_manifests
+		WHERE source_kind=$1
+	`, observability.SourceCodexRollout).Scan(
+		&quarantineRows, &quarantineOccurrences,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if quarantineRows != 1 || quarantineOccurrences != 1 {
+		t.Fatalf(
+			"oversized replay rows=%d occurrences=%d",
+			quarantineRows, quarantineOccurrences,
+		)
+	}
 	for _, prohibited := range []string{
 		"KANSOKU_RAW_SESSION_MUST_NOT_PERSIST",
+		"KANSOKU_RAW_OVERSIZED_MUST_NOT_PERSIST",
 		"KANSOKU_RAW_ROLLOUT_PROMPT_MUST_NOT_PERSIST",
 		"KANSOKU_RAW_ROLLOUT_PATH_MUST_NOT_PERSIST",
 		"KANSOKU_RAW_SKILL_BODY_MUST_NOT_PERSIST",

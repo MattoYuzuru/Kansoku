@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -249,23 +250,34 @@ func (w *CodexRolloutWatcher) scanFile(
 	}
 	w.mu.Unlock()
 
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 64<<10), maxRolloutWatchLineBytes)
+	reader := bufio.NewReaderSize(file, 64<<10)
 	offset := checkpoint.Offset
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		nextOffset := offset + int64(len(line)) + 1
+	for {
+		line, lineBytes, digest, oversized, readErr := readBoundedRolloutLine(reader)
+		if errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF) {
+			break
+		}
+		if readErr != nil {
+			return errors.New("codex_rollout_line_unreadable")
+		}
+		nextOffset := offset + lineBytes
 		if nextOffset > info.Size() {
 			break
 		}
 		checkpoint.Sequence++
-		records, schemaFingerprint := w.projectRolloutLine(
-			line, sessionID, adapterVersion, checkpoint.Sequence, memory,
-		)
+		var records []privacy.SafeRecord
+		schemaFingerprint := ""
+		if oversized {
+			schemaFingerprint = w.hmac("schema/1", "oversized-line\x00"+digest)
+		} else {
+			records, schemaFingerprint = w.projectRolloutLine(
+				line, sessionID, adapterVersion, checkpoint.Sequence, memory,
+			)
+		}
 		if schemaFingerprint != "" {
 			if err := w.ingestor.IngestUnknown(
 				observability.SourceCodexRollout, schemaFingerprint,
-				int64(len(line)), 1,
+				lineBytes, 1,
 			); err != nil {
 				return err
 			}
@@ -283,10 +295,51 @@ func (w *CodexRolloutWatcher) scanFile(
 			return err
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return errors.New("codex_rollout_line_oversized_or_unreadable")
-	}
 	return nil
+}
+
+// readBoundedRolloutLine drains exactly one newline-terminated JSONL record
+// while retaining at most maxRolloutWatchLineBytes. Oversized content is
+// reduced in-stream to a digest used only as HMAC input by the caller. A
+// partial final line is left uncommitted so a later scan can observe it after
+// the writer appends its newline.
+func readBoundedRolloutLine(
+	reader *bufio.Reader,
+) (line []byte, size int64, digest string, oversized bool, err error) {
+	var retained bytes.Buffer
+	hasher := sha256.New()
+	for {
+		chunk, readErr := reader.ReadSlice('\n')
+		if len(chunk) > 0 {
+			size += int64(len(chunk))
+			_, _ = hasher.Write(chunk)
+			if !oversized {
+				if size <= maxRolloutWatchLineBytes {
+					_, _ = retained.Write(chunk)
+				} else {
+					oversized = true
+					retained.Reset()
+				}
+			}
+		}
+		switch {
+		case readErr == nil:
+			if oversized {
+				return nil, size, hex.EncodeToString(hasher.Sum(nil)), true, nil
+			}
+			line = bytes.TrimSuffix(retained.Bytes(), []byte{'\n'})
+			line = bytes.TrimSuffix(line, []byte{'\r'})
+			return line, size, "", false, nil
+		case errors.Is(readErr, bufio.ErrBufferFull):
+			continue
+		case errors.Is(readErr, io.EOF) && size == 0:
+			return nil, 0, "", false, io.EOF
+		case errors.Is(readErr, io.EOF):
+			return nil, size, "", oversized, io.ErrUnexpectedEOF
+		default:
+			return nil, size, "", oversized, readErr
+		}
+	}
 }
 
 type nativeRolloutEnvelope struct {
@@ -334,7 +387,6 @@ func (w *CodexRolloutWatcher) projectRolloutLine(
 				memory.currentTurn = payload.TurnID
 			}
 		case "user_message":
-			var records []privacy.SafeRecord
 			for _, match := range rolloutSkillMarker.FindAllStringSubmatch(payload.Message, 32) {
 				// RE2 deliberately has no look-behind. Trim only punctuation
 				// that the identity alphabet also permits at the end of a
@@ -345,15 +397,8 @@ func (w *CodexRolloutWatcher) projectRolloutLine(
 					continue
 				}
 				memory.pendingSkill[identity] = memory.currentTurn
-				records = append(records, w.rolloutRecord(
-					"requested:"+identity+":"+envelope.Timestamp,
-					sessionID, memory.currentTurn, identity,
-					"component.requested", "requested", "rollout_marker",
-					observedAt, adapterVersion, sequence,
-					privacy.RedactionCounts{PromptFields: 1},
-				))
 			}
-			return records, ""
+			return nil, ""
 		}
 		return nil, ""
 	case "response_item":
@@ -374,6 +419,12 @@ func (w *CodexRolloutWatcher) projectRolloutLine(
 			turnID := memory.pendingSkill[identity]
 			delete(memory.pendingSkill, identity)
 			return []privacy.SafeRecord{
+				w.rolloutRecord(
+					"requested:"+payload.CallID, sessionID, turnID, identity,
+					"component.requested", "requested", "rollout_corroborated",
+					observedAt, adapterVersion, sequence,
+					privacy.RedactionCounts{PromptFields: 1, PathFields: 1, ToolIOFields: 1},
+				),
 				w.rolloutRecord(
 					"loaded:"+payload.CallID, sessionID, turnID, identity,
 					"component.loaded", "not_observed", "rollout_skill_md_read",
@@ -477,11 +528,17 @@ func readRolloutSessionMetadata(path string) (sessionID, adapterVersion string) 
 		return "", ""
 	}
 	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 64<<10), maxRolloutWatchLineBytes)
-	for count := 0; count < 8 && scanner.Scan(); count++ {
+	reader := bufio.NewReaderSize(file, 64<<10)
+	for count := 0; count < 8; count++ {
+		line, _, _, oversized, err := readBoundedRolloutLine(reader)
+		if err != nil {
+			break
+		}
+		if oversized {
+			continue
+		}
 		var envelope nativeRolloutEnvelope
-		if json.Unmarshal(scanner.Bytes(), &envelope) != nil || envelope.Type != "session_meta" {
+		if json.Unmarshal(line, &envelope) != nil || envelope.Type != "session_meta" {
 			continue
 		}
 		var payload struct {
