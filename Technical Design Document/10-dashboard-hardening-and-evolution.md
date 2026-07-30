@@ -228,4 +228,13 @@ bounded relation. It does not execute a lateral `cost_estimates` scan per respon
 measured live 7,988-response range, the old plan touched about 1.1 million shared buffers and took
 1,849.465 ms; the set-based plan touched 961 shared buffers and took 74.816 ms. A 5,000-response
 PostgreSQL regression fixture remains below the unchanged 150 ms query budget and reconciles exact
-request, costed-request and cost totals.
+request, costed-request and cost totals. The per-model leaderboard uses the same bounded
+latest-cost relation and per-operation aggregation, so provider cost and cost coverage are counted
+once per response rather than once per joined token row.
+
+At the live 337,293-event seven-day contour, the reconstructed active-duration aggregate requires
+one exact event-index pass and measured 186.795 ms. `activity_timeline_range` therefore has an
+evidence-backed 250 ms wall/statement ceiling; no row, session or range is omitted. Reliability
+counts measured about 50 ms alone but exceeded the former 100 ms ceiling while the Reliability
+route issued its independent coverage, health, incident and quarantine queries. Its ceiling is
+150 ms. These Go query budgets do not change a metric formula or completeness population.

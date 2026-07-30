@@ -224,4 +224,22 @@ func TestModelUsageCostLookupScalesLinearlyWithoutPerRowEstimateScan(t *testing.
 		response.Data[0].EstimatedCostMicros != 500000 {
 		t.Fatalf("scaled model usage did not reconcile: %+v", response.Data)
 	}
+
+	breakdownStarted := time.Now()
+	breakdown, err := ModelBreakdown(ctx, pool, base, base.AddDate(0, 0, 1))
+	breakdownElapsed := time.Since(breakdownStarted)
+	if err != nil {
+		t.Fatalf("ModelBreakdown: %v", err)
+	}
+	if breakdownElapsed > time.Duration(Budgets["model_breakdown_range"].MaxMS)*time.Millisecond {
+		t.Fatalf("model_breakdown_range exceeded its budget at the scaled response shape: %v", breakdownElapsed)
+	}
+	if len(breakdown.Data) != 1 ||
+		breakdown.Data[0].EventCount != 5000 ||
+		breakdown.Data[0].CostedCount != 5000 ||
+		breakdown.Data[0].EstimatedCostMicros != 500000 ||
+		breakdown.Data[0].Value == nil ||
+		*breakdown.Data[0].Value != 75000 {
+		t.Fatalf("scaled model breakdown did not reconcile: %+v", breakdown.Data)
+	}
 }

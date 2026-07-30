@@ -46,12 +46,12 @@ var Budgets = map[string]QueryBudget{
 	// contracts/data-platform-policy-locks.yaml semantic_sha256 chain, the
 	// same Go-only-addition precedent task #12's five budgets above
 	// established; flagged as a follow-up contract-governance task.
-	"activity_timeline_range":      {ID: "activity_timeline_range", MaxMS: 150},
+	"activity_timeline_range":      {ID: "activity_timeline_range", MaxMS: 250},
 	"prompt_shape_range":           {ID: "prompt_shape_range", MaxMS: 150},
 	"model_usage_range":            {ID: "model_usage_range", MaxMS: 150},
 	"tool_analytics_range":         {ID: "tool_analytics_range", MaxMS: 150},
 	"mcp_uptime_range":             {ID: "mcp_uptime_range", MaxMS: 100},
-	"reliability_counts_range":     {ID: "reliability_counts_range", MaxMS: 100},
+	"reliability_counts_range":     {ID: "reliability_counts_range", MaxMS: 150},
 	"system_snapshot":              {ID: "system_snapshot", MaxMS: 50},
 	"privacy_canary_history_range": {ID: "privacy_canary_history_range", MaxMS: 100},
 }

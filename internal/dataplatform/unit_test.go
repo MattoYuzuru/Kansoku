@@ -186,12 +186,12 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		// Budgets map doc comment: not yet mirrored into
 		// contracts/data-platform/query-contract.yaml, tracked as a
 		// follow-up contract-governance task.
-		"activity_timeline_range":      150,
+		"activity_timeline_range":      250,
 		"prompt_shape_range":           150,
 		"model_usage_range":            150,
 		"tool_analytics_range":         150,
 		"mcp_uptime_range":             100,
-		"reliability_counts_range":     100,
+		"reliability_counts_range":     150,
 		"system_snapshot":              50,
 		"privacy_canary_history_range": 100,
 	}

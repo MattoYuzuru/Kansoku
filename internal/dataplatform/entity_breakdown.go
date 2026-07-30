@@ -108,29 +108,51 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		SELECT mo.model_id,
-			count(DISTINCT mo.model_operation_id) AS event_count,
-			coalesce(sum(tu.input_tokens + tu.output_tokens), 0) AS total_tokens,
-			count(*) FILTER (
-				WHERE mo.provider_cost_micros IS NOT NULL OR priced.cost_micros IS NOT NULL
-			) AS costed_count,
-			coalesce(sum(coalesce(mo.provider_cost_micros, priced.cost_micros, 0)), 0)
-				AS estimated_cost_micros
-		FROM model_operations mo
-		LEFT JOIN token_usage tu ON tu.model_operation_id = mo.model_operation_id AND tu.observed_at = mo.observed_at
-		LEFT JOIN LATERAL (
-			SELECT ce.cost_micros
-			FROM cost_estimates ce
+		WITH responses AS MATERIALIZED (
+			SELECT mo.model_operation_id, mo.observed_at, mo.model_id,
+				mo.provider_cost_micros
+			FROM model_operations mo
+			WHERE mo.observed_at >= $1 AND mo.observed_at < $2
+			  AND mo.operation_kind = 'response'
+		),
+		response_tokens AS MATERIALIZED (
+			SELECT r.model_operation_id, r.observed_at, tu.token_usage_id,
+				tu.input_tokens, tu.output_tokens
+			FROM responses r
+			LEFT JOIN token_usage tu
+			  ON tu.model_operation_id = r.model_operation_id
+			 AND tu.observed_at = r.observed_at
+		),
+		latest_costs AS (
+			SELECT DISTINCT ON (rt.token_usage_id)
+				rt.token_usage_id, ce.cost_estimate_id, ce.cost_micros
+			FROM response_tokens rt
+			JOIN cost_estimates ce ON ce.token_usage_id = rt.token_usage_id
 			JOIN price_catalog_versions pcv
 			  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
-			WHERE ce.token_usage_id = tu.token_usage_id
-			ORDER BY pcv.effective_at DESC
-			LIMIT 1
-		) priced ON TRUE
-		WHERE mo.observed_at >= $1 AND mo.observed_at < $2
-		  AND mo.operation_kind = 'response'
-		GROUP BY mo.model_id
-		ORDER BY event_count DESC, mo.model_id
+			ORDER BY rt.token_usage_id, pcv.effective_at DESC
+		),
+		per_operation AS (
+			SELECT r.model_operation_id, r.model_id,
+				coalesce(sum(rt.input_tokens + rt.output_tokens), 0) AS total_tokens,
+				coalesce(r.provider_cost_micros, max(lc.cost_micros), 0)
+					AS estimated_cost_micros,
+				(r.provider_cost_micros IS NOT NULL OR count(lc.cost_estimate_id) > 0)
+					AS is_costed
+			FROM responses r
+			LEFT JOIN response_tokens rt
+			  ON rt.model_operation_id = r.model_operation_id
+			 AND rt.observed_at = r.observed_at
+			LEFT JOIN latest_costs lc ON lc.token_usage_id = rt.token_usage_id
+			GROUP BY r.model_operation_id, r.model_id, r.provider_cost_micros
+		)
+		SELECT model_id, count(*) AS event_count,
+			coalesce(sum(total_tokens), 0) AS total_tokens,
+			count(*) FILTER (WHERE is_costed) AS costed_count,
+			coalesce(sum(estimated_cost_micros), 0) AS estimated_cost_micros
+		FROM per_operation
+		GROUP BY model_id
+		ORDER BY event_count DESC, model_id
 	`, from, to)
 	if err != nil {
 		return EntityBreakdownResponse{}, budgetOrErr(budget, started, err)
