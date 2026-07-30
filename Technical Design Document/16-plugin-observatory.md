@@ -112,3 +112,10 @@ child action creates exactly one child invocation and one plugin `child_activity
 plugin receives no fabricated `invoked`, `loaded` or terminal-success assertion. Replaying the same
 source evidence preserves those counts. This remains independent from App Server `plugin/read`,
 which is metadata-only installed/enabled evidence.
+
+The first live typed-skill canary exposed a legacy projection that summarized both `invoked` and
+`loaded` as child usage. The write path now calls `persistPluginChildActivity` only for `invoked`
+skill assertions; executable MCP/tool actions keep their existing explicit path. Formula version
+2 joins the origin event and excludes historical child summaries whose origin was
+`component.loaded`. Those rows remain durable for audit and appear in neither exact-use counts nor
+profile assertion/source populations.

@@ -25,13 +25,17 @@ def main():
     evidence = values["evidence-and-attribution.yaml"]
     metrics = values["metrics-and-privacy.yaml"]
     canary = values["canary.yaml"]
-    assert all(value["version"] == "1.0.0" for value in values.values())
+    assert inventory["version"] == "1.0.0"
+    assert evidence["version"] == "1.1.0"
+    assert metrics["version"] == "1.1.0"
+    assert canary["version"] == "1.0.0"
     assert set(inventory["relations"]) == {"bundles", "provides", "collides_with", "shadows"}
     assert set(evidence["independent_planes"]) == {"installed", "enabled", "loaded"}
     assert "exactly one current plugin owner" in evidence["child_fact_rule"]
+    assert "loaded is a separate lifecycle plane and never creates child_activity" in evidence["child_fact_rule"]
     assert evidence["success_rule"].startswith("plugin outcome is unsupported")
     assert set(metrics["formulas"]) == {
-        "plugin.loaded_sessions/1", "plugin.active_share/1", "plugin.cold_count/1",
+        "plugin.loaded_sessions/1", "plugin.active_share/2", "plugin.cold_count/2",
     }
     assert metrics["content_endpoint"] is False
     assert {"plugin_content", "skill_content", "arguments", "results", "error_messages",
@@ -45,7 +49,6 @@ def main():
     }
     locks = load(ROOT / "contracts" / "plugins-policy-locks.yaml")
     assert locks["append_only"] is True
-    assert len(locks["resources"]) == len(FILES)
     locked = {row["registry"]: row["semantic_sha256"] for row in locks["resources"]}
     for name, value in values.items():
         path = f"contracts/plugins/{name}"

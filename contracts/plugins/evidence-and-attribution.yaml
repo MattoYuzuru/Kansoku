@@ -1,9 +1,9 @@
 {
   "contract_id": "kansoku.plugins.evidence-and-attribution",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "plugin_assertions": ["installed", "enabled", "loaded", "child_activity"],
   "independent_planes": ["installed", "enabled", "loaded"],
-  "child_fact_rule": "invocation and outcome remain on the child; one metadata-only child_activity summary may be added to exactly one current plugin owner",
+  "child_fact_rule": "invocation executable action and outcome remain on the child; one metadata-only child_activity summary may be added to exactly one current plugin owner for an invoked or executable child action; loaded is a separate lifecycle plane and never creates child_activity",
   "ambiguous_owner_rule": "zero or multiple current plugin owners produce no plugin child_activity assertion",
   "disable_rule": "current enabled state may become false but prior enabled loaded and child_activity assertions remain immutable",
   "load_rule": "loaded is runtime evidence and is never inferred from installed or enabled",

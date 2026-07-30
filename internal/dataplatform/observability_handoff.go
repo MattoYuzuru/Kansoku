@@ -526,7 +526,7 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		}
 		if result.RowsAffected() == 0 || scope.ComponentResolution == "exact" {
 			if result.RowsAffected() > 0 && scope.ComponentResolution == "exact" &&
-				(stage == "invoked" || stage == "loaded") {
+				stage == "invoked" {
 				if err := persistPluginChildActivity(ctx, tx, pluginChildEvidence{
 					ChildComponentID: scope.ComponentID, AgentInstallationID: scope.AgentInstallationID,
 					SessionID: scope.SessionID, TurnID: scope.TurnID, EventID: event.EventID,

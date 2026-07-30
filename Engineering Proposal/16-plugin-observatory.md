@@ -107,3 +107,8 @@ A uniquely owned child invocation continues to create the child invocation and o
 `child_activity` assertion. It does not create plugin `invoked`, `loaded` or success evidence.
 Replay preserves one logical child fact and one ownership summary. Plugin-owned typed skill
 identity retains `owner_plugin_identity`; missing or ambiguous ownership remains unpromoted.
+
+`plugin.active_share/2`, `plugin.cold_count/2` and profile formula `plugin_profile/2` count child
+usage only from invoked or executable child actions. `loaded` remains an independent lifecycle
+plane. Historical loaded-derived child summaries stay immutable but are excluded through their
+origin event, so the corrected formulas require no telemetry rewrite.

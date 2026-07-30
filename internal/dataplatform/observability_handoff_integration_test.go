@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"kansoku.local/kansoku/internal/adaptersdk"
 	"kansoku.local/kansoku/internal/observability"
 )
@@ -309,6 +310,10 @@ func TestObservabilityHandoffPersistsExactUnresolvedAndAmbiguousComponentIdentit
 		Edges: []adaptersdk.Edge{
 			inventoryTestEnabledEdge("edge_lifecycle_skill", skillNode.NodeID, installationNode.NodeID),
 			inventoryTestEnabledEdge("edge_lifecycle_plugin", pluginNode.NodeID, installationNode.NodeID),
+			{
+				EdgeID: "edge_lifecycle_plugin_skill", Kind: adaptersdk.EdgeBundles,
+				FromNode: pluginNode.NodeID, ToNode: skillNode.NodeID,
+			},
 		},
 	}
 	if _, err := PersistInventorySnapshot(ctx, pool, snapshot, "complete"); err != nil {
@@ -383,6 +388,87 @@ func TestObservabilityHandoffPersistsExactUnresolvedAndAmbiguousComponentIdentit
 		t.Fatalf("ingress outcome was promoted to component success: %+v", byStage["succeeded"])
 	}
 
+	loaded := nativeProjectionEvent(
+		"evt_native_skill_loaded_01", "component.loaded", observedAt.Add(75*time.Second),
+		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
+	)
+	loaded.Subject = invoked.Subject
+	for i := 0; i < 2; i++ {
+		if err := handoff.PersistNormalizedFact(loaded, nativeProjectionEvidence(loaded)); err != nil {
+			t.Fatalf("PersistNormalizedFact loaded replay %d: %v", i, err)
+		}
+	}
+	var pluginChildActivity, fabricatedPluginInvocations int64
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			count(*) FILTER (WHERE assertion_kind='child_activity'),
+			count(*) FILTER (WHERE assertion_kind='invoked')
+		FROM component_assertions
+		WHERE component_installation_id=$1
+	`, inventoryID(
+		"component-installation", snapshot.InstallationID, pluginNode.NodeID,
+	)).Scan(&pluginChildActivity, &fabricatedPluginInvocations); err != nil {
+		t.Fatal(err)
+	}
+	if pluginChildActivity != 1 || fabricatedPluginInvocations != 0 {
+		t.Fatalf(
+			"plugin child summary activity=%d fabricated_invoked=%d, want 1/0",
+			pluginChildActivity, fabricatedPluginInvocations,
+		)
+	}
+	// Preserve a legacy loaded-derived summary row to prove read projections
+	// reconcile historical overcount without deleting or rewriting telemetry.
+	loadedScope := ObservabilityScope(loaded)
+	if err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		return persistPluginChildActivity(ctx, tx, pluginChildEvidence{
+			ChildComponentID: skillNode.NodeID, AgentInstallationID: snapshot.InstallationID,
+			SessionID: loadedScope.SessionID, TurnID: loadedScope.TurnID,
+			EventID: loaded.EventID, EvidenceID: nativeProjectionEvidence(loaded).EvidenceID,
+			SourceInstanceID: loadedScope.SourceInstanceID,
+			AdapterVersion:   loaded.Source.AdapterVersion, SchemaVersion: loaded.Source.SchemaID,
+			EvidenceTier: "native", Confidence: 1, ObservedAt: loaded.ObservedAt,
+			IdempotencyKey: nativeProjectionEvidence(loaded).EvidenceID + ":loaded",
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	plugins, err := PluginObservatory(
+		ctx, pool, observedAt, observedAt.Add(3*time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pluginRow PluginObservatoryRow
+	for _, row := range plugins.Data {
+		if row.ComponentID == pluginNode.NodeID {
+			pluginRow = row
+		}
+	}
+	if pluginRow.ChildActivityCount != 1 ||
+		plugins.FormulaVersion != FormulaVersionPluginActiveShare2 {
+		t.Fatalf(
+			"legacy loaded summary leaked into active formula: row=%+v formula=%s",
+			pluginRow, plugins.FormulaVersion,
+		)
+	}
+	profile, err := PluginProfile(
+		ctx, pool,
+		inventoryID("component-installation", snapshot.InstallationID, pluginNode.NodeID),
+		observedAt, observedAt.Add(3*time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range profile.Assertions {
+		if row.AssertionKind == "child_activity" && row.ObservedAt.Equal(loaded.ObservedAt) {
+			t.Fatalf("legacy loaded-derived child activity leaked into profile: %+v", row)
+		}
+	}
+	if len(profile.Children) != 1 || profile.Children[0].UsageCount != 1 ||
+		profile.FormulaVersion != FormulaVersionPluginProfile2 {
+		t.Fatalf("plugin profile exact child uses mismatch: %+v", profile)
+	}
+
 	exposed := nativeProjectionEvent(
 		"evt_native_skill_exposed_01", "component.exposed", observedAt.Add(90*time.Second),
 		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
@@ -415,7 +501,7 @@ func TestObservabilityHandoffPersistsExactUnresolvedAndAmbiguousComponentIdentit
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM component_lifecycle_events`).Scan(&lifecycleCount); err != nil {
 		t.Fatal(err)
 	}
-	if lifecycleCount != 2 {
+	if lifecycleCount != 3 {
 		t.Fatalf("unmatched identity was promoted into lifecycle: count=%d", lifecycleCount)
 	}
 	var unmatchedComponentID *string

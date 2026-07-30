@@ -157,7 +157,7 @@ test("plugin detail ranks merged child families by exact usage", () => {
     assertions: [],
     sources: [],
     incident_count: 0,
-    formula_version: "plugin_profile/1",
+    formula_version: "plugin_profile/2",
     population: { numerator: 1, denominator: 1 },
     exclusions: {},
     completeness: { status: "complete", covered_ratio: 1, intervals: [] },

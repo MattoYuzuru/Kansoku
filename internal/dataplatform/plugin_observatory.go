@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	FormulaVersionPluginActiveShare1 = "plugin.active_share/1"
-	FormulaVersionPluginProfile1     = "plugin_profile/1"
+	FormulaVersionPluginActiveShare2 = "plugin.active_share/2"
+	FormulaVersionPluginProfile2     = "plugin_profile/2"
 )
 
 type PluginObservatoryRow struct {
@@ -114,11 +114,17 @@ func PluginObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 				count(DISTINCT ca.session_id) FILTER (
 					WHERE ca.assertion_kind='loaded' AND cr.identity_resolution='exact' AND ca.session_id IS NOT NULL
 				) loaded_sessions,
-				count(*) FILTER (WHERE ca.assertion_kind='child_activity' AND cr.identity_resolution='exact') child_activity_count,
+				count(*) FILTER (
+					WHERE ca.assertion_kind='child_activity'
+					  AND cr.identity_resolution='exact'
+					  AND origin.event_type IS DISTINCT FROM 'component.loaded'
+				) child_activity_count,
 				max(ca.observed_at) FILTER (WHERE ca.assertion_kind='loaded' AND cr.identity_resolution='exact') last_loaded_at
 			FROM component_assertions ca
 			JOIN component_assertion_current_resolution cr
 			  ON cr.assertion_id=ca.assertion_id
+			LEFT JOIN events origin
+			  ON origin.event_id=ca.event_id AND origin.observed_at=ca.observed_at
 			WHERE ca.observed_at >= $1 AND ca.observed_at < $2
 			  AND ca.component_kind='plugin'
 			GROUP BY cr.component_installation_id
@@ -230,13 +236,19 @@ func PluginObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Ti
 		FROM component_assertions ca
 		JOIN component_assertion_current_resolution cr
 		  ON cr.assertion_id=ca.assertion_id
+		LEFT JOIN events origin
+		  ON origin.event_id=ca.event_id AND origin.observed_at=ca.observed_at
 		WHERE ca.observed_at >= $1 AND ca.observed_at < $2
 		  AND ca.component_kind = 'plugin'
 		  AND ca.assertion_kind IN ('loaded','child_activity')
+		  AND NOT (
+			ca.assertion_kind='child_activity'
+			AND origin.event_type='component.loaded'
+		  )
 	`, from, to).Scan(&unresolved, &ambiguous); err != nil {
 		return PluginObservatoryResponse{}, err
 	}
-	response.FormulaVersion = FormulaVersionPluginActiveShare1
+	response.FormulaVersion = FormulaVersionPluginActiveShare2
 	response.Population = Population{Numerator: response.Counts.Active, Denominator: eligible}
 	response.Exclusions = map[string]int64{
 		"incomplete_enabled_or_child_graph": response.Counts.Enabled - eligible,
@@ -278,9 +290,9 @@ func PluginProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to 
 		SELECT child.component_id,child.kind,coalesce(child.declared_name,child.component_id),
 			cr.relation_kind,coalesce(child_cv.version,''),coalesce(child_cv.version_state,'not_observed'),
 			count(ca.assertion_id) FILTER (
-				WHERE ca.assertion_kind IN ('invoked','loaded') AND ca.identity_resolution='exact'
+				WHERE ca.assertion_kind='invoked' AND ca.identity_resolution='exact'
 			),max(ca.observed_at) FILTER (
-				WHERE ca.assertion_kind IN ('invoked','loaded') AND ca.identity_resolution='exact'
+				WHERE ca.assertion_kind='invoked' AND ca.identity_resolution='exact'
 			),cro.observed_at,cro.completeness
 		FROM component_inventory_state plugin_state
 		JOIN component_installations plugin_ci
@@ -362,6 +374,15 @@ func PluginProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to 
 		JOIN source_instances si ON si.source_instance_id=ca.source_instance_id
 		WHERE ca.component_installation_id=$1
 		  AND ca.observed_at >= $2 AND ca.observed_at < $3
+		  AND NOT (
+			ca.assertion_kind='child_activity'
+			AND EXISTS (
+				SELECT 1 FROM events origin
+				WHERE origin.event_id=ca.event_id
+				  AND origin.observed_at=ca.observed_at
+				  AND origin.event_type='component.loaded'
+			)
+		  )
 		ORDER BY ca.observed_at DESC,ca.assertion_id
 		LIMIT 500
 	`, id, from, to)
@@ -390,6 +411,15 @@ func PluginProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to 
 		JOIN source_instances si ON si.source_instance_id=ca.source_instance_id
 		WHERE ca.component_installation_id=$1
 		  AND ca.observed_at >= $2 AND ca.observed_at < $3
+		  AND NOT (
+			ca.assertion_kind='child_activity'
+			AND EXISTS (
+				SELECT 1 FROM events origin
+				WHERE origin.event_id=ca.event_id
+				  AND origin.observed_at=ca.observed_at
+				  AND origin.event_type='component.loaded'
+			)
+		  )
 		GROUP BY ca.source_instance_id,si.source_kind
 		ORDER BY si.source_kind,ca.source_instance_id
 	`, id, from, to)
@@ -414,7 +444,7 @@ func PluginProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to 
 	`, response.Identity.AgentInstallationID).Scan(&response.IncidentCount); err != nil {
 		return PluginProfileResponse{}, err
 	}
-	response.FormulaVersion = FormulaVersionPluginProfile1
+	response.FormulaVersion = FormulaVersionPluginProfile2
 	response.Population = Population{
 		Numerator:   int64(len(response.Children)),
 		Denominator: response.Identity.ChildCount,
