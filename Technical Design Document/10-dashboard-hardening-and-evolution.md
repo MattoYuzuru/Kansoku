@@ -237,4 +237,6 @@ one exact event-index pass and measured 186.795 ms. `activity_timeline_range` th
 evidence-backed 250 ms wall/statement ceiling; no row, session or range is omitted. Reliability
 counts measured about 50 ms alone but exceeded the former 100 ms ceiling while the Reliability
 route issued its independent coverage, health, incident and quarantine queries. Its ceiling is
-150 ms. These Go query budgets do not change a metric formula or completeness population.
+250 ms at the live contour when the visible Health tab concurrently reads coverage and collection
+health. Hidden-tab queries are disabled separately. These Go query budgets do not change a metric
+formula or completeness population.

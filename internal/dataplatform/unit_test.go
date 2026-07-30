@@ -191,7 +191,7 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		"model_usage_range":            150,
 		"tool_analytics_range":         150,
 		"mcp_uptime_range":             100,
-		"reliability_counts_range":     150,
+		"reliability_counts_range":     250,
 		"system_snapshot":              50,
 		"privacy_canary_history_range": 100,
 	}

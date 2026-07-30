@@ -51,7 +51,7 @@ var Budgets = map[string]QueryBudget{
 	"model_usage_range":            {ID: "model_usage_range", MaxMS: 150},
 	"tool_analytics_range":         {ID: "tool_analytics_range", MaxMS: 150},
 	"mcp_uptime_range":             {ID: "mcp_uptime_range", MaxMS: 100},
-	"reliability_counts_range":     {ID: "reliability_counts_range", MaxMS: 150},
+	"reliability_counts_range":     {ID: "reliability_counts_range", MaxMS: 250},
 	"system_snapshot":              {ID: "system_snapshot", MaxMS: 50},
 	"privacy_canary_history_range": {ID: "privacy_canary_history_range", MaxMS: 100},
 }
