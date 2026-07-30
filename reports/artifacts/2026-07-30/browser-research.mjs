@@ -83,7 +83,14 @@ try {
       /^\/api\/v1\/agents\/[^/]+$/,
       "/api/v1/agents/{installation}",
     );
-    apiResponses.push({ path, status: response.status });
+    const query = Object.fromEntries(
+      [...parsed.searchParams.entries()]
+        .filter(([key]) => [
+          "from", "to", "granularity", "timezone", "budget_id",
+          "metric_family", "tab", "limit",
+        ].includes(key)),
+    );
+    apiResponses.push({ path, status: response.status, query });
   });
   await page.call("Page.enable");
   await page.call("Runtime.enable");
@@ -402,7 +409,13 @@ try {
     models_after_return: modelsAfterReturn,
     models_after_reload: modelsAfterReload,
   };
-  await delay(500);
+  await waitFor(page, `
+    (() => {
+      const card = [...document.querySelectorAll(".k-kpi")]
+        .find((node) => node.textContent?.includes("Error ratio"));
+      return Boolean(card && !card.textContent?.includes("—"));
+    })()
+  `, 10000);
   evidence.model_error_ratio = await evaluate(page, `
     (() => {
       const card = [...document.querySelectorAll(".k-kpi")]
@@ -449,6 +462,14 @@ try {
   await page.call("Page.reload", { ignoreCache: true });
   await waitFor(page, `document.readyState === "complete" && location.search.includes("tab=incidents")`, 10000);
   await waitFor(page, `document.querySelector(".k-reliability-tabs")`, 5000);
+  await waitFor(page, `
+    (() => {
+      const heading = [...document.querySelectorAll("h2")]
+        .find((node) => node.textContent?.trim() === "Incident history");
+      const panel = heading?.closest(".k-panel");
+      return Boolean(panel && !panel.textContent?.includes("Loading"));
+    })()
+  `, 10000);
   evidence.reliability_navigation = {
     direct: incidentDirect,
     sentinel_after_click: sentinelAfterClick,
@@ -604,6 +625,7 @@ try {
     ),
     runtime_exception_count: exceptions.length,
     failed_request_count: failedRequests.length,
+    non_200_api_responses: apiResponses.filter((response) => response.status !== 200),
     agent_profile_statuses: apiResponses
       .filter((response) => response.path === "/api/v1/agents/{installation}")
       .map((response) => response.status),

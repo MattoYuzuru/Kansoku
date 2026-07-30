@@ -113,15 +113,16 @@ export function useMCPUptime(range: RangeParams) {
   });
 }
 
-export function useReliabilityCounts(range: RangeParams) {
+export function useReliabilityCounts(range: RangeParams, enabled = true) {
   return useQuery({
     queryKey: rk("reliability-counts", range),
     queryFn: ({ signal }) =>
       apiGet<ReliabilityCountsResponse>("/api/v1/reliability/counts", { ...range }, signal),
+    enabled,
   });
 }
 
-export function useCollectionHealth(range: RangeParams) {
+export function useCollectionHealth(range: RangeParams, enabled = true) {
   return useQuery({
     queryKey: rk("collection-health", range),
     queryFn: ({ signal }) =>
@@ -130,6 +131,7 @@ export function useCollectionHealth(range: RangeParams) {
         { ...range },
         signal,
       ),
+    enabled,
   });
 }
 
@@ -182,7 +184,10 @@ export function useIncidents(params: IncidentQueryParams = {}) {
   });
 }
 
-export function useInfiniteIncidents(params: Omit<IncidentQueryParams, "cursor"> = {}) {
+export function useInfiniteIncidents(
+  params: Omit<IncidentQueryParams, "cursor"> = {},
+  enabled = true,
+) {
   return useInfiniteQuery({
     queryKey: rk("incidents-infinite", params),
     initialPageParam: undefined as string | undefined,
@@ -194,6 +199,7 @@ export function useInfiniteIncidents(params: Omit<IncidentQueryParams, "cursor">
       ),
     getNextPageParam: (lastPage) =>
       lastPage.data?.has_more ? lastPage.data.next_cursor : undefined,
+    enabled,
   });
 }
 
@@ -261,6 +267,7 @@ export function useInfiniteQuarantine(
     to?: string;
     limit?: number;
   } = {},
+  enabled = true,
 ) {
   return useInfiniteQuery({
     queryKey: rk("quarantine-infinite", params),
@@ -273,6 +280,7 @@ export function useInfiniteQuarantine(
       ),
     getNextPageParam: (lastPage) =>
       lastPage.data?.has_more ? lastPage.data.next_cursor : undefined,
+    enabled,
   });
 }
 
@@ -493,7 +501,7 @@ export function useMCPToolProfile(serverID: string, toolID: string, range: Range
   });
 }
 
-export function useReliabilityCoverageTimeline(range: RangeParams) {
+export function useReliabilityCoverageTimeline(range: RangeParams, enabled = true) {
   return useQuery({
     queryKey: rk("reliability-coverage-timeline", range),
     queryFn: ({ signal }) =>
@@ -502,6 +510,7 @@ export function useReliabilityCoverageTimeline(range: RangeParams) {
         { budget_id: "reliability_coverage_timeline", ...range },
         signal,
       ),
+    enabled,
   });
 }
 

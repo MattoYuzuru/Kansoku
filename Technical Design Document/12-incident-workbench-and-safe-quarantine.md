@@ -236,6 +236,11 @@ the shared keyboard and ARIA Dropdown contract. Session storage is keyed by the 
 and restores scroll on the next animation frame; it stores neither cursor contents separately nor
 telemetry values.
 
+Queries are enabled by the visible URL tab. Health loads coverage, reliability counts and the
+collection snapshot; Incidents loads only its keyset page; Quarantine loads only its keyset page.
+Profiles enable only their typed detail/occurrence/bundle queries. Hidden tabs do not consume the
+appliance's fixed 120-request/minute local safety budget or contend with the visible query budget.
+
 `TestIncidentWorkbenchReplayPaginationProfilesAndDebugBundle` remains the backend reconciliation
 gate for an unknown version-pinned fixture: one manifest and incident, replay-safe aggregate
 counts, append-only occurrences, deterministic lineage replacement, stable concurrent-insert

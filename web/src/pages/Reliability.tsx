@@ -74,9 +74,10 @@ export function Reliability() {
     }),
     [range.from, range.to, range.granularity, range.timezone],
   );
-  const coverage = useReliabilityCoverageTimeline(rangeParams);
-  const counts = useReliabilityCounts(rangeParams);
-  const collectionHealth = useCollectionHealth(rangeParams);
+  const healthEnabled = page.tab === "health";
+  const coverage = useReliabilityCoverageTimeline(rangeParams, healthEnabled);
+  const counts = useReliabilityCounts(rangeParams, healthEnabled);
+  const collectionHealth = useCollectionHealth(rangeParams, healthEnabled);
   const incidents = useInfiniteIncidents({
     state: page.state,
     triage: page.triage,
@@ -85,12 +86,12 @@ export function Reliability() {
     capability: page.capability,
     failure: page.failure,
     limit: 25,
-  });
+  }, page.tab === "incidents" && !page.incidentID);
   const quarantine = useInfiniteQuarantine({
     fingerprint: page.fingerprint,
     source: page.source,
     limit: 25,
-  });
+  }, page.tab === "quarantine" && !page.quarantineID);
   const incident = useIncident(page.incidentID);
   const occurrences = useIncidentOccurrences(page.incidentID);
   const debugBundle = useIncidentDebugBundle(page.incidentID);
