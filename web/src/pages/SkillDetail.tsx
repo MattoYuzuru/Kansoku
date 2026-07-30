@@ -7,6 +7,7 @@ import { eventTimelineOption } from "../components/chartOptions";
 import { DataTable, type Column } from "../components/DataTable";
 import { GlossaryTerm } from "../components/GlossaryTerm";
 import { KpiCard } from "../components/KpiCard";
+import { QueryErrorState } from "../components/QueryErrorState";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { useRange } from "../hooks/useRange";
@@ -45,6 +46,7 @@ export function SkillDetail({ id }: { id: string }) {
   const merged = useMemo(() => mergeSkillProfiles(profiles), [profiles]);
   const display = family ?? (directVariant ? groupSkillCatalog([directVariant])[0] : undefined);
   const state = (display?.completeness as ViewState | undefined) ?? "unknown";
+  const profileFailed = profileQueries.some((query) => query.isError);
 
   const assertionColumns: Column<SkillAssertionRow>[] = [
     {
@@ -104,6 +106,23 @@ export function SkillDetail({ id }: { id: string }) {
     () => eventTimelineOption(timelineRows, ["exposed", "invoked", "loaded"]),
     [timelineRows],
   );
+
+  if (listQuery.isError || profileFailed) {
+    return (
+      <section className="k-page">
+        <QueryErrorState
+          subject="this skill profile"
+          onRetry={() => {
+            if (listQuery.isError) void listQuery.refetch();
+            for (const query of profileQueries) {
+              if (query.isError) void query.refetch();
+            }
+          }}
+          backHref="/components/skills"
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="k-page">

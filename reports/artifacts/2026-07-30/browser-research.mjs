@@ -100,7 +100,9 @@ try {
     base_url: baseURL,
     source_state: "live_embedded_appliance",
     skill_profile: {},
+    malformed_null_fixture: {},
     agent_profiles: [],
+    route_error_boundary: {},
     range_persistence: {},
     reliability_navigation: {},
     overflow: {},
@@ -119,6 +121,45 @@ try {
       return node ? { href: node.getAttribute("href"), label: node.textContent?.trim() } : null;
     })()
   `);
+  let malformedResponseCount = 0;
+  page.on("Fetch.requestPaused", async (event) => {
+    const requestID = event.requestId;
+    try {
+      const url = String(event.request?.url ?? "");
+      if (!event.responseStatusCode || !url.includes("/api/v1/skills/")) {
+        await page.call("Fetch.continueRequest", { requestId: requestID });
+        return;
+      }
+      const response = await page.call("Fetch.getResponseBody", { requestId: requestID });
+      const source = response.base64Encoded
+        ? Buffer.from(response.body, "base64").toString("utf8")
+        : response.body;
+      const envelope = JSON.parse(source);
+      if (envelope?.data) {
+        envelope.data.assertions = null;
+        envelope.data.sources = null;
+        envelope.data.file_tree = null;
+        malformedResponseCount += 1;
+      }
+      const headers = (event.responseHeaders ?? [])
+        .filter((header) => header.name.toLowerCase() !== "content-length");
+      await page.call("Fetch.fulfillRequest", {
+        requestId: requestID,
+        responseCode: event.responseStatusCode,
+        responseHeaders: headers,
+        body: Buffer.from(JSON.stringify(envelope)).toString("base64"),
+      });
+    } catch {
+      try {
+        await page.call("Fetch.continueResponse", { requestId: requestID });
+      } catch {
+        // The request may already be completed by fulfillRequest.
+      }
+    }
+  });
+  await page.call("Fetch.enable", {
+    patterns: [{ urlPattern: "*api/v1/skills/*", requestStage: "Response" }],
+  });
   const exceptionStart = exceptions.length;
   await evaluate(page, `
     (() => {
@@ -134,6 +175,14 @@ try {
     ...(await pageState(page)),
     new_exceptions: exceptions.slice(exceptionStart),
   };
+  evidence.malformed_null_fixture = {
+    intercepted_profile_responses: malformedResponseCount,
+    rendered_profile: evidence.skill_profile.h1 !== null,
+    shell_preserved: await evaluate(page, `Boolean(document.querySelector(".k-shell"))`),
+    visible_error_state: await evaluate(page, `Boolean(document.querySelector('[role="alert"]'))`),
+    new_exception_count: exceptions.length - exceptionStart,
+  };
+  await page.call("Fetch.disable");
   await screenshot(page, "skill-profile-after-spa-click.png");
 
   await navigate(page, "/agents", `document.querySelectorAll('a[href^="/agents/"]').length > 0`);
@@ -145,7 +194,11 @@ try {
   for (const link of agentLinks) {
     const start = exceptions.length;
     await navigate(page, link.href, `document.querySelector("h1") || document.body.innerText.includes("Unknown agent")`);
-    await delay(500);
+    await waitFor(
+      page,
+      `document.querySelector('[role="alert"]') || !document.body.innerText.includes("Loading installation")`,
+      10000,
+    );
     evidence.agent_profiles.push({
       list_label: link.label,
       href: link.href,
@@ -154,6 +207,43 @@ try {
     });
   }
   await screenshot(page, "agent-profile.png");
+
+  const routeBoundaryExceptionStart = exceptions.length;
+  await evaluate(page, `
+    (() => {
+      Object.defineProperty(document, "title", {
+        configurable: true,
+        get: () => "route boundary probe",
+        set: () => {
+          delete document.title;
+          throw new Error("intentional_route_boundary_probe");
+        },
+      });
+      const link = document.querySelector('.k-nav__row[href="/privacy"]');
+      if (!(link instanceof HTMLElement)) throw new Error("privacy_link_missing");
+      link.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `document.querySelector('[role="alert"]')?.textContent?.includes("current view")`, 5000);
+  evidence.route_error_boundary = {
+    shell_preserved: await evaluate(page, `Boolean(document.querySelector(".k-shell"))`),
+    retry_visible: await evaluate(page, `document.querySelector('[role="alert"]')?.textContent?.includes("Retry")`),
+    back_visible: await evaluate(page, `document.querySelector('[role="alert"]')?.textContent?.includes("Back")`),
+  };
+  await evaluate(page, `
+    (() => {
+      const retry = [...document.querySelectorAll("button")]
+        .find((node) => node.textContent?.trim() === "Retry");
+      if (!(retry instanceof HTMLElement)) throw new Error("route_retry_missing");
+      retry.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `document.querySelector("h1")?.textContent?.trim() === "Privacy"`, 5000);
+  evidence.route_error_boundary.retry_recovered = true;
+  evidence.route_error_boundary.intentional_exceptions =
+    exceptions.splice(routeBoundaryExceptionStart);
 
   await navigate(page, "/activity", `document.querySelector(".k-dd__trigger")`);
   await evaluate(page, `
@@ -229,8 +319,35 @@ try {
   `);
   await waitFor(page, `location.search.includes("tab=incidents")`, 5000);
   await delay(500);
+  const sentinelAfterClick = await evaluate(page, `window.__kansokuResearchSentinel ?? null`);
+  const incidentDirect = await pageState(page);
+  await evaluate(page, `
+    (() => {
+      const link = document.querySelector('.k-reliability-tabs a[href*="tab=quarantine"]');
+      if (!(link instanceof HTMLElement)) throw new Error("quarantine_tab_missing");
+      link.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `location.search.includes("tab=quarantine")`, 5000);
+  const sentinelAfterSecondClick = await evaluate(page, `window.__kansokuResearchSentinel ?? null`);
+  await page.call("Page.getNavigationHistory").then((history) =>
+    page.call("Page.navigateToHistoryEntry", {
+      entryId: history.entries[history.currentIndex - 1].id,
+    }),
+  );
+  await waitFor(page, `location.search.includes("tab=incidents")`, 5000);
+  const sentinelAfterBack = await evaluate(page, `window.__kansokuResearchSentinel ?? null`);
+  await page.call("Page.reload", { ignoreCache: true });
+  await waitFor(page, `document.readyState === "complete" && location.search.includes("tab=incidents")`, 10000);
+  await waitFor(page, `document.querySelector(".k-reliability-tabs")`, 5000);
   evidence.reliability_navigation = {
-    sentinel_after_click: await evaluate(page, `window.__kansokuResearchSentinel ?? null`),
+    direct: incidentDirect,
+    sentinel_after_click: sentinelAfterClick,
+    sentinel_after_second_click: sentinelAfterSecondClick,
+    sentinel_after_back: sentinelAfterBack,
+    sentinel_after_refresh: await evaluate(page, `window.__kansokuResearchSentinel ?? null`),
+    shell_after_refresh: await evaluate(page, `Boolean(document.querySelector(".k-shell"))`),
     native_select_count: await evaluate(page, `document.querySelectorAll("select").length`),
     next_page_link_count: await evaluate(page, `
       [...document.querySelectorAll("a")].filter((node) => node.textContent?.trim() === "Next page").length
@@ -375,6 +492,7 @@ async function pageState(page) {
       body_has_unknown_agent: document.body.innerText.includes("Unknown agent"),
       body_has_error: document.body.innerText.includes("Error"),
       body_has_loading: document.body.innerText.includes("Loading"),
+      visible_alert: Boolean(document.querySelector('[role="alert"]')),
     }))()
   `);
 }

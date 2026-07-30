@@ -12,6 +12,7 @@ import { rankingBarOption } from "../components/chartOptions";
 import { DataTable, type Column } from "../components/DataTable";
 import { GlossaryTerm } from "../components/GlossaryTerm";
 import { KpiCard } from "../components/KpiCard";
+import { QueryErrorState } from "../components/QueryErrorState";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { useRange } from "../hooks/useRange";
@@ -54,6 +55,7 @@ export function PluginDetail({ id }: { id: string }) {
   const merged = useMemo(() => mergePluginProfiles(profiles), [profiles]);
   const display = family ?? (directVariant ? groupPluginCatalog([directVariant])[0] : undefined);
   const graphState = (display?.bundle_completeness as ViewState | undefined) ?? "unknown";
+  const profileFailed = profileQueries.some((query) => query.isError);
   const unusedChildren = merged.children.filter((row) => row.usage_count === 0).length;
   const chartChildren = merged.children.slice(0, 12);
   const distributionOption = useMemo(
@@ -142,6 +144,23 @@ export function PluginDetail({ id }: { id: string }) {
     { key: "exact", header: "Exact matches", align: "right", render: (row) => row.exact_count },
     { key: "state", header: "Completeness", render: (row) => row.completeness },
   ];
+
+  if (listQuery.isError || profileFailed) {
+    return (
+      <section className="k-page">
+        <QueryErrorState
+          subject="this plugin profile"
+          onRetry={() => {
+            if (listQuery.isError) void listQuery.refetch();
+            for (const query of profileQueries) {
+              if (query.isError) void query.refetch();
+            }
+          }}
+          backHref="/components/plugins"
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="k-page">

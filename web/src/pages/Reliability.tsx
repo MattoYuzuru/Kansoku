@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link, useSearch } from "wouter";
 import { KpiCard } from "../components/KpiCard";
 import { ChartContainer } from "../components/ChartContainer";
 import { DataTable, type Column } from "../components/DataTable";
@@ -30,8 +31,8 @@ import type {
 
 type ReliabilityTab = "health" | "incidents" | "quarantine";
 
-function queryState() {
-  const params = new URLSearchParams(window.location.search);
+function queryState(search: string) {
+  const params = new URLSearchParams(search);
   const requested = params.get("tab");
   const tab: ReliabilityTab =
     requested === "incidents" || requested === "quarantine" ? requested : "health";
@@ -60,7 +61,8 @@ function valueLabel(value: { state: string; value: string | null }) {
 
 export function Reliability() {
   const range = useRange("reliability");
-  const page = queryState();
+  const search = useSearch();
+  const page = useMemo(() => queryState(search), [search]);
   const rangeParams = useMemo(
     () => ({
       from: range.from,
@@ -123,9 +125,9 @@ export function Reliability() {
       key: "incident_id",
       header: "Incident",
       render: (row) => (
-        <a href={`/reliability?tab=incidents&incident=${encodeURIComponent(row.incident_id)}`}>
+        <Link href={`/reliability?tab=incidents&incident=${encodeURIComponent(row.incident_id)}`}>
           {row.incident_id}
-        </a>
+        </Link>
       ),
     },
     { key: "detector", header: "Detector", render: (row) => row.detector_state },
@@ -145,9 +147,9 @@ export function Reliability() {
       key: "quarantine_id",
       header: "Manifest",
       render: (row) => (
-        <a href={`/reliability?tab=quarantine&quarantine=${encodeURIComponent(row.quarantine_id)}`}>
+        <Link href={`/reliability?tab=quarantine&quarantine=${encodeURIComponent(row.quarantine_id)}`}>
           {row.quarantine_id}
-        </a>
+        </Link>
       ),
     },
     { key: "source", header: "Source", render: (row) => row.source_kind },
@@ -173,14 +175,14 @@ export function Reliability() {
 
       <nav aria-label="Reliability views" className="k-reliability-tabs">
         {(["health", "incidents", "quarantine"] as const).map((tab) => (
-          <a
+          <Link
             key={tab}
             href={tabHref(tab)}
             aria-current={page.tab === tab ? "page" : undefined}
             className={page.tab === tab ? "is-active" : ""}
           >
             {tab[0].toUpperCase() + tab.slice(1)}
-          </a>
+          </Link>
         ))}
       </nav>
 
@@ -270,9 +272,9 @@ export function Reliability() {
             emptyMessage={incidents.isLoading ? "Loading…" : "No incidents match this page."}
           />
           {incidents.data?.data?.has_more && incidents.data.data.next_cursor && (
-            <a href={pageHref("incidents", incidents.data.data.next_cursor)}>
+            <Link href={pageHref("incidents", incidents.data.data.next_cursor)}>
               Next page
-            </a>
+            </Link>
           )}
         </Panel>
       )}
@@ -304,9 +306,9 @@ export function Reliability() {
             emptyMessage={quarantine.isLoading ? "Loading…" : "No quarantine manifests observed."}
           />
           {quarantine.data?.data?.has_more && quarantine.data.data.next_cursor && (
-            <a href={pageHref("quarantine", quarantine.data.data.next_cursor)}>
+            <Link href={pageHref("quarantine", quarantine.data.data.next_cursor)}>
               Next page
-            </a>
+            </Link>
           )}
         </Panel>
       )}
@@ -350,7 +352,7 @@ function IncidentProfile({
   ];
   return (
     <>
-      <Panel title="Incident profile" actions={<a href={tabHref("incidents")}>Back to incidents</a>}>
+      <Panel title="Incident profile" actions={<Link href={tabHref("incidents")}>Back to incidents</Link>}>
         <dl className="k-kv">
           <div className="k-kv__row"><dt>Detector / triage</dt><dd>{incident.detector_state} / {incident.triage_state}</dd></div>
           <div className="k-kv__row"><dt>Installation</dt><dd>{valueLabel(incident.installation)}</dd></div>
@@ -387,7 +389,7 @@ function QuarantineProfile({
     return <Panel title="Structural manifest">{loading ? "Loading…" : "Manifest unavailable."}</Panel>;
   }
   return (
-    <Panel title="Structural manifest" actions={<a href={tabHref("quarantine")}>Back to quarantine</a>}>
+    <Panel title="Structural manifest" actions={<Link href={tabHref("quarantine")}>Back to quarantine</Link>}>
       <dl className="k-kv">
         <div className="k-kv__row"><dt>Source / signal</dt><dd>{manifest.source_kind} / {manifest.signal_kind}</dd></div>
         <div className="k-kv__row"><dt>Event type</dt><dd>{valueLabel(manifest.event_type)}</dd></div>

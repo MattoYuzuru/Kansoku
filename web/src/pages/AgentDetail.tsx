@@ -4,6 +4,7 @@ import { KpiCard } from "../components/KpiCard";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { StatusBadge } from "../components/StatusBadge";
+import { QueryErrorState } from "../components/QueryErrorState";
 import { deriveViewState } from "../api/client";
 import { useAgentProfile } from "../api/queries";
 import { useRange } from "../hooks/useRange";
@@ -42,6 +43,18 @@ export function AgentDetail({ alias }: AgentDetailProps) {
   const activity = data?.activity;
   const title = identity?.display_alias ||
     (identity?.display_name ? displayLabel(identity.display_name) : "Unknown agent");
+
+  if (profile.isError) {
+    return (
+      <section className="k-page">
+        <QueryErrorState
+          subject="this agent profile"
+          onRetry={() => void profile.refetch()}
+          backHref="/agents"
+        />
+      </section>
+    );
+  }
 
   const modelColumns: Column<ModelRow>[] = [
     { key: "model", header: "Model", render: (row) => row.model_id },

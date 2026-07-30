@@ -12,8 +12,10 @@
  * chunk's) download to the moment its route is actually visited.
  */
 import { Suspense, lazy, useEffect } from "react";
-import { Route, Switch, useParams } from "wouter";
+import { Route, Switch, useLocation, useParams, useSearch } from "wouter";
 import { ROUTES, type RouteMeta } from "./generated/routes";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { QueryErrorState } from "./components/QueryErrorState";
 
 const Overview = lazy(() => import("./pages/Overview").then((m) => ({ default: m.Overview })));
 const Activity = lazy(() => import("./pages/Activity").then((m) => ({ default: m.Activity })));
@@ -126,33 +128,52 @@ function NotFound() {
 const STATIC_PATHS = ROUTES.map((r) => r.path).filter((p) => !p.includes(":"));
 
 export function AppRoutes() {
+  const [location] = useLocation();
+  const search = useSearch();
   return (
-    <Suspense fallback={<section className="k-page" aria-busy="true" />}>
-      <Switch>
-        {STATIC_PATHS.map((path) => (
-          <Route key={path} path={path}>
-            <PageRoute path={path} />
+    <ErrorBoundary
+      resetKey={`${location}?${search}`}
+      fallback={({ retry }) => (
+        <section className="k-page">
+          <QueryErrorState
+            title="This view stopped rendering"
+            subject="the current view"
+            onRetry={retry}
+            onBack={() => {
+              if (window.history.length > 1) window.history.back();
+              else window.location.assign("/");
+            }}
+          />
+        </section>
+      )}
+    >
+      <Suspense fallback={<section className="k-page" aria-busy="true" />}>
+        <Switch>
+          {STATIC_PATHS.map((path) => (
+            <Route key={path} path={path}>
+              <PageRoute path={path} />
+            </Route>
+          ))}
+          <Route path="/agents/:id">
+            <AgentDetailRoute />
           </Route>
-        ))}
-        <Route path="/agents/:id">
-          <AgentDetailRoute />
-        </Route>
-        <Route path="/components/skills/:id">
-          <SkillDetailRoute />
-        </Route>
-        <Route path="/components/plugins/:id">
-          <PluginDetailRoute />
-        </Route>
-        <Route path="/components/mcp/:id/tools/:toolID">
-          <MCPToolDetailRoute />
-        </Route>
-        <Route path="/components/mcp/:id">
-          <MCPServerDetailRoute />
-        </Route>
-        <Route>
-          <NotFound />
-        </Route>
-      </Switch>
-    </Suspense>
+          <Route path="/components/skills/:id">
+            <SkillDetailRoute />
+          </Route>
+          <Route path="/components/plugins/:id">
+            <PluginDetailRoute />
+          </Route>
+          <Route path="/components/mcp/:id/tools/:toolID">
+            <MCPToolDetailRoute />
+          </Route>
+          <Route path="/components/mcp/:id">
+            <MCPServerDetailRoute />
+          </Route>
+          <Route>
+            <NotFound />
+          </Route>
+        </Switch>
+      </Suspense>
+    </ErrorBoundary>
   );
 }
