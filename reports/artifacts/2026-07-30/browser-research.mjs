@@ -106,6 +106,8 @@ try {
     route_error_boundary: {},
     agent_class_filter: {},
     range_persistence: {},
+    model_error_ratio: {},
+    collection_health: {},
     reliability_navigation: {},
     overflow: {},
     theme_tokens: {},
@@ -400,6 +402,18 @@ try {
     models_after_return: modelsAfterReturn,
     models_after_reload: modelsAfterReload,
   };
+  await delay(500);
+  evidence.model_error_ratio = await evaluate(page, `
+    (() => {
+      const card = [...document.querySelectorAll(".k-kpi")]
+        .find((node) => node.textContent?.includes("Error ratio"));
+      return {
+        found: Boolean(card),
+        text: card?.textContent?.replace(/\\s+/g, " ").trim() ?? null,
+        state: card?.querySelector("[role=img]")?.getAttribute("aria-label") ?? null,
+      };
+    })()
+  `);
 
   await navigate(page, "/reliability", `document.querySelector(".k-reliability-tabs")`);
   await evaluate(page, `window.__kansokuResearchSentinel = "present"; true`);
@@ -446,9 +460,39 @@ try {
     next_page_link_count: await evaluate(page, `
       [...document.querySelectorAll("a")].filter((node) => node.textContent?.trim() === "Next page").length
     `),
+    load_more_button_count: await evaluate(page, `
+      [...document.querySelectorAll("button")]
+        .filter((node) => node.textContent?.trim().startsWith("Load more")).length
+    `),
+    incident_row_count: await evaluate(page, `
+      document.querySelectorAll(".k-panel tbody tr").length
+    `),
+    dom_limit_notice_count: await evaluate(page, `
+      [...document.querySelectorAll("p")]
+        .filter((node) => node.textContent?.includes("200-row DOM limit reached")).length
+    `),
     ...(await pageState(page)),
   };
   await screenshot(page, "reliability-incidents.png");
+  await navigate(page, "/reliability", `document.querySelector(".k-kpi")`);
+  await delay(800);
+  evidence.collection_health = await evaluate(page, `
+    (() => {
+      const text = document.body.textContent ?? "";
+      const card = (label) => [...document.querySelectorAll(".k-kpi")]
+        .find((node) => node.textContent?.includes(label));
+      const receive = card("Receive-to-commit p95");
+      return {
+        receive_to_commit_present: Boolean(receive),
+        receive_to_commit_state: receive?.querySelector("[role=img]")?.getAttribute("aria-label") ?? null,
+        observation_age_present: Boolean(card("Observation age p95")),
+        replay_present: Boolean(card("Replays")),
+        late_backfill_present: Boolean(card("Late/backfill candidates")),
+        clock_skew_present: Boolean(card("Clock-skew events")),
+        semantic_gap_note_present: text.includes("five-minute arrival-gap rule"),
+      };
+    })()
+  `);
 
   for (const [name, width, height] of [
     ["desktop", 1440, 900],
@@ -552,6 +596,8 @@ try {
     browser: evidence.browser,
     skill_profile: evidence.skill_profile,
     range_persistence: evidence.range_persistence,
+    model_error_ratio: evidence.model_error_ratio,
+    collection_health: evidence.collection_health,
     reliability_navigation: evidence.reliability_navigation,
     overflow_counts: Object.fromEntries(
       Object.entries(evidence.overflow).map(([key, value]) => [key, value.length]),

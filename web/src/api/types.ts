@@ -19,7 +19,15 @@ export interface Population {
 
 /** Matches internal/dataplatform.Completeness (distinct from the envelope's Completeness). */
 export interface DataCompleteness {
-  status: string;
+  status:
+    | "complete"
+    | "partial"
+    | "degraded"
+    | "unsupported"
+    | "not_observed"
+    | "redacted"
+    | "unknown"
+    | "numeric_zero";
   covered_ratio: number;
   intervals: string[];
 }
@@ -260,7 +268,17 @@ export interface ModelUsageDayRow {
   upper_bound_cost_count: number;
   percentiles?: Percentiles;
   error_ratio?: number | null;
+  error_numerator: number;
+  error_denominator: number;
+  error_excluded_count: number;
   matched_event_count: number;
+}
+export interface RatioMetric {
+  value?: number | null;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
 }
 export interface ModelUsageResponse {
   data: ModelUsageDayRow[];
@@ -268,6 +286,7 @@ export interface ModelUsageResponse {
   population: Population;
   completeness: DataCompleteness;
   freshness: Freshness;
+  error_ratio_metric: RatioMetric;
 }
 
 /* ---- /api/v1/tools/analytics ---- */
@@ -560,7 +579,11 @@ export interface ReliabilityCountsResponse {
 export interface CollectionHealthSnapshot {
   accepted_event_count: number;
   quarantined_record_count: number;
-  ingest_latency_p95_ms?: number | null;
+  receive_to_commit_p95_ms?: number | null;
+  observation_age_p95_seconds?: number | null;
+  replay_count: number;
+  late_backfill_candidate_count: number;
+  clock_skew_event_count: number;
   active_source_count: number;
   source_gap_count: number;
   oldest_source_age_seconds?: number | null;
@@ -569,6 +592,9 @@ export interface CollectionHealthSnapshot {
   queue_depth: number;
   oldest_queue_age_seconds: number;
   formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
 }
 
 /* ---- /api/v1/system/snapshot (flat, no `data` array, no from/to) ---- */

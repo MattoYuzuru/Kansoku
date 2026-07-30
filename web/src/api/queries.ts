@@ -7,7 +7,7 @@
  * span <= 366 days); see hooks/useRange.ts for the shared UI control that
  * produces them.
  */
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { apiGet, type ApiEnvelope } from "./client";
 import { normalizePluginProfile, normalizeSkillProfile } from "./normalize";
 import type {
@@ -182,6 +182,21 @@ export function useIncidents(params: IncidentQueryParams = {}) {
   });
 }
 
+export function useInfiniteIncidents(params: Omit<IncidentQueryParams, "cursor"> = {}) {
+  return useInfiniteQuery({
+    queryKey: rk("incidents-infinite", params),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      apiGet<IncidentPage>(
+        "/api/v1/incidents",
+        { ...params, cursor: pageParam },
+        signal,
+      ),
+    getNextPageParam: (lastPage) =>
+      lastPage.data?.has_more ? lastPage.data.next_cursor : undefined,
+  });
+}
+
 export function useIncident(id?: string) {
   return useQuery({
     queryKey: rk("incident", id),
@@ -235,6 +250,29 @@ export function useQuarantine(
     queryKey: rk("quarantine", params),
     queryFn: ({ signal }) =>
       apiGet<QuarantinePage>("/api/v1/quarantine", { ...params }, signal),
+  });
+}
+
+export function useInfiniteQuarantine(
+  params: {
+    fingerprint?: string;
+    source?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  } = {},
+) {
+  return useInfiniteQuery({
+    queryKey: rk("quarantine-infinite", params),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      apiGet<QuarantinePage>(
+        "/api/v1/quarantine",
+        { ...params, cursor: pageParam },
+        signal,
+      ),
+    getNextPageParam: (lastPage) =>
+      lastPage.data?.has_more ? lastPage.data.next_cursor : undefined,
   });
 }
 
