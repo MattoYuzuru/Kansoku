@@ -16,14 +16,15 @@ browser executable candidates and accepts an explicit executable override.
 589f0f5d02d3881f13c4c9827186218c19ab67d53ca60afca1d86b4e1a9fcf82  reports/2026-07-30-defect-research-and-priority-plan.md
 806de0c60f08ea94ddaa32e032bef08220297a02869eb8d086205cf2b28fa8d6  reports/2026-07-30-defect-inventory.json
 8704a87f3be255f86e34bcdb82857dad19e32bebabe83e8d88e2171fdcc7a8e7  reports/2026-07-30-next-agent-prompt.md
-8c23857aeab7dbf25957b5ae686b1c82ea9004e8f906131500baa00f1740d103  reports/artifacts/2026-07-30/browser-evidence.json
+3cbeac3c9985d44c8660427c7a18d3ca039a365472cd5cbb3e25b0a49a42357a  reports/artifacts/2026-07-30/browser-evidence.json
 8a47fcbff3a75862c5b81aeda3a752c67957a67c749209d5e0bbcf957931dcb5  reports/artifacts/2026-07-30/live-evidence.json
-7d90265a808f7a1e257016d7c28438c1e53e0789ad93ea6ca804d23adca67384  reports/artifacts/2026-07-30/browser-research.mjs
-8ce604d81364ba806b048a8a942caede8e1409fa2e1981fb51449f015cd86367  reports/artifacts/2026-07-30/agent-profile.png
-cb179214c65a523595c91c0c6c08447e71afe46d3f23d22201385fbc9fb10695  reports/artifacts/2026-07-30/reliability-incidents.png
-7573b384eb98172348ea6f4082bdb0fb5174b75ad0e7623bfbf2be13b9e008d8  reports/artifacts/2026-07-30/skill-profile-after-spa-click.png
-473f828165be8cb7be2117c33e2fc7a0112603c714240fe40acbf3d89377c469  reports/artifacts/2026-07-30/system-mobile.png
-28157858c979bc50d4f40781d3447cad4b84643a2d4a96b1128b1ef8dca4b2a3  reports/artifacts/2026-07-30/system-tablet.png
+41832564f2d1c229b769bad859cdbb20f9a2a315a49416827d20b905fccd27f5  reports/artifacts/2026-07-30/browser-research.mjs
+0fc81a40de7bb3385e958244b499fc87ad59ad48d6bc2e48a921901926ecbb41  reports/artifacts/2026-07-30/agent-profile.png
+f849e183d2ab0551f18ef0a0ca817ce94de9492efcc31c8a5020d7a9ab98d52d  reports/artifacts/2026-07-30/reliability-incidents.png
+00cac55fa76de0891425d1791141fe83d34037019b8f25c3736b6872192f5903  reports/artifacts/2026-07-30/skill-profile-after-spa-click.png
+b0d5f460333c7c86d73efd5848d7b20283fe5aef8c99fa6966d3a877ba6b739e  reports/artifacts/2026-07-30/system-mobile.png
+1ba96d3ed6a2f2fcb49cd6e6f86c0b4b7ba1f60ef1e1797fa3f04f3d84fc2d72  reports/artifacts/2026-07-30/system-tablet.png
+a8706997b950f987ea7c6a14ba914e6f271988c20b9507cc91481da9c02968ae  reports/artifacts/2026-07-30/system-zoom_200.png
 ```
 
 ## Reproduction and validation
@@ -43,10 +44,12 @@ git diff --check
 
 The browser run used an ephemeral Chrome profile and observed:
 
-- one skill-profile render exception;
-- five HTTP 503 agent-profile responses;
-- range reset from 7 to 30 days;
-- a full document reload on Reliability tab navigation;
-- one overflowing KPI on both Reliability and System at desktop, tablet, and mobile widths;
-- two native Reliability selects and one visible Next page link;
-- no transport-level failed requests.
+- 200 responses for all five agent profiles and a rendered skill profile without exceptions;
+- independent Activity=7d and Models=12-month preferences across SPA navigation and reload;
+- weighted Models error ratio with formula/population/exclusion text;
+- separate collection receive-to-commit, observation-age, replay, late/backfill and clock-skew
+  states;
+- SPA Reliability tab navigation, Back and refresh with 25 incident rows, a Load more fallback,
+  zero native selects and zero legacy Next page links;
+- zero overflow findings at desktop, tablet, mobile and 200% zoom;
+- zero runtime exceptions, transport failures and non-200 API responses.
