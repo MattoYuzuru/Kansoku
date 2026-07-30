@@ -151,6 +151,10 @@ stable cursors, filters and a visible total state (`exact`, `lower_bound`, `unkn
 profiles link every degraded metric back to the affected interval and capability. Quarantine rows
 show shape summaries, not JSON previews.
 
+All internal Reliability tab, profile, back and pagination links use the shared Wouter navigation
+path. Query-string changes therefore update the workbench without replacing the document; direct
+URLs, browser Back and full refresh preserve the same URL-addressable state.
+
 ## Audit and recovery
 
 The daily audit verifies:

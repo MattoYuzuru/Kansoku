@@ -79,6 +79,14 @@ Every panel handles:
 
 Blank chart and “0” are never generic fallbacks.
 
+The 2026-07-30 containment pass makes this contract executable at three boundaries:
+
+- collection-bearing Skill and Plugin profile responses serialize absent collections as `[]`;
+- the query boundary normalizes legacy cached/mixed-version `null` collections, and merge helpers
+  still fail safe if an unnormalized payload reaches them;
+- query failures render a privacy-safe Retry/Back state, route render failures retain the
+  `AppShell`, and a root boundary leaves a non-empty recovery surface if the shell itself fails.
+
 ## Core visual specifications
 
 ### Activity timeline
