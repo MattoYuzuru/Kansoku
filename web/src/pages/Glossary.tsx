@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { GLOSSARY_TERMS } from "../generated/glossary";
 import { Panel } from "../components/Panel";
+import { startGlossaryTargetPulse, type GlossaryPulseRuntime } from "../lib/glossaryTarget";
 import "./Glossary.css";
 
 function titleFor(id: string): string {
@@ -24,9 +25,24 @@ export function Glossary() {
   }, [query]);
 
   useEffect(() => {
-    if (!window.location.hash) return;
-    const id = decodeURIComponent(window.location.hash.slice(1));
-    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: "center" }));
+    const runtime: GlossaryPulseRuntime = {
+      findTarget: (id) => document.getElementById(id),
+      requestFrame: (callback) => window.requestAnimationFrame(callback),
+      cancelFrame: (id) => window.cancelAnimationFrame(id),
+      setTimer: (callback, delay) => window.setTimeout(callback, delay),
+      clearTimer: (id) => window.clearTimeout(id),
+    };
+    let stopPulse: () => void = () => undefined;
+    const replay = () => {
+      stopPulse();
+      stopPulse = startGlossaryTargetPulse(window.location.hash, runtime);
+    };
+    replay();
+    window.addEventListener("hashchange", replay);
+    return () => {
+      window.removeEventListener("hashchange", replay);
+      stopPulse();
+    };
   }, []);
 
   return (
@@ -54,7 +70,7 @@ export function Glossary() {
 
         <div className="k-glossary__grid" aria-live="polite">
           {terms.map((term) => (
-            <article className="k-glossary__term" id={term.id} key={term.id}>
+            <article className="k-glossary__term" id={term.id} key={term.id} tabIndex={-1}>
               <h2 className="t-section-header">{titleFor(term.id)}</h2>
               <p className="t-body">{term.plainDefinition}</p>
               {term.plainDefinition !== term.definition && (

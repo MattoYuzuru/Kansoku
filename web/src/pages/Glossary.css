@@ -38,6 +38,34 @@
   box-shadow: inset 3px 0 0 var(--accent-purple);
 }
 
+.k-glossary__term.is-target-pulsing {
+  animation: glossary-target-pulse 1.6s var(--ease) 3;
+}
+
+@keyframes glossary-target-pulse {
+  0%,
+  100% {
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: inset 3px 0 0 transparent;
+  }
+
+  50% {
+    background: color-mix(in srgb, var(--accent-purple) 16%, var(--surface));
+    border-color: var(--accent-purple);
+    box-shadow: inset 3px 0 0 var(--accent-purple);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-glossary__term.is-target-pulsing {
+    animation: none;
+    background: color-mix(in srgb, var(--accent-purple) 16%, var(--surface));
+    border-color: var(--accent-purple);
+    box-shadow: inset 3px 0 0 var(--accent-purple);
+  }
+}
+
 .k-glossary__term h2,
 .k-glossary__term p {
   margin-top: 0;
