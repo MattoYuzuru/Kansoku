@@ -1,8 +1,8 @@
 /*
  * Kansoku design tokens — verbatim from
  * "Technical Design Document/design-system-tokens.md" §1, §1.3, §1.4, §1.5, §4.
- * The neutral base is fixed; only --accent-purple / --accent-gold are runtime
- * mutable (§9, applied via theme.tsx). Every literal hex/px/ms below is final.
+ * The neutral base is fixed; accents and derived interaction roles are runtime
+ * mutable (§9, applied via theme.tsx). Every other literal below is a fallback.
  */
 
 /* ---- §1.1 Dark theme (:root, default) ---- */

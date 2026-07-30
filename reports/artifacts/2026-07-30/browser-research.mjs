@@ -258,12 +258,21 @@ try {
   evidence.theme_tokens.before = await themeAudit(page);
   await evaluate(page, `
     (() => {
-      const root = document.documentElement;
-      root.style.setProperty("--accent-purple", "#00ff00");
-      root.style.setProperty("--accent-gold", "#00ffff");
+      localStorage.setItem("kansoku.appearance.v1", JSON.stringify({
+        version: 1,
+        theme: "dark",
+        sidebarCollapsed: false,
+        accentPurple: "#00ff00",
+        accentGold: "#00ffff",
+        accentPurpleLight: "#006b00",
+        accentGoldLight: "#006b6b",
+        preset: "observatory"
+      }));
       return true;
     })()
   `);
+  await page.call("Page.reload", { ignoreCache: true });
+  await waitFor(page, `document.readyState === "complete" && document.querySelector(".k-nav__row.is-active")`, 10000);
   evidence.theme_tokens.after_custom_accents = await themeAudit(page);
 
   await navigate(page, "/glossary#invoked", `document.getElementById("invoked")`);
