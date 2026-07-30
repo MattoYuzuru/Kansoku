@@ -104,6 +104,7 @@ export function Privacy() {
           <KpiCard
             label="Database size"
             value={snap ? snap.database_size_bytes : null}
+            formatValue={bytesToReadable}
             state={snapshotState}
           />
           <KpiCard

@@ -44,14 +44,14 @@ export function sum(values: readonly (number | null | undefined)[]): number {
 
 export function bytesToReadable(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined) return "—";
-  const units = ["B", "KB", "MB", "GB", "TB"];
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
   let value = bytes;
   let unitIndex = 0;
   while (value >= 1024 && unitIndex < units.length - 1) {
     value /= 1024;
     unitIndex += 1;
   }
-  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  return `${formatMetric(value)} ${units[unitIndex]}`;
 }
 
 export function secondsToReadable(seconds: number | null | undefined): string {

@@ -79,6 +79,7 @@ export function System() {
           <KpiCard
             label="Database size"
             value={snap ? snap.database_size_bytes : null}
+            formatValue={bytesToReadable}
             state={state}
           />
           <KpiCard label="Database growth" value={null} unit="bytes/day" state="unsupported" />
