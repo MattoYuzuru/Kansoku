@@ -88,6 +88,15 @@ type PluginProfileResponse struct {
 	Freshness      Freshness            `json:"freshness"`
 }
 
+func newPluginProfileResponse() PluginProfileResponse {
+	return PluginProfileResponse{
+		Children:   make([]PluginChildRow, 0),
+		Versions:   make([]PluginVersionRow, 0),
+		Assertions: make([]SkillAssertionRow, 0),
+		Sources:    make([]SkillSourceRow, 0),
+	}
+}
+
 var ErrPluginNotFound = errors.New("plugin_not_found")
 
 func PluginObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (PluginObservatoryResponse, error) {
@@ -246,7 +255,7 @@ func PluginProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to 
 	if err != nil {
 		return PluginProfileResponse{}, err
 	}
-	var response PluginProfileResponse
+	response := newPluginProfileResponse()
 	found := false
 	for _, row := range list.Data {
 		if row.ComponentInstallationID == id {

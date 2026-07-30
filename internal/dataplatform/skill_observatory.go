@@ -107,6 +107,14 @@ type SkillProfileResponse struct {
 	Freshness      Freshness              `json:"freshness"`
 }
 
+func newSkillProfileResponse() SkillProfileResponse {
+	return SkillProfileResponse{
+		Assertions: make([]SkillAssertionRow, 0),
+		Sources:    make([]SkillSourceRow, 0),
+		FileTree:   make([]SkillFileTreeSummary, 0),
+	}
+}
+
 var ErrSkillNotFound = errors.New("skill_not_found")
 
 func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) (SkillObservatoryResponse, error) {
@@ -257,7 +265,7 @@ func SkillProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to t
 	if err != nil {
 		return SkillProfileResponse{}, err
 	}
-	var response SkillProfileResponse
+	response := newSkillProfileResponse()
 	found := false
 	for _, row := range list.Data {
 		if row.ComponentInstallationID == id {

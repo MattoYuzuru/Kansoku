@@ -4,11 +4,13 @@ import {
   groupPluginCatalog,
   groupSkillCatalog,
   mergePluginProfiles,
+  mergeSkillProfiles,
   skillCatalogStats,
 } from "../src/lib/componentCatalog.ts";
 import type {
   PluginObservatoryRow,
   PluginProfileResponse,
+  SkillProfileResponse,
   SkillObservatoryRow,
 } from "../src/api/types.ts";
 
@@ -159,4 +161,27 @@ test("plugin detail ranks merged child families by exact usage", () => {
   assert.equal(merged.children[0].usage_count, 6);
   assert.equal(merged.children[0].variants, 2);
   assert.deepEqual(merged.children[0].relation_kinds, ["bundles", "provides"]);
+});
+
+test("detail merging contains malformed legacy null collections", () => {
+  const skillProfile = {
+    identity: skill("legacy-skill", "user", 0, 0),
+    assertions: null,
+    sources: null,
+    file_tree: null,
+    incident_count: 0,
+    completeness: { status: "unknown" },
+  } as unknown as SkillProfileResponse;
+  const pluginProfile = {
+    identity: plugin("legacy-plugin", "user", 0),
+    children: null,
+    versions: null,
+    assertions: null,
+    sources: null,
+    incident_count: 0,
+    completeness: { status: "unknown" },
+  } as unknown as PluginProfileResponse;
+
+  assert.doesNotThrow(() => mergeSkillProfiles([skillProfile]));
+  assert.doesNotThrow(() => mergePluginProfiles([pluginProfile]));
 });

@@ -9,6 +9,7 @@
  */
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { apiGet, type ApiEnvelope } from "./client";
+import { normalizePluginProfile, normalizeSkillProfile } from "./normalize";
 import type {
   ActivityTimelineResponse,
   CompletenessSummary,
@@ -338,8 +339,16 @@ export function useSkills(range: RangeParams) {
 export function useSkillProfile(id: string, range: RangeParams) {
   return useQuery({
     queryKey: rk("skill-profile", { id, ...range }),
-    queryFn: ({ signal }) =>
-      apiGet<SkillProfileResponse>(`/api/v1/skills/${encodeURIComponent(id)}`, { ...range }, signal),
+    queryFn: async ({ signal }) => {
+      const envelope = await apiGet<SkillProfileResponse>(
+        `/api/v1/skills/${encodeURIComponent(id)}`,
+        { ...range },
+        signal,
+      );
+      return envelope.data
+        ? { ...envelope, data: normalizeSkillProfile(envelope.data) }
+        : envelope;
+    },
     enabled: Boolean(id),
   });
 }
@@ -348,12 +357,16 @@ export function useSkillProfiles(ids: readonly string[], range: RangeParams) {
   return useQueries({
     queries: ids.map((id) => ({
       queryKey: rk("skill-profile", { id, ...range }),
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        apiGet<SkillProfileResponse>(
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const envelope = await apiGet<SkillProfileResponse>(
           `/api/v1/skills/${encodeURIComponent(id)}`,
           { ...range },
           signal,
-        ),
+        );
+        return envelope.data
+          ? { ...envelope, data: normalizeSkillProfile(envelope.data) }
+          : envelope;
+      },
       enabled: Boolean(id),
     })),
   });
@@ -370,8 +383,16 @@ export function usePlugins(range: RangeParams) {
 export function usePluginProfile(id: string, range: RangeParams) {
   return useQuery({
     queryKey: rk("plugin-profile", { id, ...range }),
-    queryFn: ({ signal }) =>
-      apiGet<PluginProfileResponse>(`/api/v1/plugins/${encodeURIComponent(id)}`, { ...range }, signal),
+    queryFn: async ({ signal }) => {
+      const envelope = await apiGet<PluginProfileResponse>(
+        `/api/v1/plugins/${encodeURIComponent(id)}`,
+        { ...range },
+        signal,
+      );
+      return envelope.data
+        ? { ...envelope, data: normalizePluginProfile(envelope.data) }
+        : envelope;
+    },
     enabled: Boolean(id),
   });
 }
@@ -380,12 +401,16 @@ export function usePluginProfiles(ids: readonly string[], range: RangeParams) {
   return useQueries({
     queries: ids.map((id) => ({
       queryKey: rk("plugin-profile", { id, ...range }),
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        apiGet<PluginProfileResponse>(
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const envelope = await apiGet<PluginProfileResponse>(
           `/api/v1/plugins/${encodeURIComponent(id)}`,
           { ...range },
           signal,
-        ),
+        );
+        return envelope.data
+          ? { ...envelope, data: normalizePluginProfile(envelope.data) }
+          : envelope;
+      },
       enabled: Boolean(id),
     })),
   });

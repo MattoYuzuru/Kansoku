@@ -271,7 +271,9 @@ export function pluginCatalogStats(rows: readonly PluginCatalogRow[]): PluginCat
 function mergeAssertions(profiles: readonly { assertions: SkillAssertionRow[] }[]): SkillAssertionRow[] {
   const assertions = new Map<string, SkillAssertionRow>();
   for (const profile of profiles) {
-    for (const assertion of profile.assertions) assertions.set(assertion.assertion_id, assertion);
+    for (const assertion of profile.assertions ?? []) {
+      assertions.set(assertion.assertion_id, assertion);
+    }
   }
   return [...assertions.values()].sort(
     (a, b) => b.observed_at.localeCompare(a.observed_at) || a.assertion_id.localeCompare(b.assertion_id),
@@ -281,7 +283,7 @@ function mergeAssertions(profiles: readonly { assertions: SkillAssertionRow[] }[
 function mergeSources(profiles: readonly { sources: SkillSourceRow[] }[]): SkillSourceRow[] {
   const sources = new Map<string, SkillSourceRow>();
   for (const profile of profiles) {
-    for (const row of profile.sources) {
+    for (const row of profile.sources ?? []) {
       const current = sources.get(row.source_instance_id);
       if (!current) {
         sources.set(row.source_instance_id, { ...row });
@@ -329,7 +331,7 @@ export function mergeSkillProfiles(profiles: readonly SkillProfileResponse[]): M
     assertions: mergeAssertions(profiles),
     sources: mergeSources(profiles),
     file_tree: profiles.flatMap((profile) =>
-      profile.file_tree.map((row) => ({
+      (profile.file_tree ?? []).map((row) => ({
         ...row,
         component_installation_id: profile.identity.component_installation_id,
       })),
@@ -360,7 +362,7 @@ export function mergePluginProfiles(profiles: readonly PluginProfileResponse[]):
   const childComponentIDs = new Map<string, Set<string>>();
   const childUsageByComponent = new Map<string, Map<string, number>>();
   for (const profile of profiles) {
-    for (const row of profile.children) {
+    for (const row of profile.children ?? []) {
       const key = `${row.component_kind}\u0000${normalizedName(row.declared_name)}`;
       let current = children.get(key);
       if (!current) {
@@ -404,7 +406,7 @@ export function mergePluginProfiles(profiles: readonly PluginProfileResponse[]):
 
   const versions = new Map<string, PluginVersionRow>();
   for (const profile of profiles) {
-    for (const row of profile.versions) {
+    for (const row of profile.versions ?? []) {
       const key = `${row.version_state}\u0000${row.version ?? ""}`;
       const current = versions.get(key);
       if (!current) {
