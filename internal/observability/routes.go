@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"kansoku.local/kansoku/internal/adaptersdk"
 	"kansoku.local/kansoku/internal/claudeadapter"
 	"kansoku.local/kansoku/internal/codexadapter"
 	"kansoku.local/kansoku/internal/localhttp"
@@ -235,16 +236,7 @@ func claudeHookHandler(writer http.ResponseWriter, request *http.Request, ingest
 }
 
 func hookOutcome(status string) string {
-	switch strings.ToLower(status) {
-	case "success", "succeeded", "ok", "completed":
-		return "succeeded"
-	case "failure", "failed", "error":
-		return "failed"
-	case "cancelled", "interrupted", "timed_out", "abandoned":
-		return strings.ToLower(status)
-	default:
-		return "unknown"
-	}
+	return adaptersdk.ClassifyTerminalStatus(status, false).Outcome
 }
 
 func addOptionalHookField(fields map[string]any, key string, value any) {

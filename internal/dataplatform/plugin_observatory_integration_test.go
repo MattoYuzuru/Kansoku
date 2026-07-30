@@ -78,6 +78,21 @@ func TestPluginGraphLoadChildAttributionUpgradeDisableAndSourceLoss(t *testing.T
 	}
 	insertChild()
 	insertChild()
+	var fabricatedPluginInvocations int64
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM component_assertions
+		WHERE component_installation_id=$1
+		  AND assertion_kind='invoked'
+	`, pluginInstallationID).Scan(&fabricatedPluginInvocations); err != nil {
+		t.Fatal(err)
+	}
+	if fabricatedPluginInvocations != 0 {
+		t.Fatalf(
+			"child activity fabricated %d plugin invocations",
+			fabricatedPluginInvocations,
+		)
+	}
 
 	response, err := PluginObservatory(ctx, pool, base, base.Add(time.Hour))
 	if err != nil {

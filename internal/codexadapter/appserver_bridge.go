@@ -12,6 +12,7 @@ import (
 	"io"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,7 +22,7 @@ import (
 
 const (
 	AppServerBridgeID        = "codex-app-server"
-	AppServerBridgeVersion   = "0.2.0"
+	AppServerBridgeVersion   = "0.3.0"
 	AppServerProtocolVersion = "codex-app-server-jsonl"
 	AppServerSchemaVersion   = "0.145.0"
 )
@@ -121,6 +122,8 @@ func (b *AppServerBridge) Connect(ctx context.Context, target adaptersdk.BridgeT
 	scanner := bufio.NewScanner(target.Frames)
 	scanner.Buffer(make([]byte, 4096), manifest.MaxFrameBytes)
 	var sequence uint64
+	terminalOrder := make([]string, 0)
+	terminalCalls := map[string]*bridgeTerminalCall{}
 	for scanner.Scan() {
 		if err := ctx.Err(); err != nil {
 			b.setLifecycle(adaptersdk.BridgeDegraded, "context_cancelled")
@@ -142,25 +145,120 @@ func (b *AppServerBridge) Connect(ctx context.Context, target adaptersdk.BridgeT
 			continue
 		}
 		for _, record := range records {
-			if err := sink.Accept(ctx, record); err != nil {
-				b.setLifecycle(adaptersdk.BridgeDegraded, "sink_unavailable")
+			if record.EventType == "tool.called" && record.ComponentKind == "mcp" {
+				key := record.Lineage.SourceRecordPseudonym
+				call := terminalCalls[key]
+				if call == nil {
+					call = &bridgeTerminalCall{terminals: map[string]privacy.SafeRecord{}}
+					terminalCalls[key] = call
+					terminalOrder = append(terminalOrder, key)
+				}
+				call.observe(record)
+				continue
+			}
+			if err := b.accept(ctx, sink, record, sequence); err != nil {
 				return err
 			}
 		}
-		b.mu.Lock()
-		b.health.Lifecycle = adaptersdk.BridgeProducing
-		b.health.AcceptedFrames += uint64(len(records))
-		b.health.LastObservedAt = records[len(records)-1].ObservedAt
-		b.checkpoint = adaptersdk.BridgeCheckpoint{
-			Sequence: sequence, LastObservedAt: records[len(records)-1].ObservedAt, ReplaySupported: false,
-		}
-		b.mu.Unlock()
 	}
 	if err := scanner.Err(); err != nil {
 		b.reject(ctx, sink, "frame_too_large_or_stream_error", 0)
 		return errors.New("bridge_stream_error")
 	}
-	b.setLifecycle(adaptersdk.BridgeReconciled, "")
+	for _, key := range terminalOrder {
+		record, category := terminalCalls[key].reconcile(b, key)
+		if err := b.accept(ctx, sink, record, sequence); err != nil {
+			return err
+		}
+		if category != "" {
+			if err := b.reject(ctx, sink, category, 0); err != nil {
+				return err
+			}
+		}
+	}
+	b.mu.Lock()
+	if b.health.RejectedFrames == 0 {
+		b.health.Lifecycle = adaptersdk.BridgeReconciled
+		b.health.Category = ""
+	}
+	b.mu.Unlock()
+	return nil
+}
+
+type bridgeTerminalCall struct {
+	started   *privacy.SafeRecord
+	terminals map[string]privacy.SafeRecord
+}
+
+func (c *bridgeTerminalCall) observe(record privacy.SafeRecord) {
+	if record.ComponentEvidence.IdentitySource == "native_bridge_started" {
+		copyRecord := record
+		if c.started == nil || record.ObservedAt.Before(c.started.ObservedAt) {
+			c.started = &copyRecord
+		}
+		return
+	}
+	existing, exists := c.terminals[record.Outcome]
+	if !exists || record.ObservedAt.Before(existing.ObservedAt) {
+		c.terminals[record.Outcome] = record
+	}
+}
+
+func (c *bridgeTerminalCall) reconcile(
+	bridge *AppServerBridge,
+	key string,
+) (privacy.SafeRecord, string) {
+	if len(c.terminals) == 0 {
+		record := *c.started
+		record.Outcome = "unknown"
+		record.Telemetry.DurationMS = nil
+		record.IdempotencyKey = bridge.pseudonym(
+			"terminal-reconciliation/1", key+"\x00missing_terminal",
+		)
+		return record, "missing_terminal"
+	}
+	if len(c.terminals) == 1 {
+		for outcome, record := range c.terminals {
+			record.IdempotencyKey = bridge.pseudonym(
+				"terminal-reconciliation/1", key+"\x00"+outcome,
+			)
+			return record, ""
+		}
+	}
+	var record privacy.SafeRecord
+	for _, candidate := range c.terminals {
+		if record.RecordID == "" || candidate.ObservedAt.After(record.ObservedAt) {
+			record = candidate
+		}
+	}
+	record.Outcome = "unknown"
+	record.Telemetry.DurationMS = nil
+	record.IdempotencyKey = bridge.pseudonym(
+		"terminal-reconciliation/1", key+"\x00contradictory_terminal",
+	)
+	return record, "contradictory_terminal"
+}
+
+func (b *AppServerBridge) accept(
+	ctx context.Context,
+	sink adaptersdk.SafeAssertionSink,
+	record privacy.SafeRecord,
+	sequence uint64,
+) error {
+	if err := sink.Accept(ctx, record); err != nil {
+		b.setLifecycle(adaptersdk.BridgeDegraded, "sink_unavailable")
+		return err
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.health.Lifecycle = adaptersdk.BridgeProducing
+	b.health.AcceptedFrames++
+	if record.ObservedAt.After(b.health.LastObservedAt) {
+		b.health.LastObservedAt = record.ObservedAt
+	}
+	b.checkpoint = adaptersdk.BridgeCheckpoint{
+		Sequence: sequence, LastObservedAt: b.health.LastObservedAt, ReplaySupported: false,
+	}
 	return nil
 }
 
@@ -350,12 +448,14 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 				len(params.Item.Server)+len(params.Item.Tool) > 120 {
 				return nil, "invalid_mcp_item_started"
 			}
-			return []privacy.SafeRecord{b.safeRecord(
+			record := b.safeRecord(
 				params.Item.ID, params.ThreadID, params.TurnID, "tool.called",
 				"unknown", "mcp:"+params.Item.Server+"/"+params.Item.Tool, "mcp",
 				observedAt, sequence,
 				privacy.RedactionCounts{ToolIOFields: 1, SensitiveIdentifierFields: 1},
-			)}, ""
+			)
+			record.ComponentEvidence.IdentitySource = "native_bridge_started"
+			return []privacy.SafeRecord{record}, ""
 		}
 		if params.Item.Type != "userMessage" {
 			return nil, ""
@@ -411,16 +511,17 @@ func (b *AppServerBridge) projectFrame(raw []byte, sequence uint64) ([]privacy.S
 			len(params.Item.Server)+len(params.Item.Tool) > 120 {
 			return nil, "invalid_mcp_item_completed"
 		}
-		outcome := bridgeOutcome(params.Item.Status)
-		if params.Item.Status == "completed" && params.Item.Result != nil && params.Item.Result.IsError {
-			outcome = "failed"
-		}
+		outcome := bridgeOutcome(
+			params.Item.Status,
+			params.Item.Result != nil && params.Item.Result.IsError,
+		)
 		record := b.safeRecord(
 			params.Item.ID, params.ThreadID, params.TurnID, "tool.called",
 			outcome, "mcp:"+params.Item.Server+"/"+params.Item.Tool, "mcp",
 			time.UnixMilli(params.CompletedAtMS), sequence,
 			privacy.RedactionCounts{ToolIOFields: 3, ExceptionFields: 1, SensitiveIdentifierFields: 1},
 		)
+		record.ComponentEvidence.IdentitySource = "native_bridge_terminal"
 		record.Telemetry.DurationMS = params.Item.DurationMS
 		return []privacy.SafeRecord{record}, ""
 	case "turn/completed", "skills/changed":
@@ -657,17 +758,8 @@ func bridgePluginIdentity(name, marketplace string) (string, bool) {
 	return identity, true
 }
 
-func bridgeOutcome(status string) string {
-	switch status {
-	case "completed":
-		return "succeeded"
-	case "failed", "declined":
-		return "failed"
-	case "cancelled":
-		return "cancelled"
-	default:
-		return "unknown"
-	}
+func bridgeOutcome(status string, resultError bool) string {
+	return adaptersdk.ClassifyTerminalStatus(status, resultError).Outcome
 }
 
 func (b *AppServerBridge) safeRecord(nativeID, sessionID, turnID, eventType, outcome, toolID, componentKind string, observedAt time.Time, sequence uint64, redactions privacy.RedactionCounts) privacy.SafeRecord {
@@ -686,6 +778,12 @@ func (b *AppServerBridge) safeRecord(nativeID, sessionID, turnID, eventType, out
 	if toolID != "" {
 		tool = privacy.CatalogObservation{State: privacy.ObservationObserved, ID: &toolID}
 	}
+	ownerPluginIdentity := ""
+	if componentKind == "skill" {
+		if index := strings.LastIndex(toolID, ":"); index > 0 {
+			ownerPluginIdentity = toolID[:index]
+		}
+	}
 	schemaFingerprint := b.pseudonym("app-server-schema/1", AppServerSchemaVersion)
 	return privacy.SafeRecord{
 		RecordID: recordID, IdempotencyKey: idempotency,
@@ -698,6 +796,7 @@ func (b *AppServerBridge) safeRecord(nativeID, sessionID, turnID, eventType, out
 		Tool:  tool, ComponentKind: componentKind,
 		ComponentEvidence: privacy.ComponentEvidenceMetadata{
 			QualifiedIdentity: toolID, IdentitySource: "native_bridge",
+			OwnerPluginIdentity: ownerPluginIdentity,
 			InvocationMode: func() string {
 				if eventType == "component.invoked" {
 					return "explicit"

@@ -106,7 +106,7 @@ func TestAppServerBridgeMapsMCPStartAndIsErrorTerminalWithoutPayload(t *testing.
 		t.Fatal(err)
 	}
 	records := sink.Records()
-	if len(records) != 2 || records[0].Outcome != "unknown" || records[1].Outcome != "failed" ||
+	if len(records) != 1 || records[0].Outcome != "failed" ||
 		records[0].Tool.ID == nil || *records[0].Tool.ID != "mcp:kansoku-noop-mcp/nothing.error" {
 		t.Fatalf("unexpected MCP lifecycle: %#v", records)
 	}
@@ -128,6 +128,55 @@ func TestAppServerBridgeMapsMCPStartAndIsErrorTerminalWithoutPayload(t *testing.
 	}
 	if matches := privacy.ScanSecretFormats(sinks); len(matches) != 0 {
 		t.Fatalf("secret-shaped MCP argument reached sinks: %#v", matches)
+	}
+}
+
+func TestAppServerBridgeTerminalOutcomeMatrix(t *testing.T) {
+	start := `{"method":"item/started","params":{"threadId":"thr","turnId":"turn","startedAtMs":1785060001000,"item":{"type":"mcpToolCall","id":"call","server":"safe-server","tool":"safe-tool"}}}`
+	completed := func(status string) string {
+		return `{"method":"item/completed","params":{"threadId":"thr","turnId":"turn","completedAtMs":1785060001050,"item":{"type":"mcpToolCall","id":"call","server":"safe-server","tool":"safe-tool","status":"` + status + `","durationMs":50}}}`
+	}
+	tests := []struct {
+		name      string
+		frames    []string
+		outcome   string
+		rejection string
+	}{
+		{"success", []string{start, completed("completed")}, "succeeded", ""},
+		{"failure", []string{start, completed("failed")}, "failed", ""},
+		{"cancel", []string{start, completed("cancelled")}, "cancelled", ""},
+		{"deny", []string{start, completed("declined")}, "failed", ""},
+		{"timeout", []string{start, completed("timed_out")}, "timed_out", ""},
+		{"missing", []string{start}, "unknown", "missing_terminal"},
+		{"duplicate", []string{start, completed("completed"), completed("completed")}, "succeeded", ""},
+		{"contradictory", []string{start, completed("completed"), completed("failed")}, "unknown", "contradictory_terminal"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			bridge := appServerTestBridge(t)
+			sink := &adaptersdk.MemoryAssertionSink{}
+			if err := bridge.Connect(context.Background(), adaptersdk.BridgeTarget{
+				Installation: adaptersdk.Installation{
+					InstallationID: "ain-safe", AdapterID: AdapterID,
+				},
+				Protocol: AppServerProtocolVersion, SchemaVersion: AppServerSchemaVersion,
+				Frames: strings.NewReader(strings.Join(test.frames, "\n")),
+			}, sink); err != nil {
+				t.Fatal(err)
+			}
+			records := sink.Records()
+			if len(records) != 1 || records[0].Outcome != test.outcome {
+				t.Fatalf("records=%#v", records)
+			}
+			rejections := sink.Rejections()
+			if test.rejection == "" {
+				if len(rejections) != 0 {
+					t.Fatalf("rejections=%#v", rejections)
+				}
+			} else if len(rejections) != 1 || rejections[0].Category != test.rejection {
+				t.Fatalf("rejections=%#v want %s", rejections, test.rejection)
+			}
+		})
 	}
 }
 
@@ -378,7 +427,7 @@ func TestAppServerBridgeProjectsSkillExposureInvocationAndLoadWithoutPath(t *tes
 		`{"jsonrpc":"2.0","id":7,"method":"skills/list","params":{"cwds":["/private/work"],"forceReload":true}}`,
 		`{"jsonrpc":"2.0","id":7,"result":{"data":[{"cwd":"/private/work","errors":[],"skills":[{"name":"kansoku-noop-skill","path":"` + canaryPath + `","enabled":true,"scope":"user","description":"content is discarded"}]}]}}`,
 		`{"emittedAtMs":1785060001000,"method":"turn/started","params":{"threadId":"thr-skill","turn":{"id":"turn-skill","startedAt":1785060001,"status":"inProgress","items":[]}}}`,
-		`{"emittedAtMs":1785060001001,"method":"item/started","params":{"threadId":"thr-skill","turnId":"turn-skill","startedAtMs":1785060001000,"item":{"type":"userMessage","id":"msg-skill","content":[{"type":"skill","name":"kansoku-noop-skill","path":"` + canaryPath + `"},{"type":"text","text":"raw prompt is discarded"}]}}}`,
+		`{"emittedAtMs":1785060001001,"method":"item/started","params":{"threadId":"thr-skill","turnId":"turn-skill","startedAtMs":1785060001000,"item":{"type":"userMessage","id":"msg-skill","content":[{"type":"skill","name":"sre-agent:sre-agent","path":"` + canaryPath + `"},{"type":"text","text":"raw prompt is discarded"}]}}}`,
 	}, "\n")
 	if err := bridge.Connect(context.Background(), adaptersdk.BridgeTarget{
 		Installation: adaptersdk.Installation{InstallationID: "ain-safe", AdapterID: AdapterID},
@@ -394,6 +443,11 @@ func TestAppServerBridgeProjectsSkillExposureInvocationAndLoadWithoutPath(t *tes
 		if record.Tool.ID != nil && *record.Tool.ID == "kansoku-noop-skill" &&
 			record.ComponentKind != "skill" {
 			t.Fatalf("skill identity lost its kind: %#v", record)
+		}
+		if record.EventType == "component.invoked" &&
+			(record.ComponentEvidence.QualifiedIdentity != "sre-agent:sre-agent" ||
+				record.ComponentEvidence.OwnerPluginIdentity != "sre-agent") {
+			t.Fatalf("plugin-owned child attribution=%#v", record.ComponentEvidence)
 		}
 	}
 	want := []string{"component.exposed", "prompt.submitted", "component.invoked", "component.loaded"}
