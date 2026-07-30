@@ -24,7 +24,7 @@ import {
 const PROFILE_VARIANT_LIMIT = 8;
 
 export function PluginDetail({ id }: { id: string }) {
-  const range = useRange("all_time");
+  const range = useRange("plugins", "all_time");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],

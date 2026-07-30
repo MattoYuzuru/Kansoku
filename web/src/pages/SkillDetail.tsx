@@ -15,7 +15,7 @@ import { groupSkillCatalog, mergeSkillProfiles } from "../lib/componentCatalog";
 const PROFILE_VARIANT_LIMIT = 8;
 
 export function SkillDetail({ id }: { id: string }) {
-  const range = useRange("all_time");
+  const range = useRange("skills", "all_time");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],

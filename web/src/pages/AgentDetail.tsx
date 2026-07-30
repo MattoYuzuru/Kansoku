@@ -30,7 +30,7 @@ function displayLabel(value: string): string {
 }
 
 export function AgentDetail({ alias }: AgentDetailProps) {
-  const range = useRange();
+  const range = useRange("agents");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],

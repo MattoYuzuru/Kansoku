@@ -23,7 +23,7 @@ import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { ToolAnalyticsDayRow } from "../api/types";
 
 export function Tools() {
-  const range = useRange();
+  const range = useRange("tools");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],

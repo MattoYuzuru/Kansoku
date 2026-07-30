@@ -13,6 +13,7 @@
     "dev": "node scripts/gen-routes.mjs && vite",
     "preview": "vite preview",
     "test:component-catalog": "node --experimental-strip-types --test tests/componentCatalog.test.ts",
+    "test:range-preference": "node --experimental-strip-types --test tests/rangePreference.test.ts",
     "typecheck": "tsc --noEmit",
     "verify:a11y-tokens": "node scripts/verify-accessibility-tokens.mjs",
     "verify:system-browser": "node scripts/verify-system-browser.mjs"

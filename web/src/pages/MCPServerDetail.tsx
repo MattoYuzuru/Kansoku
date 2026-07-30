@@ -9,7 +9,7 @@ import { RangeControl } from "../components/RangeControl";
 import { useRange } from "../hooks/useRange";
 
 export function MCPServerDetail({id}:{id:string}) {
-  const range=useRange();
+  const range=useRange("mcp");
   const params=useMemo(()=>({from:range.from,to:range.to,granularity:range.granularity,timezone:range.timezone}),[range.from,range.to,range.granularity,range.timezone]);
   const query=useMCPServerProfile(id,params); const p=query.data?.data; const i=p?.identity; const o=p?.outcomes;
   const columns:Column<MCPPrimitiveRow>[]=[

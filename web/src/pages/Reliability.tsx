@@ -58,7 +58,7 @@ function valueLabel(value: { state: string; value: string | null }) {
 }
 
 export function Reliability() {
-  const range = useRange();
+  const range = useRange("reliability");
   const page = queryState();
   const rangeParams = useMemo(
     () => ({

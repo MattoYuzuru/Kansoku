@@ -18,7 +18,7 @@ import { sum } from "../lib/format";
 import { bucketedTimeSeriesOption } from "../components/chartOptions";
 
 export function Prompts() {
-  const range = useRange();
+  const range = useRange("prompts");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],

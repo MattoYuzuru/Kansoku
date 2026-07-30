@@ -174,14 +174,47 @@ try {
     })()
   `);
   await waitFor(page, `document.querySelector(".k-dd__value")?.textContent?.includes("Last 7 days")`, 3000);
-  const beforeLeave = await evaluate(page, `document.querySelector(".k-dd__value")?.textContent?.trim()`);
+  const activityBeforeLeave = await evaluate(page, `document.querySelector(".k-dd__value")?.textContent?.trim()`);
   await evaluate(page, `document.querySelector('.k-nav__row[href="/models"]')?.click(); true`);
   await waitFor(page, `location.pathname === "/models" && document.querySelector("h1")?.textContent?.trim() === "Models"`, 5000);
+  await evaluate(page, `
+    (() => {
+      const trigger = document.querySelector(".k-dd__trigger");
+      if (!(trigger instanceof HTMLElement)) throw new Error("models_range_trigger_missing");
+      trigger.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `document.querySelectorAll('[role="option"]').length > 0`, 3000);
+  await evaluate(page, `
+    (() => {
+      const option = [...document.querySelectorAll('[role="option"]')]
+        .find((node) => node.textContent?.includes("Last 12 months"));
+      if (!(option instanceof HTMLElement)) throw new Error("models_range_option_missing");
+      option.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `document.querySelector(".k-dd__value")?.textContent?.includes("Last 12 months")`, 3000);
+  const modelsBeforeLeave = await evaluate(page, `document.querySelector(".k-dd__value")?.textContent?.trim()`);
   await evaluate(page, `document.querySelector('.k-nav__row[href="/activity"]')?.click(); true`);
   await waitFor(page, `location.pathname === "/activity" && document.querySelector("h1")?.textContent?.trim() === "Activity"`, 5000);
   await delay(300);
-  const afterReturn = await evaluate(page, `document.querySelector(".k-dd__value")?.textContent?.trim()`);
-  evidence.range_persistence = { before_leave: beforeLeave, after_return: afterReturn };
+  const activityAfterReturn = await evaluate(page, `document.querySelector(".k-dd__value")?.textContent?.trim()`);
+  await evaluate(page, `document.querySelector('.k-nav__row[href="/models"]')?.click(); true`);
+  await waitFor(page, `location.pathname === "/models" && document.querySelector("h1")?.textContent?.trim() === "Models"`, 5000);
+  const modelsAfterReturn = await evaluate(page, `document.querySelector(".k-dd__value")?.textContent?.trim()`);
+  await page.call("Page.reload", { ignoreCache: true });
+  await waitFor(page, `document.readyState === "complete" && location.pathname === "/models"`, 10000);
+  await waitFor(page, `document.querySelector(".k-dd__value")`, 5000);
+  const modelsAfterReload = await evaluate(page, `document.querySelector(".k-dd__value")?.textContent?.trim()`);
+  evidence.range_persistence = {
+    activity_before_leave: activityBeforeLeave,
+    models_before_leave: modelsBeforeLeave,
+    activity_after_return: activityAfterReturn,
+    models_after_return: modelsAfterReturn,
+    models_after_reload: modelsAfterReload,
+  };
 
   await navigate(page, "/reliability", `document.querySelector(".k-reliability-tabs")`);
   await evaluate(page, `window.__kansokuResearchSentinel = "present"; true`);

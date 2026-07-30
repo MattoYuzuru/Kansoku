@@ -36,7 +36,7 @@ import { bytesToReadable, secondsToReadable, sum } from "../lib/format";
 import { bucketedStackedBarOption } from "../components/chartOptions";
 
 export function Privacy() {
-  const range = useRange();
+  const range = useRange("privacy");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],
