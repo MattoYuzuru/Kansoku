@@ -4,6 +4,7 @@
  * axis/tooltip/color boilerplate. Kept deliberately minimal — no chart-lib
  * abstraction layer, just factored literals.
  */
+import { formatMetricWithRaw } from "../lib/format";
 export interface SeriesSpec {
   name: string;
   data: (number | null)[];
@@ -54,9 +55,7 @@ export function formatChartValue(value: unknown): string {
   if (value === null || value === undefined || value === "-") return "—";
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return String(value);
-  return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: Number.isInteger(numeric) ? 0 : 2,
-  }).format(numeric);
+  return formatMetricWithRaw(numeric);
 }
 
 function tooltip(): Record<string, unknown> {

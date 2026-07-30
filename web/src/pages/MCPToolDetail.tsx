@@ -5,6 +5,7 @@ import { KpiCard } from "../components/KpiCard";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { useRange } from "../hooks/useRange";
+import { formatMetric } from "../lib/format";
 
 export function MCPToolDetail({ serverID, toolID }: { serverID: string; toolID: string }) {
   const range = useRange("mcp");
@@ -36,7 +37,7 @@ export function MCPToolDetail({ serverID, toolID }: { serverID: string; toolID: 
           <KpiCard label="Timeout" value={outcomes?.timed_out ?? null} />
           <KpiCard label="Cancelled" value={outcomes?.cancelled ?? null} />
           <KpiCard label="Denied" value={outcomes?.denied ?? null} />
-          <KpiCard label="Call p95" value={profile?.call_p95_ms ?? null} unit="ms" />
+          <KpiCard label="Call p95" value={profile?.call_p95_ms ?? null} unit="ms" precision={2} formatValue={formatMetric} />
         </div>
         <GapNote>
           Population {profile?.population.numerator ?? 0}/{profile?.population.denominator ?? 0};

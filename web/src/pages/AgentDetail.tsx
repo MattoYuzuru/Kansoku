@@ -7,7 +7,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { deriveViewState } from "../api/client";
 import { useAgentProfile } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { microsToUsd } from "../lib/format";
+import { formatMetric, formatMetricWithRaw, microsToUsd } from "../lib/format";
 import type { AgentProfile } from "../api/types";
 
 export interface AgentDetailProps {
@@ -57,7 +57,9 @@ export function AgentDetail({ alias }: AgentDetailProps) {
       key: "p95",
       header: "p95",
       align: "right",
-      render: (row) => row.percentiles?.p95 == null ? "Not observed" : `${Math.round(row.percentiles.p95)} ms`,
+      render: (row) => row.percentiles?.p95 == null
+        ? "Not observed"
+        : <span title={formatMetricWithRaw(row.percentiles.p95, "ms")}>{formatMetric(row.percentiles.p95)} ms</span>,
     },
     {
       key: "errors",

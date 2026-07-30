@@ -18,6 +18,7 @@ import {
   useReliabilityCoverageTimeline,
 } from "../api/queries";
 import { useRange } from "../hooks/useRange";
+import { formatMetric } from "../lib/format";
 import { dayLabel, sum } from "../lib/format";
 import { bucketedStackedBarOption } from "../components/chartOptions";
 import type {
@@ -193,7 +194,8 @@ export function Reliability() {
                 label="Ingest latency p95"
                 value={health?.ingest_latency_p95_ms ?? null}
                 unit="ms"
-                precision={1}
+                precision={2}
+                formatValue={formatMetric}
                 state={health?.ingest_latency_p95_ms == null && health ? "not_observed" : healthState}
               />
               <KpiCard label="Active sources" value={health?.active_source_count ?? null} state={healthState} />

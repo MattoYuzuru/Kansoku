@@ -18,7 +18,7 @@ import { RangeControl } from "../components/RangeControl";
 import { deriveViewState } from "../api/client";
 import { useToolAnalytics } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { dayLabel, ratio, sum } from "../lib/format";
+import { dayLabel, formatMetric, formatMetricWithRaw, ratio, sum } from "../lib/format";
 import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { ToolAnalyticsDayRow } from "../api/types";
 
@@ -57,7 +57,7 @@ export function Tools() {
       align: "right",
       render: (r) =>
         r.percentiles?.p95 != null
-          ? r.percentiles.p95.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          ? <span title={formatMetricWithRaw(r.percentiles.p95, "ms")}>{formatMetric(r.percentiles.p95)}</span>
           : "—",
     },
   ];
