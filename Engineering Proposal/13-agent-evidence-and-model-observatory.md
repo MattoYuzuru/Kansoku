@@ -131,3 +131,16 @@ conditional `installed`/`enabled`, and conditional installed/enabled child asser
 `owner_plugin_identity`. A metadata read is never called plugin `invoked` or `loaded`. Upstream
 IDs are HMAC-only; paths, descriptions, URLs, source objects, app templates and scheduled-task
 prompts have no durable destination.
+
+## 2026-07-30 profile consistency and cost amendment
+
+An agent profile is one repeatable-read snapshot, even though its bounded contours execute in
+parallel connections. Identity exposes the durable `agent_id` independently from the adapter ID and
+adds an explicit evidence-reviewed installation class
+(`real|canary|fixture|imported|unknown`) with provenance. Runtime code does not infer this class
+from opaque ID spelling.
+
+Provider-reported cost and versioned public-API-equivalent estimates are separate populations and
+separate visual lanes. They are not added together or presented as billed spend. The existing
+`agent_profile_range <= 200 ms` contract remains unchanged and is backed by exact attribution and
+covering indexes rather than a wider timeout.

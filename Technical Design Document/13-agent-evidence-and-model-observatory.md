@@ -121,14 +121,18 @@ installation/session correlation remains plural.
 The durable installation key remains opaque. A display record contains:
 
 - adapter-defined provider/display name;
+- adapter-owned agent ID, distinct from the adapter ID;
 - surface kind;
 - optional user alias;
 - observed version;
+- explicit installation class (`real`, `canary`, `fixture`, `imported` or `unknown`) and its
+  provenance;
 - pseudonymous short installation suffix for diagnostics;
 - completeness and source provenance.
 
 The provider is never derived from the model. Unknown adapter identity displays `Unknown agent`
-with the opaque suffix and incident link.
+with the opaque suffix and incident link. Runtime code never derives installation class from an
+opaque ID prefix or pattern.
 
 ## Dimensional propagation
 
@@ -158,7 +162,8 @@ registered mergeable distribution, never by averaging percentiles.
 
 Cost rows require model ID, exact token categories, matching price snapshot and formula version.
 Unknown pricing or incomplete token splits are excluded with counts. Subscription billing is never
-claimed.
+claimed. Provider-reported cost and public-API-equivalent estimates remain separate request and
+cost lanes; they are never summed into a billing claim.
 
 ## Health and audit
 
@@ -248,3 +253,23 @@ for unresolved/ambiguous/redacted evidence and append a new decision; historical
 never updated. Down migration removes the additive view/history/columns but cannot reconstruct
 consumer behavior that relied on newer resolution semantics, so production rollback is
 application-first and retains a pre-migration backup.
+
+## Agent profile reconciliation (2026-07-30)
+
+`AgentProfile` exports one read-only repeatable-read PostgreSQL snapshot and imports it into six
+bounded read-only contour transactions. Identity, activity, models, sources, population and
+freshness therefore describe the same database state. A concurrency integration test inserts a
+fact after snapshot export and proves that all first-response contours exclude it while the next
+request includes it.
+
+The 200 ms contract was restored without increasing the budget. Range activity aggregates before
+joining profile metadata, and model pricing resolves the latest effective price once per
+`token_usage_id` instead of a correlated scan. Migration 0016 adds partitioned covering indexes for
+agent activity and evidence-source range reads. Each contour has a 200 ms statement timeout,
+bounded `work_mem`, and parallel gather disabled to avoid request-local oversubscription.
+
+Migration 0015 records the six evidence-reviewed local installation classes additively: two real,
+three canary and one fixture. It does not delete canaries, rewrite telemetry or classify future
+installations by name. The list and profile APIs initialize collections to `[]`; the UI exposes
+class/provenance, token composition, provider-reported cost, API-equivalent cost and each lane's
+coverage.
