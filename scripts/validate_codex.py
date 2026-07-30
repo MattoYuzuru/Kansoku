@@ -140,7 +140,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
             "schema_version_exact", "schema_generation_command", "target_scope",
             "network_grade", "accepted_methods", "emitting_projections", "safe_fields",
             "prohibited_surfaces", "limits", "checkpoint", "unknown_schema",
-            "source_evidence", "support_grade",
+            "terminal_contract", "source_evidence", "support_grade",
         },
     }
     for name, fields in expected_top.items():
@@ -229,6 +229,17 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("Codex App Server prohibited content surface set weakened")
     if "metadata_only_rejection" not in app_server_bridge.get("unknown_schema", ""):
         errors.append("Codex App Server unknown schema must remain metadata-only")
+    if app_server_bridge.get("terminal_contract") != "contracts/adapter-sdk/terminal-outcomes.yaml":
+        errors.append("Codex App Server terminal outcomes must reuse the shared adapter SDK contract")
+    tool_projection = str(projections.get("item_mcpToolCall", ""))
+    if not all(fragment in tool_projection for fragment in (
+        "one range-bounded logical tool.called record per native call identity",
+        "started plus one terminal collapses to terminal",
+        "duplicate same terminal is replay-idempotent",
+        "missing or contradictory completion remains unknown",
+        "metadata-only incident",
+    )):
+        errors.append("Codex App Server terminal reconciliation semantics changed")
     generated_manifest_path = (
         ROOT / "contracts" / "codex" / "generated" /
         "app-server-0.145.0-schema-manifest.json"
@@ -308,8 +319,9 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     if not all(fragment in installation_binding for fragment in (
         "same_configured_agent_installation_id_as_its_inventory_target",
         "every_emitted_source_scope_uses_that_installation_and_versioned_resolution_filters_inventory_candidates_to_it",
-        "persisted_as_requested_even_when_current_inventory_is_absent_or_late",
-        "checkpoint_advancement_never_silently_drops_it",
+        "remains_ephemeral_until_a_matching_SKILL.md_read_corroborates_it",
+        "requested_loaded_and_invoked_evidence_uses_that_explicit_installation",
+        "checkpoint_advancement_never_silently_drops_a_corroborated_read",
         "deterministic_adapter_installation_id_never_a_latest_dynamic_database_row",
         "conflicting_installation_bindings_degrades_the_source_and_emits_no_facts",
         "App_Server_bridge_for_the_same_logical_installation_must_receive_that_same_explicit_ID",
@@ -318,8 +330,13 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     checkpoint_fields = set(rollout_source.get("checkpoint_fields", []))
     if not {"file_identity", "byte_offset", "first_record_fingerprint", "last_record_fingerprint", "rotation_generation", "truncation_detected"}.issubset(checkpoint_fields):
         errors.append("codex.rollout checkpoint_fields must keep file identity/offset/fingerprint/rotation/truncation fields")
-    if "never_writes_to_the_codex_session_tree" not in str(rollout_source.get("parsing", "")):
-        errors.append("codex.rollout parsing must never write back into the Codex session tree")
+    parsing = str(rollout_source.get("parsing", ""))
+    if not all(fragment in parsing for fragment in (
+        "1_MiB_retention_bound",
+        "drains_oversized_newline_terminated_records",
+        "never_writes_to_the_codex_session_tree",
+    )):
+        errors.append("codex.rollout parsing must stay bounded, drain oversized records, and never write into the Codex session tree")
     historical_mode = rollout_source.get("historical_content_mode", {})
     if "raw_content_is_never_written_to_a_durable_path" not in str(historical_mode.get("opt_in", "")):
         errors.append("historical content opt-in mode must state raw content is never written to a durable path")
@@ -328,6 +345,12 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     quarantine = rollout_source.get("corrupt_or_unknown_schema", {})
     if quarantine.get("raw_bytes_durable") is not False:
         errors.append("corrupt/unknown-schema rollout records must never durably retain raw bytes")
+    if not all(fragment in str(quarantine.get("handling", "")) for fragment in (
+        "oversized_newline_terminated_record_is_drained",
+        "checkpointed",
+        "following_records_continue_in_the_same_scan",
+    )):
+        errors.append("oversized rollout records must be metadata-only quarantined without blocking later records")
     replay = rollout_source.get("replay_and_crash", {})
     if "never_a_duplicate_fact" not in str(replay.get("idempotency", "")):
         errors.append("rollout replay idempotency guarantee weakened")
@@ -335,10 +358,11 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("rollout rotation/truncation handling must scope its degraded incident to codex.rollout only")
     skill_evidence_rule = str(rollout_source.get("skill_evidence", ""))
     if not all(fragment in skill_evidence_rule for fragment in (
-        "requested_only_and_is_not_gated_on_current_inventory",
+        "marker_alone_is_ephemeral_and_never_durable_requested_or_invoked_evidence",
         "trailing_prose_punctuation_is_not_part_of_the_skill_identity",
-        "requires_a_matching_SKILL.md_read",
+        "requested_loaded_and_invoked_reconstructed_evidence_requires_a_matching_SKILL.md_read",
         "user_marker_plus_corroboration_has_explicit_invocation_mode",
+        "ordinary_shell_variables_and_currency_markers_without_that_read_produce_zero_durable_skill_assertions",
         "current_identity_resolution_are_visible",
     )):
         errors.append("Codex CLI requested/corroborated skill evidence rule changed")
@@ -443,6 +467,8 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         "configuration_concurrent_change_and_rollback_tests",
         "cross_source_mismatch_and_inactive_source_logic_tests",
         "prohibited_content_canaries",
+        "ordinary_dollar_variable_and_currency_markers_without_SKILL.md_read_produce_zero_durable_skill_assertions",
+        "oversized_rollout_record_is_metadata_only_quarantined_and_does_not_block_the_following_valid_record",
     }
     if required_tests != required_test_fragments:
         errors.append("required_tests list changed")
@@ -604,7 +630,7 @@ def validate_code_and_fixtures() -> list[str]:
             "normalizedInstallationID(codexadapter.AdapterID)",
             "codex_rollout_installation_binding_conflict",
             "IngestSanitizedRolloutRecordForInstallation",
-            '"component.requested", "requested", "rollout_marker"',
+            '"component.requested", "requested", "rollout_corroborated"',
         )
     ):
         errors.append(

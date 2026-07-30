@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.codex-policy-locks/1",
-  "effective_at": "2026-07-29",
+  "effective_at": "2026-07-30",
   "locks": [
     {"policy_version": "codex.manifest/1", "registry": "contracts/codex/manifest.yaml", "semantic_sha256": "2c7f28afd7abf6304cb8808e30638d6eb9941a018fa91f558698d092543341f7"},
     {"policy_version": "codex.hooks-and-otel/1", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "ba6529160f7a4faf02c38e903cdd5ff3677d49da247408198e97c00354182923"},
@@ -24,6 +24,9 @@
     {"policy_version": "codex.rollout-and-inventory/5", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "fe29da10f41adf5589558b647b2376381694dcafe2a12ea819b718a1d2030b57"},
     {"policy_version": "codex.rollout-and-inventory/6", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "c0ee9c684b35d1303954e1b5de224d1e461a2862b14bf24b4b57331cbe4963a8"},
     {"policy_version": "codex.rollout-and-inventory/7", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "b372a8e92278c0acfaf48b7ec79add883af3bd7f7cccaad40b91274f5695fff6"},
-    {"policy_version": "codex.rollout-and-inventory/8", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "96e21c3a5a28f472ddb9a80129ef21b98c67df433089c5c4c43f7a0fa548bca6"}
+    {"policy_version": "codex.rollout-and-inventory/8", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "96e21c3a5a28f472ddb9a80129ef21b98c67df433089c5c4c43f7a0fa548bca6"},
+    {"policy_version": "codex.app-server-bridge/8", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "8ad93ce5369a5bcd8720c8f96ec2e5f053cf0213ea883f64c02d11473ba10d52"},
+    {"policy_version": "codex.rollout-and-inventory/9", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "0c31a9485f8c6b8e66289b8753b373fbc06759a59ea7466bfbff80e22c93e739"},
+    {"policy_version": "codex.skill-evidence-and-reconciliation/2", "registry": "contracts/codex/skill-evidence-and-reconciliation.yaml", "semantic_sha256": "50d8c205aa009ceb28a5b82e495c517c30fa5d4036d004e70b4bfe154dd242fa"}
   ]
 }

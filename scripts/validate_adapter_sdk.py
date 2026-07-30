@@ -42,7 +42,10 @@ LOCK_PATH = ROOT / "contracts" / "adapter-sdk-policy-locks.yaml"
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "session-05" / "loomwright-conformance.json"
 GO_IMAGE = "golang@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651"
 
-FILES = ("manifest.yaml", "capabilities.yaml", "inventory-graph.yaml", "discovery-and-plans.yaml", "evidence-bridge.yaml")
+FILES = (
+    "manifest.yaml", "capabilities.yaml", "inventory-graph.yaml",
+    "discovery-and-plans.yaml", "evidence-bridge.yaml", "terminal-outcomes.yaml",
+)
 
 EXECUTION_FORMS = ["builtin", "external_process", "wasm", "container"]
 NETWORK_GRADES = ["none", "loopback_only"]
@@ -73,6 +76,7 @@ LOCK_BASES = {
     "adapter-sdk.inventory-graph": "contracts/adapter-sdk/inventory-graph.yaml",
     "adapter-sdk.discovery-and-plans": "contracts/adapter-sdk/discovery-and-plans.yaml",
     "adapter-sdk.evidence-bridge": "contracts/adapter-sdk/evidence-bridge.yaml",
+    "adapter-sdk.terminal-outcomes": "contracts/adapter-sdk/terminal-outcomes.yaml",
 }
 
 
@@ -100,7 +104,9 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("adapter-sdk registry set is not exact")
         return errors
     by_name = {Path(path).name: value for path, value in data.items()}
-    manifest, capabilities, inventory_graph, discovery_and_plans, evidence_bridge = (by_name[name] for name in FILES)
+    manifest, capabilities, inventory_graph, discovery_and_plans, evidence_bridge, terminal_outcomes = (
+        by_name[name] for name in FILES
+    )
 
     expected_top = {
         "manifest.yaml": {
@@ -130,6 +136,12 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
             "interface_methods", "target_scope", "network_grade", "safe_sink_methods",
             "bridge_rejection_fields", "lifecycle_states", "supervision_limits", "privacy_boundary",
             "database_boundary", "deduplication_rule", "health_isolation_rule", "unknown_schema_rule",
+            "terminal_contract", "terminal_reconciliation_rule",
+        },
+        "terminal-outcomes.yaml": {
+            "schema_version", "contract_version", "effective_at", "canonical_outcomes",
+            "failure_classes", "mapping", "reconciliation", "source_matrix", "ratio_rule",
+            "privacy_rule",
         },
     }
     for name, fields in expected_top.items():
@@ -239,6 +251,12 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("evidence bridge database boundary weakened")
     if "logical_fact_identity_is_lane_independent" not in evidence_bridge.get("deduplication_rule", ""):
         errors.append("evidence bridge cross-lane deduplication rule weakened")
+    if terminal_outcomes.get("canonical_outcomes") != [
+        "succeeded", "failed", "cancelled", "interrupted", "timed_out", "abandoned", "unknown"
+    ]:
+        errors.append("terminal outcome vocabulary changed")
+    if terminal_outcomes.get("reconciliation", {}).get("default_failure_for_missing_or_unknown") is not False:
+        errors.append("missing or unknown terminal defaulted to failure")
 
     errors.extend(validate_policy_locks(lock, data, historical))
 
@@ -266,7 +284,7 @@ def validate_policy_locks(lock: dict[str, Any], data: dict[str, dict[str, Any]],
             errors.append("adapter-sdk policy lock entries must be closed")
             continue
         version = item.get("policy_version", "")
-        match = re.fullmatch(r"(adapter-sdk\.(?:manifest|capabilities|inventory-graph|discovery-and-plans|evidence-bridge))/([1-9][0-9]*)", version)
+        match = re.fullmatch(r"(adapter-sdk\.(?:manifest|capabilities|inventory-graph|discovery-and-plans|evidence-bridge|terminal-outcomes))/([1-9][0-9]*)", version)
         if not match or item.get("registry") != LOCK_BASES.get(match.group(1)) or re.fullmatch(r"[0-9a-f]{64}", str(item.get("semantic_sha256"))) is None:
             errors.append("adapter-sdk policy lock entry has invalid version/registry/digest binding")
             continue
