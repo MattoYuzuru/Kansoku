@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -133,6 +134,10 @@ func agentProfileWithSnapshot(
 		FormulaVersion: FormulaVersionAgentProfile1,
 		Exclusions:     map[string]int64{"non_exact_installation_attribution": 0},
 	}
+	sourceFactCounts := make(map[string]int64)
+	sourceMetadata := make(map[string]AgentSourceRow)
+	sourceAttribution := make(map[string]string)
+	sourceEvidence := make(map[string]int64)
 	tasks := []agentProfileSnapshotTask{
 		func(taskCtx context.Context, tx pgx.Tx) error {
 			return tx.QueryRow(taskCtx, `
@@ -177,19 +182,64 @@ func agentProfileWithSnapshot(
 			)
 		},
 		func(taskCtx context.Context, tx pgx.Tx) error {
-			if err := tx.QueryRow(taskCtx, `
-		SELECT count(*), count(DISTINCT session_id),
-			count(*) FILTER (WHERE event_type = 'prompt.submitted'),
-			count(*) FILTER (WHERE outcome = 'succeeded'),
-			count(*) FILTER (WHERE outcome IN ('failed','timed_out','abandoned')),
-			count(DISTINCT component_id) FILTER (WHERE component_id IS NOT NULL)
-		FROM events
-		WHERE agent_installation_id = $1 AND observed_at >= $2 AND observed_at < $3
-	`, installationID, from, to).Scan(
-				&response.Activity.EventCount, &response.Activity.SessionCount,
-				&response.Activity.PromptCount, &response.Activity.SuccessCount,
-				&response.Activity.FailureCount, &response.Activity.ComponentCount,
-			); err != nil {
+			aggregateRows, err := tx.Query(taskCtx, `
+				SELECT
+					grouping(source_instance_id),
+					grouping(session_id),
+					grouping(component_id),
+					source_instance_id,
+					session_id,
+					component_id,
+					count(*),
+					count(*) FILTER (WHERE event_type = 'prompt.submitted'),
+					count(*) FILTER (WHERE outcome = 'succeeded'),
+					count(*) FILTER (
+						WHERE outcome IN ('failed','timed_out','abandoned')
+					)
+				FROM events
+				WHERE agent_installation_id = $1
+				  AND observed_at >= $2 AND observed_at < $3
+				GROUP BY GROUPING SETS (
+					(),
+					(source_instance_id),
+					(session_id),
+					(component_id)
+				)
+			`, installationID, from, to)
+			if err != nil {
+				return err
+			}
+			for aggregateRows.Next() {
+				var sourceGrouped, sessionGrouped, componentGrouped int
+				var sourceID, sessionID, componentID *string
+				var eventCount, promptCount, successCount, failureCount int64
+				if err := aggregateRows.Scan(
+					&sourceGrouped, &sessionGrouped, &componentGrouped,
+					&sourceID, &sessionID, &componentID,
+					&eventCount, &promptCount, &successCount, &failureCount,
+				); err != nil {
+					aggregateRows.Close()
+					return err
+				}
+				switch {
+				case sourceGrouped == 1 && sessionGrouped == 1 && componentGrouped == 1:
+					response.Activity.EventCount = eventCount
+					response.Activity.PromptCount = promptCount
+					response.Activity.SuccessCount = successCount
+					response.Activity.FailureCount = failureCount
+				case sourceGrouped == 0 && sessionGrouped == 1 &&
+					componentGrouped == 1 && sourceID != nil:
+					sourceFactCounts[*sourceID] = eventCount
+				case sourceGrouped == 1 && sessionGrouped == 0 &&
+					componentGrouped == 1 && sessionID != nil:
+					response.Activity.SessionCount++
+				case sourceGrouped == 1 && sessionGrouped == 1 &&
+					componentGrouped == 0 && componentID != nil:
+					response.Activity.ComponentCount++
+				}
+			}
+			aggregateRows.Close()
+			if err := aggregateRows.Err(); err != nil {
 				return err
 			}
 			if err := tx.QueryRow(taskCtx, `
@@ -235,10 +285,18 @@ func agentProfileWithSnapshot(
 			  AND mo.observed_at >= $2 AND mo.observed_at < $3
 			  AND mo.operation_kind = 'response'
 		),
+		selected_usage AS (
+			SELECT tu.*
+			FROM token_usage tu
+			JOIN selected mo
+			  ON mo.model_operation_id = tu.model_operation_id
+			 AND mo.observed_at = tu.observed_at
+		),
 		latest_priced AS (
 			SELECT DISTINCT ON (ce.token_usage_id)
 				ce.token_usage_id, ce.cost_micros
 			FROM cost_estimates ce
+			JOIN selected_usage tu ON tu.token_usage_id = ce.token_usage_id
 			JOIN price_catalog_versions pcv
 			  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
 			ORDER BY ce.token_usage_id, pcv.effective_at DESC
@@ -266,7 +324,7 @@ func agentProfileWithSnapshot(
 			percentile_cont(0.99) WITHIN GROUP (ORDER BY mo.duration_ms)
 				FILTER (WHERE mo.duration_ms IS NOT NULL)
 		FROM selected mo
-		LEFT JOIN token_usage tu
+		LEFT JOIN selected_usage tu
 		  ON tu.model_operation_id = mo.model_operation_id AND tu.observed_at = mo.observed_at
 		LEFT JOIN latest_priced priced ON priced.token_usage_id = tu.token_usage_id
 		GROUP BY mo.model_id
@@ -301,52 +359,68 @@ func agentProfileWithSnapshot(
 		},
 		func(taskCtx context.Context, tx pgx.Tx) error {
 			sourceRows, err := tx.Query(taskCtx, `
-		WITH facts AS (
-			SELECT source_instance_id, count(*) AS fact_count
-			FROM events
-			WHERE agent_installation_id = $1
-			  AND observed_at >= $2 AND observed_at < $3
-			GROUP BY source_instance_id
-		),
-		evidence AS (
-			SELECT ee.source_instance_id, count(*) AS evidence_count
-			FROM event_evidence ee
-			JOIN facts f ON f.source_instance_id = ee.source_instance_id
-			WHERE ee.observed_at >= $2 AND ee.observed_at < $3
-			GROUP BY ee.source_instance_id
-		)
 		SELECT si.source_instance_id, si.source_kind, av.version,
-			f.fact_count, coalesce(ev.evidence_count, 0),
 			sw.last_observed_at, coalesce(sw.gap_count,0),
 			CASE
 				WHEN coalesce(sw.inactivity, false) THEN 'disabled'
 				WHEN coalesce(sw.gap_count,0) > 0 THEN 'degraded'
 				WHEN sw.last_observed_at IS NULL THEN 'not_observed'
 				ELSE 'producing'
-			END
+			END,
+			coalesce(sia.attribution_state, 'not_observed')
 		FROM source_instances si
 		JOIN adapter_versions av ON av.adapter_version_id = si.adapter_version_id
-		JOIN facts f ON f.source_instance_id = si.source_instance_id
-		LEFT JOIN evidence ev ON ev.source_instance_id = si.source_instance_id
 		LEFT JOIN source_watermarks sw ON sw.source_instance_id = si.source_instance_id
+		LEFT JOIN source_installation_attributions sia
+		  ON sia.source_instance_id = si.source_instance_id
+		 AND sia.agent_installation_id = $1
 		ORDER BY si.source_kind, si.source_instance_id
-	`, installationID, from, to)
+	`, installationID)
 			if err != nil {
 				return err
 			}
 			defer sourceRows.Close()
 			for sourceRows.Next() {
 				var row AgentSourceRow
+				var attributionState string
 				if err := sourceRows.Scan(
 					&row.SourceInstanceID, &row.SourceKind, &row.AdapterVersion,
-					&row.FactCount, &row.EvidenceCount, &row.LastObservedAt,
-					&row.GapCount, &row.State,
+					&row.LastObservedAt, &row.GapCount, &row.State,
+					&attributionState,
 				); err != nil {
 					return err
 				}
-				response.Sources = append(response.Sources, row)
+				sourceAttribution[row.SourceInstanceID] = attributionState
+				sourceMetadata[row.SourceInstanceID] = row
 			}
 			return sourceRows.Err()
+		},
+		func(taskCtx context.Context, tx pgx.Tx) error {
+			evidenceRows, err := tx.Query(taskCtx, `
+				SELECT ee.source_instance_id, count(*)
+				FROM event_evidence ee
+				WHERE ee.observed_at >= $2 AND ee.observed_at < $3
+				  AND ee.source_instance_id = ANY(ARRAY(
+					SELECT sia.source_instance_id
+					FROM source_installation_attributions sia
+					WHERE sia.agent_installation_id = $1
+					  AND sia.attribution_state = 'exact'
+				  ))
+				GROUP BY ee.source_instance_id
+			`, installationID, from, to)
+			if err != nil {
+				return err
+			}
+			defer evidenceRows.Close()
+			for evidenceRows.Next() {
+				var sourceID string
+				var evidenceCount int64
+				if err := evidenceRows.Scan(&sourceID, &evidenceCount); err != nil {
+					return err
+				}
+				sourceEvidence[sourceID] = evidenceCount
+			}
+			return evidenceRows.Err()
 		},
 		func(taskCtx context.Context, tx pgx.Tx) error {
 			var exact, excluded int64
@@ -428,6 +502,71 @@ func agentProfileWithSnapshot(
 		}
 	}
 
+	response.Sources = make([]AgentSourceRow, 0, len(sourceFactCounts))
+	var legacySourceIDs []string
+	for sourceID, factCount := range sourceFactCounts {
+		row, ok := sourceMetadata[sourceID]
+		if !ok {
+			return AgentProfileResponse{}, fmt.Errorf(
+				"agent profile source metadata missing for %s",
+				sourceID,
+			)
+		}
+		row.FactCount = factCount
+		if sourceAttribution[sourceID] == "exact" {
+			row.EvidenceCount = sourceEvidence[sourceID]
+		} else {
+			legacySourceIDs = append(legacySourceIDs, sourceID)
+		}
+		response.Sources = append(response.Sources, row)
+	}
+	if len(legacySourceIDs) > 0 {
+		legacyEvidence := make(map[string]int64, len(legacySourceIDs))
+		err := runAgentProfileSnapshotTask(
+			queryCtx,
+			pool,
+			budget,
+			snapshotID,
+			func(taskCtx context.Context, tx pgx.Tx) error {
+				rows, err := tx.Query(taskCtx, `
+					SELECT source_instance_id, count(*)
+					FROM event_evidence
+					WHERE source_instance_id = ANY($1)
+					  AND observed_at >= $2 AND observed_at < $3
+					GROUP BY source_instance_id
+				`, legacySourceIDs, from, to)
+				if err != nil {
+					return err
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var sourceID string
+					var evidenceCount int64
+					if err := rows.Scan(&sourceID, &evidenceCount); err != nil {
+						return err
+					}
+					legacyEvidence[sourceID] = evidenceCount
+				}
+				return rows.Err()
+			},
+		)
+		if err != nil {
+			return AgentProfileResponse{}, budgetOrErr(budget, started, err)
+		}
+		for index := range response.Sources {
+			sourceID := response.Sources[index].SourceInstanceID
+			if sourceAttribution[sourceID] != "exact" {
+				response.Sources[index].EvidenceCount = legacyEvidence[sourceID]
+			}
+		}
+	}
+	sort.Slice(response.Sources, func(i, j int) bool {
+		if response.Sources[i].SourceKind != response.Sources[j].SourceKind {
+			return response.Sources[i].SourceKind < response.Sources[j].SourceKind
+		}
+		return response.Sources[i].SourceInstanceID < response.Sources[j].SourceInstanceID
+	})
+
 	if elapsed := time.Since(started).Milliseconds(); elapsed > budget.MaxMS {
 		return AgentProfileResponse{}, &ErrBudgetExceeded{
 			BudgetID: budget.ID, MaxMS: budget.MaxMS, ActualMS: elapsed,
@@ -468,7 +607,7 @@ func runAgentProfileSnapshotTask(
 	if _, err := tx.Exec(ctx, "SET LOCAL work_mem = '16MB'"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, "SET LOCAL max_parallel_workers_per_gather = 0"); err != nil {
+	if _, err := tx.Exec(ctx, "SET LOCAL max_parallel_workers_per_gather = 1"); err != nil {
 		return err
 	}
 	return task(ctx, tx)

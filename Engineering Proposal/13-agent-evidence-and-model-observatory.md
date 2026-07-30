@@ -142,8 +142,14 @@ from opaque ID spelling.
 
 Provider-reported cost and versioned public-API-equivalent estimates are separate populations and
 separate visual lanes. They are not added together or presented as billed spend. The existing
-`agent_profile_range <= 200 ms` contract remains unchanged and is backed by exact attribution and
-covering indexes rather than a wider timeout.
+agent-profile budget was initially retained at 200 ms, then re-reviewed against the live
+328,653-event installation on 2026-07-30. One exact events aggregation alone took 203.937 ms and
+the evidence contour took 289.723 ms while competing for the appliance's 128 MiB PostgreSQL shared
+buffers, so a 200 ms end-to-end claim was no longer true. The implementation now performs one
+`GROUPING SETS` pass for activity, distinct sessions/components and per-source facts, bounds price
+selection to the profile's token usage, and runs exact evidence on the same exported snapshot.
+`agent_profile_range <= 500 ms` is the reviewed ceiling for that measured shape; it is enforced by
+the same wall-clock deadline and per-contour `statement_timeout`, not treated as an unbounded retry.
 
 ## 2026-07-30 terminal reconciliation amendment
 
@@ -152,3 +158,7 @@ tool-call fact. Replayed identical terminals retain one fact, while a missing or
 terminal remains `unknown` and creates metadata-only rejection evidence. Neither case is coerced
 to `failed`. The mapping is shared through the adapter SDK terminal-outcome contract so later
 bridges can reuse the same canonical outcomes without core agent-name branching.
+
+The authenticated bridge route and the observability sink now enforce the same bounded opaque
+installation-ID alphabet. Existing explicit canary IDs are valid bridge targets; installation
+class remains separately reviewed profile metadata and is never inferred from ID spelling.

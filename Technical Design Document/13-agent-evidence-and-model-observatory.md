@@ -256,17 +256,27 @@ application-first and retains a pre-migration backup.
 
 ## Agent profile reconciliation (2026-07-30)
 
-`AgentProfile` exports one read-only repeatable-read PostgreSQL snapshot and imports it into six
-bounded read-only contour transactions. Identity, activity, models, sources, population and
-freshness therefore describe the same database state. A concurrency integration test inserts a
-fact after snapshot export and proves that all first-response contours exclude it while the next
-request includes it.
+`AgentProfile` exports one read-only repeatable-read PostgreSQL snapshot and imports it into seven
+bounded read-only contour transactions. Identity, the combined activity/source-fact aggregation,
+models, source metadata, exact evidence, population and freshness therefore describe the same
+database state. A concurrency integration test inserts a fact after snapshot export and proves
+that all first-response contours exclude it while the next request includes it. A conditional
+eighth contour reads evidence only for legacy source rows that lack exact source-installation
+attribution; it imports the same snapshot and does not rewrite those rows.
 
-The 200 ms contract was restored without increasing the budget. Range activity aggregates before
-joining profile metadata, and model pricing resolves the latest effective price once per
-`token_usage_id` instead of a correlated scan. Migration 0016 adds partitioned covering indexes for
-agent activity and evidence-source range reads. Each contour has a 200 ms statement timeout,
-bounded `work_mem`, and parallel gather disabled to avoid request-local oversubscription.
+The initial 200 ms proof used a small profile population and stopped matching the live appliance
+after the primary installation reached 328,653 events. Live `EXPLAIN (ANALYZE)` measured one exact
+events aggregation at 203.937 ms by itself and the exact evidence contour at 289.723 ms under
+shared-buffer contention. The resource-efficient plan now scans events once with
+`GROUPING SETS ((), source_instance_id, session_id, component_id)` and derives exact global,
+distinct and per-source counts from those bounded groups. Model pricing joins only token usage
+already selected into the profile. Migration 0016's covering indexes remain additive. Contract
+version 1.8.0 records the evidence-backed 500 ms ceiling; every contour receives that same
+`statement_timeout`, keeps `work_mem` at 16 MiB and permits at most one parallel gather worker.
+
+The PostgreSQL exit gate generates 330,000 sanitized synthetic event/evidence pairs, verifies exact
+reconciliation and fails if the complete snapshot response exceeds the reviewed budget. This
+fixture is transient inside an isolated Postgres container and adds no retained production data.
 
 Migration 0015 records the six evidence-reviewed local installation classes additively: two real,
 three canary and one fixture. It does not delete canaries, rewrite telemetry or classify future
@@ -286,3 +296,8 @@ duplicate and contradictory frames.
 The bridge retains no arguments, results or raw errors while reconciling. Claude 2.1.197 uses a
 separate sanitized, version-pinned mapping test; no Claude process or configuration was started or
 changed for this amendment.
+
+The required installation header and the sink share the closed
+`ain_[A-Za-z0-9][A-Za-z0-9_-]{0,123}` shape. This admits existing explicit canary identifiers while
+rejecting paths, owner syntax, traversal punctuation and overlong values before persistence. The
+identifier does not encode or determine installation class.

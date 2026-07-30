@@ -261,6 +261,84 @@ func TestAgentProfileUsesOneConsistentSnapshot(t *testing.T) {
 	}
 }
 
+func TestAgentProfileSkewedRangeStaysWithinBudget(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	sourceInstanceID := "src_agent_profile_skew"
+	if err := EnsureDimensions(ctx, pool, testDimensionRefs(sourceInstanceID)); err != nil {
+		t.Fatalf("ensure dimensions: %v", err)
+	}
+
+	const eventCount = 330_000
+	from := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	to := from.AddDate(0, 0, 30)
+	for _, table := range []string{"events", "event_evidence"} {
+		if err := EnsurePartition(ctx, pool, table, from); err != nil {
+			t.Fatalf("ensure %s partition: %v", table, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO events (
+			event_id, fact_key, event_type, observed_at, ingested_at,
+			timestamp_quality, source_instance_id, source_native_event_id,
+			sequence, agent_installation_id, surface_id, project_id,
+			session_id, turn_id, component_id, duration_ms, success,
+			value_state, outcome, correlation_status
+		)
+		SELECT
+			'evt_profile_skew_' || g,
+			'fact_profile_skew_' || g,
+			CASE WHEN g % 10 = 0 THEN 'prompt.submitted' ELSE 'component.executed' END,
+			$1::timestamptz + (g % 250000) * interval '1 second',
+			$1::timestamptz + (g % 250000) * interval '1 second' + interval '1 millisecond',
+			'source_rfc3339', $2, 'native_profile_skew_' || g, g,
+			'ain_fixture', 'cli', 'proj_fixture', 'ses_fixture', 'turn_fixture',
+			'inventory/tool-safe', 10, true, 'observed', 'succeeded', 'exact'
+		FROM generate_series(1, $3) AS g
+	`, from, sourceInstanceID, eventCount); err != nil {
+		t.Fatalf("insert skewed events: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO event_evidence (
+			evidence_id, event_id, observed_at, source_instance_id, tier,
+			confidence, completeness, replay_count, first_seen_at, last_seen_at,
+			sanitizer_version, privacy_contract_sha256, assertion_event_type,
+			assertion_outcome, assertion_value_state
+		)
+		SELECT
+			'evd_profile_skew_' || g, 'evt_profile_skew_' || g,
+			$1::timestamptz + (g % 250000) * interval '1 second',
+			$2, 'native', 1.0, 'complete', 0,
+			$1::timestamptz + (g % 250000) * interval '1 second',
+			$1::timestamptz + (g % 250000) * interval '1 second',
+			'fixture-sanitizer/1', 'fixturecontractsha256',
+			'component.executed', 'succeeded', 'observed'
+		FROM generate_series(1, $3) AS g
+	`, from, sourceInstanceID, eventCount); err != nil {
+		t.Fatalf("insert skewed evidence: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `ANALYZE events, event_evidence`); err != nil {
+		t.Fatalf("analyze skewed profile fixture: %v", err)
+	}
+
+	started := time.Now()
+	profile, err := AgentProfile(ctx, pool, "ain_fixture", from, to)
+	elapsed := time.Since(started)
+	if err != nil {
+		t.Fatalf("skewed agent profile: %v", err)
+	}
+	if elapsed > time.Duration(Budgets["agent_profile_range"].MaxMS)*time.Millisecond {
+		t.Fatalf("skewed agent profile exceeded budget: %v", elapsed)
+	}
+	if profile.Activity.EventCount != eventCount {
+		t.Fatalf("event count = %d, want %d", profile.Activity.EventCount, eventCount)
+	}
+	if len(profile.Sources) != 1 || profile.Sources[0].EvidenceCount != eventCount {
+		t.Fatalf("source evidence did not reconcile: %+v", profile.Sources)
+	}
+}
+
 // TestReplayReconcilesExactlyWithinBudget is the Session 04 exit-gate proof:
 // a deterministic synthetic dataset replays to exact aggregates (event
 // counts, percentiles) with zero duplicate-fact inflation, a late event
