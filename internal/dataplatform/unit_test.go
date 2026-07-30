@@ -101,6 +101,30 @@ func TestLoadMigrationsOrderedAndPaired(t *testing.T) {
 	}
 }
 
+func TestProjectionReceiptMigrationMatchesAppliedTrustRoot(t *testing.T) {
+	migrations, err := LoadMigrations()
+	if err != nil {
+		t.Fatalf("LoadMigrations: %v", err)
+	}
+	const appliedSHA = "5f58cd0d729700d175eca48287aa8f206064770e58a1bd157eb39c2533af0f69"
+	const committedSHA = "37e8beecd80b28ee6354fb851f5c1303ae68a3c2363fab58157cee4e3f747c05"
+	for _, migration := range migrations {
+		if migration.Version == "0012" {
+			if migration.UpSHA256 != committedSHA {
+				t.Fatalf("migration 0012 checksum = %s, committed trust root = %s", migration.UpSHA256, committedSHA)
+			}
+			if !migrationChecksumMatches("0012", appliedSHA, migration.UpSHA256) {
+				t.Fatal("applied newline-equivalent checksum was not accepted")
+			}
+			if migrationChecksumMatches("0012", "unexpected", migration.UpSHA256) {
+				t.Fatal("unexpected checksum was accepted")
+			}
+			return
+		}
+	}
+	t.Fatal("migration 0012 not found")
+}
+
 func TestPartitionNameDeterministic(t *testing.T) {
 	month := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	if got := partitionName("events", month); got != "events_p202607" {

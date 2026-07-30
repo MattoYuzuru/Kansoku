@@ -85,6 +85,14 @@ rewrites historical assertions. The `0014` and runtime `0004` down migrations ar
 older binaries ignore their additions, while removing pending inputs or narrowing historical
 approval rows could lose recovery/audit evidence. Legacy archives are retained through rollback.
 
+Live restart reconciliation on 2026-07-30 found that migration `0012` had been applied with one
+additional trailing newline before its first trusted commit. The SQL statements and resulting
+schema are byte-for-byte identical after removal of that final newline, but the checksum ledger
+correctly failed a clean rebuild. Runtime migration loading therefore accepts only the explicit
+`0012` applied/committed checksum pair; it does not normalize whitespace or weaken checksum
+validation for any other version or checksum. A unit test locks both members of the pair and proves
+an arbitrary mismatch still fails closed.
+
 ## Consequences
 
 - Fact growth moves to PostgreSQL while local checkpoint size is bounded by source/importer
