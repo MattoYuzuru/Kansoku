@@ -1,5 +1,5 @@
 {
-  "observed_at": "2026-07-30T06:22:34.131Z",
+  "observed_at": "2026-07-30T06:48:23.552Z",
   "browser": "Chrome/150.0.7871.187",
   "base_url": "http://127.0.0.1:43100",
   "source_state": "live_embedded_appliance",
@@ -34,13 +34,26 @@
       "pathname": "/agents/ain_9cd7c4fbf5d8df4694834d7769a3747b",
       "search": "",
       "title": "Kansoku · Agent ain_9cd7c4fbf5d8df4694834d7769a3747b",
-      "h1": "Data unavailable",
-      "body_text_length": 279,
+      "h1": "Codex",
+      "body_text_length": 1873,
       "root_child_count": 1,
       "body_has_unknown_agent": false,
       "body_has_error": false,
       "body_has_loading": false,
-      "visible_alert": true,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 1.1,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 131.7,
+          "transfer_size": 3721
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
       "new_exceptions": []
     },
     {
@@ -49,13 +62,26 @@
       "pathname": "/agents/ain_c2e4a67af4327907cd7a66172c685713",
       "search": "",
       "title": "Kansoku · Agent ain_c2e4a67af4327907cd7a66172c685713",
-      "h1": "Data unavailable",
-      "body_text_length": 279,
+      "h1": "Claude",
+      "body_text_length": 1506,
       "root_child_count": 1,
       "body_has_unknown_agent": false,
       "body_has_error": false,
       "body_has_loading": false,
-      "visible_alert": true,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 1.2,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 29.1,
+          "transfer_size": 2522
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
       "new_exceptions": []
     },
     {
@@ -64,13 +90,26 @@
       "pathname": "/agents/ain_fixture",
       "search": "",
       "title": "Kansoku · Agent ain_fixture",
-      "h1": "Data unavailable",
-      "body_text_length": 279,
+      "h1": "Fixture Agent",
+      "body_text_length": 1616,
       "root_child_count": 1,
       "body_has_unknown_agent": false,
       "body_has_error": false,
       "body_has_loading": false,
-      "visible_alert": true,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 5.5,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 30.8,
+          "transfer_size": 2479
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
       "new_exceptions": []
     },
     {
@@ -79,13 +118,26 @@
       "pathname": "/agents/ain_codex_final_20260729",
       "search": "",
       "title": "Kansoku · Agent ain_codex_final_20260729",
-      "h1": "Data unavailable",
-      "body_text_length": 279,
+      "h1": "Codex",
+      "body_text_length": 1401,
       "root_child_count": 1,
       "body_has_unknown_agent": false,
       "body_has_error": false,
       "body_has_loading": false,
-      "visible_alert": true,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 1.1,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 23.6,
+          "transfer_size": 1586
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
       "new_exceptions": []
     },
     {
@@ -94,13 +146,26 @@
       "pathname": "/agents/ain_codex_supervised_live",
       "search": "",
       "title": "Kansoku · Agent ain_codex_supervised_live",
-      "h1": "Data unavailable",
-      "body_text_length": 279,
+      "h1": "Codex",
+      "body_text_length": 1401,
       "root_child_count": 1,
       "body_has_unknown_agent": false,
       "body_has_error": false,
       "body_has_loading": false,
-      "visible_alert": true,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 5.4,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 29.3,
+          "transfer_size": 1591
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
       "new_exceptions": []
     }
   ],
@@ -110,6 +175,10 @@
     "back_visible": true,
     "retry_recovered": true,
     "intentional_exceptions": []
+  },
+  "agent_class_filter": {
+    "canary_rows": 2,
+    "table_text": "AgentProviderSurfaceClassVersionInstallationEventsSucceededFailedCoveragecodexcodexclicanary0.1.0ain_codex_fina…900?codexcodexclicanary0.1.0ain_codex_supe…600?"
   },
   "range_persistence": {
     "activity_before_leave": "Last 7 days",
@@ -190,7 +259,7 @@
     "animation_name": "glossary-target-pulse",
     "animation_duration": "1.6s",
     "transition_duration": "0s",
-    "border_color": "rgb(222, 224, 219)",
+    "border_color": "rgb(228, 227, 223)",
     "focused": true
   },
   "glossary_reduced_motion": {
@@ -230,71 +299,27 @@
     },
     {
       "path": "/api/v1/analytics",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/analytics",
       "status": 200
     },
     {
       "path": "/api/v1/agents/{installation}",
-      "status": 503
+      "status": 200
     },
     {
       "path": "/api/v1/agents/{installation}",
-      "status": 503
+      "status": 200
     },
     {
       "path": "/api/v1/agents/{installation}",
-      "status": 503
+      "status": 200
     },
     {
       "path": "/api/v1/agents/{installation}",
-      "status": 503
+      "status": 200
     },
     {
       "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/agents/{installation}",
-      "status": 503
+      "status": 200
     },
     {
       "path": "/api/v1/privacy/canary-history",
@@ -322,10 +347,14 @@
     },
     {
       "path": "/api/v1/reliability/counts",
-      "status": 503
+      "status": 200
     },
     {
       "path": "/api/v1/reliability/collection-health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/quarantine",
       "status": 200
     },
     {
@@ -334,10 +363,6 @@
     },
     {
       "path": "/api/v1/analytics",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/quarantine",
       "status": 200
     },
     {
@@ -345,6 +370,10 @@
       "status": 200
     },
     {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
       "path": "/api/v1/incidents",
       "status": 200
     },
@@ -353,7 +382,31 @@
       "status": 200
     },
     {
+      "path": "/api/v1/reliability/counts",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
       "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/incidents",
       "status": 200
     },
     {
@@ -393,11 +446,15 @@
       "status": 200
     },
     {
+      "path": "/api/v1/system/snapshot",
+      "status": 200
+    },
+    {
       "path": "/api/v1/health",
       "status": 200
     },
     {
-      "path": "/api/v1/system/snapshot",
+      "path": "/api/v1/quarantine",
       "status": 200
     },
     {
@@ -406,10 +463,6 @@
     },
     {
       "path": "/api/v1/analytics",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/quarantine",
       "status": 200
     },
     {
@@ -426,34 +479,6 @@
     },
     {
       "path": "/api/v1/health",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/incidents",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/analytics",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/quarantine",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/reliability/counts",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/reliability/collection-health",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/health",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/system/snapshot",
       "status": 200
     }
   ]

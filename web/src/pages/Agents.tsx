@@ -17,10 +17,11 @@
  * (adapter_versions is a flat inventory count, not joined to installations
  * here) — noted as a gap.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { KpiCard } from "../components/KpiCard";
 import { DataTable, type Column } from "../components/DataTable";
+import { Dropdown } from "../components/Dropdown";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { StatusBadge } from "../components/StatusBadge";
@@ -39,6 +40,7 @@ function agentLabel(agentID?: string): string {
 }
 
 export function Agents() {
+  const [installationClass, setInstallationClass] = useState("all");
   const range = useRange("agents");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
@@ -47,7 +49,10 @@ export function Agents() {
   const inventory = useInventory();
   const breakdown = useAgentBreakdown(rangeParams);
 
-  const rows = breakdown.data?.data?.data ?? [];
+  const allRows = breakdown.data?.data?.data ?? [];
+  const rows = installationClass === "all"
+    ? allRows
+    : allRows.filter((row) => (row.installation_class ?? "unknown") === installationClass);
   const state = deriveViewState(breakdown.data, { isLoading: breakdown.isLoading });
 
   const columns: Column<EntityRow>[] = [
@@ -62,6 +67,11 @@ export function Agents() {
     },
     { key: "provider", header: "Provider", render: (r) => r.provider_id || r.agent_id || "Unknown" },
     { key: "surface", header: "Surface", render: (r) => r.surface_kind || "Unknown" },
+    {
+      key: "class",
+      header: "Class",
+      render: (r) => (r.installation_class ?? "unknown").replaceAll("_", " "),
+    },
     {
       key: "version",
       header: "Version",
@@ -131,7 +141,27 @@ export function Agents() {
         </div>
       </Panel>
 
-      <Panel title="Per-agent event activity" actions={<RangeControl range={range} />}>
+      <Panel
+        title="Per-agent event activity"
+        actions={(
+          <>
+            <Dropdown
+              caption="CLASS"
+              value={installationClass}
+              onChange={setInstallationClass}
+              options={[
+                { value: "all", label: "All classes" },
+                { value: "real", label: "Real" },
+                { value: "canary", label: "Canary" },
+                { value: "fixture", label: "Fixture" },
+                { value: "imported", label: "Imported" },
+                { value: "unknown", label: "Unknown" },
+              ]}
+            />
+            <RangeControl range={range} />
+          </>
+        )}
+      >
         <DataTable
           columns={columns}
           rows={rows}
@@ -146,7 +176,8 @@ export function Agents() {
         <GapNote>
           The agent name comes from the adapter identity stored with the installation.
           The shortened <code>ain_…</code> value is its privacy-safe technical key, not
-          the model or provider name. Per-installation capability coverage still needs
+          the model or provider name. Installation class is explicit profile metadata,
+          never inferred from the visible identifier. Per-installation capability coverage still needs
           durable expected-event populations.
         </GapNote>
       </Panel>

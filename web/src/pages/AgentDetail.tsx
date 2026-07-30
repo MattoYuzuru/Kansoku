@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 import { DataTable, type Column } from "../components/DataTable";
+import { ChartContainer } from "../components/ChartContainer";
+import { stackedBarOption, timeSeriesOption } from "../components/chartOptions";
 import { KpiCard } from "../components/KpiCard";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
@@ -41,8 +43,42 @@ export function AgentDetail({ alias }: AgentDetailProps) {
   const state = deriveViewState(profile.data, { isLoading: profile.isLoading });
   const identity = data?.identity;
   const activity = data?.activity;
+  const models = data?.models;
   const title = identity?.display_alias ||
     (identity?.display_name ? displayLabel(identity.display_name) : "Unknown agent");
+  const tokenOption = useMemo(
+    () => stackedBarOption(
+      (models ?? []).map((row) => row.model_id),
+      [
+        { name: "Input", data: (models ?? []).map((row) => row.input_tokens), stack: "tokens" },
+        {
+          name: "Cached input",
+          data: (models ?? []).map((row) => row.cached_input_tokens),
+          stack: "tokens",
+        },
+        { name: "Output", data: (models ?? []).map((row) => row.output_tokens), stack: "tokens" },
+      ],
+    ),
+    [models],
+  );
+  const costOption = useMemo(
+    () => timeSeriesOption(
+      (models ?? []).map((row) => row.model_id),
+      [
+        {
+          name: "Provider-reported",
+          data: (models ?? []).map((row) => microsToUsd(row.provider_cost_micros)),
+          type: "bar",
+        },
+        {
+          name: "API-equivalent estimate",
+          data: (models ?? []).map((row) => microsToUsd(row.api_equivalent_cost_micros)),
+          type: "bar",
+        },
+      ],
+    ),
+    [models],
+  );
 
   if (profile.isError) {
     return (
@@ -81,12 +117,21 @@ export function AgentDetail({ alias }: AgentDetailProps) {
       render: (row) => `${row.failure_count} / ${row.success_count + row.failure_count}`,
     },
     {
-      key: "cost",
-      header: "API-equivalent cost",
+      key: "provider_cost",
+      header: "Provider-reported cost",
       align: "right",
       render: (row) =>
-        row.costed_request_count > 0
-          ? `$${microsToUsd(row.estimated_cost_micros).toFixed(2)}`
+        row.provider_costed_request_count > 0
+          ? `$${microsToUsd(row.provider_cost_micros).toFixed(2)}`
+          : "Not observed",
+    },
+    {
+      key: "api_cost",
+      header: "API-equivalent estimate",
+      align: "right",
+      render: (row) =>
+        row.api_estimated_request_count > 0
+          ? `$${microsToUsd(row.api_equivalent_cost_micros).toFixed(2)}`
           : "Not observed",
     },
   ];
@@ -141,24 +186,53 @@ export function AgentDetail({ alias }: AgentDetailProps) {
           <p className="t-caption" style={{ color: "var(--text-faint)" }}>
             Agent {identity.agent_version || "version not observed"} · adapter{" "}
             {identity.adapter_version || "version not observed"} · identity provenance{" "}
-            {identity.source_provenance}. The opaque <code>{shortID(identity.agent_installation_id)}</code>{" "}
+            {identity.source_provenance} · class {identity.installation_class} (
+            {identity.installation_class_provenance}). The opaque{" "}
+            <code>{shortID(identity.agent_installation_id)}</code>{" "}
             remains a secondary diagnostic key.
           </p>
         )}
       </Panel>
 
+      <div className="k-grid k-grid--2col">
+        <Panel title="Token composition by model">
+          <ChartContainer
+            option={tokenOption}
+            height={280}
+            ariaLabel={`Input, cached input and output tokens by model for ${title}`}
+          />
+        </Panel>
+        <Panel title="Cost evidence by model">
+          <ChartContainer
+            option={costOption}
+            height={280}
+            ariaLabel={`Provider-reported cost and API-equivalent estimates by model for ${title}`}
+          />
+          <GapNote>
+            Provider-reported cost and API-equivalent estimates are independent evidence lanes.
+            A Codex API-equivalent estimate is not billed ChatGPT or subscription spend.
+          </GapNote>
+        </Panel>
+      </div>
+
       <Panel title="Per-model usage">
         <DataTable
           columns={modelColumns}
-          rows={data?.models ?? []}
+          rows={models ?? []}
           rowKey={(row) => row.model_id}
           emptyMessage={profile.isLoading ? "Loading…" : "No exactly attributed model responses in this range."}
         />
         <GapNote>
           Population {data?.population.numerator ?? 0} / {data?.population.denominator ?? 0};
           non-exact installation attribution exclusions{" "}
-          {data?.exclusions.non_exact_installation_attribution ?? 0}. Cost is an
-          API-equivalent estimate, never a subscription invoice.
+          {data?.exclusions.non_exact_installation_attribution ?? 0}. Provider cost coverage{" "}
+          {(models ?? []).reduce((total, row) => total + row.provider_costed_request_count, 0)}
+          {" / "}
+          {(models ?? []).reduce((total, row) => total + row.request_count, 0)}; API-equivalent
+          estimate coverage{" "}
+          {(models ?? []).reduce((total, row) => total + row.api_estimated_request_count, 0)}
+          {" / "}
+          {(models ?? []).reduce((total, row) => total + row.request_count, 0)}.
         </GapNote>
       </Panel>
 

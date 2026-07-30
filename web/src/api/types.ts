@@ -65,6 +65,8 @@ export interface EntityRow {
   surface_kind?: string;
   agent_version?: string;
   adapter_version?: string;
+  installation_class?: "real" | "canary" | "fixture" | "imported" | "unknown";
+  installation_class_provenance?: string;
   event_count: number;
   success_count: number;
   failure_count: number;
@@ -77,6 +79,7 @@ export interface EntityRow {
 export interface AgentProfile {
   identity: {
     agent_installation_id: string;
+    agent_id: string;
     adapter_id: string;
     provider_id: string;
     display_name: string;
@@ -86,6 +89,8 @@ export interface AgentProfile {
     adapter_version?: string;
     completeness: DataCompleteness["status"];
     source_provenance: string;
+    installation_class: "real" | "canary" | "fixture" | "imported" | "unknown";
+    installation_class_provenance: string;
   };
   activity: {
     event_count: number;
@@ -105,6 +110,10 @@ export interface AgentProfile {
     output_tokens: number;
     costed_request_count: number;
     estimated_cost_micros: number;
+    provider_costed_request_count: number;
+    provider_cost_micros: number;
+    api_estimated_request_count: number;
+    api_equivalent_cost_micros: number;
     success_count: number;
     failure_count: number;
     percentiles?: Percentiles;

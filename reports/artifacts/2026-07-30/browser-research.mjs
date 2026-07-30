@@ -103,6 +103,7 @@ try {
     malformed_null_fixture: {},
     agent_profiles: [],
     route_error_boundary: {},
+    agent_class_filter: {},
     range_persistence: {},
     reliability_navigation: {},
     overflow: {},
@@ -191,6 +192,52 @@ try {
       .slice(0, 8)
       .map((node) => ({ href: node.getAttribute("href"), label: node.textContent?.trim() }))
   `);
+  await evaluate(page, `
+    (() => {
+      const caption = [...document.querySelectorAll(".k-dd__caption")]
+        .find((node) => node.textContent?.trim() === "CLASS");
+      const trigger = caption?.parentElement?.querySelector(".k-dd__trigger");
+      if (!(trigger instanceof HTMLElement)) throw new Error("class_filter_missing");
+      trigger.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `document.querySelectorAll('[role="option"]').length > 0`, 3000);
+  await evaluate(page, `
+    (() => {
+      const option = [...document.querySelectorAll('[role="option"]')]
+        .find((node) => node.textContent?.trim() === "Canary");
+      if (!(option instanceof HTMLElement)) throw new Error("canary_filter_option_missing");
+      option.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `document.querySelectorAll('a[href^="/agents/"]').length === 2`, 3000);
+  evidence.agent_class_filter = {
+    canary_rows: await evaluate(page, `document.querySelectorAll('a[href^="/agents/"]').length`),
+    table_text: await evaluate(page, `document.querySelector(".k-table")?.textContent?.trim() ?? ""`),
+  };
+  await evaluate(page, `
+    (() => {
+      const caption = [...document.querySelectorAll(".k-dd__caption")]
+        .find((node) => node.textContent?.trim() === "CLASS");
+      const trigger = caption?.parentElement?.querySelector(".k-dd__trigger");
+      if (!(trigger instanceof HTMLElement)) throw new Error("class_filter_missing");
+      trigger.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `document.querySelectorAll('[role="option"]').length > 0`, 3000);
+  await evaluate(page, `
+    (() => {
+      const option = [...document.querySelectorAll('[role="option"]')]
+        .find((node) => node.textContent?.trim() === "All classes");
+      if (!(option instanceof HTMLElement)) throw new Error("all_filter_option_missing");
+      option.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `document.querySelectorAll('a[href^="/agents/"]').length >= 5`, 3000);
   for (const link of agentLinks) {
     const start = exceptions.length;
     await navigate(page, link.href, `document.querySelector("h1") || document.body.innerText.includes("Unknown agent")`);
@@ -203,6 +250,26 @@ try {
       list_label: link.label,
       href: link.href,
       ...(await pageState(page)),
+      agent_api_resources: await evaluate(page, `
+        performance.getEntriesByType("resource")
+          .filter((entry) => entry.name.includes("/api/v1/agents/"))
+          .map((entry) => ({
+            duration_ms: Math.round(entry.duration * 100) / 100,
+            transfer_size: entry.transferSize,
+          }))
+      `),
+      chart_count: await evaluate(page, `document.querySelectorAll(".k-chart").length`),
+      has_cost_lanes: await evaluate(page, `
+        document.body.innerText.includes("Provider-reported cost") &&
+          document.body.innerText.includes("API-equivalent estimate")
+      `),
+      has_explicit_class: await evaluate(page, `
+        document.body.innerText.includes("class real") ||
+          document.body.innerText.includes("class canary") ||
+          document.body.innerText.includes("class fixture") ||
+          document.body.innerText.includes("class imported") ||
+          document.body.innerText.includes("class unknown")
+      `),
       new_exceptions: exceptions.slice(start),
     });
   }
