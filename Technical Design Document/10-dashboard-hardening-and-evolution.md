@@ -222,3 +222,10 @@ The historical `collection.ingest_latency_seconds/1` lock is retained. The curre
 formula fixture use `collection.ingest_latency_seconds/2` with
 `p95(durable_commit_at - received_at)` and the explicit
 `receive_or_commit_timestamp_not_observed` exclusion.
+
+The Models query selects the latest price-bound estimate for all token rows once and joins that
+bounded relation. It does not execute a lateral `cost_estimates` scan per response. On the
+measured live 7,988-response range, the old plan touched about 1.1 million shared buffers and took
+1,849.465 ms; the set-based plan touched 961 shared buffers and took 74.816 ms. A 5,000-response
+PostgreSQL regression fixture remains below the unchanged 150 ms query budget and reconciles exact
+request, costed-request and cost totals.

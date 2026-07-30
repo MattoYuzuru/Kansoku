@@ -50,23 +50,23 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, buc
 			JOIN token_usage tu ON tu.model_operation_id = o.model_operation_id AND tu.observed_at = o.observed_at
 			GROUP BY o.model_operation_id
 		),
+		latest_costs AS (
+			SELECT DISTINCT ON (ce.token_usage_id)
+				ce.token_usage_id, ce.cost_estimate_id, ce.cost_micros, ce.method
+			FROM cost_estimates ce
+			JOIN price_catalog_versions pcv
+			  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
+			ORDER BY ce.token_usage_id, pcv.effective_at DESC
+		),
 		cost_totals AS (
 			SELECT o.model_operation_id,
-				coalesce(o.provider_cost_micros, max(ce.cost_micros), 0) AS total_cost_micros,
-				(o.provider_cost_micros IS NOT NULL OR count(ce.cost_estimate_id) > 0) AS is_costed,
+				coalesce(o.provider_cost_micros, max(lc.cost_micros), 0) AS total_cost_micros,
+				(o.provider_cost_micros IS NOT NULL OR count(lc.cost_estimate_id) > 0) AS is_costed,
 				(o.provider_cost_micros IS NOT NULL) AS is_provider_cost,
-				bool_or(ce.method = 'public_api_uncached_upper_bound') AS is_upper_bound
+				bool_or(lc.method = 'public_api_uncached_upper_bound') AS is_upper_bound
 			FROM ops o
 			LEFT JOIN token_usage tu ON tu.model_operation_id = o.model_operation_id AND tu.observed_at = o.observed_at
-			LEFT JOIN LATERAL (
-				SELECT ce.cost_estimate_id, ce.cost_micros, ce.method
-				FROM cost_estimates ce
-				JOIN price_catalog_versions pcv
-				  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
-				WHERE ce.token_usage_id = tu.token_usage_id
-				ORDER BY pcv.effective_at DESC
-				LIMIT 1
-			) ce ON TRUE
+			LEFT JOIN latest_costs lc ON lc.token_usage_id = tu.token_usage_id
 			GROUP BY o.model_operation_id, o.provider_cost_micros
 		),
 		observations AS (

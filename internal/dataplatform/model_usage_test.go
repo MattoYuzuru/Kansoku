@@ -138,3 +138,90 @@ func TestModelUsageEmptyRangeReportsUnknownNotZero(t *testing.T) {
 		t.Fatalf("completeness = %+v, want unknown for empty range", response.Completeness)
 	}
 }
+
+// TestModelUsageCostLookupScalesLinearlyWithoutPerRowEstimateScan protects the
+// 5k-response regression shape that previously ran one full cost_estimates
+// scan per response and exceeded the 150 ms query budget. The latest
+// price-bound cost for every token row is selected once and joined as a
+// bounded relation. The larger live shape is measured separately at deploy.
+func TestModelUsageCostLookupScalesLinearlyWithoutPerRowEstimateScan(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	for _, table := range []string{"model_operations", "token_usage"} {
+		if err := EnsurePartition(ctx, pool, table, base); err != nil {
+			t.Fatalf("ensure partition %s: %v", table, err)
+		}
+	}
+	insertProviderAndModel(t, ctx, pool, "prov_model_usage_scale", "model_usage_scale")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO price_catalog_versions (
+			price_catalog_version_id, model_id, effective_at,
+			input_price_micros, output_price_micros
+		) VALUES ('pcv_model_usage_scale', 'model_usage_scale', $1, 1, 1)
+	`, base); err != nil {
+		t.Fatalf("insert price catalog: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO model_operations (
+			model_operation_id, observed_at, model_id, operation_kind, outcome
+		)
+		SELECT 'mop_model_usage_scale_' || g,
+			$1::timestamptz + g * interval '1 second',
+			'model_usage_scale', 'response', 'succeeded'
+		FROM generate_series(1, 5000) AS g
+	`, base); err != nil {
+		t.Fatalf("insert model operations: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO token_usage (
+			token_usage_id, observed_at, model_operation_id,
+			input_tokens, output_tokens
+		)
+		SELECT 'tu_model_usage_scale_' || g,
+			$1::timestamptz + g * interval '1 second',
+			'mop_model_usage_scale_' || g,
+			10, 5
+		FROM generate_series(1, 5000) AS g
+	`, base); err != nil {
+		t.Fatalf("insert token usage: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO cost_estimates (
+			cost_estimate_id, token_usage_id, price_catalog_version_id,
+			cost_micros
+		)
+		SELECT 'ce_model_usage_scale_' || g,
+			'tu_model_usage_scale_' || g,
+			'pcv_model_usage_scale',
+			100
+		FROM generate_series(1, 5000) AS g
+	`); err != nil {
+		t.Fatalf("insert cost estimates: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		ANALYZE model_operations;
+		ANALYZE token_usage;
+		ANALYZE cost_estimates;
+		ANALYZE price_catalog_versions
+	`); err != nil {
+		t.Fatalf("analyze scaled fixtures: %v", err)
+	}
+
+	started := time.Now()
+	response, err := ModelUsage(ctx, pool, base, base.AddDate(0, 0, 1), DefaultTimeBucketSpec())
+	elapsed := time.Since(started)
+	if err != nil {
+		t.Fatalf("ModelUsage: %v", err)
+	}
+	if elapsed > time.Duration(Budgets["model_usage_range"].MaxMS)*time.Millisecond {
+		t.Fatalf("model_usage_range exceeded its budget at the live response shape: %v", elapsed)
+	}
+	if len(response.Data) != 1 ||
+		response.Data[0].RequestCount != 5000 ||
+		response.Data[0].CostedRequestCount != 5000 ||
+		response.Data[0].EstimatedCostMicros != 500000 {
+		t.Fatalf("scaled model usage did not reconcile: %+v", response.Data)
+	}
+}
