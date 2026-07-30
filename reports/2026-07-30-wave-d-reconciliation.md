@@ -2,7 +2,8 @@
 
 Date: 2026-07-30  
 Scope: R03, R08, R10  
-Implementation commits: `0881fb6`, `8b46d79`, `37030f2`, `22abc90`
+Implementation commits: `0881fb6`, `8b46d79`, `37030f2`, `22abc90`, `3ca291f`,
+`ab24166`, `51d15b4`, `60be47f`
 
 ## Exit-gate result
 
@@ -27,6 +28,11 @@ Implementation commits: `0881fb6`, `8b46d79`, `37030f2`, `22abc90`
 ## Controlled canaries
 
 - `search-workflow` completed its local setup check with all declared local tools available.
+- Two authenticated typed App Server selections of `search-workflow` produced two native invoked
+  and two native loaded assertions. Two selections of plugin-owned
+  `sre-agent:finding-validation` produced the same child assertions with owner identity plus
+  exactly two plugin `child_activity` summaries. Reposting the identical stream retained those
+  logical counts and incremented only evidence replay counts.
 - The Kotlin canary used a mode-0700 `mktemp -d` outside the repository and removed it after the
   check. `kotlinc` was unavailable, so compilation is honestly `not_observed`; no package was
   installed and no user repository was touched.
@@ -43,10 +49,16 @@ Implementation commits: `0881fb6`, `8b46d79`, `37030f2`, `22abc90`
 - `python3 scripts/validate_adapter_sdk.py`
 - `python3 scripts/validate_codex.py`
 - `python3 scripts/validate_data_platform.py`
+- `python3 scripts/validate_plugins.py`
 - targeted Go tests for adapter SDK, Codex bridge, Claude mapping, observability, runtime and
   PostgreSQL plugin/snapshot/timezone reconciliation
 - race tests for `internal/dataplatform` and `internal/runtime`
 - frontend component-catalog tests, TypeScript typecheck, production build and embed/dist parity
+- production image `kansoku:wave-d6-20260730`, live authenticated App Server replay and saved
+  Chrome 150 harness
+- a 330,000-row isolated PostgreSQL skew fixture reconciled exact event/evidence totals inside the
+  reviewed profile budget; the saved live harness returned 200 for all five agent profiles with
+  the primary installation at 277.3 ms
 
 ## Resource, privacy and retention review
 
@@ -58,11 +70,28 @@ Implementation commits: `0881fb6`, `8b46d79`, `37030f2`, `22abc90`
   destination.
 - Checkpoint and quarantine metadata are additive. No historical telemetry, incidents, agent
   configuration or retention class is rewritten.
+- A live first-pass canary exposed loaded-derived plugin child summaries. They remain immutable;
+  `plugin.active_share/2` and `plugin_profile/2` exclude them through the origin event. A fresh
+  post-fix canary reconciled two plugin-owned selections to two child summaries and zero
+  loaded-derived summaries. Synthetic path matches across event/evidence/assertion sinks were zero.
+- The primary agent reached 328,653 exact events while Wave D collectors recovered. At that shape,
+  one exact events aggregate measured 203.937 ms alone and the evidence contour measured
+  289.723 ms under concurrent shared-buffer pressure, disproving the earlier end-to-end 200 ms
+  claim. `agent_profile_range/1` now uses one bounded `GROUPING SETS` pass, selected-only price
+  lookup, 16 MiB `work_mem` and at most one gather worker. Query-contract 1.8.0 records an explicit
+  500 ms ceiling. Five post-deploy requests returned 200 in 405.53, 195.97, 168.36, 179.99 and
+  183.04 ms; no result population or historical row was dropped to meet it.
 
 ## Residual risks
 
 - Kotlin compilation remains `not_observed` on this host because `kotlinc` is absent.
 - The Claude mapping has fixture evidence only; local Claude execution remains outside the
   authorized scope.
-- Live production-image browser and source-health reconciliation is recorded separately when the
-  Wave D image replaces the currently running Wave C image.
+- The appliance health command remains sensitive to unrelated source lanes that are configured but
+  not currently observed. The two Wave D lanes themselves reconcile as
+  `codex.rollout=producing/observed` and `codex.app_server=producing/observed` with no safe error
+  class.
+- The final Wave D browser pass observed transient first-attempt 503 responses from Activity,
+  Reliability Counts and Collection Health while every agent profile returned 200. Those routes
+  are retained as explicit Wave E performance/formula work; the UI recovered visibly on retry and
+  the harness recorded zero runtime exceptions or failed network requests.

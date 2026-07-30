@@ -117,6 +117,18 @@ try {
   };
 
   await navigate(page, "/components/skills", `document.querySelector('a[href^="/components/skills/"]')`);
+  await waitFor(page, `
+    (() => {
+      const heading = [...document.querySelectorAll("h2")]
+        .find((node) => node.textContent?.trim() === "Skill evidence source health");
+      const panel = heading?.closest(".k-panel");
+      return Boolean(
+        panel &&
+        !panel.textContent?.includes("Loading source health") &&
+        (panel.querySelectorAll("tbody tr").length > 1 || panel.querySelector('[role="alert"]'))
+      );
+    })()
+  `, 10000);
   evidence.skill_source_health = await evaluate(page, `
     (() => {
       const heading = [...document.querySelectorAll("h2")]
