@@ -166,6 +166,8 @@ type EntityRow struct {
 	SurfaceKind         string       `json:"surface_kind,omitempty"`
 	AgentVersion        string       `json:"agent_version,omitempty"`
 	AdapterVersion      string       `json:"adapter_version,omitempty"`
+	InstallationClass   string       `json:"installation_class,omitempty"`
+	ClassProvenance     string       `json:"installation_class_provenance,omitempty"`
 	EventCount          int64        `json:"event_count"`
 	SuccessCount        int64        `json:"success_count"`
 	FailureCount        int64        `json:"failure_count"`

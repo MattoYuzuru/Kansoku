@@ -15,28 +15,43 @@ import (
 // already-known IDs; production adapters own the full dimension model from
 // TDD 04.
 type DimensionRefs struct {
-	DeviceID            string
-	AgentInstallationID string
-	AgentID             string
-	SurfaceID           string
-	ProjectID           string
-	SessionID           string
-	TurnID              string
-	ComponentID         string
-	ComponentKind       string
-	ModelID             string
-	ProviderID          string
-	AdapterVersionID    string
-	AdapterID           string
-	AdapterVersion      string
-	SourceInstanceID    string
-	SourceKind          string
+	DeviceID                    string
+	AgentInstallationID         string
+	AgentID                     string
+	SurfaceID                   string
+	ProjectID                   string
+	SessionID                   string
+	TurnID                      string
+	ComponentID                 string
+	ComponentKind               string
+	ModelID                     string
+	ProviderID                  string
+	AdapterVersionID            string
+	AdapterID                   string
+	AdapterVersion              string
+	SourceInstanceID            string
+	SourceKind                  string
+	InstallationClass           string
+	InstallationClassProvenance string
 }
 
 // EnsureDimensions idempotently inserts the dimension rows a FactRow depends
 // on via foreign keys (ON CONFLICT DO NOTHING keeps repeated fixture setup
 // calls safe).
 func EnsureDimensions(ctx context.Context, pool *pgxpool.Pool, refs DimensionRefs) error {
+	installationClass := refs.InstallationClass
+	if installationClass == "" {
+		installationClass = "unknown"
+	}
+	switch installationClass {
+	case "real", "canary", "fixture", "imported", "unknown":
+	default:
+		return fmt.Errorf("ensure dimension: invalid installation class %q", installationClass)
+	}
+	classProvenance := refs.InstallationClassProvenance
+	if classProvenance == "" {
+		classProvenance = "not_observed"
+	}
 	componentKind := refs.ComponentKind
 	if componentKind == "" {
 		componentKind = "skill"
@@ -70,12 +85,24 @@ func EnsureDimensions(ctx context.Context, pool *pgxpool.Pool, refs DimensionRef
 		INSERT INTO agent_installation_profiles (
 			agent_installation_id, adapter_id, provider_id, display_name,
 			surface_kind, observed_agent_version, adapter_version,
-			completeness, source_provenance, first_seen_at, last_seen_at
-		) VALUES ($1,$2,$2,$2,'cli',NULL,$3,'partial','normalized_event',now(),now())
+			completeness, source_provenance, first_seen_at, last_seen_at,
+			installation_class, installation_class_provenance
+		) VALUES ($1,$2,$2,$2,'cli',NULL,$3,'partial','normalized_event',now(),now(),$4,$5)
 		ON CONFLICT (agent_installation_id) DO UPDATE SET
 			adapter_version = EXCLUDED.adapter_version,
+			installation_class = CASE
+				WHEN EXCLUDED.installation_class = 'unknown'
+				THEN agent_installation_profiles.installation_class
+				ELSE EXCLUDED.installation_class
+			END,
+			installation_class_provenance = CASE
+				WHEN EXCLUDED.installation_class = 'unknown'
+				THEN agent_installation_profiles.installation_class_provenance
+				ELSE EXCLUDED.installation_class_provenance
+			END,
 			last_seen_at = GREATEST(agent_installation_profiles.last_seen_at, EXCLUDED.last_seen_at)
-	`, refs.AgentInstallationID, refs.AdapterID, refs.AdapterVersion); err != nil {
+	`, refs.AgentInstallationID, refs.AdapterID, refs.AdapterVersion,
+		installationClass, classProvenance); err != nil {
 		return fmt.Errorf("ensure agent profile: %w", err)
 	}
 	if _, err := pool.Exec(ctx, `

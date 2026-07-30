@@ -32,38 +32,48 @@ func AgentBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 
 	started := time.Now()
 	rows, err := conn.Query(ctx, `
-		SELECT e.agent_installation_id, ai.agent_id,
+		WITH activity AS (
+			SELECT agent_installation_id,
+				count(*) AS event_count,
+				count(*) FILTER (WHERE outcome = 'succeeded') AS success_count,
+				count(*) FILTER (
+					WHERE outcome IN ('failed', 'timed_out', 'abandoned')
+				) AS failure_count
+			FROM events
+			WHERE observed_at >= $1 AND observed_at < $2
+			  AND agent_installation_id IS NOT NULL
+			GROUP BY agent_installation_id
+		)
+		SELECT activity.agent_installation_id, ai.agent_id,
 			coalesce(p.provider_id, ai.agent_id),
 			coalesce(p.display_name, ai.agent_id),
 			coalesce(p.display_alias, ''),
 			coalesce(p.surface_kind, 'unknown'),
 			coalesce(p.observed_agent_version, ''),
 			coalesce(p.adapter_version, ''),
-			count(*) AS event_count,
-			count(*) FILTER (WHERE outcome = 'succeeded') AS success_count,
-			count(*) FILTER (WHERE outcome IN ('failed', 'timed_out', 'abandoned')) AS failure_count
-		FROM events e
-		JOIN agent_installations ai ON ai.agent_installation_id = e.agent_installation_id
+			coalesce(p.installation_class, 'unknown'),
+			coalesce(p.installation_class_provenance, 'not_observed'),
+			activity.event_count, activity.success_count, activity.failure_count
+		FROM activity
+		JOIN agent_installations ai
+		  ON ai.agent_installation_id = activity.agent_installation_id
 		LEFT JOIN agent_installation_profiles p
-		  ON p.agent_installation_id = e.agent_installation_id
-		WHERE e.observed_at >= $1 AND e.observed_at < $2 AND e.agent_installation_id IS NOT NULL
-		GROUP BY e.agent_installation_id, ai.agent_id, p.provider_id,
-			p.display_name, p.display_alias, p.surface_kind,
-			p.observed_agent_version, p.adapter_version
-		ORDER BY event_count DESC, e.agent_installation_id
+		  ON p.agent_installation_id = activity.agent_installation_id
+		ORDER BY activity.event_count DESC, activity.agent_installation_id
 	`, from, to)
 	if err != nil {
 		return EntityBreakdownResponse{}, budgetOrErr(budget, started, err)
 	}
 	defer rows.Close()
-	var response EntityBreakdownResponse
+	response := EntityBreakdownResponse{Data: make([]EntityRow, 0)}
 	var numerator, denominator int64
 	for rows.Next() {
 		var row EntityRow
 		if err := rows.Scan(
 			&row.EntityID, &row.AgentID, &row.ProviderID, &row.DisplayName,
 			&row.DisplayAlias, &row.SurfaceKind, &row.AgentVersion,
-			&row.AdapterVersion, &row.EventCount, &row.SuccessCount,
+			&row.AdapterVersion, &row.InstallationClass, &row.ClassProvenance,
+			&row.EventCount, &row.SuccessCount,
 			&row.FailureCount,
 		); err != nil {
 			return EntityBreakdownResponse{}, err

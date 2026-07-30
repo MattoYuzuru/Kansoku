@@ -184,6 +184,7 @@ func testDimensionRefs(sourceInstanceID string) DimensionRefs {
 		SurfaceID: "cli", ProjectID: "proj_fixture", SessionID: "ses_fixture", TurnID: "turn_fixture",
 		ComponentID: "inventory/tool-safe", AdapterVersionID: "fixture-agent/1.0.0", AdapterID: "fixture-agent",
 		AdapterVersion: "1.0.0", SourceInstanceID: sourceInstanceID, SourceKind: "hook_http",
+		InstallationClass: "fixture", InstallationClassProvenance: "postgres_test_fixture",
 	}
 }
 
@@ -205,6 +206,59 @@ func makeFact(index int, observedAt time.Time, durationMS int64, sourceInstanceI
 		AssertEventType: "component.executed", AssertOutcome: "succeeded", AssertValueState: "observed",
 	}
 	return fact, evidence
+}
+
+func TestAgentProfileUsesOneConsistentSnapshot(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	sourceInstanceID := "src_agent_profile_snapshot"
+	if err := EnsureDimensions(ctx, pool, testDimensionRefs(sourceInstanceID)); err != nil {
+		t.Fatalf("ensure dimensions: %v", err)
+	}
+	observed := time.Date(2026, 7, 30, 8, 0, 0, 0, time.UTC)
+	firstFact, firstEvidence := makeFact(700001, observed, 10, sourceInstanceID)
+	if _, err := InsertFact(ctx, pool, firstFact, firstEvidence); err != nil {
+		t.Fatalf("insert initial fact: %v", err)
+	}
+
+	profile, err := agentProfileWithSnapshot(
+		ctx,
+		pool,
+		"ain_fixture",
+		observed.Add(-time.Hour),
+		observed.Add(time.Hour),
+		func() error {
+			secondFact, secondEvidence := makeFact(
+				700002,
+				observed.Add(time.Second),
+				20,
+				sourceInstanceID,
+			)
+			_, err := InsertFact(ctx, pool, secondFact, secondEvidence)
+			return err
+		},
+	)
+	if err != nil {
+		t.Fatalf("snapshot profile: %v", err)
+	}
+	if profile.Activity.EventCount != 1 {
+		t.Fatalf("concurrent commit leaked into exported snapshot: %+v", profile.Activity)
+	}
+
+	latest, err := AgentProfile(
+		ctx,
+		pool,
+		"ain_fixture",
+		observed.Add(-time.Hour),
+		observed.Add(time.Hour),
+	)
+	if err != nil {
+		t.Fatalf("latest profile: %v", err)
+	}
+	if latest.Activity.EventCount != 2 {
+		t.Fatalf("post-snapshot query did not see committed fact: %+v", latest.Activity)
+	}
 }
 
 // TestReplayReconcilesExactlyWithinBudget is the Session 04 exit-gate proof:
