@@ -96,7 +96,7 @@ func TestSanitizedRolloutRecordUsesExplicitInventoryInstallationBinding(t *testi
 			ContractSHA256:   privacy.PrivacyContractSemanticSHA256,
 		},
 	}
-	const installationID = "ain_dddddddddddddddddddddddddddddddd"
+	const installationID = "ain_codex_final_20260729"
 	if _, err := ingestor.IngestSanitizedRolloutRecordForInstallation(
 		record, 7, installationID,
 	); err != nil {
@@ -110,6 +110,30 @@ func TestSanitizedRolloutRecordUsesExplicitInventoryInstallationBinding(t *testi
 		if fact.Event.Source.InstallationID != installationID ||
 			fact.Event.Scope.AgentInstallationID != installationID {
 			t.Fatalf("source=%#v scope=%#v", fact.Event.Source, fact.Event.Scope)
+		}
+	}
+}
+
+func TestExplicitInstallationIDUsesBoundedOpaqueAlphabet(t *testing.T) {
+	for _, value := range []string{
+		"ain_codex_final_20260729",
+		"ain_fixture",
+		"ain_0123456789abcdef0123456789abcdef",
+	} {
+		if !installationPattern.MatchString(value) {
+			t.Fatalf("safe explicit installation %q rejected", value)
+		}
+	}
+	for _, value := range []string{
+		"ain_",
+		"ain_/unsafe",
+		"ain_unsafe@owner",
+		"ain_unsafe|owner",
+		"ain_unsafe..owner",
+		"ain_" + string(bytes.Repeat([]byte("a"), 125)),
+	} {
+		if installationPattern.MatchString(value) {
+			t.Fatalf("unsafe explicit installation %q accepted", value)
 		}
 	}
 }

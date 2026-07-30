@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.codex-app-server-bridge/1",
-  "contract_version": "1.6.0",
+  "contract_version": "1.7.0",
   "effective_at": "2026-07-30",
   "bridge_api_version": "kansoku.evidence-bridge/v1",
   "bridge_id": "codex-app-server",
@@ -10,6 +10,7 @@
   "schema_version_exact": "0.145.0",
   "schema_generation_command": "codex app-server generate-json-schema --experimental --out TARGET",
   "target_scope": "explicit_local",
+  "installation_id_rule": "required_ain_-prefixed_opaque_identifier_5_to_128_ASCII_characters_using_only_letters_digits_underscore_or_hyphen; the_same_rule_is_enforced_by_HTTP_and_the_observability_sink; installation_class_is_explicit_profile_metadata_and_is_never_inferred_from_identifier_spelling",
   "network_grade": "loopback_only",
   "accepted_methods": [
     "thread/started",

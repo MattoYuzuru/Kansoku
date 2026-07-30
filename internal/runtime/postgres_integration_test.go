@@ -1090,7 +1090,7 @@ func TestSupervisedCodexAppServerIngressPersistsTypedSkillAndSourceHealth(t *tes
 	if err := ingress.Configure(ctx); err != nil {
 		t.Fatal(err)
 	}
-	const installationID = "ain_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	const installationID = "ain_codex_supervised_live"
 	rawPathCanary := "/private/KANSOKU_APP_SERVER_PATH_MUST_NOT_PERSIST/SKILL.md"
 	body := `{"emittedAtMs":1785060001001,"method":"item/started","params":{"threadId":"thr-supervised","turnId":"turn-supervised","startedAtMs":1785060001000,"item":{"type":"userMessage","id":"msg-supervised","content":[{"type":"skill","name":"supervised-canary-skill","path":"` +
 		rawPathCanary + `"},{"type":"text","text":"KANSOKU_RAW_PROMPT_MUST_NOT_PERSIST"}]}}}` + "\n"

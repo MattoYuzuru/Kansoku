@@ -138,6 +138,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
             "schema_version", "contract_version", "effective_at", "bridge_api_version",
             "bridge_id", "bridge_version", "agent_version_exact", "protocol",
             "schema_version_exact", "schema_generation_command", "target_scope",
+            "installation_id_rule",
             "network_grade", "accepted_methods", "emitting_projections", "safe_fields",
             "prohibited_surfaces", "limits", "checkpoint", "unknown_schema",
             "terminal_contract", "source_evidence", "support_grade",
@@ -201,6 +202,14 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("Codex App Server bridge must remain pinned to reviewed schema 0.145.0")
     if app_server_bridge.get("target_scope") != "explicit_local" or app_server_bridge.get("network_grade") != "loopback_only":
         errors.append("Codex App Server bridge target must remain explicit local loopback")
+    installation_rule = str(app_server_bridge.get("installation_id_rule", ""))
+    if not all(fragment in installation_rule for fragment in (
+        "required_ain_-prefixed_opaque_identifier",
+        "same_rule_is_enforced_by_HTTP_and_the_observability_sink",
+        "installation_class_is_explicit_profile_metadata",
+        "never_inferred_from_identifier_spelling",
+    )):
+        errors.append("Codex App Server explicit installation identifier rule changed")
     if "supervised_by_serve_at_authenticated_bounded_POST_/v1/evidence-bridges/codex-app-server" not in \
             str(app_server_bridge.get("support_grade", "")) or \
             "not_evidence_for_ordinary_CLI" not in str(app_server_bridge.get("support_grade", "")):

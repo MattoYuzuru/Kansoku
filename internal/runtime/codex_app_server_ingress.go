@@ -16,7 +16,7 @@ import (
 
 const codexAppServerInstallationHeader = "X-Kansoku-Agent-Installation"
 
-var codexAppServerInstallationPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:@/|-]{0,127}$`)
+var codexAppServerInstallationPattern = regexp.MustCompile(`^ain_[A-Za-z0-9][A-Za-z0-9_-]{0,123}$`)
 
 // CodexAppServerIngress supervises explicitly routed App Server JSONL
 // streams inside the normal appliance process. It never discovers, launches,

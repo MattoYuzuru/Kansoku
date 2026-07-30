@@ -13,7 +13,7 @@ var (
 	hex32IDPattern      = regexp.MustCompile(`^(?:evt|evd|cor|inc|qua)_[0-9a-f]{32}$`)
 	safeIDPattern       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$`)
 	pseudonymPattern    = regexp.MustCompile(`^hmac-sha256:[0-9a-f]{64}$`)
-	installationPattern = regexp.MustCompile(`^ain_(?:fixture|[0-9a-f]{32})$`)
+	installationPattern = regexp.MustCompile(`^ain_[A-Za-z0-9][A-Za-z0-9_-]{0,123}$`)
 	devicePattern       = regexp.MustCompile(`^dev_(?:fixture|[0-9a-f]{32})$`)
 )
 

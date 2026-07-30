@@ -27,6 +27,7 @@
     {"policy_version": "codex.rollout-and-inventory/8", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "96e21c3a5a28f472ddb9a80129ef21b98c67df433089c5c4c43f7a0fa548bca6"},
     {"policy_version": "codex.app-server-bridge/8", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "8ad93ce5369a5bcd8720c8f96ec2e5f053cf0213ea883f64c02d11473ba10d52"},
     {"policy_version": "codex.rollout-and-inventory/9", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "0c31a9485f8c6b8e66289b8753b373fbc06759a59ea7466bfbff80e22c93e739"},
-    {"policy_version": "codex.skill-evidence-and-reconciliation/2", "registry": "contracts/codex/skill-evidence-and-reconciliation.yaml", "semantic_sha256": "50d8c205aa009ceb28a5b82e495c517c30fa5d4036d004e70b4bfe154dd242fa"}
+    {"policy_version": "codex.skill-evidence-and-reconciliation/2", "registry": "contracts/codex/skill-evidence-and-reconciliation.yaml", "semantic_sha256": "50d8c205aa009ceb28a5b82e495c517c30fa5d4036d004e70b4bfe154dd242fa"},
+    {"policy_version": "codex.app-server-bridge/9", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "fa0da709f6d284c7592f24e381d26f9c5ddd64509bad3974008eee0c6ebace41"}
   ]
 }
