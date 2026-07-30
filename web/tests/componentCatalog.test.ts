@@ -5,6 +5,7 @@ import {
   groupSkillCatalog,
   mergePluginProfiles,
   mergeSkillProfiles,
+  skillEvidenceSourceHealth,
   skillCatalogStats,
 } from "../src/lib/componentCatalog.ts";
 import type {
@@ -12,6 +13,7 @@ import type {
   PluginProfileResponse,
   SkillProfileResponse,
   SkillObservatoryRow,
+  RuntimeSourceFreshness,
 } from "../src/api/types.ts";
 
 function skill(
@@ -88,6 +90,19 @@ test("skill catalog keeps variants but renders one family and exact totals", () 
     total_loads: 4,
     cold_skills: 0,
   });
+});
+
+test("skill metric completeness and source health stay separate", () => {
+  const sources: RuntimeSourceFreshness[] = [
+    { source_id: "codex.rollout", state: "producing", value_state: "observed" },
+    { source_id: "codex.app_server", state: "configured", value_state: "not_observed" },
+    { source_id: "backup.scheduler", state: "producing", value_state: "observed" },
+  ];
+  assert.deepEqual(
+    skillEvidenceSourceHealth(sources).map((source) => source.source_id),
+    ["codex.app_server", "codex.rollout"],
+  );
+  assert.equal(skill("cold", "user", 0, 0).completeness, "complete");
 });
 
 test("catalog IDs are stable across inventory order", () => {

@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { deriveViewState, type ViewState } from "../api/client";
-import { useSkills } from "../api/queries";
+import { useRuntimeHealth, useSkills } from "../api/queries";
+import type { RuntimeSourceFreshness } from "../api/types";
 import { DataTable, type Column } from "../components/DataTable";
 import { GlossaryTerm } from "../components/GlossaryTerm";
 import { KpiCard } from "../components/KpiCard";
@@ -10,6 +11,7 @@ import { RangeControl } from "../components/RangeControl";
 import { useRange } from "../hooks/useRange";
 import {
   groupSkillCatalog,
+  skillEvidenceSourceHealth,
   skillCatalogStats,
   type SkillCatalogRow,
 } from "../lib/componentCatalog";
@@ -21,10 +23,15 @@ export function Skills() {
     [range.from, range.to, range.granularity, range.timezone],
   );
   const query = useSkills(rangeParams);
+  const runtimeHealth = useRuntimeHealth();
   const data = query.data?.data;
   const state = deriveViewState(query.data, { isLoading: query.isLoading });
   const catalog = useMemo(() => groupSkillCatalog(data?.data ?? []), [data?.data]);
   const stats = useMemo(() => skillCatalogStats(catalog), [catalog]);
+  const evidenceSources = useMemo(
+    () => skillEvidenceSourceHealth(runtimeHealth.data?.data?.source_freshness ?? []),
+    [runtimeHealth.data?.data?.source_freshness],
+  );
   const columns: Column<SkillCatalogRow>[] = [
     {
       key: "name",
@@ -72,6 +79,40 @@ export function Skills() {
           : row.cold_state === "cold"
             ? "Cold"
             : "Used",
+    },
+  ];
+  const sourceColumns: Column<RuntimeSourceFreshness>[] = [
+    {
+      key: "source",
+      header: "Evidence source",
+      render: (row) => row.source_id ?? row.source_kind ?? "Unknown source",
+    },
+    {
+      key: "lifecycle",
+      header: "Source health",
+      render: (row) => (row.state ?? "not observed").replaceAll("_", " "),
+    },
+    {
+      key: "evidence",
+      header: "Evidence state",
+      render: (row) => row.value_state.replaceAll("_", " "),
+    },
+    {
+      key: "last",
+      header: "Last successful evidence",
+      render: (row) => {
+        const value =
+          row.last_successful_at ??
+          row.last_committed_at ??
+          row.last_observed_at ??
+          row.last_attempted_at;
+        return value ? new Date(value).toLocaleString() : "Not observed";
+      },
+    },
+    {
+      key: "error",
+      header: "Last safe error class",
+      render: (row) => row.last_error_class?.replaceAll("_", " ") ?? "None observed",
     },
   ];
   return (
@@ -125,6 +166,23 @@ export function Skills() {
           catalog rows with at least one invocation; “Invocations” counts all deduplicated exact
           invocation events. Installed but unobserved skills are not classified as cold.
         </GapNote>
+      </Panel>
+      <Panel
+        title="Skill evidence source health"
+        caption="Collector lifecycle is shown independently from skill metric completeness. A partial usage denominator does not turn an otherwise healthy inventory source into Degraded."
+      >
+        <DataTable
+          columns={sourceColumns}
+          rows={evidenceSources}
+          rowKey={(row) => row.source_id ?? row.source_kind ?? "unknown-source"}
+          emptyMessage={
+            runtimeHealth.isError
+              ? "Source health is unavailable; skill counts remain visible with their own completeness."
+              : runtimeHealth.isLoading
+                ? "Loading source health…"
+                : "No skill evidence source is configured."
+          }
+        />
       </Panel>
       <Panel
         title="Skills ranked by use"

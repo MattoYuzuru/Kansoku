@@ -3,12 +3,43 @@ import type {
   PluginObservatoryRow,
   PluginProfileResponse,
   PluginVersionRow,
+  RuntimeSourceFreshness,
   SkillAssertionRow,
   SkillFileTreeSummary,
   SkillObservatoryRow,
   SkillProfileResponse,
   SkillSourceRow,
 } from "../api/types";
+
+const SKILL_EVIDENCE_SOURCE_IDS = new Set([
+  "claude.hook",
+  "claude.otel",
+  "codex.app_server",
+  "codex.rollout",
+]);
+const SKILL_EVIDENCE_SOURCE_KINDS = new Set([
+  "codex_rollout",
+  "evidence_bridge",
+  "hook_http",
+  "otlp_log",
+  "otlp_metric",
+  "otlp_span",
+]);
+
+export function skillEvidenceSourceHealth(
+  sources: readonly RuntimeSourceFreshness[],
+): RuntimeSourceFreshness[] {
+  return sources
+    .filter(
+      (source) =>
+        (source.source_id !== undefined && SKILL_EVIDENCE_SOURCE_IDS.has(source.source_id)) ||
+        (source.source_kind !== undefined &&
+          SKILL_EVIDENCE_SOURCE_KINDS.has(source.source_kind)),
+    )
+    .sort((a, b) =>
+      (a.source_id ?? a.source_kind ?? "").localeCompare(b.source_id ?? b.source_kind ?? ""),
+    );
+}
 
 /*
  * The durable component model intentionally keeps source/profile/version
