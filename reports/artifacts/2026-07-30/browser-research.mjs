@@ -106,6 +106,7 @@ try {
     overflow: {},
     theme_tokens: {},
     glossary_target: {},
+    glossary_reduced_motion: {},
     runtime_exceptions: exceptions,
     failed_requests: failedRequests,
     api_responses: apiResponses,
@@ -242,6 +243,7 @@ try {
     ["desktop", 1440, 900],
     ["tablet", 1024, 768],
     ["mobile", 390, 844],
+    ["zoom_200", 720, 450],
   ]) {
     await setViewport(page, width, height);
     await navigate(page, "/reliability", `document.querySelector(".k-kpi")`);
@@ -274,6 +276,24 @@ try {
   await page.call("Page.reload", { ignoreCache: true });
   await waitFor(page, `document.readyState === "complete" && document.querySelector(".k-nav__row.is-active")`, 10000);
   evidence.theme_tokens.after_custom_accents = await themeAudit(page);
+  await evaluate(page, `
+    (() => {
+      localStorage.setItem("kansoku.appearance.v1", JSON.stringify({
+        version: 1,
+        theme: "light",
+        sidebarCollapsed: false,
+        accentPurple: "#8B7FD6",
+        accentGold: "#D9B45B",
+        accentPurpleLight: "#2E7D5B",
+        accentGoldLight: "#8A6D1F",
+        preset: "moss-amber"
+      }));
+      return true;
+    })()
+  `);
+  await page.call("Page.reload", { ignoreCache: true });
+  await waitFor(page, `document.readyState === "complete" && document.querySelector(".k-nav__row.is-active")`, 10000);
+  evidence.theme_tokens.after_light_preset = await themeAudit(page);
 
   await navigate(page, "/glossary#invoked", `document.getElementById("invoked")`);
   evidence.glossary_target = await evaluate(page, `
@@ -286,6 +306,27 @@ try {
         animation_duration: style?.animationDuration ?? null,
         transition_duration: style?.transitionDuration ?? null,
         border_color: style?.borderColor ?? null,
+        focused: document.activeElement === node,
+      };
+    })()
+  `);
+  await page.call("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  await navigate(page, "/glossary#loaded", `document.getElementById("loaded")`);
+  await waitFor(page, `document.getElementById("loaded")?.classList.contains("is-target-pulsing")`, 3000);
+  await delay(100);
+  evidence.glossary_reduced_motion = await evaluate(page, `
+    (() => {
+      const node = document.getElementById("loaded");
+      const style = node ? getComputedStyle(node) : null;
+      return {
+        found: Boolean(node),
+        animation_name: style?.animationName ?? null,
+        background_color: style?.backgroundColor ?? null,
+        border_color: style?.borderColor ?? null,
+        pulse_class: node?.classList.contains("is-target-pulsing") ?? false,
+        focused: document.activeElement === node,
       };
     })()
   `);

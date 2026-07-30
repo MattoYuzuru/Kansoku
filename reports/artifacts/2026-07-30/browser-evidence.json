@@ -1,5 +1,5 @@
 {
-  "observed_at": "2026-07-29T21:58:00.744Z",
+  "observed_at": "2026-07-30T06:02:27.063Z",
   "browser": "Chrome/150.0.7871.187",
   "base_url": "http://127.0.0.1:43100",
   "source_state": "live_embedded_appliance",
@@ -20,7 +20,7 @@
     "new_exceptions": [
       {
         "text": "Uncaught",
-        "description": "TypeError: Cannot read properties of null (reading 'map')\n    at http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5128\n    at Array.flatMap (<anonymous>)\n    at w (http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5105)\n    at http://127.0.0.1:43100/assets/SkillDetail-y8ZuuYOi.js:1:1113\n    at Object.S0 [as useMemo] (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:56741)\n    at f.useMemo (http://127.0.0.1:43100/assets/query-I7fzXg3t.js:17:7143)\n    at Y (http://127.0.0.1:43100/assets/SkillDetail-y8ZuuYOi.js:1:1101)\n    at kc (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:47884)\n    at vi (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:70603)\n    at $0 (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:80931)"
+        "description": "TypeError: Cannot read properties of null (reading 'map')\n    at http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5128\n    at Array.flatMap (<anonymous>)\n    at w (http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5105)\n    at http://127.0.0.1:43100/assets/SkillDetail-C88ZPg05.js:1:1151\n    at Object.b0 [as useMemo] (http://127.0.0.1:43100/assets/index-CL0wEkHu.js:33:56741)\n    at f.useMemo (http://127.0.0.1:43100/assets/query-I7fzXg3t.js:17:7143)\n    at Z (http://127.0.0.1:43100/assets/SkillDetail-C88ZPg05.js:1:1139)\n    at Wc (http://127.0.0.1:43100/assets/index-CL0wEkHu.js:33:47884)\n    at yi (http://127.0.0.1:43100/assets/index-CL0wEkHu.js:33:70603)\n    at F0 (http://127.0.0.1:43100/assets/index-CL0wEkHu.js:33:80931)"
       }
     ]
   },
@@ -97,8 +97,11 @@
     }
   ],
   "range_persistence": {
-    "before_leave": "Last 7 days",
-    "after_return": "Last 30 days"
+    "activity_before_leave": "Last 7 days",
+    "models_before_leave": "Last 12 months",
+    "activity_after_return": "Last 7 days",
+    "models_after_return": "Last 12 months",
+    "models_after_reload": "Last 12 months"
   },
   "reliability_navigation": {
     "sentinel_after_click": null,
@@ -108,97 +111,68 @@
     "search": "?tab=incidents",
     "title": "Kansoku · Reliability",
     "h1": "Reliability",
-    "body_text_length": 2805,
+    "body_text_length": 2815,
     "root_child_count": 1,
     "body_has_unknown_agent": false,
     "body_has_error": false,
     "body_has_loading": false
   },
   "overflow": {
-    "reliability_desktop": [
-      {
-        "label": "Ingest latency p95",
-        "text": "4,008,574.097ms",
-        "scroll_width": 268,
-        "client_width": 156,
-        "right_overflow_px": 0
-      }
-    ],
-    "system_desktop": [
-      {
-        "label": "Database size",
-        "text": "264,124,095",
-        "scroll_width": 208,
-        "client_width": 156,
-        "right_overflow_px": 0
-      }
-    ],
-    "reliability_tablet": [
-      {
-        "label": "Ingest latency p95",
-        "text": "4,008,574.097ms",
-        "scroll_width": 268,
-        "client_width": 171,
-        "right_overflow_px": 0
-      }
-    ],
-    "system_tablet": [
-      {
-        "label": "Database size",
-        "text": "264,132,287",
-        "scroll_width": 208,
-        "client_width": 171,
-        "right_overflow_px": 0
-      }
-    ],
-    "reliability_mobile": [
-      {
-        "label": "Ingest latency p95",
-        "text": "4,008,574.097ms",
-        "scroll_width": 268,
-        "client_width": 198,
-        "right_overflow_px": 0
-      }
-    ],
-    "system_mobile": [
-      {
-        "label": "Database size",
-        "text": "264,132,287",
-        "scroll_width": 208,
-        "client_width": 198,
-        "right_overflow_px": 0
-      }
-    ]
+    "reliability_desktop": [],
+    "system_desktop": [],
+    "reliability_tablet": [],
+    "system_tablet": [],
+    "reliability_mobile": [],
+    "system_mobile": [],
+    "reliability_zoom_200": [],
+    "system_zoom_200": []
   },
   "theme_tokens": {
     "before": {
       "accent_purple": "#8B7FD6",
       "accent_gold": "#D9B45B",
-      "row_hover_token": "#1C1C22",
-      "row_selected_token": "#22212B",
-      "active_background": "rgb(34, 33, 43)",
+      "row_hover_token": "#22212E",
+      "row_selected_token": "#2B293D",
+      "active_background": "rgb(43, 41, 61)",
       "active_marker": "rgb(217, 180, 91)"
     },
     "after_custom_accents": {
       "accent_purple": "#00ff00",
       "accent_gold": "#00ffff",
-      "row_hover_token": "#1C1C22",
-      "row_selected_token": "#22212B",
-      "active_background": "rgb(34, 33, 43)",
+      "row_hover_token": "#142D18",
+      "row_selected_token": "#124016",
+      "active_background": "rgb(18, 64, 22)",
       "active_marker": "rgb(0, 255, 255)"
+    },
+    "after_light_preset": {
+      "accent_purple": "#2E7D5B",
+      "accent_gold": "#8A6D1F",
+      "row_hover_token": "#EAF2EF",
+      "row_selected_token": "#D9E8E1",
+      "active_background": "rgb(217, 232, 225)",
+      "active_marker": "rgb(138, 109, 31)"
     }
   },
   "glossary_target": {
     "found": true,
-    "animation_name": "none",
-    "animation_duration": "0s",
+    "animation_name": "glossary-target-pulse",
+    "animation_duration": "1.6s",
     "transition_duration": "0s",
-    "border_color": "rgb(42, 42, 49)"
+    "border_color": "rgb(222, 223, 218)",
+    "focused": true
+  },
+  "glossary_reduced_motion": {
+    "found": true,
+    "animation_name": "none",
+    "background_color": "color(srgb 0.868863 0.918431 0.897098)",
+    "border_color": "rgb(46, 125, 91)",
+    "pulse_class": true,
+    "focused": true
   },
   "runtime_exceptions": [
     {
       "text": "Uncaught",
-      "description": "TypeError: Cannot read properties of null (reading 'map')\n    at http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5128\n    at Array.flatMap (<anonymous>)\n    at w (http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5105)\n    at http://127.0.0.1:43100/assets/SkillDetail-y8ZuuYOi.js:1:1113\n    at Object.S0 [as useMemo] (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:56741)\n    at f.useMemo (http://127.0.0.1:43100/assets/query-I7fzXg3t.js:17:7143)\n    at Y (http://127.0.0.1:43100/assets/SkillDetail-y8ZuuYOi.js:1:1101)\n    at kc (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:47884)\n    at vi (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:70603)\n    at $0 (http://127.0.0.1:43100/assets/index-CUpFch0j.js:33:80931)"
+      "description": "TypeError: Cannot read properties of null (reading 'map')\n    at http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5128\n    at Array.flatMap (<anonymous>)\n    at w (http://127.0.0.1:43100/assets/componentCatalog-DiXvwFjU.js:1:5105)\n    at http://127.0.0.1:43100/assets/SkillDetail-C88ZPg05.js:1:1151\n    at Object.b0 [as useMemo] (http://127.0.0.1:43100/assets/index-CL0wEkHu.js:33:56741)\n    at f.useMemo (http://127.0.0.1:43100/assets/query-I7fzXg3t.js:17:7143)\n    at Z (http://127.0.0.1:43100/assets/SkillDetail-C88ZPg05.js:1:1139)\n    at Wc (http://127.0.0.1:43100/assets/index-CL0wEkHu.js:33:47884)\n    at yi (http://127.0.0.1:43100/assets/index-CL0wEkHu.js:33:70603)\n    at F0 (http://127.0.0.1:43100/assets/index-CL0wEkHu.js:33:80931)"
     }
   ],
   "failed_requests": [],
@@ -212,7 +186,7 @@
       "status": 200
     },
     {
-      "path": "/api/v1/skills/inv_693516d5e2a9c77b19d3e0ced044aa91",
+      "path": "/api/v1/skills/inv_2dd965bc4bac227999cd322c2a3c8e40",
       "status": 200
     },
     {
@@ -221,10 +195,6 @@
     },
     {
       "path": "/api/v1/analytics",
-      "status": 503
-    },
-    {
-      "path": "/api/v1/analytics",
       "status": 200
     },
     {
@@ -256,15 +226,19 @@
       "status": 200
     },
     {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
       "path": "/api/v1/incidents",
       "status": 200
     },
     {
       "path": "/api/v1/quarantine",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/incidents",
       "status": 200
     },
     {
@@ -277,34 +251,6 @@
     },
     {
       "path": "/api/v1/reliability/collection-health",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/quarantine",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/incidents",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/analytics",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/reliability/counts",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/reliability/collection-health",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/system/snapshot",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/health",
       "status": 200
     },
     {
@@ -336,7 +282,7 @@
       "status": 200
     },
     {
-      "path": "/api/v1/quarantine",
+      "path": "/api/v1/incidents",
       "status": 200
     },
     {
@@ -344,7 +290,63 @@
       "status": 200
     },
     {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
       "path": "/api/v1/incidents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/quarantine",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/incidents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
       "status": 200
     },
     {
