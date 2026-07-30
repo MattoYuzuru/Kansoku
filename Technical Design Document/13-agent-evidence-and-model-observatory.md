@@ -273,3 +273,16 @@ three canary and one fixture. It does not delete canaries, rewrite telemetry or 
 installations by name. The list and profile APIs initialize collections to `[]`; the UI exposes
 class/provenance, token composition, provider-reported cost, API-equivalent cost and each lane's
 coverage.
+
+## Terminal reconciliation (2026-07-30)
+
+Bridge `0.3.0` buffers at most the already bounded native-call population for one supervised
+stream. A start followed by exactly one terminal emits one logical `tool.called` record with the
+canonical adapter-SDK outcome. Replaying the same terminal is idempotent. Missing and contradictory
+terminal populations emit one `unknown` record plus a metadata-only bridge rejection; they never
+default to failure. Sanitized matrices cover success, failure, cancel, deny, timeout, missing,
+duplicate and contradictory frames.
+
+The bridge retains no arguments, results or raw errors while reconciling. Claude 2.1.197 uses a
+separate sanitized, version-pinned mapping test; no Claude process or configuration was started or
+changed for this amendment.

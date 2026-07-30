@@ -100,3 +100,10 @@ Plugin detail ranks bundled children by exact attributed use, keeps zero-use chi
 charts the top distribution. The UI continues to say that child activity proves a uniquely owned
 child action, not a plugin invocation or plugin-level success. `ADR 0021` owns the presentation
 fold and its bounded read behavior.
+
+## 2026-07-30 child-attribution trust amendment
+
+A uniquely owned child invocation continues to create the child invocation and one plugin
+`child_activity` assertion. It does not create plugin `invoked`, `loaded` or success evidence.
+Replay preserves one logical child fact and one ownership summary. Plugin-owned typed skill
+identity retains `owner_plugin_identity`; missing or ambiguous ownership remains unpromoted.

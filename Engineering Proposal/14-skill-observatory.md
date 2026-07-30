@@ -134,3 +134,18 @@ identity, collisions, source/profile/version variants and historical assertions 
 Opening a family shows its variants and a combined metadata-only exposure/invocation/load timeline.
 The profile fan-out is bounded to the eight most-used variants and states any exclusion. The default
 view uses the existing five-year retention-horizon range. `ADR 0021` owns these semantics.
+
+## Bounded rollout trust amendment (2026-07-30)
+
+An ordinary CLI `$identity` marker is now held only in bounded process memory. It becomes
+reconstructed requested/loaded/invoked evidence only after a matching `SKILL.md` read completes.
+Shell variables, environment-like identifiers and currency markers without that corroboration
+produce zero durable skill assertions. This narrows ordinary CLI evidence without changing exact
+typed App Server selection.
+
+The rollout reader retains at most 1 MiB of one line plus a 64 KiB reader buffer. An oversized
+newline-terminated record is streamed into a one-way digest, metadata-only quarantined,
+checkpointed and skipped; later valid records continue in the same scan. Raw JSONL has no durable
+destination. The Skills view now presents relevant source lifecycle/health independently from
+metric completeness, so a producing source cannot make an incomplete metric look complete or
+vice versa.

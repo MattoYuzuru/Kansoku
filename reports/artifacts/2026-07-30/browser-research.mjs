@@ -100,6 +100,7 @@ try {
     base_url: baseURL,
     source_state: "live_embedded_appliance",
     skill_profile: {},
+    skill_source_health: {},
     malformed_null_fixture: {},
     agent_profiles: [],
     route_error_boundary: {},
@@ -116,6 +117,20 @@ try {
   };
 
   await navigate(page, "/components/skills", `document.querySelector('a[href^="/components/skills/"]')`);
+  evidence.skill_source_health = await evaluate(page, `
+    (() => {
+      const heading = [...document.querySelectorAll("h2")]
+        .find((node) => node.textContent?.trim() === "Skill evidence source health");
+      const panel = heading?.closest(".k-panel");
+      const rows = [...(panel?.querySelectorAll("tbody tr") ?? [])];
+      return {
+        panel_present: Boolean(panel),
+        source_rows: rows.length,
+        text: panel?.textContent?.trim() ?? "",
+        metric_completeness_label_present: document.body.textContent?.includes("Cold skills") ?? false,
+      };
+    })()
+  `);
   const skillLink = await evaluate(page, `
     (() => {
       const node = document.querySelector('a[href^="/components/skills/"]');

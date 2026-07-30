@@ -222,3 +222,21 @@ The list query remains one bounded `/api/v1/skills` request. A family profile fi
 variant IDs from that response and then issues at most eight existing bounded profile GETs. Assertions
 and sources deduplicate by their durable IDs before the timeline renders. No migration, source
 write, collector branch or agent configuration change is introduced.
+
+## Rollout evidence hardening (2026-07-30)
+
+`CodexRolloutWatcher` uses a `bufio.Reader` and drains one newline-terminated record at a time.
+Retention is capped at 1 MiB with a 64 KiB reader buffer. Oversized content is reduced in-stream to
+a SHA-256 value used only as keyed metadata input, never stored. The watcher commits the byte
+offset after metadata-only quarantine and continues with the following record; an incomplete final
+line remains uncommitted until its newline arrives.
+
+The broad dollar-marker recognizer no longer writes on recognition. It keeps at most the bounded
+turn-local candidate map and requires a matching completed `SKILL.md` read before emitting
+reconstructed requested, loaded and invoked assertions. Their identity, evidence tier, confidence,
+installation binding and idempotency are explicit. A marker without the read is discarded on
+process-memory loss and creates no durable fact. Tests cover `$PATH`, `$HOME`, ordinary identifiers
+and currency, as well as oversized-then-valid replay.
+
+Source lifecycle comes from `/api/v1/health`; formula completeness remains attached to the metric
+population. The UI renders them as separate evidence surfaces.

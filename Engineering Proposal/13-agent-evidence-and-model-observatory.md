@@ -144,3 +144,11 @@ Provider-reported cost and versioned public-API-equivalent estimates are separat
 separate visual lanes. They are not added together or presented as billed spend. The existing
 `agent_profile_range <= 200 ms` contract remains unchanged and is backed by exact attribution and
 covering indexes rather than a wider timeout.
+
+## 2026-07-30 terminal reconciliation amendment
+
+Bridge version `0.3.0` reconciles a native MCP call start and its terminal frame into one logical
+tool-call fact. Replayed identical terminals retain one fact, while a missing or contradictory
+terminal remains `unknown` and creates metadata-only rejection evidence. Neither case is coerced
+to `failed`. The mapping is shared through the adapter SDK terminal-outcome contract so later
+bridges can reuse the same canonical outcomes without core agent-name branching.

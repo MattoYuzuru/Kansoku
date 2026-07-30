@@ -1,5 +1,5 @@
 {
-  "observed_at": "2026-07-30T06:48:23.552Z",
+  "observed_at": "2026-07-30T07:58:48.007Z",
   "browser": "Chrome/150.0.7871.187",
   "base_url": "http://127.0.0.1:43100",
   "source_state": "live_embedded_appliance",
@@ -12,13 +12,19 @@
     "search": "",
     "title": "Kansoku · Skill skf_1611d8593449fc17",
     "h1": "search-workflow",
-    "body_text_length": 1371,
+    "body_text_length": 1373,
     "root_child_count": 1,
     "body_has_unknown_agent": false,
     "body_has_error": false,
     "body_has_loading": false,
     "visible_alert": false,
     "new_exceptions": []
+  },
+  "skill_source_health": {
+    "panel_present": true,
+    "source_rows": 8,
+    "text": "Skill evidence source healthCollector lifecycle is shown independently from skill metric completeness. A partial usage denominator does not turn an otherwise healthy inventory source into Degraded.Evidence sourceSource healthEvidence stateLast successful evidenceLast safe error classcodex_rolloutnot observedobserved7/30/2026, 10:57:52 AMNone observedcodex.app_serverconfigurednot observed7/29/2026, 3:18:44 AMNone observedcodex.rolloutproducingobserved7/30/2026, 10:58:48 AMNone observedevidence_bridgenot observedobserved7/29/2026, 3:18:44 AMNone observedhook_httpnot observedobserved7/30/2026, 6:03:52 AMNone observedotlp_lognot observedobserved7/30/2026, 10:58:37 AMNone observedotlp_metricnot observedobserved7/30/2026, 6:03:52 AMNone observedotlp_spannot observedobserved7/30/2026, 6:03:52 AMNone observed",
+    "metric_completeness_label_present": true
   },
   "malformed_null_fixture": {
     "intercepted_profile_responses": 3,
@@ -35,7 +41,7 @@
       "search": "",
       "title": "Kansoku · Agent ain_9cd7c4fbf5d8df4694834d7769a3747b",
       "h1": "Codex",
-      "body_text_length": 1873,
+      "body_text_length": 1874,
       "root_child_count": 1,
       "body_has_unknown_agent": false,
       "body_has_error": false,
@@ -47,7 +53,7 @@
           "transfer_size": 0
         },
         {
-          "duration_ms": 131.7,
+          "duration_ms": 175.8,
           "transfer_size": 3721
         }
       ],
@@ -71,11 +77,11 @@
       "visible_alert": false,
       "agent_api_resources": [
         {
-          "duration_ms": 1.2,
+          "duration_ms": 1,
           "transfer_size": 0
         },
         {
-          "duration_ms": 29.1,
+          "duration_ms": 50.3,
           "transfer_size": 2522
         }
       ],
@@ -99,11 +105,11 @@
       "visible_alert": false,
       "agent_api_resources": [
         {
-          "duration_ms": 5.5,
+          "duration_ms": 4.6,
           "transfer_size": 0
         },
         {
-          "duration_ms": 30.8,
+          "duration_ms": 46.9,
           "transfer_size": 2479
         }
       ],
@@ -127,11 +133,11 @@
       "visible_alert": false,
       "agent_api_resources": [
         {
-          "duration_ms": 1.1,
+          "duration_ms": 4.6,
           "transfer_size": 0
         },
         {
-          "duration_ms": 23.6,
+          "duration_ms": 33.4,
           "transfer_size": 1586
         }
       ],
@@ -155,11 +161,11 @@
       "visible_alert": false,
       "agent_api_resources": [
         {
-          "duration_ms": 5.4,
+          "duration_ms": 4.8,
           "transfer_size": 0
         },
         {
-          "duration_ms": 29.3,
+          "duration_ms": 25.6,
           "transfer_size": 1591
         }
       ],
@@ -193,7 +199,7 @@
       "search": "?tab=incidents",
       "title": "Kansoku · Reliability",
       "h1": "Reliability",
-      "body_text_length": 2815,
+      "body_text_length": 2798,
       "root_child_count": 1,
       "body_has_unknown_agent": false,
       "body_has_error": false,
@@ -211,7 +217,7 @@
     "search": "?tab=incidents",
     "title": "Kansoku · Reliability",
     "h1": "Reliability",
-    "body_text_length": 2815,
+    "body_text_length": 2798,
     "root_child_count": 1,
     "body_has_unknown_agent": false,
     "body_has_error": false,
@@ -256,8 +262,8 @@
   },
   "glossary_target": {
     "found": true,
-    "animation_name": "glossary-target-pulse",
-    "animation_duration": "1.6s",
+    "animation_name": "none",
+    "animation_duration": "0s",
     "transition_duration": "0s",
     "border_color": "rgb(228, 227, 223)",
     "focused": true
@@ -278,11 +284,11 @@
       "status": 200
     },
     {
-      "path": "/api/v1/skills",
+      "path": "/api/v1/health",
       "status": 200
     },
     {
-      "path": "/api/v1/skills/inv_693516d5e2a9c77b19d3e0ced044aa91",
+      "path": "/api/v1/skills",
       "status": 200
     },
     {
@@ -291,6 +297,10 @@
     },
     {
       "path": "/api/v1/skills/inv_2dd965bc4bac227999cd322c2a3c8e40",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/skills/inv_693516d5e2a9c77b19d3e0ced044aa91",
       "status": 200
     },
     {
@@ -322,14 +332,6 @@
       "status": 200
     },
     {
-      "path": "/api/v1/privacy/canary-history",
-      "status": 200
-    },
-    {
-      "path": "/api/v1/activity",
-      "status": 200
-    },
-    {
       "path": "/api/v1/activity",
       "status": 200
     },
@@ -370,15 +372,15 @@
       "status": 200
     },
     {
-      "path": "/api/v1/quarantine",
-      "status": 200
-    },
-    {
       "path": "/api/v1/incidents",
       "status": 200
     },
     {
       "path": "/api/v1/analytics",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/quarantine",
       "status": 200
     },
     {
@@ -398,15 +400,15 @@
       "status": 200
     },
     {
-      "path": "/api/v1/analytics",
-      "status": 200
-    },
-    {
       "path": "/api/v1/quarantine",
       "status": 200
     },
     {
       "path": "/api/v1/incidents",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/analytics",
       "status": 200
     },
     {

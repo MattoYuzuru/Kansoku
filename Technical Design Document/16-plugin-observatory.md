@@ -104,3 +104,11 @@ Opening a family fetches at most eight existing plugin profiles. Children merge 
 kind and normalized name, retain a variant count and version set, and rank by the sum of exact
 usage assertions. Assertions deduplicate by assertion ID and sources by source-instance ID.
 PostgreSQL relations and identities are not changed.
+
+## Child activity non-promotion check (2026-07-30)
+
+The PostgreSQL graph integration test now asserts both sides of the boundary: a uniquely owned
+child action creates exactly one child invocation and one plugin `child_activity`, while the owner
+plugin receives no fabricated `invoked`, `loaded` or terminal-success assertion. Replaying the same
+source evidence preserves those counts. This remains independent from App Server `plugin/read`,
+which is metadata-only installed/enabled evidence.
