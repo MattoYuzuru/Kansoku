@@ -115,7 +115,8 @@ func OTLPSafeAttributes() []string {
 		"kansoku.session.start_type", "kansoku.session.query_source",
 		"kansoku.session.terminal_type", "kansoku.session.safe_mode",
 		"kansoku.message.id", "kansoku.user.id",
-		"kansoku.component.marketplace", "kansoku.component.scope", "kansoku.component.version",
+		"kansoku.tool.decision_source",
+		"kansoku.component.marketplace", "kansoku.component.version",
 		"kansoku.turn.id", "kansoku.component.identity",
 		"kansoku.component.identity_source", "kansoku.component.owner_plugin",
 		"kansoku.component.invocation_mode", "kansoku.component.upstream_identity_hash",
@@ -251,6 +252,12 @@ const (
 	// DroppedOTelSurfaces() and are still never read.
 	NativeAttributeToolDecision    NativeOTLPAttribute = "decision"
 	NativeAttributeToolSource      NativeOTLPAttribute = "tool_source"
+	// tool_decision carries two independent provenances and they are not
+	// interchangeable: source says where the permission answer came from
+	// ("config"), tool_source says where the tool itself came from
+	// ("builtin"). Storing tool_source under both names would make every
+	// decision look configuration-free.
+	NativeAttributeDecisionSource  NativeOTLPAttribute = "source"
 	NativeAttributeToolUseID       NativeOTLPAttribute = "tool_use_id"
 	NativeAttributeToolInputBytes  NativeOTLPAttribute = "tool_input_size_bytes"
 	NativeAttributeToolResultBytes NativeOTLPAttribute = "tool_result_size_bytes"
@@ -267,17 +274,22 @@ const (
 	NativeAttributeMessageUUID     NativeOTLPAttribute = "message.uuid"
 	NativeAttributeUserID          NativeOTLPAttribute = "user.id"
 	NativeAttributeMarketplaceName NativeOTLPAttribute = "marketplace.name"
-	NativeAttributePluginScope     NativeOTLPAttribute = "plugin.scope"
 	NativeAttributePluginVersion   NativeOTLPAttribute = "plugin.version"
 )
 
-// hookMatcherNeverRead documents one deliberate exclusion. Claude Code emits
-// hook_matcher next to hook_event/hook_type/hook_source, and it is the only
-// attribute in that group a user writes by hand: it can carry a path or a
-// project name. It is therefore excluded from the mapping table above rather
-// than pseudonymized, and this constant exists so a future reader finds the
-// reason instead of assuming an oversight.
-const hookMatcherNeverRead NativeOTLPAttribute = "hook_matcher"
+// Two wire attributes are deliberately absent from the table above.
+//
+// hook_matcher arrives next to hook_event/hook_type/hook_source and is the
+// only member of that group a user writes by hand: it can carry a path or a
+// project name. It is excluded rather than pseudonymized.
+//
+// plugin.scope is absent here because it is already claimed by
+// ComponentAttributeSafeSlot(AttributePluginScope) -> kansoku.component
+// .source_scope. Declaring it in both tables would not add a second
+// measurement -- the wire carries the value once -- it would only let this
+// table shadow the component table in nativeAttributeSafeSlot, which tries
+// the native table first and returns on the first hit. One wire attribute,
+// one slot.
 
 // NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
 // a real, documented Claude-native OTLP activity attribute name maps onto,
@@ -312,6 +324,8 @@ func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
 		return "kansoku.tool.decision", true
 	case NativeAttributeToolSource:
 		return "kansoku.tool.source", true
+	case NativeAttributeDecisionSource:
+		return "kansoku.tool.decision_source", true
 	case NativeAttributeToolUseID:
 		return "kansoku.tool.use_id", true
 	case NativeAttributeToolInputBytes:
@@ -344,8 +358,6 @@ func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
 		return "kansoku.user.id", true
 	case NativeAttributeMarketplaceName:
 		return "kansoku.component.marketplace", true
-	case NativeAttributePluginScope:
-		return "kansoku.component.scope", true
 	case NativeAttributePluginVersion:
 		return "kansoku.component.version", true
 	default:

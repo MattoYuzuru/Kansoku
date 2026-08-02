@@ -19,12 +19,18 @@ CREATE TABLE IF NOT EXISTS tool_decisions (
     observed_at           TIMESTAMPTZ NOT NULL,
     event_id              TEXT,
     session_id            TEXT,
+    turn_id               TEXT,
     component_id          TEXT,
     decision              TEXT NOT NULL,
     decision_state        TEXT NOT NULL CHECK (decision_state IN (
         'observed', 'unknown', 'not_observed'
     )),
+    -- Two independent provenances the agent reports side by side.
+    -- decision_source is where the permission answer came from ("config");
+    -- tool_source is where the tool came from ("builtin"). Folding them into
+    -- one column would make every decision look configuration-free.
     decision_source       TEXT,
+    tool_source           TEXT,
     tool_use_pseudonym    TEXT,
     agent_installation_id TEXT,
     installation_attribution_state TEXT NOT NULL DEFAULT 'not_observed',
@@ -33,6 +39,9 @@ CREATE TABLE IF NOT EXISTS tool_decisions (
 
 CREATE INDEX IF NOT EXISTS tool_decisions_session_idx
     ON tool_decisions (session_id, observed_at DESC);
+CREATE INDEX IF NOT EXISTS tool_decisions_turn_idx
+    ON tool_decisions (turn_id, observed_at DESC)
+    WHERE turn_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS tool_decisions_use_idx
     ON tool_decisions (tool_use_pseudonym)
     WHERE tool_use_pseudonym IS NOT NULL;
@@ -76,14 +85,24 @@ ALTER TABLE token_usage
         (cache_read_tokens IS NULL OR cache_read_tokens >= 0)
     );
 
--- 4. Response length is a length, never the response.
-ALTER TABLE model_operations
-    ADD COLUMN IF NOT EXISTS response_character_count BIGINT;
+-- 4. Response length is a length, never the response -- and it belongs to
+--    the turn, not to an API call.
+--
+-- The agent reports response_length on assistant_response, which carries
+-- prompt.id, model and query_source but is not an api_request: one assistant
+-- turn can be served by several API calls. Hanging the measurement off
+-- model_operations would have required either inventing a model operation for
+-- a non-request event (inflating every request count) or leaving the column
+-- permanently NULL. The turn is the thing that was actually measured.
+ALTER TABLE turns
+    ADD COLUMN IF NOT EXISTS response_character_count BIGINT,
+    ADD COLUMN IF NOT EXISTS model_id TEXT,
+    ADD COLUMN IF NOT EXISTS query_source TEXT;
 
-ALTER TABLE model_operations
-    DROP CONSTRAINT IF EXISTS model_operations_response_character_count_check;
-ALTER TABLE model_operations
-    ADD CONSTRAINT model_operations_response_character_count_check
+ALTER TABLE turns
+    DROP CONSTRAINT IF EXISTS turns_response_character_count_check;
+ALTER TABLE turns
+    ADD CONSTRAINT turns_response_character_count_check
     CHECK (response_character_count IS NULL OR response_character_count >= 0);
 
 -- 5. Session context.
@@ -125,9 +144,11 @@ CREATE INDEX IF NOT EXISTS hook_registrations_session_idx
 --
 -- marketplace arrived on every plugin and skill event and was dropped, while
 -- the resolver approximated it by splitting an owner's declared name on '@'.
+-- plugin.scope is deliberately absent: it already lands on the existing
+-- source_scope column added by 0017. The wire carries the value once, so a
+-- second column would only duplicate it under a different name.
 ALTER TABLE component_assertions
     ADD COLUMN IF NOT EXISTS marketplace TEXT,
-    ADD COLUMN IF NOT EXISTS component_scope TEXT,
     ADD COLUMN IF NOT EXISTS component_version TEXT;
 
 -- 8. Message-level correlation.

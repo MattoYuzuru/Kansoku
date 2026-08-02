@@ -116,7 +116,6 @@ type ComponentEvidenceMetadata struct {
 	UpstreamIdentityHash string `json:"upstream_identity_hash"`
 	SourceScope          string `json:"source_scope"`
 	Marketplace          string `json:"marketplace"`
-	ComponentScope       string `json:"component_scope"`
 	ComponentVersion     string `json:"component_version"`
 }
 
@@ -125,9 +124,10 @@ type ComponentEvidenceMetadata struct {
 // them; classification into known/unknown vocabulary happens in the data
 // platform, so nothing is coerced on the way in.
 type ActivityMetadata struct {
-	ToolDecision     string `json:"tool_decision"`
-	ToolSource       string `json:"tool_source"`
-	ToolUsePseudonym string `json:"tool_use_pseudonym"`
+	ToolDecision       string `json:"tool_decision"`
+	ToolSource         string `json:"tool_source"`
+	ToolDecisionSource string `json:"tool_decision_source"`
+	ToolUsePseudonym   string `json:"tool_use_pseudonym"`
 	HookEvent        string `json:"hook_event"`
 	HookType         string `json:"hook_type"`
 	HookSource       string `json:"hook_source"`

@@ -3,7 +3,6 @@ ALTER TABLE events
 
 ALTER TABLE component_assertions
     DROP COLUMN IF EXISTS component_version,
-    DROP COLUMN IF EXISTS component_scope,
     DROP COLUMN IF EXISTS marketplace;
 
 DROP INDEX IF EXISTS hook_registrations_session_idx;
@@ -16,9 +15,11 @@ ALTER TABLE sessions
     DROP COLUMN IF EXISTS query_source,
     DROP COLUMN IF EXISTS start_type;
 
-ALTER TABLE model_operations
-    DROP CONSTRAINT IF EXISTS model_operations_response_character_count_check;
-ALTER TABLE model_operations
+ALTER TABLE turns
+    DROP CONSTRAINT IF EXISTS turns_response_character_count_check;
+ALTER TABLE turns
+    DROP COLUMN IF EXISTS query_source,
+    DROP COLUMN IF EXISTS model_id,
     DROP COLUMN IF EXISTS response_character_count;
 
 ALTER TABLE token_usage
@@ -36,5 +37,6 @@ ALTER TABLE tool_calls
     DROP COLUMN IF EXISTS tool_use_pseudonym;
 
 DROP INDEX IF EXISTS tool_decisions_use_idx;
+DROP INDEX IF EXISTS tool_decisions_turn_idx;
 DROP INDEX IF EXISTS tool_decisions_session_idx;
 DROP TABLE IF EXISTS tool_decisions;

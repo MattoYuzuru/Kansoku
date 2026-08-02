@@ -8,7 +8,7 @@ import (
 // PrivacyContractSemanticSHA256 is generated from the canonical JSON encoding
 // of every contracts/privacy registry, ordered by repository-relative path.
 // scripts/validate_privacy.py refuses a registry/runtime drift.
-const PrivacyContractSemanticSHA256 = "ecff275426a4580582fc436c24cf2bc843a2b6486277133119dcb44b3ed12e3b"
+const PrivacyContractSemanticSHA256 = "1fdb47cd6865c4f2bdb3e6ff564740dc334ebb7b03a97423df57f1c605c9b34c"
 
 type ValueState string
 
@@ -58,7 +58,12 @@ type TelemetryMeasurements struct {
 // what the agent said, it does not coerce it into something it recognizes.
 type ActivityMetadata struct {
 	ToolDecision string `json:"tool_decision"`
-	ToolSource   string `json:"tool_source"`
+	// ToolSource is where the tool came from ("builtin", "mcp", ...).
+	// ToolDecisionSource is where the permission answer came from
+	// ("config", ...). The agent reports both on the same record and they
+	// answer different questions, so they are two fields, not one.
+	ToolSource         string `json:"tool_source"`
+	ToolDecisionSource string `json:"tool_decision_source"`
 	// ToolUsePseudonym is the device-scoped HMAC of the agent's tool-use id.
 	// It is what lets a decision be joined to the execution it authorized
 	// without the raw upstream identifier ever becoming durable.
@@ -235,10 +240,10 @@ type ComponentEvidenceMetadata struct {
 	// resolver previously approximated it by splitting the owner declared
 	// name on '@' while the exact value sat unread on the wire.
 	Marketplace string `json:"marketplace"`
-	// ComponentScope and ComponentVersion are the owner's declared install
-	// scope and version as the agent reports them: identity metadata, not a
-	// location and not a payload.
-	ComponentScope   string `json:"component_scope"`
+	// ComponentVersion is the owner's declared version as the agent reports
+	// it: identity metadata, not a location and not a payload. There is no
+	// separate scope field here -- plugin.scope already lands on SourceScope
+	// above, and the wire carries that value exactly once.
 	ComponentVersion string `json:"component_version"`
 }
 

@@ -109,7 +109,6 @@ EXPECTED_NESTED_TYPES = {
         "upstream_identity_hash": "optional_hmac_sha256",
         "source_scope": "safe_source_scope_or_empty",
         "marketplace": "safe_component_identity_or_empty",
-        "component_scope": "safe_component_identity_or_empty",
         "component_version": "safe_component_identity_or_empty",
     }, "closed": True},
     # Activity metadata is how an activity happened: which permission answer a
@@ -119,6 +118,7 @@ EXPECTED_NESTED_TYPES = {
     "ActivityMetadata": {"fields": {
         "tool_decision": "safe_vocabulary_token_or_empty",
         "tool_source": "safe_vocabulary_token_or_empty",
+        "tool_decision_source": "safe_vocabulary_token_or_empty",
         "tool_use_pseudonym": "optional_hmac_sha256",
         "hook_event": "safe_vocabulary_token_or_empty",
         "hook_type": "safe_vocabulary_token_or_empty",
@@ -232,8 +232,8 @@ EXPECTED_ROUTE_MODES = {
 }
 EXPECTED_GO_SCHEMAS = {
     "CatalogObservation": {"state": "ObservationState", "id": "*string"},
-    "ComponentEvidenceMetadata": {"qualified_identity": "string", "identity_source": "string", "owner_plugin_identity": "string", "invocation_mode": "string", "upstream_identity_hash": "string", "source_scope": "string", "marketplace": "string", "component_scope": "string", "component_version": "string"},
-    "ActivityMetadata": {"tool_decision": "string", "tool_source": "string", "tool_use_pseudonym": "string", "hook_event": "string", "hook_type": "string", "hook_source": "string", "session_start_type": "string", "query_source": "string", "terminal_type": "string", "safe_mode": "string"},
+    "ComponentEvidenceMetadata": {"qualified_identity": "string", "identity_source": "string", "owner_plugin_identity": "string", "invocation_mode": "string", "upstream_identity_hash": "string", "source_scope": "string", "marketplace": "string", "component_version": "string"},
+    "ActivityMetadata": {"tool_decision": "string", "tool_source": "string", "tool_decision_source": "string", "tool_use_pseudonym": "string", "hook_event": "string", "hook_type": "string", "hook_source": "string", "session_start_type": "string", "query_source": "string", "terminal_type": "string", "safe_mode": "string"},
     "PromptFeatures": {"state": "CompletenessState", "byte_count": "int", "character_count": "int", "word_count": "int", "line_count": "int", "coarse_script": "string", "code_fence_count": "int", "attachment_count": "int", "url_reference_count": "int", "file_reference_count": "int"},
     "TelemetryMeasurements": {"duration_ms": "*int64", "prompt_character_count": "*int64", "input_tokens": "*int64", "cached_input_tokens": "*int64", "output_tokens": "*int64", "provider_cost_micros": "*int64", "cache_creation_tokens": "*int64", "cache_read_tokens": "*int64", "response_character_count": "*int64", "tool_input_bytes": "*int64", "tool_result_bytes": "*int64"},
     "RedactionCounts": {"prompt_fields": "int", "attachment_fields": "int", "response_fields": "int", "source_fields": "int", "tool_io_fields": "int", "command_fields": "int", "path_fields": "int", "environment_fields": "int", "credential_fields": "int", "exception_fields": "int", "sensitive_identifier_fields": "int"},

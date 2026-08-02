@@ -156,13 +156,13 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 			UpstreamIdentityHash: record.ComponentEvidence.UpstreamIdentityHash,
 			SourceScope:          record.ComponentEvidence.SourceScope,
 			Marketplace:          record.ComponentEvidence.Marketplace,
-			ComponentScope:       record.ComponentEvidence.ComponentScope,
 			ComponentVersion:     record.ComponentEvidence.ComponentVersion,
 		},
 		Activity: ActivityMetadata{
-			ToolDecision:     record.Activity.ToolDecision,
-			ToolSource:       record.Activity.ToolSource,
-			ToolUsePseudonym: record.Activity.ToolUsePseudonym,
+			ToolDecision:       record.Activity.ToolDecision,
+			ToolSource:         record.Activity.ToolSource,
+			ToolDecisionSource: record.Activity.ToolDecisionSource,
+			ToolUsePseudonym:   record.Activity.ToolUsePseudonym,
 			HookEvent:        record.Activity.HookEvent,
 			HookType:         record.Activity.HookType,
 			HookSource:       record.Activity.HookSource,
@@ -197,8 +197,13 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 
 func eventCarriesComponent(eventType string) bool {
 	switch eventType {
-	case "tool.called", "component.installed", "component.enabled", "component.exposed",
-		"component.requested", "component.loaded", "component.invoked", "component.executed":
+	// tool.decided names a tool exactly as tool.called does -- the wire
+	// carries tool_name on both. Leaving it out here left every decision
+	// with a NULL component, which made "which tool was denied" unanswerable
+	// while subjectKind above already treated the event as tool-shaped.
+	case "tool.called", "tool.decided", "component.installed", "component.enabled",
+		"component.exposed", "component.requested", "component.loaded",
+		"component.invoked", "component.executed":
 		return true
 	default:
 		return false

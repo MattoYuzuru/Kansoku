@@ -13,6 +13,7 @@
     {"policy_version": "claude.hooks-and-otel/6", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "c3873f38435186be024f16bad50c6d0d3d4b85bb6de298b4f8264e36e7af9f3f"},
     {"policy_version": "claude.manifest/2", "registry": "contracts/claude/manifest.yaml", "semantic_sha256": "e2a1419cd86fc8c6cca7287208755ebdae58460b8f79bc61068ec4a26678a098"},
     {"policy_version": "claude.skill-evidence-and-reconciliation/2", "registry": "contracts/claude/skill-evidence-and-reconciliation.yaml", "semantic_sha256": "e5dc2822aaaab6129cc46b53c252450058be7f5d6923a8ad9cda4f7faefa1700"},
-    {"policy_version": "claude.hooks-and-otel/7", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "c70447c973cabfe6ff811d2e98ff24251660a0cc9aa330241f0a961d64dab461"}
+    {"policy_version": "claude.hooks-and-otel/7", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "c70447c973cabfe6ff811d2e98ff24251660a0cc9aa330241f0a961d64dab461"},
+    {"policy_version": "claude.hooks-and-otel/8", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "99d0056db04340b72346fa90d24c3265f907a994553154b4456ae96c5547f0d1"}
   ]
 }

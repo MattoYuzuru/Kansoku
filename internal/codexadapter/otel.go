@@ -85,7 +85,8 @@ func OTLPSafeAttributes() []string {
 		"kansoku.session.start_type", "kansoku.session.query_source",
 		"kansoku.session.terminal_type", "kansoku.session.safe_mode",
 		"kansoku.message.id", "kansoku.user.id",
-		"kansoku.component.marketplace", "kansoku.component.scope", "kansoku.component.version",
+		"kansoku.tool.decision_source",
+		"kansoku.component.marketplace", "kansoku.component.version",
 		"kansoku.turn.id",
 		"kansoku.component.identity", "kansoku.component.identity_source",
 		"kansoku.component.owner_plugin", "kansoku.component.invocation_mode",
@@ -349,6 +350,15 @@ const (
 	NativeAttributeCachedTokens   NativeOTLPAttribute = "cached_token_count"
 	NativeAttributeOutputTokens   NativeOTLPAttribute = "output_token_count"
 )
+
+// codex.tool_decision is a documented event name and is canonicalized to
+// tool.decided alongside Claude's, but Codex publishes no attribute
+// vocabulary for it: the 2026-07-25 codex-cli 0.145.0 capture recorded typed
+// attributes for codex.tool_result only (SOURCES.md). No decision/source
+// attribute is declared here, because declaring one would mean inventing an
+// upstream name. A Codex decision therefore lands with its decision recorded
+// as not_observed rather than fabricated, and this comment exists so the
+// asymmetry with Claude reads as evidence-bound rather than forgotten.
 
 // NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
 // a real, documented Codex-native OTLP attribute name maps onto, mirroring

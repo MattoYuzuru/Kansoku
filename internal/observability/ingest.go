@@ -461,8 +461,8 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		"input_tokens": true, "cached_input_tokens": true, "output_tokens": true, "provider_cost_micros": true,
 		"cache_creation_tokens": true, "cache_read_tokens": true, "response_character_count": true,
 		"tool_input_bytes": true, "tool_result_bytes": true,
-		"component_marketplace": true, "component_scope": true, "component_version": true,
-		"tool_decision": true, "tool_source": true, "tool_use_id": true,
+		"component_marketplace": true, "component_version": true,
+		"tool_decision": true, "tool_source": true, "tool_decision_source": true, "tool_use_id": true,
 		"hook_event": true, "hook_type": true, "hook_source": true,
 		"session_start_type": true, "query_source": true, "terminal_type": true, "safe_mode": true,
 		"turn_id": true, "message_id": true, "user_id": true,
@@ -559,11 +559,10 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 	upstreamIdentityHash, _ := fields["component_upstream_identity_hash"].(string)
 	sourceScope, _ := fields["component_source_scope"].(string)
 	marketplace, _ := fields["component_marketplace"].(string)
-	componentScope, _ := fields["component_scope"].(string)
 	componentVersion, _ := fields["component_version"].(string)
 	for _, value := range []string{
 		componentIdentity, identitySource, ownerPlugin, invocationMode, sourceScope,
-		marketplace, componentScope, componentVersion,
+		marketplace, componentVersion,
 	} {
 		if !safeComponentMetadataValue(value) {
 			return CommitResult{}, errors.New("unsafe_otlp_field")
@@ -615,9 +614,10 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		}
 	}
 	activity := privacy.ActivityMetadata{
-		ToolDecision:     stringField(fields, "tool_decision"),
-		ToolSource:       stringField(fields, "tool_source"),
-		ToolUsePseudonym: toolUsePseudonym,
+		ToolDecision:       stringField(fields, "tool_decision"),
+		ToolSource:         stringField(fields, "tool_source"),
+		ToolDecisionSource: stringField(fields, "tool_decision_source"),
+		ToolUsePseudonym:   toolUsePseudonym,
 		HookEvent:        stringField(fields, "hook_event"),
 		HookType:         stringField(fields, "hook_type"),
 		HookSource:       stringField(fields, "hook_source"),
@@ -632,7 +632,8 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 	// unrecognized-but-well-shaped token is kept verbatim and classified
 	// downstream; it is never coerced and never dropped.
 	for _, value := range []string{
-		activity.ToolDecision, activity.ToolSource, activity.HookEvent, activity.HookType,
+		activity.ToolDecision, activity.ToolSource, activity.ToolDecisionSource,
+		activity.HookEvent, activity.HookType,
 		activity.HookSource, activity.SessionStartType, activity.QuerySource,
 		activity.TerminalType, activity.SafeMode,
 	} {
@@ -651,8 +652,8 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 			QualifiedIdentity: qualifiedIdentity, IdentitySource: identitySource,
 			OwnerPluginIdentity: ownerPlugin, InvocationMode: invocationMode,
 			UpstreamIdentityHash: upstreamIdentityHash, SourceScope: sourceScope,
-			Marketplace:    marketplace,
-			ComponentScope: componentScope, ComponentVersion: componentVersion,
+			Marketplace:      marketplace,
+			ComponentVersion: componentVersion,
 		},
 		Activity: activity,
 		Lineage: privacy.Lineage{

@@ -192,7 +192,7 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 
 func eventCarriesTurn(eventType string) bool {
 	switch eventType {
-	case "prompt.submitted", "tool.called", "model.requested", "model.responded",
+	case "prompt.submitted", "tool.called", "tool.decided", "model.requested", "model.responded",
 		"component.installed", "component.enabled", "component.exposed",
 		"component.requested", "component.loaded", "component.invoked", "component.executed":
 		return true
@@ -543,9 +543,9 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 				qualified_identity, identity_source, owner_plugin_identity,
 				invocation_mode, upstream_identity_hash, resolution_version,
 				source_scope, source_scope_state,
-				marketplace, component_scope, component_version
+				marketplace, component_version
 			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-				$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+				$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
 			ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
 		`, assertionID, nullableString(scope.ComponentInstallationID),
 			scope.AgentInstallationID, nullableString(scope.SessionID),
@@ -560,7 +560,6 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			scope.ResolutionVersion, nullableString(scope.ComponentSourceScope),
 			scope.ComponentSourceScopeState,
 			nullableString(event.ComponentEvidence.Marketplace),
-			nullableString(event.ComponentEvidence.ComponentScope),
 			nullableString(event.ComponentEvidence.ComponentVersion))
 		if err != nil {
 			return err
@@ -650,14 +649,15 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		decision, decisionState := canonicalToolDecision(event.Activity.ToolDecision)
 		if _, err := h.pool.Exec(ctx, `
 			INSERT INTO tool_decisions (
-				tool_decision_id, observed_at, event_id, session_id, component_id,
-				decision, decision_state, decision_source, tool_use_pseudonym,
+				tool_decision_id, observed_at, event_id, session_id, turn_id, component_id,
+				decision, decision_state, decision_source, tool_source, tool_use_pseudonym,
 				agent_installation_id, installation_attribution_state
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'exact')
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'exact')
 			ON CONFLICT (tool_decision_id, observed_at) DO NOTHING
 		`, handoffID("tool-decision", event.EventID), event.ObservedAt, event.EventID,
-			nullableString(scope.SessionID), nullableString(scope.ComponentID),
-			decision, decisionState, nullableString(event.Activity.ToolSource),
+			nullableString(scope.SessionID), nullableString(scope.TurnID), nullableString(scope.ComponentID),
+			decision, decisionState, nullableString(event.Activity.ToolDecisionSource),
+			nullableString(event.Activity.ToolSource),
 			nullableString(event.Activity.ToolUsePseudonym), scope.AgentInstallationID); err != nil {
 			return err
 		}
@@ -702,14 +702,12 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			INSERT INTO model_operations (
 				model_operation_id, observed_at, event_id, model_id, session_id,
 				provider_cost_micros, operation_kind, duration_ms, outcome,
-				agent_installation_id, installation_attribution_state,
-				response_character_count
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'exact',$11)
+				agent_installation_id, installation_attribution_state
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'exact')
 			ON CONFLICT (model_operation_id, observed_at) DO NOTHING
 		`, operationID, event.ObservedAt, event.EventID, event.Subject.ModelID,
 			scope.SessionID, event.Measurements.ProviderCostMicros, operationKind,
-			event.Measurements.DurationMS, event.Outcome, scope.AgentInstallationID,
-			event.Measurements.ResponseCharacterCount); err != nil {
+			event.Measurements.DurationMS, event.Outcome, scope.AgentInstallationID); err != nil {
 			return err
 		}
 		if operationKind == "request" {
@@ -754,6 +752,9 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		// wired to which event -- three vocabulary tokens that were being
 		// thrown away with the rest of the record. hook_matcher is absent by
 		// design: it is user-authored and can embed a path.
+		if err := h.persistTurnMeasurement(ctx, event, scope); err != nil {
+			return err
+		}
 		if event.Activity.HookEvent == "" && event.Activity.HookType == "" &&
 			event.Activity.HookSource == "" {
 			return h.persistSessionContext(ctx, event, scope)
@@ -778,6 +779,37 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 	default:
 		return h.persistSessionContext(ctx, event, scope)
 	}
+}
+
+// persistTurnMeasurement records what the agent measured about one assistant
+// turn: how long the answer was, which model produced it and what asked for
+// it. These arrive on assistant_response, which is metadata-only activity and
+// deliberately stays source.observed -- it is not an API request and must
+// never become a second model operation, or every request count would double.
+//
+// Like session context, a value only ever fills a column that is still empty,
+// so a later event carrying nothing can never erase an earlier observation.
+func (h *ObservabilityHandoff) persistTurnMeasurement(
+	ctx context.Context,
+	event observability.Event,
+	scope ObservabilityFactScope,
+) error {
+	if scope.TurnID == "" {
+		return nil
+	}
+	if event.Measurements.ResponseCharacterCount == nil &&
+		event.Subject.ModelID == "" && event.Activity.QuerySource == "" {
+		return nil
+	}
+	_, err := h.pool.Exec(ctx, `
+		UPDATE turns SET
+			response_character_count = coalesce(response_character_count, $2),
+			model_id = coalesce(model_id, $3),
+			query_source = coalesce(query_source, $4)
+		WHERE turn_id = $1
+	`, scope.TurnID, event.Measurements.ResponseCharacterCount,
+		nullableString(event.Subject.ModelID), nullableString(event.Activity.QuerySource))
+	return err
 }
 
 // persistSessionContext records how a session was started, what asked for it
