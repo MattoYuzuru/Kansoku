@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "wouter";
 import { DataTable, type Column } from "../components/DataTable";
 import { ChartContainer } from "../components/ChartContainer";
 import { stackedBarOption, timeSeriesOption } from "../components/chartOptions";
@@ -11,6 +12,7 @@ import { deriveViewState } from "../api/client";
 import { useAgentProfile } from "../api/queries";
 import { useRange } from "../hooks/useRange";
 import { formatMetric, formatMetricWithRaw, microsToUsd } from "../lib/format";
+import { modelDrilldownHref } from "../lib/modelDrilldown";
 import type { AgentProfile } from "../api/types";
 
 export interface AgentDetailProps {
@@ -93,7 +95,13 @@ export function AgentDetail({ alias }: AgentDetailProps) {
   }
 
   const modelColumns: Column<ModelRow>[] = [
-    { key: "model", header: "Model", render: (row) => row.model_id },
+    {
+      key: "model",
+      header: "Model",
+      render: (row) => (
+        <Link href={modelDrilldownHref(row.model_id)}>{row.model_id}</Link>
+      ),
+    },
     { key: "requests", header: "Requests", align: "right", render: (row) => row.request_count.toLocaleString() },
     {
       key: "tokens",
@@ -115,6 +123,20 @@ export function AgentDetail({ alias }: AgentDetailProps) {
       header: "Failed",
       align: "right",
       render: (row) => `${row.failure_count} / ${row.success_count + row.failure_count}`,
+    },
+    {
+      key: "outcome_coverage",
+      header: "Outcome coverage",
+      align: "right",
+      render: (row) =>
+        `${row.success_count + row.failure_count} / ${row.request_count}`,
+    },
+    {
+      key: "outcome_exclusions",
+      header: "Outcome exclusions",
+      align: "right",
+      render: (row) =>
+        Math.max(0, row.request_count - row.success_count - row.failure_count).toLocaleString(),
     },
     {
       key: "provider_cost",
@@ -161,6 +183,19 @@ export function AgentDetail({ alias }: AgentDetailProps) {
   return (
     <section className="k-page">
       <header className="k-page__head">
+        <nav aria-label="Fleet hierarchy" className="k-hierarchy t-caption">
+          <Link href="/agents">Fleet</Link>
+          <span aria-hidden="true">›</span>
+          <span aria-current="page">Installation</span>
+          <span aria-hidden="true">›</span>
+          <a href="#installation-models">Models</a>
+          <span aria-hidden="true">/</span>
+          <a href="#installation-sources">Sources</a>
+          <span aria-hidden="true">/</span>
+          <Link href="/components/skills">Components (global)</Link>
+          <span aria-hidden="true">/</span>
+          <Link href="/reliability?tab=incidents">Incidents (global)</Link>
+        </nav>
         <h1 className="t-page-title">{title}</h1>
         <p className="k-page__wire t-caption">
           {identity
@@ -194,7 +229,7 @@ export function AgentDetail({ alias }: AgentDetailProps) {
         )}
       </Panel>
 
-      <div className="k-grid k-grid--2col">
+      <div id="installation-models" className="k-grid k-grid--2col">
         <Panel title="Token composition by model">
           <ChartContainer
             option={tokenOption}
@@ -232,22 +267,39 @@ export function AgentDetail({ alias }: AgentDetailProps) {
           estimate coverage{" "}
           {(models ?? []).reduce((total, row) => total + row.api_estimated_request_count, 0)}
           {" / "}
-          {(models ?? []).reduce((total, row) => total + row.request_count, 0)}.
+          {(models ?? []).reduce((total, row) => total + row.request_count, 0)}. Outcome
+          coverage{" "}
+          {(models ?? []).reduce(
+            (total, row) => total + row.success_count + row.failure_count,
+            0,
+          )}
+          {" / "}
+          {(models ?? []).reduce((total, row) => total + row.request_count, 0)};
+          unknown, cancelled, interrupted, or otherwise non-success/failure exclusions{" "}
+          {(models ?? []).reduce(
+            (total, row) => total + Math.max(
+              0,
+              row.request_count - row.success_count - row.failure_count,
+            ),
+            0,
+          )}.
         </GapNote>
       </Panel>
 
-      <Panel title="Source and bridge matrix">
-        <DataTable
-          columns={sourceColumns}
-          rows={data?.sources ?? []}
-          rowKey={(row) => row.source_instance_id}
-          emptyMessage={profile.isLoading ? "Loading…" : "No evidence lane observed in this range."}
-        />
-        <GapNote>
-          Bridge health is independent. A missing evidence bridge does not erase or
-          downgrade facts already proven by OTel, hooks, or another lane.
-        </GapNote>
-      </Panel>
+      <div id="installation-sources">
+        <Panel title="Source and bridge matrix">
+          <DataTable
+            columns={sourceColumns}
+            rows={data?.sources ?? []}
+            rowKey={(row) => row.source_instance_id}
+            emptyMessage={profile.isLoading ? "Loading…" : "No evidence lane observed in this range."}
+          />
+          <GapNote>
+            Bridge health is independent. A missing evidence bridge does not erase or
+            downgrade facts already proven by OTel, hooks, or another lane.
+          </GapNote>
+        </Panel>
+      </div>
     </section>
   );
 }

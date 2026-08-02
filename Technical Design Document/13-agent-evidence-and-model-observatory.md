@@ -284,6 +284,30 @@ installations by name. The list and profile APIs initialize collections to `[]`;
 class/provenance, token composition, provider-reported cost, API-equivalent cost and each lane's
 coverage.
 
+## Fleet and model drill-down (2026-07-31)
+
+The dashboard contract version 1.3.0 keeps `/agents`, `/agents/:id` and `/models` stable. Generated
+navigation labels `/agents` as Fleet. Installation pages link exact model IDs through
+`/models?model=<percent-encoded-id>` and label component/incident destinations as global because no
+installation-filtered list contract exists for those populations.
+
+The frontend parses a non-empty model ID and selects an exact `entity_id` match. It does not impose
+a narrower length or character limit than the durable `TEXT` identifier contract, so every model
+row returned by the API round-trips through the percent-encoded link. An empty filter and an
+unobserved exact identifier fail visibly, while a query failure remains a retryable error rather
+than being presented as `not_observed`. A drill-down is additive: it renders selected-model
+request, token, cost and outcome coverage above the unchanged global comparison table, so direct
+entry, reload, back navigation and the unfiltered `/models` route share one canonical surface.
+
+`ModelBreakdown` now projects the response outcome into its per-operation relation and returns exact
+`succeeded` and registered-failure counts. Formula `model_breakdown/2` distinguishes that population
+from the earlier response shape whose model outcome fields remained zero. The UI derives
+`outcome_exclusions = event_count - success_count - failure_count` without coercion. This includes
+unknown, cancelled and interrupted responses because the registered error-ratio population defines
+neither cancellation nor interruption as failure. The UI shows both cost and outcome
+numerators/denominators in every model context. The existing set-based cost lookup and 150 ms query
+budget remain unchanged.
+
 ## Terminal reconciliation (2026-07-30)
 
 Bridge `0.3.0` buffers at most the already bounded native-call population for one supervised

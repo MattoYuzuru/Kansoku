@@ -14,6 +14,12 @@ import (
 // express, since dimension_scope names exactly one already-known entity.
 const FormulaVersionEntityBreakdown1 = "entity_breakdown/1"
 
+// FormulaVersionModelBreakdown2 adds the exact registered success/failure
+// population to the existing per-model response/token/cost aggregation.
+// Unknown, cancelled, interrupted and otherwise excluded outcomes remain
+// outside success/failure instead of being coerced into either state.
+const FormulaVersionModelBreakdown2 = "model_breakdown/2"
+
 // AgentBreakdown executes the "agent_breakdown_range" budgeted query: one
 // row per agent_installation_id observed inside the partition-pruned
 // half-open [from, to) range, with the installation's adapter-owned agent_id,
@@ -110,7 +116,7 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 	rows, err := conn.Query(ctx, `
 		WITH responses AS MATERIALIZED (
 			SELECT mo.model_operation_id, mo.observed_at, mo.model_id,
-				mo.provider_cost_micros
+				mo.provider_cost_micros, mo.outcome
 			FROM model_operations mo
 			WHERE mo.observed_at >= $1 AND mo.observed_at < $2
 			  AND mo.operation_kind = 'response'
@@ -133,7 +139,7 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 			ORDER BY rt.token_usage_id, pcv.effective_at DESC
 		),
 		per_operation AS (
-			SELECT r.model_operation_id, r.model_id,
+			SELECT r.model_operation_id, r.model_id, r.outcome,
 				coalesce(sum(rt.input_tokens + rt.output_tokens), 0) AS total_tokens,
 				coalesce(r.provider_cost_micros, max(lc.cost_micros), 0)
 					AS estimated_cost_micros,
@@ -144,9 +150,14 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 			  ON rt.model_operation_id = r.model_operation_id
 			 AND rt.observed_at = r.observed_at
 			LEFT JOIN latest_costs lc ON lc.token_usage_id = rt.token_usage_id
-			GROUP BY r.model_operation_id, r.model_id, r.provider_cost_micros
+			GROUP BY r.model_operation_id, r.model_id, r.provider_cost_micros,
+				r.outcome
 		)
 		SELECT model_id, count(*) AS event_count,
+			count(*) FILTER (WHERE outcome = 'succeeded') AS success_count,
+			count(*) FILTER (
+				WHERE outcome IN ('failed', 'timed_out', 'abandoned')
+			) AS failure_count,
 			coalesce(sum(total_tokens), 0) AS total_tokens,
 			count(*) FILTER (WHERE is_costed) AS costed_count,
 			coalesce(sum(estimated_cost_micros), 0) AS estimated_cost_micros
@@ -164,7 +175,8 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 		var row EntityRow
 		var totalTokens int64
 		if err := rows.Scan(
-			&row.EntityID, &row.EventCount, &totalTokens,
+			&row.EntityID, &row.EventCount, &row.SuccessCount,
+			&row.FailureCount, &totalTokens,
 			&row.CostedCount, &row.EstimatedCostMicros,
 		); err != nil {
 			return EntityBreakdownResponse{}, err
@@ -180,7 +192,7 @@ func ModelBreakdown(ctx context.Context, pool *pgxpool.Pool, from, to time.Time)
 	if elapsed := time.Since(started).Milliseconds(); elapsed > budget.MaxMS {
 		return EntityBreakdownResponse{}, &ErrBudgetExceeded{BudgetID: budget.ID, MaxMS: budget.MaxMS, ActualMS: elapsed}
 	}
-	response.FormulaVersion = FormulaVersionEntityBreakdown1
+	response.FormulaVersion = FormulaVersionModelBreakdown2
 	// model_operations has no independent "expected" population signal of
 	// its own (unlike collection.coverage_ratio's reconciliation source), so
 	// completeness here can only honestly report "some data present" vs

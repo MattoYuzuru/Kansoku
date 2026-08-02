@@ -2,7 +2,7 @@
  * wouter route table for the contracts/dashboard.yaml paths. Each
  * route renders its real page component, wired to the live /api/v1 surface.
  * Per-route document.title = `Kansoku · {route.title}` (or
- * `Kansoku · Agent {alias}` for /agents/:id, opaque alias only), sourced from
+ * `Kansoku · Installation {alias}` for /agents/:id, opaque alias only), sourced from
  * the generated route registry so it can never drift from the contract.
  *
  * Every page is a lazy chunk: most pages pull in the ~370 KiB gzip echarts
@@ -79,7 +79,7 @@ function PageRoute({ path }: { path: string }) {
 function AgentDetailRoute() {
   const params = useParams();
   const alias = params.id ?? "";
-  useEffect(() => setTitle(`Agent ${alias}`), [alias]);
+  useEffect(() => setTitle(`Installation ${alias}`), [alias]);
   return <AgentDetail alias={alias} />;
 }
 

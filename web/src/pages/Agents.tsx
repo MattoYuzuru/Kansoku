@@ -1,5 +1,5 @@
 /*
- * Agents ("/agents") — installation/version table; surface activity;
+ * Fleet ("/agents") — installation/version table; surface activity;
  * capability support matrix (contracts/dashboard.yaml panelId: agent-fleet).
  *
  * AgentBreakdown groups internal/dataplatform's raw `events` table by
@@ -115,9 +115,9 @@ export function Agents() {
   return (
     <section className="k-page">
       <header className="k-page__head">
-        <h1 className="t-page-title">Agents</h1>
+        <h1 className="t-page-title">Fleet</h1>
         <p className="k-page__wire t-caption">
-          Fleet-wide agent installations and per-agent event activity.
+          Agent fleet → installation → models, sources, components, and incidents.
         </p>
       </header>
 
@@ -139,6 +139,19 @@ export function Agents() {
             state={deriveViewState(inventory.data, { isLoading: inventory.isLoading })}
           />
         </div>
+        <p className="k-hierarchy t-caption" aria-label="Fleet analytics hierarchy">
+          <span aria-current="page">Fleet</span>
+          <span aria-hidden="true">›</span>
+          <span>Installation</span>
+          <span aria-hidden="true">›</span>
+          <Link href="/models">Models</Link>
+          <span aria-hidden="true">/</span>
+          <span>Sources</span>
+          <span aria-hidden="true">/</span>
+          <Link href="/components/skills">Components</Link>
+          <span aria-hidden="true">/</span>
+          <Link href="/reliability?tab=incidents">Incidents</Link>
+        </p>
       </Panel>
 
       <Panel

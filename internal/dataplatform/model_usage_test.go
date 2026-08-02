@@ -236,6 +236,8 @@ func TestModelUsageCostLookupScalesLinearlyWithoutPerRowEstimateScan(t *testing.
 	}
 	if len(breakdown.Data) != 1 ||
 		breakdown.Data[0].EventCount != 5000 ||
+		breakdown.Data[0].SuccessCount != 5000 ||
+		breakdown.Data[0].FailureCount != 0 ||
 		breakdown.Data[0].CostedCount != 5000 ||
 		breakdown.Data[0].EstimatedCostMicros != 500000 ||
 		breakdown.Data[0].Value == nil ||

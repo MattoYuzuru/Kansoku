@@ -162,3 +162,17 @@ bridges can reuse the same canonical outcomes without core agent-name branching.
 The authenticated bridge route and the observability sink now enforce the same bounded opaque
 installation-ID alphabet. Existing explicit canary IDs are valid bridge targets; installation
 class remains separately reviewed profile metadata and is never inferred from ID spelling.
+
+## 2026-07-31 fleet analytics amendment
+
+The stable `/agents` route is the Fleet landing page and `/agents/:id` is one installation root.
+The installation page makes Models, Sources, Components and Incidents visible as child analytical
+questions. Models and sources use exact installation-profile evidence; component and incident
+links remain explicitly global until their query contracts can prove an installation-filtered
+population.
+
+`/models` remains the global cross-installation comparison. An exact model row opens the
+URL-addressable `/models?model=<encoded-id>` drill-down while the full comparison remains visible.
+Cost coverage, success/failure outcome coverage and unknown/cancelled/interrupted exclusions are shown in the
+installation table, selected-model profile and global model comparison. Unknown outcomes remain
+outside success and failure. ADR 0022 records the route and visualization decision.

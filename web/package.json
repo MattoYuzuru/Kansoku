@@ -17,6 +17,7 @@
     "test:glossary-target": "node --experimental-strip-types --test tests/glossaryTarget.test.ts",
     "test:theme-tokens": "node --experimental-strip-types --test tests/themeTokens.test.ts",
     "test:range-preference": "node --experimental-strip-types --test tests/rangePreference.test.ts",
+    "test:model-drilldown": "node --experimental-strip-types --test tests/modelDrilldown.test.ts",
     "typecheck": "tsc --noEmit",
     "verify:a11y-tokens": "node scripts/verify-accessibility-tokens.mjs",
     "verify:system-browser": "node scripts/verify-system-browser.mjs"

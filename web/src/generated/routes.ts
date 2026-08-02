@@ -1,6 +1,6 @@
 // AUTO-GENERATED from contracts/dashboard.yaml by web/scripts/gen-routes.mjs.
 // Do not edit by hand. Regenerate: `npm run gen:routes` (runs on prebuild).
-// contract_version: 1.2.0, schema_version: kansoku.dashboard/1
+// contract_version: 1.3.0, schema_version: kansoku.dashboard/1
 
 export interface RouteMeta {
   readonly path: string;
@@ -39,16 +39,16 @@ export const ROUTES: readonly RouteMeta[] = [
   },
   {
     "path": "/agents",
-    "title": "Agents",
-    "wireframe": "installation/version table; surface activity; capability support matrix",
+    "title": "Fleet",
+    "wireframe": "fleet installation table; installation drill-down to models, sources, component summaries and incident summaries",
     "panelIds": [
       "agent-fleet"
     ]
   },
   {
     "path": "/agents/:id",
-    "title": "Agent detail",
-    "wireframe": "version markers; activity/model mix; capability coverage; evidence sources",
+    "title": "Installation detail",
+    "wireframe": "version markers; activity/model mix; capability coverage; evidence sources; links to exact model drill-down and global component/incident surfaces",
     "panelIds": [
       "agent-detail-usage",
       "agent-detail-coverage"
@@ -57,7 +57,7 @@ export const ROUTES: readonly RouteMeta[] = [
   {
     "path": "/models",
     "title": "Models",
-    "wireframe": "request/token share; latency/errors; fallback markers; estimated cost",
+    "wireframe": "global cross-installation request/token comparison; URL-addressable exact-model drill-down; latency/errors; fallback markers; cost and outcome coverage",
     "panelIds": [
       "model-usage",
       "model-cost"

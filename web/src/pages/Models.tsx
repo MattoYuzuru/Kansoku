@@ -12,19 +12,29 @@
  * backend signal (no fallback/retry-chain column anywhere) — noted as a gap.
  */
 import { useMemo } from "react";
+import { Link, useSearch } from "wouter";
 import { KpiCard } from "../components/KpiCard";
 import { ChartContainer } from "../components/ChartContainer";
 import { DataTable, type Column } from "../components/DataTable";
 import { GapNote, Panel } from "../components/Panel";
+import { QueryErrorState } from "../components/QueryErrorState";
 import { RangeControl } from "../components/RangeControl";
 import { deriveViewState } from "../api/client";
 import { useModelBreakdown, useModelUsage } from "../api/queries";
 import { useRange } from "../hooks/useRange";
 import { microsToUsd, sum } from "../lib/format";
+import {
+  MODEL_DRILLDOWN_PARAM,
+  modelDrilldownHref,
+  modelFilterFromSearch,
+  modelDrilldownState,
+  selectedModelRow,
+} from "../lib/modelDrilldown";
 import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { EntityRow } from "../api/types";
 
 export function Models() {
+  const search = useSearch();
   const range = useRange("models");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
@@ -53,8 +63,51 @@ export function Models() {
 
   const breakdownRows = breakdown.data?.data?.data ?? [];
   const breakdownState = deriveViewState(breakdown.data, { isLoading: breakdown.isLoading });
+  const selectedModelID = modelFilterFromSearch(search);
+  const drilldownRequested = new URLSearchParams(search).has(MODEL_DRILLDOWN_PARAM);
+  const selectedModel = selectedModelRow(search, breakdownRows);
+  const drilldownState = modelDrilldownState({
+    requested: drilldownRequested,
+    modelID: selectedModelID,
+    selected: selectedModel != null,
+    isLoading: breakdown.isLoading,
+    isError: breakdown.isError,
+  });
+  const selectedClassifiedCount = selectedModel
+    ? selectedModel.success_count + selectedModel.failure_count
+    : 0;
+  const selectedOutcomeExclusions = selectedModel
+    ? Math.max(0, selectedModel.event_count - selectedClassifiedCount)
+    : 0;
+  const selectedCostedCount = selectedModel?.costed_count ?? 0;
+  const outcomeCoverageState = selectedModel == null || selectedClassifiedCount === 0
+    ? "not_observed"
+    : selectedClassifiedCount < selectedModel.event_count
+      ? "partial"
+      : "complete";
+  const selectedCostState = selectedModel == null || selectedCostedCount === 0
+    ? "not_observed"
+    : selectedCostedCount < selectedModel.event_count
+      ? "partial"
+      : "complete";
+  const allClassifiedCount = sum(
+    breakdownRows.map((row) => row.success_count + row.failure_count),
+  );
+  const allOutcomeExclusions = Math.max(
+    0,
+    sum(breakdownRows.map((row) => row.event_count)) - allClassifiedCount,
+  );
+  const allCostedCount = sum(breakdownRows.map((row) => row.costed_count ?? 0));
   const modelColumns: Column<EntityRow>[] = [
-    { key: "entity_id", header: "Model", render: (r) => r.entity_id },
+    {
+      key: "entity_id",
+      header: "Model",
+      render: (r) => (
+        <Link href={modelDrilldownHref(r.entity_id)} data-model-id={r.entity_id}>
+          {r.entity_id}
+        </Link>
+      ),
+    },
     { key: "requests", header: "Requests", align: "right", render: (r) => r.event_count.toLocaleString() },
     {
       key: "tokens",
@@ -77,6 +130,20 @@ export function Models() {
       align: "right",
       render: (r) => `${(r.costed_count ?? 0).toLocaleString()} / ${r.event_count.toLocaleString()}`,
     },
+    {
+      key: "outcome_coverage",
+      header: "Outcome coverage",
+      align: "right",
+      render: (r) =>
+        `${(r.success_count + r.failure_count).toLocaleString()} / ${r.event_count.toLocaleString()}`,
+    },
+    {
+      key: "outcome_exclusions",
+      header: "Outcome exclusions",
+      align: "right",
+      render: (r) =>
+        Math.max(0, r.event_count - r.success_count - r.failure_count).toLocaleString(),
+    },
   ];
 
   return (
@@ -87,6 +154,76 @@ export function Models() {
           Request/token volume, latency, error ratio and estimated cost.
         </p>
       </header>
+
+      {drilldownRequested && (
+        <Panel
+          title="Model drill-down"
+          caption="Exact model selection within the current range; the global comparison remains below."
+          actions={<Link href="/models">Back to global comparison</Link>}
+        >
+          {drilldownState === "selected" && selectedModel ? (
+            <>
+              <h3 className="t-section-header" data-selected-model={selectedModel.entity_id}>
+                {selectedModel.entity_id}
+              </h3>
+              <div className="k-grid k-grid--kpis">
+                <KpiCard
+                  label="Requests"
+                  value={selectedModel.event_count}
+                  state={breakdownState}
+                />
+                <KpiCard
+                  label="Tokens"
+                  value={selectedModel.value ?? 0}
+                  state={breakdownState}
+                />
+                <KpiCard
+                  label="API-equivalent cost"
+                  value={selectedCostedCount > 0
+                    ? microsToUsd(selectedModel.estimated_cost_micros ?? 0)
+                    : null}
+                  unit="USD"
+                  precision={2}
+                  state={selectedCostState}
+                  stateReason={`${selectedCostedCount} / ${selectedModel.event_count} responses have cost evidence.`}
+                />
+                <KpiCard
+                  label="Outcome coverage"
+                  value={selectedClassifiedCount > 0
+                    ? (selectedClassifiedCount / selectedModel.event_count) * 100
+                    : null}
+                  unit="%"
+                  precision={1}
+                  state={outcomeCoverageState}
+                  stateReason={`${selectedClassifiedCount} / ${selectedModel.event_count} responses are classified as success or failure; ${selectedOutcomeExclusions} unknown, cancelled, interrupted, or otherwise excluded.`}
+                />
+              </div>
+              <GapNote>
+                Cost coverage {selectedCostedCount} / {selectedModel.event_count}; outcome
+                coverage {selectedClassifiedCount} / {selectedModel.event_count}; unknown,
+                cancelled, interrupted, or otherwise non-success/failure outcome exclusions{" "}
+                {selectedOutcomeExclusions}. API-equivalent cost is not billed ChatGPT or
+                subscription spend.
+              </GapNote>
+            </>
+          ) : drilldownState === "error" ? (
+            <QueryErrorState
+              title="Model drill-down unavailable"
+              subject="the selected model"
+              onRetry={() => void breakdown.refetch()}
+              backHref="/models"
+            />
+          ) : drilldownState === "loading" ? (
+            <p className="t-body">Loading selected model…</p>
+          ) : (
+            <p role="alert" className="t-body">
+              {selectedModelID == null
+                ? "The model filter is invalid. Return to the global comparison."
+                : `Model ${selectedModelID} was not observed in this range.`}
+            </p>
+          )}
+        </Panel>
+      )}
 
       <Panel title="Model usage" actions={<RangeControl range={range} />}>
         <div className="k-grid k-grid--kpis">
@@ -104,7 +241,7 @@ export function Models() {
             state={errorMetric?.completeness.status ?? (rows.length > 0 ? "not_observed" : state)}
             stateReason={
               errorMetric
-                ? `${errorMetric.population.numerator} failed / ${errorMetric.population.denominator} terminal; ${errorMetric.exclusions.non_terminal_or_unknown_outcome ?? 0} unknown or non-terminal excluded; ${errorMetric.formula_version}.`
+                ? `${errorMetric.population.numerator} failed / ${errorMetric.population.denominator} success/failure outcomes; ${errorMetric.exclusions.non_terminal_or_unknown_outcome ?? 0} unknown, cancelled, interrupted, or otherwise excluded; ${errorMetric.formula_version}.`
                 : undefined
             }
           />
@@ -190,7 +327,10 @@ export function Models() {
         </GapNote>
       </Panel>
 
-      <Panel title="Per-model leaderboard">
+      <Panel
+        title="Global cross-installation model comparison"
+        caption="All exactly attributed model responses in the selected range, across installations."
+      >
         <DataTable
           columns={modelColumns}
           rows={breakdownRows}
@@ -201,6 +341,15 @@ export function Models() {
           <p className="t-caption" style={{ color: "var(--text-faint)" }}>
             Coverage state: {breakdownState}
           </p>
+        )}
+        {breakdownRows.length > 0 && (
+          <GapNote>
+            Cost coverage {allCostedCount} /{" "}
+            {sum(breakdownRows.map((row) => row.event_count))}; outcome coverage{" "}
+            {allClassifiedCount} / {sum(breakdownRows.map((row) => row.event_count))};
+            unknown, cancelled, interrupted, or otherwise non-success/failure outcome
+            exclusions {allOutcomeExclusions}.
+          </GapNote>
         )}
       </Panel>
     </section>

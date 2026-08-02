@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.dashboard/1",
-  "contract_version": "1.2.0",
-  "effective_at": "2026-07-29",
+  "contract_version": "1.3.0",
+  "effective_at": "2026-07-31",
   "global_query": {
     "ranges": ["day", "week", "sprint", "month", "six_months", "year", "all_time", "custom"],
     "range_semantics": "half-open [from,to) in selected timezone",
@@ -32,20 +32,20 @@
       ]
     },
     {
-      "path": "/agents", "title": "Agents", "wireframe": "installation/version table; surface activity; capability support matrix",
+      "path": "/agents", "title": "Fleet", "wireframe": "fleet installation table; installation drill-down to models, sources, component summaries and incident summaries",
       "panels": [
         {"id": "agent-fleet", "question_ids": ["Q-AGENT-INVENTORY", "Q-COLLECTION-HEALTH"], "metrics": ["inventory.agent_installations", "activity.sessions", "collection.coverage_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
       ]
     },
     {
-      "path": "/agents/:id", "title": "Agent detail", "wireframe": "version markers; activity/model mix; capability coverage; evidence sources",
+      "path": "/agents/:id", "title": "Installation detail", "wireframe": "version markers; activity/model mix; capability coverage; evidence sources; links to exact model drill-down and global component/incident surfaces",
       "panels": [
         {"id": "agent-detail-usage", "question_ids": ["Q-AGENT-INVENTORY", "Q-MODEL-USAGE"], "metrics": ["activity.sessions", "activity.prompts", "model.requests", "model.tokens"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
         {"id": "agent-detail-coverage", "question_ids": ["Q-COLLECTION-HEALTH", "Q-UPDATE-DRIFT"], "metrics": ["collection.coverage_ratio", "collection.active_source_gap_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
       ]
     },
     {
-      "path": "/models", "title": "Models", "wireframe": "request/token share; latency/errors; fallback markers; estimated cost",
+      "path": "/models", "title": "Models", "wireframe": "global cross-installation request/token comparison; URL-addressable exact-model drill-down; latency/errors; fallback markers; cost and outcome coverage",
       "panels": [
         {"id": "model-usage", "question_ids": ["Q-MODEL-USAGE"], "metrics": ["model.requests", "model.tokens", "model.request_latency_seconds", "model.error_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
         {"id": "model-cost", "question_ids": ["Q-COST-ESTIMATE"], "metrics": ["model.estimated_cost_usd", "model.tokens"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
