@@ -311,9 +311,16 @@ func TestClaude2_1_220SkillActivatedWireShapeQualifiesOwnerOnce(t *testing.T) {
 			stringKV(string(claudeadapter.AttributePluginName), "sre-agent"),
 			stringKV(string(claudeadapter.AttributeInvocationTrigger), "claude-proactive"),
 			stringKV(string(claudeadapter.AttributeSkillSource), "plugin"),
-			// Emitted upstream, mapped onto no safe slot, and therefore
-			// dropped -- asserted below never to reach a durable record.
-			stringKV("marketplace.name", "yuzuru-engineering"),
+			// Emitted upstream on every plugin-owned component event. It
+			// used to map onto no safe slot at all, so the resolver
+			// approximated it by splitting the owner declared name on '@'
+			// while the exact value sat unread on the wire; it now lands in
+			// its own declared slot and is asserted below.
+			stringKV(string(claudeadapter.NativeAttributeMarketplaceName), "yuzuru-engineering"),
+			// Still mapped onto nothing, and asserted below never to reach a
+			// durable record: a hook matcher is user-authored and can embed a
+			// path or a project name.
+			stringKV("hook_matcher", "/Users/someone/secret-project/**"),
 		},
 	)
 	if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
@@ -340,10 +347,13 @@ func TestClaude2_1_220SkillActivatedWireShapeQualifiesOwnerOnce(t *testing.T) {
 		if evidence.InvocationMode != "proactive" {
 			t.Fatalf("invocation mode=%q", evidence.InvocationMode)
 		}
+		if evidence.Marketplace != "yuzuru-engineering" {
+			t.Fatalf("marketplace=%q want the value the agent actually sent", evidence.Marketplace)
+		}
 	}
 	encoded, _ := json.Marshal(state)
-	if bytes.Contains(encoded, []byte("yuzuru-engineering")) {
-		t.Fatal("dropped marketplace.name reached a durable record")
+	if bytes.Contains(encoded, []byte("secret-project")) {
+		t.Fatal("hook_matcher reached a durable record")
 	}
 }
 

@@ -183,14 +183,15 @@ func InsertFact(ctx context.Context, pool *pgxpool.Pool, fact FactRow, evidence 
 			INSERT INTO events (
 				event_id, fact_key, event_type, observed_at, ingested_at, timestamp_quality,
 				source_instance_id, source_native_event_id, sequence, agent_installation_id,
-				surface_id, project_id, session_id, turn_id, component_id, duration_ms, success,
+				surface_id, project_id, session_id, turn_id, message_id, component_id, duration_ms, success,
 				count, value_state, outcome, correlation_status
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
 			ON CONFLICT DO NOTHING
 		`, fact.EventID, fact.FactKey, fact.EventType, fact.ObservedAt, fact.IngestedAt, fact.TimestampQuality,
 			fact.SourceInstanceID, fact.SourceNativeEventID, fact.Sequence, nullableString(fact.AgentInstallationID),
 			nullableString(fact.SurfaceID), nullableString(fact.ProjectID), nullableString(fact.SessionID),
-			nullableString(fact.TurnID), nullableString(fact.ComponentID), fact.DurationMS, fact.Success,
+			nullableString(fact.TurnID), nullableString(fact.MessageID),
+			nullableString(fact.ComponentID), fact.DurationMS, fact.Success,
 			fact.Count, fact.ValueState, fact.Outcome, fact.CorrelationStatus)
 		if err != nil {
 			return fmt.Errorf("insert event: %w", err)

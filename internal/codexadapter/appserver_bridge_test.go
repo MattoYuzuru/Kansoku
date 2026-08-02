@@ -62,11 +62,20 @@ func TestAppServerBridgeProjectsOnlySafeTypedFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, prohibited := range []string{
-		canary, secret, "/private/", "arguments", "result", "preview", "cwd", "content",
-	} {
+	// Payload values are matched raw; payload *keys* are matched in their
+	// quoted JSON form. A bare substring scan for "result" also matches a
+	// legitimate measurement name such as tool_result_bytes, which would make
+	// this guard fire on a size the agent reported rather than on the payload
+	// it measured -- precision here is what keeps the guard meaningful as the
+	// declared surface grows.
+	for _, prohibited := range []string{canary, secret, "/private/"} {
 		if bytes.Contains(serialized, []byte(prohibited)) {
 			t.Fatalf("prohibited content reached typed sink/health: %q", prohibited)
+		}
+	}
+	for _, prohibitedKey := range []string{"arguments", "result", "preview", "cwd", "content"} {
+		if bytes.Contains(serialized, []byte(`"`+prohibitedKey+`"`)) {
+			t.Fatalf("prohibited payload key reached typed sink/health: %q", prohibitedKey)
 		}
 	}
 	health := bridge.Health(context.Background())

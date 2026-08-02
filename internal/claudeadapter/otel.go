@@ -76,12 +76,14 @@ func DocumentedOTelEvents() []OTelEventName {
 
 // otelEventCanonical is the subset of
 // contracts/claude/hooks-and-otel.yaml's source_event_mapping table whose
-// source_kind is otlp_log_span_metric. Tool decisions are intentionally
-// absent because tool_result is the single counted tool execution; counting
-// both decision and result would double every call.
+// source_kind is otlp_log_span_metric. A tool decision is its own canonical
+// event (tool.decided), never a second tool.called: tool_result remains the
+// single counted execution, so counting decisions cannot double a call, while
+// the decision itself -- which permission answer a call received, and from
+// which source -- stops being flattened into a contentless source.observed.
 var otelEventCanonical = map[OTelEventName]string{
 	OTelUserPrompt:        "prompt.submitted",
-	OTelToolDecision:      "source.observed",
+	OTelToolDecision:      "tool.decided",
 	OTelToolResult:        "tool.called",
 	OTelAPIRequest:        "model.responded",
 	OTelAPIError:          "model.responded",
@@ -105,6 +107,15 @@ func OTLPSafeAttributes() []string {
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
 		"kansoku.component.kind", "kansoku.duration_ms", "kansoku.prompt_length_characters",
 		"kansoku.input_tokens", "kansoku.cached_input_tokens", "kansoku.output_tokens", "kansoku.provider_cost_micros",
+		"kansoku.cache_creation_tokens", "kansoku.cache_read_tokens",
+		"kansoku.response_length_characters",
+		"kansoku.tool.decision", "kansoku.tool.source", "kansoku.tool.use_id",
+		"kansoku.tool.input_bytes", "kansoku.tool.result_bytes",
+		"kansoku.hook.event", "kansoku.hook.type", "kansoku.hook.source",
+		"kansoku.session.start_type", "kansoku.session.query_source",
+		"kansoku.session.terminal_type", "kansoku.session.safe_mode",
+		"kansoku.message.id", "kansoku.user.id",
+		"kansoku.component.marketplace", "kansoku.component.scope", "kansoku.component.version",
 		"kansoku.turn.id", "kansoku.component.identity",
 		"kansoku.component.identity_source", "kansoku.component.owner_plugin",
 		"kansoku.component.invocation_mode", "kansoku.component.upstream_identity_hash",
@@ -232,7 +243,41 @@ const (
 	NativeAttributeInputTokens  NativeOTLPAttribute = "input_tokens"
 	NativeAttributeOutputTokens NativeOTLPAttribute = "output_tokens"
 	NativeAttributeCostMicros   NativeOTLPAttribute = "cost_usd_micros"
+	// The attributes below were observed on the 2.1.220 wire
+	// (reports/artifacts/2026-08-01-component-audit/evidence/plugins/
+	// 03-claude-otlp-capture-strings.jsonl) while this table read none of
+	// them. Each is a vocabulary token, a size, a count or an identifier --
+	// never content. tool_input/tool_parameters/prompt/response stay on
+	// DroppedOTelSurfaces() and are still never read.
+	NativeAttributeToolDecision    NativeOTLPAttribute = "decision"
+	NativeAttributeToolSource      NativeOTLPAttribute = "tool_source"
+	NativeAttributeToolUseID       NativeOTLPAttribute = "tool_use_id"
+	NativeAttributeToolInputBytes  NativeOTLPAttribute = "tool_input_size_bytes"
+	NativeAttributeToolResultBytes NativeOTLPAttribute = "tool_result_size_bytes"
+	NativeAttributeCacheCreation   NativeOTLPAttribute = "cache_creation_tokens"
+	NativeAttributeCacheRead       NativeOTLPAttribute = "cache_read_tokens"
+	NativeAttributeResponseLength  NativeOTLPAttribute = "response_length"
+	NativeAttributeHookEvent       NativeOTLPAttribute = "hook_event"
+	NativeAttributeHookType        NativeOTLPAttribute = "hook_type"
+	NativeAttributeHookSource      NativeOTLPAttribute = "hook_source"
+	NativeAttributeStartType       NativeOTLPAttribute = "start_type"
+	NativeAttributeQuerySource     NativeOTLPAttribute = "query_source"
+	NativeAttributeTerminalType    NativeOTLPAttribute = "terminal.type"
+	NativeAttributeSafeMode        NativeOTLPAttribute = "safe_mode"
+	NativeAttributeMessageUUID     NativeOTLPAttribute = "message.uuid"
+	NativeAttributeUserID          NativeOTLPAttribute = "user.id"
+	NativeAttributeMarketplaceName NativeOTLPAttribute = "marketplace.name"
+	NativeAttributePluginScope     NativeOTLPAttribute = "plugin.scope"
+	NativeAttributePluginVersion   NativeOTLPAttribute = "plugin.version"
 )
+
+// hookMatcherNeverRead documents one deliberate exclusion. Claude Code emits
+// hook_matcher next to hook_event/hook_type/hook_source, and it is the only
+// attribute in that group a user writes by hand: it can carry a path or a
+// project name. It is therefore excluded from the mapping table above rather
+// than pseudonymized, and this constant exists so a future reader finds the
+// reason instead of assuming an oversight.
+const hookMatcherNeverRead NativeOTLPAttribute = "hook_matcher"
 
 // NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
 // a real, documented Claude-native OTLP activity attribute name maps onto,
@@ -263,6 +308,46 @@ func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
 		return "kansoku.output_tokens", true
 	case NativeAttributeCostMicros:
 		return "kansoku.provider_cost_micros", true
+	case NativeAttributeToolDecision:
+		return "kansoku.tool.decision", true
+	case NativeAttributeToolSource:
+		return "kansoku.tool.source", true
+	case NativeAttributeToolUseID:
+		return "kansoku.tool.use_id", true
+	case NativeAttributeToolInputBytes:
+		return "kansoku.tool.input_bytes", true
+	case NativeAttributeToolResultBytes:
+		return "kansoku.tool.result_bytes", true
+	case NativeAttributeCacheCreation:
+		return "kansoku.cache_creation_tokens", true
+	case NativeAttributeCacheRead:
+		return "kansoku.cache_read_tokens", true
+	case NativeAttributeResponseLength:
+		return "kansoku.response_length_characters", true
+	case NativeAttributeHookEvent:
+		return "kansoku.hook.event", true
+	case NativeAttributeHookType:
+		return "kansoku.hook.type", true
+	case NativeAttributeHookSource:
+		return "kansoku.hook.source", true
+	case NativeAttributeStartType:
+		return "kansoku.session.start_type", true
+	case NativeAttributeQuerySource:
+		return "kansoku.session.query_source", true
+	case NativeAttributeTerminalType:
+		return "kansoku.session.terminal_type", true
+	case NativeAttributeSafeMode:
+		return "kansoku.session.safe_mode", true
+	case NativeAttributeMessageUUID:
+		return "kansoku.message.id", true
+	case NativeAttributeUserID:
+		return "kansoku.user.id", true
+	case NativeAttributeMarketplaceName:
+		return "kansoku.component.marketplace", true
+	case NativeAttributePluginScope:
+		return "kansoku.component.scope", true
+	case NativeAttributePluginVersion:
+		return "kansoku.component.version", true
 	default:
 		return "", false
 	}

@@ -87,7 +87,7 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 		modelID = *record.Model.ID
 	}
 	subjectKind := record.ComponentKind
-	if subjectKind == "" && eventType == "tool.called" {
+	if subjectKind == "" && (eventType == "tool.called" || eventType == "tool.decided") {
 		subjectKind = "tool"
 	}
 	if subjectKind == "" && record.AdapterID == "fixture-agent" {
@@ -125,6 +125,16 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 	if len(record.Lineage.TurnPseudonym) >= 24 {
 		turnID = "trn_" + record.Lineage.TurnPseudonym[:24]
 	}
+	// Message and operator handles are prefixed and truncated exactly like
+	// the turn handle above, from pseudonyms the sanitizer already produced.
+	messageID := ""
+	if len(record.Lineage.MessagePseudonym) >= 24 {
+		messageID = "msg_" + record.Lineage.MessagePseudonym[:24]
+	}
+	userID := ""
+	if len(record.Lineage.UserPseudonym) >= 24 {
+		userID = "usr_" + record.Lineage.UserPseudonym[:24]
+	}
 	event := Event{
 		SpecVersion: EventSpecVersion, EventID: eventID, FactKey: factKey, EventType: eventType,
 		EmittedAt: record.ObservedAt.UTC(), ObservedAt: record.ObservedAt.UTC(), IngestedAt: now,
@@ -132,7 +142,11 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 			AdapterID: record.AdapterID, AdapterVersion: record.AdapterVersion, Kind: kind,
 			SchemaID: schemaID, SchemaFingerprint: schemaFingerprint,
 			InstallationID: installationID, NativeEventID: record.Lineage.SourceRecordPseudonym, Sequence: sequence,
-		}, Scope: Scope{DeviceID: deviceID, AgentInstallationID: installationID, SessionID: "ses_" + record.Lineage.SessionPseudonym[:24], TurnID: turnID},
+		}, Scope: Scope{
+			DeviceID: deviceID, AgentInstallationID: installationID,
+			SessionID: "ses_" + record.Lineage.SessionPseudonym[:24], TurnID: turnID,
+			MessageID: messageID, UserID: userID,
+		},
 		Subject: Subject{Kind: subjectKind, ComponentID: componentID, ModelID: modelID},
 		ComponentEvidence: ComponentEvidenceMetadata{
 			QualifiedIdentity:    record.ComponentEvidence.QualifiedIdentity,
@@ -141,13 +155,33 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 			InvocationMode:       record.ComponentEvidence.InvocationMode,
 			UpstreamIdentityHash: record.ComponentEvidence.UpstreamIdentityHash,
 			SourceScope:          record.ComponentEvidence.SourceScope,
+			Marketplace:          record.ComponentEvidence.Marketplace,
+			ComponentScope:       record.ComponentEvidence.ComponentScope,
+			ComponentVersion:     record.ComponentEvidence.ComponentVersion,
+		},
+		Activity: ActivityMetadata{
+			ToolDecision:     record.Activity.ToolDecision,
+			ToolSource:       record.Activity.ToolSource,
+			ToolUsePseudonym: record.Activity.ToolUsePseudonym,
+			HookEvent:        record.Activity.HookEvent,
+			HookType:         record.Activity.HookType,
+			HookSource:       record.Activity.HookSource,
+			SessionStartType: record.Activity.SessionStartType,
+			QuerySource:      record.Activity.QuerySource,
+			TerminalType:     record.Activity.TerminalType,
+			SafeMode:         record.Activity.SafeMode,
 		},
 		Measurements: Measurements{
 			DurationMS: record.Telemetry.DurationMS, Success: success,
 			PromptCharacterCount: record.Telemetry.PromptCharacterCount,
 			InputTokens:          record.Telemetry.InputTokens, CachedInputTokens: record.Telemetry.CachedInputTokens,
-			OutputTokens:       record.Telemetry.OutputTokens,
-			ProviderCostMicros: record.Telemetry.ProviderCostMicros,
+			OutputTokens:           record.Telemetry.OutputTokens,
+			ProviderCostMicros:     record.Telemetry.ProviderCostMicros,
+			CacheCreationTokens:    record.Telemetry.CacheCreationTokens,
+			CacheReadTokens:        record.Telemetry.CacheReadTokens,
+			ResponseCharacterCount: record.Telemetry.ResponseCharacterCount,
+			ToolInputBytes:         record.Telemetry.ToolInputBytes,
+			ToolResultBytes:        record.Telemetry.ToolResultBytes,
 		},
 		ValueState: string(record.ValueState), Outcome: record.Outcome, CorrelationStatus: CorrelationExact,
 		Lifecycle: []EventStage{StageReceived, StageSanitized, StageValidated, StageNormalized},

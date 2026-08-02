@@ -253,7 +253,22 @@ func safeFields(attributes []*commonv1.KeyValue, timestamp uint64) (map[string]a
 		{"kansoku.component.invocation_mode", "component_invocation_mode"},
 		{"kansoku.component.upstream_identity_hash", "component_upstream_identity_hash"},
 		{"kansoku.component.source_scope", "component_source_scope"},
+		{"kansoku.component.marketplace", "component_marketplace"},
+		{"kansoku.component.scope", "component_scope"},
+		{"kansoku.component.version", "component_version"},
 		{"kansoku.turn.id", "turn_id"},
+		{"kansoku.message.id", "message_id"},
+		{"kansoku.user.id", "user_id"},
+		{"kansoku.tool.decision", "tool_decision"},
+		{"kansoku.tool.source", "tool_source"},
+		{"kansoku.tool.use_id", "tool_use_id"},
+		{"kansoku.hook.event", "hook_event"},
+		{"kansoku.hook.type", "hook_type"},
+		{"kansoku.hook.source", "hook_source"},
+		{"kansoku.session.start_type", "session_start_type"},
+		{"kansoku.session.query_source", "query_source"},
+		{"kansoku.session.terminal_type", "terminal_type"},
+		{"kansoku.session.safe_mode", "safe_mode"},
 	} {
 		if value := stringAttribute(attributes, optional.attr); value != "" {
 			fields[optional.field] = value
@@ -266,6 +281,11 @@ func safeFields(attributes []*commonv1.KeyValue, timestamp uint64) (map[string]a
 		{"kansoku.cached_input_tokens", "cached_input_tokens"},
 		{"kansoku.output_tokens", "output_tokens"},
 		{"kansoku.provider_cost_micros", "provider_cost_micros"},
+		{"kansoku.cache_creation_tokens", "cache_creation_tokens"},
+		{"kansoku.cache_read_tokens", "cache_read_tokens"},
+		{"kansoku.response_length_characters", "response_character_count"},
+		{"kansoku.tool.input_bytes", "tool_input_bytes"},
+		{"kansoku.tool.result_bytes", "tool_result_bytes"},
 	} {
 		if value, ok := int64Attribute(attributes, optional.attr); ok {
 			fields[optional.field] = value

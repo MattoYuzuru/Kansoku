@@ -94,7 +94,13 @@ func validEventType(value string) bool {
 		// (internal/codexadapter/otel.go, internal/claudeadapter/otel.go).
 		// The fixture-agent lane's own tool_finished -> component.executed
 		// mapping (normalize.go's canonicalEventTypes) is untouched.
-		"tool.called":
+		"tool.called",
+		// "tool.decided" is the permission answer a tool call received. It is
+		// deliberately a separate canonical type from tool.called: an
+		// execution is still counted exactly once, from tool_result, while a
+		// decision that was denied has no execution to be counted from at all
+		// and used to vanish into source.observed.
+		"tool.decided":
 		return true
 	default:
 		return false

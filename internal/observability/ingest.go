@@ -459,7 +459,13 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		"component_owner_plugin": true, "component_invocation_mode": true,
 		"component_upstream_identity_hash": true, "component_source_scope": true,
 		"input_tokens": true, "cached_input_tokens": true, "output_tokens": true, "provider_cost_micros": true,
-		"turn_id": true,
+		"cache_creation_tokens": true, "cache_read_tokens": true, "response_character_count": true,
+		"tool_input_bytes": true, "tool_result_bytes": true,
+		"component_marketplace": true, "component_scope": true, "component_version": true,
+		"tool_decision": true, "tool_source": true, "tool_use_id": true,
+		"hook_event": true, "hook_type": true, "hook_source": true,
+		"session_start_type": true, "query_source": true, "terminal_type": true, "safe_mode": true,
+		"turn_id": true, "message_id": true, "user_id": true,
 	}
 	for key := range fields {
 		if !allowed[key] {
@@ -505,6 +511,22 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 	if turnID, ok := fields["turn_id"].(string); ok && turnID != "" {
 		turnPseudonym = "hmac-sha256:" + i.keyedIdentity("turn/1", adapterID+"\x00"+sessionID+"\x00"+turnID)
 	}
+	// Every upstream identifier below is pseudonymized with the same
+	// device-scoped construction as the turn above, each under its own
+	// domain so two different identifier kinds can never collide into the
+	// same handle. The raw values are not kept anywhere.
+	messagePseudonym := ""
+	if messageID, ok := fields["message_id"].(string); ok && messageID != "" {
+		messagePseudonym = "hmac-sha256:" + i.keyedIdentity("message/1", adapterID+"\x00"+sessionID+"\x00"+messageID)
+	}
+	userPseudonym := ""
+	if userID, ok := fields["user_id"].(string); ok && userID != "" {
+		userPseudonym = "hmac-sha256:" + i.keyedIdentity("user/1", adapterID+"\x00"+userID)
+	}
+	toolUsePseudonym := ""
+	if toolUseID, ok := fields["tool_use_id"].(string); ok && toolUseID != "" {
+		toolUsePseudonym = "hmac-sha256:" + i.keyedIdentity("tool-use/1", adapterID+"\x00"+sessionID+"\x00"+toolUseID)
+	}
 	idempotency := "hmac-sha256:" + i.keyedIdentity("idempotency/1", adapterID+"\x00"+string(kind)+"\x00"+eventID+"\x00"+observedText)
 	// index is always "0": IngestSafeFields ingests exactly one OTLP
 	// record/data point per call (see ingestOneRecord), unlike
@@ -536,8 +558,12 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 	invocationMode, _ := fields["component_invocation_mode"].(string)
 	upstreamIdentityHash, _ := fields["component_upstream_identity_hash"].(string)
 	sourceScope, _ := fields["component_source_scope"].(string)
+	marketplace, _ := fields["component_marketplace"].(string)
+	componentScope, _ := fields["component_scope"].(string)
+	componentVersion, _ := fields["component_version"].(string)
 	for _, value := range []string{
 		componentIdentity, identitySource, ownerPlugin, invocationMode, sourceScope,
+		marketplace, componentScope, componentVersion,
 	} {
 		if !safeComponentMetadataValue(value) {
 			return CommitResult{}, errors.New("unsafe_otlp_field")
@@ -564,19 +590,53 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		)
 	}
 	measurement := privacy.TelemetryMeasurements{
-		DurationMS:           safeInt64Pointer(fields["duration_ms"]),
-		PromptCharacterCount: safeInt64Pointer(fields["prompt_character_count"]),
-		InputTokens:          safeInt64Pointer(fields["input_tokens"]),
-		CachedInputTokens:    safeInt64Pointer(fields["cached_input_tokens"]),
-		OutputTokens:         safeInt64Pointer(fields["output_tokens"]),
-		ProviderCostMicros:   safeInt64Pointer(fields["provider_cost_micros"]),
+		DurationMS:             safeInt64Pointer(fields["duration_ms"]),
+		PromptCharacterCount:   safeInt64Pointer(fields["prompt_character_count"]),
+		InputTokens:            safeInt64Pointer(fields["input_tokens"]),
+		CachedInputTokens:      safeInt64Pointer(fields["cached_input_tokens"]),
+		OutputTokens:           safeInt64Pointer(fields["output_tokens"]),
+		ProviderCostMicros:     safeInt64Pointer(fields["provider_cost_micros"]),
+		CacheCreationTokens:    safeInt64Pointer(fields["cache_creation_tokens"]),
+		CacheReadTokens:        safeInt64Pointer(fields["cache_read_tokens"]),
+		ResponseCharacterCount: safeInt64Pointer(fields["response_character_count"]),
+		ToolInputBytes:         safeInt64Pointer(fields["tool_input_bytes"]),
+		ToolResultBytes:        safeInt64Pointer(fields["tool_result_bytes"]),
 	}
 	for _, value := range []*int64{
 		measurement.DurationMS, measurement.PromptCharacterCount,
 		measurement.InputTokens, measurement.CachedInputTokens,
 		measurement.OutputTokens, measurement.ProviderCostMicros,
+		measurement.CacheCreationTokens, measurement.CacheReadTokens,
+		measurement.ResponseCharacterCount,
+		measurement.ToolInputBytes, measurement.ToolResultBytes,
 	} {
 		if value != nil && *value < 0 {
+			return CommitResult{}, errors.New("unsafe_otlp_field")
+		}
+	}
+	activity := privacy.ActivityMetadata{
+		ToolDecision:     stringField(fields, "tool_decision"),
+		ToolSource:       stringField(fields, "tool_source"),
+		ToolUsePseudonym: toolUsePseudonym,
+		HookEvent:        stringField(fields, "hook_event"),
+		HookType:         stringField(fields, "hook_type"),
+		HookSource:       stringField(fields, "hook_source"),
+		SessionStartType: stringField(fields, "session_start_type"),
+		QuerySource:      stringField(fields, "query_source"),
+		TerminalType:     stringField(fields, "terminal_type"),
+		SafeMode:         stringField(fields, "safe_mode"),
+	}
+	// Activity values are vocabulary tokens, not free text: they are bounded
+	// by the same shape rule as component metadata so an agent cannot smuggle
+	// a path, a command or a sentence through one of these slots. An
+	// unrecognized-but-well-shaped token is kept verbatim and classified
+	// downstream; it is never coerced and never dropped.
+	for _, value := range []string{
+		activity.ToolDecision, activity.ToolSource, activity.HookEvent, activity.HookType,
+		activity.HookSource, activity.SessionStartType, activity.QuerySource,
+		activity.TerminalType, activity.SafeMode,
+	} {
+		if !safeComponentMetadataValue(value) {
 			return CommitResult{}, errors.New("unsafe_otlp_field")
 		}
 	}
@@ -591,11 +651,15 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 			QualifiedIdentity: qualifiedIdentity, IdentitySource: identitySource,
 			OwnerPluginIdentity: ownerPlugin, InvocationMode: invocationMode,
 			UpstreamIdentityHash: upstreamIdentityHash, SourceScope: sourceScope,
+			Marketplace:    marketplace,
+			ComponentScope: componentScope, ComponentVersion: componentVersion,
 		},
+		Activity: activity,
 		Lineage: privacy.Lineage{
 			SourceRecordPseudonym: sourceRecordPseudonym, SessionPseudonym: sessionPseudonym,
-			TurnPseudonym: turnPseudonym,
-			AdapterID:     adapterID, AdapterVersion: "1.0.0", SourceSchemaID: sourceSchemaID,
+			TurnPseudonym:    turnPseudonym,
+			MessagePseudonym: messagePseudonym, UserPseudonym: userPseudonym,
+			AdapterID: adapterID, AdapterVersion: "1.0.0", SourceSchemaID: sourceSchemaID,
 			SchemaFingerprint: sourceRecordPseudonym, SanitizerVersion: "kansoku.ingress-sanitizer/1",
 			ContractSHA256: privacy.PrivacyContractSemanticSHA256,
 		},
@@ -652,6 +716,14 @@ func safeComponentMetadataValue(value string) bool {
 		return false
 	}
 	return true
+}
+
+// stringField reads one optional safe string field. An absent field and a
+// field present as some other type both read as empty, which the callers
+// treat as not_observed rather than as an error.
+func stringField(fields map[string]any, key string) string {
+	value, _ := fields[key].(string)
+	return value
 }
 
 func safeInt64Pointer(value any) *int64 {

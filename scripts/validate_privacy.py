@@ -32,7 +32,7 @@ EXPECTED_RECORD_FIELDS = {
     "record_id", "idempotency_key", "adapter_id", "adapter_version", "source_schema_id",
     "schema_fingerprint", "observed_at", "received_at", "confidence", "event_type", "outcome",
     "value_state", "model", "tool", "component_kind", "component_mentions",
-    "component_evidence", "prompt_features", "telemetry",
+    "component_evidence", "activity", "prompt_features", "telemetry",
     "redaction_counts", "lineage",
 }
 EXPECTED_ERROR_FIELDS = {
@@ -43,7 +43,7 @@ EXPECTED_RECORD_FIELD_ORDER = [
     "record_id", "idempotency_key", "adapter_id", "adapter_version", "source_schema_id",
     "schema_fingerprint", "observed_at", "received_at", "confidence", "event_type", "outcome",
     "value_state", "model", "tool", "component_kind", "component_mentions",
-    "component_evidence", "prompt_features", "telemetry",
+    "component_evidence", "activity", "prompt_features", "telemetry",
     "redaction_counts", "lineage",
 ]
 EXPECTED_ERROR_FIELD_ORDER = [
@@ -108,6 +108,25 @@ EXPECTED_NESTED_TYPES = {
         "invocation_mode": "explicit_proactive_nested_requested_or_not_observed",
         "upstream_identity_hash": "optional_hmac_sha256",
         "source_scope": "safe_source_scope_or_empty",
+        "marketplace": "safe_component_identity_or_empty",
+        "component_scope": "safe_component_identity_or_empty",
+        "component_version": "safe_component_identity_or_empty",
+    }, "closed": True},
+    # Activity metadata is how an activity happened: which permission answer a
+    # tool call received, which surface registered a hook, how a session
+    # started. Every slot is a vocabulary token or an already-keyed pseudonym,
+    # so the widened surface cannot become a free-text channel.
+    "ActivityMetadata": {"fields": {
+        "tool_decision": "safe_vocabulary_token_or_empty",
+        "tool_source": "safe_vocabulary_token_or_empty",
+        "tool_use_pseudonym": "optional_hmac_sha256",
+        "hook_event": "safe_vocabulary_token_or_empty",
+        "hook_type": "safe_vocabulary_token_or_empty",
+        "hook_source": "safe_vocabulary_token_or_empty",
+        "session_start_type": "safe_vocabulary_token_or_empty",
+        "query_source": "safe_vocabulary_token_or_empty",
+        "terminal_type": "safe_vocabulary_token_or_empty",
+        "safe_mode": "safe_vocabulary_token_or_empty",
     }, "closed": True},
     "PromptFeatures": {"fields": {
         "state": "completeness_state", "byte_count": "nonnegative_integer",
@@ -123,6 +142,11 @@ EXPECTED_NESTED_TYPES = {
         "cached_input_tokens": "nullable_nonnegative_integer",
         "output_tokens": "nullable_nonnegative_integer",
         "provider_cost_micros": "nullable_nonnegative_integer",
+        "cache_creation_tokens": "nullable_nonnegative_integer",
+        "cache_read_tokens": "nullable_nonnegative_integer",
+        "response_character_count": "nullable_nonnegative_integer",
+        "tool_input_bytes": "nullable_nonnegative_integer",
+        "tool_result_bytes": "nullable_nonnegative_integer",
     }, "closed": True},
     "RedactionCounts": {"fields": {
         "prompt_fields": "nonnegative_integer", "attachment_fields": "nonnegative_integer",
@@ -134,7 +158,9 @@ EXPECTED_NESTED_TYPES = {
     }, "closed": True},
     "Lineage": {"fields": {
         "source_record_pseudonym": "hmac_sha256", "session_pseudonym": "hmac_sha256",
-        "turn_pseudonym": "optional_hmac_sha256", "adapter_id": "registered_adapter_id",
+        "turn_pseudonym": "optional_hmac_sha256",
+        "message_pseudonym": "optional_hmac_sha256", "user_pseudonym": "optional_hmac_sha256",
+        "adapter_id": "registered_adapter_id",
         "adapter_version": "registered_adapter_version", "source_schema_id": "registered_schema_id",
         "schema_fingerprint": "sha256", "sanitizer_version": "registered_sanitizer_version",
         "contract_sha256": "sha256_hex",
@@ -206,12 +232,13 @@ EXPECTED_ROUTE_MODES = {
 }
 EXPECTED_GO_SCHEMAS = {
     "CatalogObservation": {"state": "ObservationState", "id": "*string"},
-    "ComponentEvidenceMetadata": {"qualified_identity": "string", "identity_source": "string", "owner_plugin_identity": "string", "invocation_mode": "string", "upstream_identity_hash": "string", "source_scope": "string"},
+    "ComponentEvidenceMetadata": {"qualified_identity": "string", "identity_source": "string", "owner_plugin_identity": "string", "invocation_mode": "string", "upstream_identity_hash": "string", "source_scope": "string", "marketplace": "string", "component_scope": "string", "component_version": "string"},
+    "ActivityMetadata": {"tool_decision": "string", "tool_source": "string", "tool_use_pseudonym": "string", "hook_event": "string", "hook_type": "string", "hook_source": "string", "session_start_type": "string", "query_source": "string", "terminal_type": "string", "safe_mode": "string"},
     "PromptFeatures": {"state": "CompletenessState", "byte_count": "int", "character_count": "int", "word_count": "int", "line_count": "int", "coarse_script": "string", "code_fence_count": "int", "attachment_count": "int", "url_reference_count": "int", "file_reference_count": "int"},
-    "TelemetryMeasurements": {"duration_ms": "*int64", "prompt_character_count": "*int64", "input_tokens": "*int64", "cached_input_tokens": "*int64", "output_tokens": "*int64", "provider_cost_micros": "*int64"},
+    "TelemetryMeasurements": {"duration_ms": "*int64", "prompt_character_count": "*int64", "input_tokens": "*int64", "cached_input_tokens": "*int64", "output_tokens": "*int64", "provider_cost_micros": "*int64", "cache_creation_tokens": "*int64", "cache_read_tokens": "*int64", "response_character_count": "*int64", "tool_input_bytes": "*int64", "tool_result_bytes": "*int64"},
     "RedactionCounts": {"prompt_fields": "int", "attachment_fields": "int", "response_fields": "int", "source_fields": "int", "tool_io_fields": "int", "command_fields": "int", "path_fields": "int", "environment_fields": "int", "credential_fields": "int", "exception_fields": "int", "sensitive_identifier_fields": "int"},
-    "Lineage": {"source_record_pseudonym": "string", "session_pseudonym": "string", "turn_pseudonym": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "sanitizer_version": "string", "contract_sha256": "string"},
-    "SafeRecord": {"record_id": "string", "idempotency_key": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "observed_at": "time.Time", "received_at": "time.Time", "confidence": "float64", "event_type": "string", "outcome": "string", "value_state": "ValueState", "model": "CatalogObservation", "tool": "CatalogObservation", "component_kind": "string", "component_mentions": "[]string", "component_evidence": "ComponentEvidenceMetadata", "prompt_features": "PromptFeatures", "telemetry": "TelemetryMeasurements", "redaction_counts": "RedactionCounts", "lineage": "Lineage"},
+    "Lineage": {"source_record_pseudonym": "string", "session_pseudonym": "string", "turn_pseudonym": "string", "message_pseudonym": "string", "user_pseudonym": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "sanitizer_version": "string", "contract_sha256": "string"},
+    "SafeRecord": {"record_id": "string", "idempotency_key": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "observed_at": "time.Time", "received_at": "time.Time", "confidence": "float64", "event_type": "string", "outcome": "string", "value_state": "ValueState", "model": "CatalogObservation", "tool": "CatalogObservation", "component_kind": "string", "component_mentions": "[]string", "component_evidence": "ComponentEvidenceMetadata", "activity": "ActivityMetadata", "prompt_features": "PromptFeatures", "telemetry": "TelemetryMeasurements", "redaction_counts": "RedactionCounts", "lineage": "Lineage"},
     "SafeError": {"incident_id": "string", "source_schema_id": "string", "schema_fingerprint": "string", "field_path": "string", "category": "string", "total_bytes": "int64", "record_count": "int", "observed_at": "time.Time", "received_at": "time.Time"},
     "SafeLogEvent": {"event_name": "string", "category": "string", "adapter_id": "string", "source_schema_id": "string", "schema_fingerprint": "string", "field_path": "string", "byte_count": "int64", "record_count": "int", "outcome": "string", "value_state": "ValueState", "duration_ms": "int64"},
 }
@@ -578,7 +605,7 @@ def validate_ingress(data: dict[str, Any] | None = None) -> list[str]:
     if data.get("stable_prompt_hashes") is not False or data.get("embeddings") is not False or data.get("optional_prompt_hmac") is not False:
         errors.append("ingress: prompt hashes, embeddings and optional prompt HMAC remain disabled")
     nested = data.get("nested_types", {})
-    expected_nested = {"CatalogObservation", "ComponentEvidenceMetadata", "PromptFeatures", "TelemetryMeasurements", "RedactionCounts", "Lineage", "SafeLogEvent"}
+    expected_nested = {"CatalogObservation", "ComponentEvidenceMetadata", "ActivityMetadata", "PromptFeatures", "TelemetryMeasurements", "RedactionCounts", "Lineage", "SafeLogEvent"}
     if set(nested) != expected_nested or any(set(value) != {"fields", "closed"} or value.get("closed") is not True for value in nested.values() if isinstance(value, dict)):
         errors.append("ingress: nested boundary types must be an exact closed schema")
     policy = data.get("decoder_policy", {})

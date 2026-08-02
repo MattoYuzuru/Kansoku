@@ -498,8 +498,12 @@ func TestCanonicalEventForOTelRejectsUndocumentedEventName(t *testing.T) {
 }
 
 func TestCanonicalEventForOTelPreservesDocumentedMetadataOnlyEvents(t *testing.T) {
+	// codex.tool_decision left this list when decisions gained their own
+	// canonical event: it is no longer metadata-only, because the decision it
+	// carries is now read instead of discarded. Its mapping is asserted
+	// directly below rather than through the metadata-only loop.
 	for _, name := range []codexadapter.OTelEventName{
-		codexadapter.OTelModelTokenUsage, codexadapter.OTelToolDecision,
+		codexadapter.OTelModelTokenUsage,
 	} {
 		canonical, err := codexadapter.CanonicalEventForOTel(name, codexadapter.OTelAttributeShape{
 			InstrumentationScope: string(name),
@@ -511,6 +515,19 @@ func TestCanonicalEventForOTelPreservesDocumentedMetadataOnlyEvents(t *testing.T
 		if canonical != "source.observed" {
 			t.Fatalf("documented metadata-only event %q = %q, want source.observed", name, canonical)
 		}
+	}
+}
+
+func TestCanonicalEventForOTelMapsToolDecisionToItsOwnEvent(t *testing.T) {
+	canonical, err := codexadapter.CanonicalEventForOTel(codexadapter.OTelToolDecision, codexadapter.OTelAttributeShape{
+		InstrumentationScope: string(codexadapter.OTelToolDecision),
+		PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if canonical != "tool.decided" {
+		t.Fatalf("codex.tool_decision = %q, want tool.decided", canonical)
 	}
 }
 

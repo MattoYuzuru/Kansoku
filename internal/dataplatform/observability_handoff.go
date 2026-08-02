@@ -165,23 +165,23 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 	)
 	_, sourceScopeState := canonicalSourceScopeFilter(event.ComponentEvidence.SourceScope)
 	return ObservabilityFactScope{
-		DeviceID:                deviceID,
-		AgentInstallationID:     installationID,
-		SurfaceID:               surfaceID,
-		ProjectID:               projectID,
-		SessionID:               sessionID,
-		TurnID:                  turnID,
-		ComponentID:             componentID,
-		AdapterVersionID:        adapterVersionID,
-		SourceInstanceID:        sourceInstanceID,
-		ComponentResolution:     "unresolved",
-		DeclaredComponentPseudo: declaredComponentPseudo,
-		ComponentKind:           databaseComponentKind(event.Subject.Kind),
-		QualifiedIdentity:       event.ComponentEvidence.QualifiedIdentity,
-		IdentitySource:          event.ComponentEvidence.IdentitySource,
-		OwnerPluginIdentity:     event.ComponentEvidence.OwnerPluginIdentity,
-		InvocationMode:          event.ComponentEvidence.InvocationMode,
-		UpstreamIdentityHash:    event.ComponentEvidence.UpstreamIdentityHash,
+		DeviceID:                  deviceID,
+		AgentInstallationID:       installationID,
+		SurfaceID:                 surfaceID,
+		ProjectID:                 projectID,
+		SessionID:                 sessionID,
+		TurnID:                    turnID,
+		ComponentID:               componentID,
+		AdapterVersionID:          adapterVersionID,
+		SourceInstanceID:          sourceInstanceID,
+		ComponentResolution:       "unresolved",
+		DeclaredComponentPseudo:   declaredComponentPseudo,
+		ComponentKind:             databaseComponentKind(event.Subject.Kind),
+		QualifiedIdentity:         event.ComponentEvidence.QualifiedIdentity,
+		IdentitySource:            event.ComponentEvidence.IdentitySource,
+		OwnerPluginIdentity:       event.ComponentEvidence.OwnerPluginIdentity,
+		InvocationMode:            event.ComponentEvidence.InvocationMode,
+		UpstreamIdentityHash:      event.ComponentEvidence.UpstreamIdentityHash,
 		ComponentSourceScope:      event.ComponentEvidence.SourceScope,
 		ComponentSourceScopeState: sourceScopeState,
 		ResolutionVersion:         1,
@@ -254,6 +254,7 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		ProjectID:           scope.ProjectID,
 		SessionID:           scope.SessionID,
 		TurnID:              scope.TurnID,
+		MessageID:           event.Scope.MessageID,
 		ComponentID:         scope.ComponentID,
 		DurationMS:          event.Measurements.DurationMS,
 		Success:             event.Measurements.Success,
@@ -541,9 +542,10 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 				declared_identity_pseudonym, candidate_count, component_kind,
 				qualified_identity, identity_source, owner_plugin_identity,
 				invocation_mode, upstream_identity_hash, resolution_version,
-				source_scope, source_scope_state
+				source_scope, source_scope_state,
+				marketplace, component_scope, component_version
 			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-				$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+				$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
 			ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
 		`, assertionID, nullableString(scope.ComponentInstallationID),
 			scope.AgentInstallationID, nullableString(scope.SessionID),
@@ -556,7 +558,10 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			nullableString(scope.IdentitySource), nullableString(scope.OwnerPluginIdentity),
 			nullableString(scope.InvocationMode), nullableString(scope.UpstreamIdentityHash),
 			scope.ResolutionVersion, nullableString(scope.ComponentSourceScope),
-			scope.ComponentSourceScopeState)
+			scope.ComponentSourceScopeState,
+			nullableString(event.ComponentEvidence.Marketplace),
+			nullableString(event.ComponentEvidence.ComponentScope),
+			nullableString(event.ComponentEvidence.ComponentVersion))
 		if err != nil {
 			return err
 		}
@@ -634,6 +639,29 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		`, handoffID("prompt-feature", event.EventID), scope.TurnID, event.ObservedAt,
 			event.Measurements.PromptCharacterCount, event.ValueState)
 		return err
+	case "tool.decided":
+		// A decision is stored in its own lane, never as a second tool_calls
+		// row: tool_calls remains the execution surface, so no existing count
+		// moves by one. A denied decision has no execution to be counted from
+		// at all, which is exactly the population that was invisible before.
+		if err := EnsurePartition(ctx, h.pool, "tool_decisions", event.ObservedAt); err != nil {
+			return err
+		}
+		decision, decisionState := canonicalToolDecision(event.Activity.ToolDecision)
+		if _, err := h.pool.Exec(ctx, `
+			INSERT INTO tool_decisions (
+				tool_decision_id, observed_at, event_id, session_id, component_id,
+				decision, decision_state, decision_source, tool_use_pseudonym,
+				agent_installation_id, installation_attribution_state
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'exact')
+			ON CONFLICT (tool_decision_id, observed_at) DO NOTHING
+		`, handoffID("tool-decision", event.EventID), event.ObservedAt, event.EventID,
+			nullableString(scope.SessionID), nullableString(scope.ComponentID),
+			decision, decisionState, nullableString(event.Activity.ToolSource),
+			nullableString(event.Activity.ToolUsePseudonym), scope.AgentInstallationID); err != nil {
+			return err
+		}
+		return h.persistSessionContext(ctx, event, scope)
 	case "tool.called":
 		if err := EnsurePartition(ctx, h.pool, "tool_calls", event.ObservedAt); err != nil {
 			return err
@@ -642,12 +670,15 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			INSERT INTO tool_calls (
 				tool_call_id, observed_at, event_id, component_id, session_id,
 				duration_ms, outcome, agent_installation_id,
-				installation_attribution_state
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'exact')
+				installation_attribution_state,
+				tool_use_pseudonym, tool_source, input_bytes, result_bytes
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'exact',$9,$10,$11,$12)
 			ON CONFLICT (tool_call_id, observed_at) DO NOTHING
 		`, handoffID("tool-call", event.EventID), event.ObservedAt, event.EventID,
 			nullableString(scope.ComponentID), scope.SessionID, event.Measurements.DurationMS,
-			event.Outcome, scope.AgentInstallationID)
+			event.Outcome, scope.AgentInstallationID,
+			nullableString(event.Activity.ToolUsePseudonym), nullableString(event.Activity.ToolSource),
+			event.Measurements.ToolInputBytes, event.Measurements.ToolResultBytes)
 		if err != nil {
 			return err
 		}
@@ -671,12 +702,14 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			INSERT INTO model_operations (
 				model_operation_id, observed_at, event_id, model_id, session_id,
 				provider_cost_micros, operation_kind, duration_ms, outcome,
-				agent_installation_id, installation_attribution_state
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'exact')
+				agent_installation_id, installation_attribution_state,
+				response_character_count
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'exact',$11)
 			ON CONFLICT (model_operation_id, observed_at) DO NOTHING
 		`, operationID, event.ObservedAt, event.EventID, event.Subject.ModelID,
 			scope.SessionID, event.Measurements.ProviderCostMicros, operationKind,
-			event.Measurements.DurationMS, event.Outcome, scope.AgentInstallationID); err != nil {
+			event.Measurements.DurationMS, event.Outcome, scope.AgentInstallationID,
+			event.Measurements.ResponseCharacterCount); err != nil {
 			return err
 		}
 		if operationKind == "request" {
@@ -696,12 +729,14 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 		_, err = h.pool.Exec(ctx, `
 			INSERT INTO token_usage (
 				token_usage_id, observed_at, model_operation_id, input_tokens,
-				cached_input_tokens, output_tokens
-			) VALUES ($1,$2,$3,$4,$5,$6)
+				cached_input_tokens, output_tokens,
+				cache_creation_tokens, cache_read_tokens
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 			ON CONFLICT (token_usage_id, observed_at) DO NOTHING
 		`, tokenUsageID, event.ObservedAt, operationID,
 			*event.Measurements.InputTokens, event.Measurements.CachedInputTokens,
-			*event.Measurements.OutputTokens)
+			*event.Measurements.OutputTokens,
+			event.Measurements.CacheCreationTokens, event.Measurements.CacheReadTokens)
 		if err != nil {
 			return err
 		}
@@ -713,8 +748,82 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			)
 		}
 		return nil
+	case "source.observed":
+		// source.observed stays the honest classification for metadata-only
+		// activity, but a hook registration announces which hook the agent
+		// wired to which event -- three vocabulary tokens that were being
+		// thrown away with the rest of the record. hook_matcher is absent by
+		// design: it is user-authored and can embed a path.
+		if event.Activity.HookEvent == "" && event.Activity.HookType == "" &&
+			event.Activity.HookSource == "" {
+			return h.persistSessionContext(ctx, event, scope)
+		}
+		if err := EnsurePartition(ctx, h.pool, "hook_registrations", event.ObservedAt); err != nil {
+			return err
+		}
+		if _, err := h.pool.Exec(ctx, `
+			INSERT INTO hook_registrations (
+				hook_registration_id, observed_at, event_id, session_id,
+				hook_event, hook_type, hook_source,
+				agent_installation_id, installation_attribution_state
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'exact')
+			ON CONFLICT (hook_registration_id, observed_at) DO NOTHING
+		`, handoffID("hook-registration", event.EventID), event.ObservedAt, event.EventID,
+			nullableString(scope.SessionID), nullableString(event.Activity.HookEvent),
+			nullableString(event.Activity.HookType), nullableString(event.Activity.HookSource),
+			scope.AgentInstallationID); err != nil {
+			return err
+		}
+		return h.persistSessionContext(ctx, event, scope)
 	default:
+		return h.persistSessionContext(ctx, event, scope)
+	}
+}
+
+// persistSessionContext records how a session was started, what asked for it
+// and where it ran. Every value is optional and only ever fills a column that
+// is still empty: the first event that carries a value wins, and a later event
+// without one can never erase what was already observed.
+func (h *ObservabilityHandoff) persistSessionContext(
+	ctx context.Context,
+	event observability.Event,
+	scope ObservabilityFactScope,
+) error {
+	if scope.SessionID == "" {
 		return nil
+	}
+	activity := event.Activity
+	if activity.SessionStartType == "" && activity.QuerySource == "" &&
+		activity.TerminalType == "" && activity.SafeMode == "" && event.Scope.UserID == "" {
+		return nil
+	}
+	_, err := h.pool.Exec(ctx, `
+		UPDATE sessions SET
+			start_type = coalesce(start_type, $2),
+			query_source = coalesce(query_source, $3),
+			terminal_type = coalesce(terminal_type, $4),
+			safe_mode = coalesce(safe_mode, $5),
+			user_pseudonym = coalesce(user_pseudonym, $6)
+		WHERE session_id = $1
+	`, scope.SessionID, nullableString(activity.SessionStartType),
+		nullableString(activity.QuerySource), nullableString(activity.TerminalType),
+		nullableString(activity.SafeMode), nullableString(event.Scope.UserID))
+	return err
+}
+
+// canonicalToolDecision classifies a reported decision against the vocabulary
+// observed on the wire and documented by the agents, without ever coercing an
+// unrecognized value into a recognized one. An unknown decision is stored
+// verbatim with state 'unknown' -- the same treatment source scope already
+// gets -- so a new permission answer shows up as new, not as an approval.
+func canonicalToolDecision(raw string) (string, string) {
+	switch raw {
+	case "":
+		return "not_observed", "not_observed"
+	case "accept", "reject":
+		return raw, "observed"
+	default:
+		return raw, "unknown"
 	}
 }
 

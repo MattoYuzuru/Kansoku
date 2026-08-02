@@ -92,7 +92,13 @@ type Scope struct {
 	ProjectID           string `json:"project_id"`
 	SessionID           string `json:"session_id"`
 	TurnID              string `json:"turn_id"`
-	ParentEventID       string `json:"parent_event_id"`
+	// MessageID and UserID are already-pseudonymized handles, never the
+	// agent's raw message uuid or operator id. They widen correlation from
+	// "which turn" to "which message, whose session" without widening what
+	// is stored about either.
+	MessageID     string `json:"message_id"`
+	UserID        string `json:"user_id"`
+	ParentEventID string `json:"parent_event_id"`
 }
 
 type Subject struct {
@@ -109,17 +115,42 @@ type ComponentEvidenceMetadata struct {
 	InvocationMode       string `json:"invocation_mode"`
 	UpstreamIdentityHash string `json:"upstream_identity_hash"`
 	SourceScope          string `json:"source_scope"`
+	Marketplace          string `json:"marketplace"`
+	ComponentScope       string `json:"component_scope"`
+	ComponentVersion     string `json:"component_version"`
+}
+
+// ActivityMetadata carries how an activity happened, mirroring
+// privacy.ActivityMetadata one-for-one. Values arrive as the agent reported
+// them; classification into known/unknown vocabulary happens in the data
+// platform, so nothing is coerced on the way in.
+type ActivityMetadata struct {
+	ToolDecision     string `json:"tool_decision"`
+	ToolSource       string `json:"tool_source"`
+	ToolUsePseudonym string `json:"tool_use_pseudonym"`
+	HookEvent        string `json:"hook_event"`
+	HookType         string `json:"hook_type"`
+	HookSource       string `json:"hook_source"`
+	SessionStartType string `json:"session_start_type"`
+	QuerySource      string `json:"query_source"`
+	TerminalType     string `json:"terminal_type"`
+	SafeMode         string `json:"safe_mode"`
 }
 
 type Measurements struct {
-	DurationMS           *int64 `json:"duration_ms"`
-	Success              *bool  `json:"success"`
-	Count                *int64 `json:"count"`
-	PromptCharacterCount *int64 `json:"prompt_character_count"`
-	InputTokens          *int64 `json:"input_tokens"`
-	CachedInputTokens    *int64 `json:"cached_input_tokens"`
-	OutputTokens         *int64 `json:"output_tokens"`
-	ProviderCostMicros   *int64 `json:"provider_cost_micros"`
+	DurationMS             *int64 `json:"duration_ms"`
+	Success                *bool  `json:"success"`
+	Count                  *int64 `json:"count"`
+	PromptCharacterCount   *int64 `json:"prompt_character_count"`
+	InputTokens            *int64 `json:"input_tokens"`
+	CachedInputTokens      *int64 `json:"cached_input_tokens"`
+	OutputTokens           *int64 `json:"output_tokens"`
+	ProviderCostMicros     *int64 `json:"provider_cost_micros"`
+	CacheCreationTokens    *int64 `json:"cache_creation_tokens"`
+	CacheReadTokens        *int64 `json:"cache_read_tokens"`
+	ResponseCharacterCount *int64 `json:"response_character_count"`
+	ToolInputBytes         *int64 `json:"tool_input_bytes"`
+	ToolResultBytes        *int64 `json:"tool_result_bytes"`
 }
 
 // Event is a closed durable allowlist. Raw payloads, generic attribute maps,
@@ -137,6 +168,7 @@ type Event struct {
 	Scope             Scope                     `json:"scope"`
 	Subject           Subject                   `json:"subject"`
 	ComponentEvidence ComponentEvidenceMetadata `json:"component_evidence"`
+	Activity          ActivityMetadata          `json:"activity"`
 	Measurements      Measurements              `json:"measurements"`
 	ValueState        string                    `json:"value_state"`
 	Outcome           string                    `json:"outcome"`

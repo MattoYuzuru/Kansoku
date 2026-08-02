@@ -8,7 +8,7 @@ import (
 // PrivacyContractSemanticSHA256 is generated from the canonical JSON encoding
 // of every contracts/privacy registry, ordered by repository-relative path.
 // scripts/validate_privacy.py refuses a registry/runtime drift.
-const PrivacyContractSemanticSHA256 = "b528675917a19c708d7f1f0a3a1e57509ef2f14e5ab1eb748be04267b2a31104"
+const PrivacyContractSemanticSHA256 = "ecff275426a4580582fc436c24cf2bc843a2b6486277133119dcb44b3ed12e3b"
 
 type ValueState string
 
@@ -31,6 +31,45 @@ type TelemetryMeasurements struct {
 	CachedInputTokens    *int64 `json:"cached_input_tokens"`
 	OutputTokens         *int64 `json:"output_tokens"`
 	ProviderCostMicros   *int64 `json:"provider_cost_micros"`
+	// CacheCreationTokens/CacheReadTokens are the two distinct cache
+	// measurements agents report. CachedInputTokens keeps its existing
+	// meaning -- whatever the source called "cached input" -- rather than
+	// being redefined as a sum of these two, because collapsing three
+	// separately reported numbers into one is exactly the kind of silent
+	// loss this boundary exists to prevent.
+	CacheCreationTokens *int64 `json:"cache_creation_tokens"`
+	CacheReadTokens     *int64 `json:"cache_read_tokens"`
+	// ResponseCharacterCount is a length, never the response itself; it is
+	// the response-side counterpart of PromptCharacterCount.
+	ResponseCharacterCount *int64 `json:"response_character_count"`
+	// ToolInputBytes/ToolResultBytes are sizes the agent already computed.
+	// The payloads they measure remain unconditionally dropped.
+	ToolInputBytes  *int64 `json:"tool_input_bytes"`
+	ToolResultBytes *int64 `json:"tool_result_bytes"`
+}
+
+// ActivityMetadata is the closed, content-free projection of how an activity
+// happened: which decision a tool call received, which surface registered a
+// hook, how a session was started. Every field is a short vocabulary token or
+// an already-pseudonymized correlation handle -- never a payload, matcher,
+// command, path or free-form label. Values outside a known vocabulary are
+// carried through verbatim and classified downstream, exactly as
+// ComponentEvidenceMetadata.SourceScope already is: this boundary records
+// what the agent said, it does not coerce it into something it recognizes.
+type ActivityMetadata struct {
+	ToolDecision string `json:"tool_decision"`
+	ToolSource   string `json:"tool_source"`
+	// ToolUsePseudonym is the device-scoped HMAC of the agent's tool-use id.
+	// It is what lets a decision be joined to the execution it authorized
+	// without the raw upstream identifier ever becoming durable.
+	ToolUsePseudonym string `json:"tool_use_pseudonym"`
+	HookEvent        string `json:"hook_event"`
+	HookType         string `json:"hook_type"`
+	HookSource       string `json:"hook_source"`
+	SessionStartType string `json:"session_start_type"`
+	QuerySource      string `json:"query_source"`
+	TerminalType     string `json:"terminal_type"`
+	SafeMode         string `json:"safe_mode"`
 }
 
 type ObservationState string
@@ -168,12 +207,18 @@ type Lineage struct {
 	SourceRecordPseudonym string `json:"source_record_pseudonym"`
 	SessionPseudonym      string `json:"session_pseudonym"`
 	TurnPseudonym         string `json:"turn_pseudonym"`
-	AdapterID             string `json:"adapter_id"`
-	AdapterVersion        string `json:"adapter_version"`
-	SourceSchemaID        string `json:"source_schema_id"`
-	SchemaFingerprint     string `json:"schema_fingerprint"`
-	SanitizerVersion      string `json:"sanitizer_version"`
-	ContractSHA256        string `json:"contract_sha256"`
+	// MessagePseudonym and UserPseudonym are device-scoped HMACs of the
+	// agent's own message and user identifiers. They make per-message and
+	// per-operator correlation possible without either raw value ever
+	// becoming durable, the same construction TurnPseudonym already uses.
+	MessagePseudonym  string `json:"message_pseudonym"`
+	UserPseudonym     string `json:"user_pseudonym"`
+	AdapterID         string `json:"adapter_id"`
+	AdapterVersion    string `json:"adapter_version"`
+	SourceSchemaID    string `json:"source_schema_id"`
+	SchemaFingerprint string `json:"schema_fingerprint"`
+	SanitizerVersion  string `json:"sanitizer_version"`
+	ContractSHA256    string `json:"contract_sha256"`
 }
 
 // ComponentEvidenceMetadata is the closed identity-only projection accepted
@@ -186,6 +231,15 @@ type ComponentEvidenceMetadata struct {
 	InvocationMode       string `json:"invocation_mode"`
 	UpstreamIdentityHash string `json:"upstream_identity_hash"`
 	SourceScope          string `json:"source_scope"`
+	// Marketplace is the declared marketplace an owner plugin came from. The
+	// resolver previously approximated it by splitting the owner declared
+	// name on '@' while the exact value sat unread on the wire.
+	Marketplace string `json:"marketplace"`
+	// ComponentScope and ComponentVersion are the owner's declared install
+	// scope and version as the agent reports them: identity metadata, not a
+	// location and not a payload.
+	ComponentScope   string `json:"component_scope"`
+	ComponentVersion string `json:"component_version"`
 }
 
 // SafeRecord is an explicit persistence allowlist. It deliberately has no
@@ -208,6 +262,7 @@ type SafeRecord struct {
 	ComponentKind     string                    `json:"component_kind"`
 	ComponentMentions []string                  `json:"component_mentions"`
 	ComponentEvidence ComponentEvidenceMetadata `json:"component_evidence"`
+	Activity          ActivityMetadata          `json:"activity"`
 	PromptFeatures    PromptFeatures            `json:"prompt_features"`
 	Telemetry         TelemetryMeasurements     `json:"telemetry"`
 	RedactionCounts   RedactionCounts           `json:"redaction_counts"`

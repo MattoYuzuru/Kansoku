@@ -41,6 +41,7 @@ type FactRow struct {
 	ProjectID           string
 	SessionID           string
 	TurnID              string
+	MessageID           string
 	ComponentID         string
 	DurationMS          *int64
 	Success             *bool
