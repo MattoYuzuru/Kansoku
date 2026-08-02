@@ -607,3 +607,24 @@ func TestDroppedOTelSurfacesNeverIncludesASafeAttribute(t *testing.T) {
 		}
 	}
 }
+
+// TestManifestDeclaresExposedSkillPlaneNative pins Codex's exposure plane by
+// contract rather than by the absence of a declaration. Codex populates the
+// exposure observation windows from the App Server skills/list response; if a
+// regression stopped doing that, an undeclared adapter would be indistinguish-
+// able from one that never supported the plane, and the Claude fallback path
+// would silently start applying to Codex rows.
+func TestManifestDeclaresExposedSkillPlaneNative(t *testing.T) {
+	declarations := codexadapter.New().Manifest().ComponentPlaneSupport
+	if len(declarations) != 1 {
+		t.Fatalf("declarations=%+v want exactly one", declarations)
+	}
+	declaration := declarations[0]
+	if declaration.ComponentKind != "skill" || declaration.Plane != adaptersdk.PlaneExposed ||
+		declaration.State != adaptersdk.PlaneNative {
+		t.Fatalf("declaration=%+v want skill/exposed/native", declaration)
+	}
+	if declaration.Reason != "app_server_skills_list_response" {
+		t.Fatalf("reason=%q", declaration.Reason)
+	}
+}

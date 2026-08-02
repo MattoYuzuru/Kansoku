@@ -477,3 +477,75 @@ func contains(haystack, needle string) bool {
 		return false
 	})()
 }
+
+// TestParseManifestAcceptsAbsentComponentPlaneSupportAndBoundsDeclarations
+// covers the compatibility guarantee first: a manifest written before the
+// field existed must still parse, and must mean "supported" rather than
+// "unsupported" -- treating silence as unsupported would flip every existing
+// adapter's cold semantics on upgrade.
+func TestParseManifestAcceptsAbsentComponentPlaneSupportAndBoundsDeclarations(t *testing.T) {
+	base := map[string]any{
+		"api_version": adaptersdk.AdapterAPIVersion, "id": "fixture", "version": "1.0.0",
+		"execution":   string(adaptersdk.ExecutionBuiltin),
+		"permissions": map[string]any{"network": string(adaptersdk.NetworkNone)},
+	}
+	encode := func(value map[string]any) []byte {
+		raw, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	manifest, err := adaptersdk.ParseManifest(encode(base))
+	if err != nil {
+		t.Fatalf("manifest without component_plane_support rejected: %v", err)
+	}
+	if manifest.ComponentPlaneSupport != nil {
+		t.Fatalf("absent declaration decoded as %+v", manifest.ComponentPlaneSupport)
+	}
+
+	withDeclaration := func(kind, plane, state, reason string) map[string]any {
+		copied := map[string]any{}
+		for key, value := range base {
+			copied[key] = value
+		}
+		copied["component_plane_support"] = []any{map[string]any{
+			"component_kind": kind, "plane": plane, "state": state, "reason": reason,
+		}}
+		return copied
+	}
+	if _, err := adaptersdk.ParseManifest(encode(
+		withDeclaration("skill", "exposed", "unsupported", "agent_publishes_no_such_surface"),
+	)); err != nil {
+		t.Fatalf("valid declaration rejected: %v", err)
+	}
+	for _, test := range []struct {
+		name                            string
+		kind, plane, state, reasonValue string
+	}{
+		{"unknown component kind", "subagent", "exposed", "native", "why"},
+		{"unknown plane", "skill", "availability", "native", "why"},
+		{"unknown state", "skill", "exposed", "partial", "why"},
+		{"missing reason", "skill", "exposed", "unsupported", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := adaptersdk.ParseManifest(encode(
+				withDeclaration(test.kind, test.plane, test.state, test.reasonValue),
+			)); err == nil {
+				t.Fatal("out-of-vocabulary declaration accepted")
+			}
+		})
+	}
+
+	duplicate := map[string]any{}
+	for key, value := range base {
+		duplicate[key] = value
+	}
+	duplicate["component_plane_support"] = []any{
+		map[string]any{"component_kind": "skill", "plane": "exposed", "state": "native", "reason": "a"},
+		map[string]any{"component_kind": "skill", "plane": "exposed", "state": "unsupported", "reason": "b"},
+	}
+	if _, err := adaptersdk.ParseManifest(encode(duplicate)); err == nil {
+		t.Fatal("two conflicting declarations for one (kind, plane) accepted")
+	}
+}

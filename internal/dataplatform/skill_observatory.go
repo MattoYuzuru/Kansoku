@@ -6,11 +6,29 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"kansoku.local/kansoku/internal/adaptersdk"
 )
 
 const (
 	FormulaVersionSkillObservatory1 = "skill.cold_count/1"
 	FormulaVersionSkillProfile1     = "skill_profile/1"
+
+	// Version 2 adds the second cold-eligibility path. Version 1 required an
+	// exposure observation window, which silently assumed every agent has a
+	// surface reporting the model-visible component set. Claude Code has
+	// none, so every Claude skill reported not_observed forever -- "we looked
+	// and saw nothing" where the truth was "there is nothing to look at".
+	//
+	// Under /2, an installation whose adapter declares the exposed plane
+	// unsupported becomes eligible on inventory-snapshot completeness
+	// instead. That mirrors plugin.active_share/2, which already gates
+	// eligibility on inventory completeness with no exposure window at all;
+	// skills were the outlier. The prohibition on treating a global enabled
+	// list as exposure is unchanged: the enabled list still never becomes an
+	// exposure assertion, it only becomes an eligibility precondition where
+	// no exposure surface exists.
+	FormulaVersionSkillObservatory2 = "skill.cold_count/2"
+	FormulaVersionSkillProfile2     = "skill_profile/2"
 )
 
 type SkillModeCounts struct {
@@ -39,8 +57,14 @@ type SkillObservatoryRow struct {
 	LastInvokedAt           *time.Time      `json:"last_invoked_at,omitempty"`
 	Modes                   SkillModeCounts `json:"modes"`
 	ColdState               string          `json:"cold_state"`
-	OutcomeState            string          `json:"outcome_state"`
-	Completeness            string          `json:"completeness"`
+	// ExposureState is observed, not_observed or unsupported. "unsupported"
+	// means the agent publishes no model-visible component set at all; it is
+	// never rendered as zero and never as "not enough evidence yet".
+	ExposureState     string `json:"exposure_state"`
+	ExposureReason    string `json:"exposure_reason,omitempty"`
+	InventoryCoverage string `json:"inventory_coverage"`
+	OutcomeState      string `json:"outcome_state"`
+	Completeness      string `json:"completeness"`
 }
 
 type SkillPlaneCounts struct {
@@ -162,7 +186,9 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 			coalesce(ac.sessions,0), coalesce(ac.active_days,0), ac.last_invoked,
 			coalesce(ac.explicit_count,0), coalesce(ac.proactive_count,0),
 			coalesce(ac.nested_count,0), coalesce(ac.outcome_count,0),
-			coalesce(w.complete_exposure,false)
+			coalesce(w.complete_exposure,false),
+			coalesce(ps.state,''), coalesce(ps.reason,''),
+			coalesce(snap.completeness,'unknown')
 		FROM component_inventory_state cis
 		JOIN component_installations ci ON ci.component_installation_id=cis.component_installation_id
 		JOIN component_versions cv ON cv.component_version_id=ci.component_version_id
@@ -170,6 +196,10 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 		JOIN agent_installations ai ON ai.agent_installation_id=ci.agent_installation_id
 		LEFT JOIN assertion_counts ac ON ac.component_installation_id=ci.component_installation_id
 		LEFT JOIN windows w ON w.component_installation_id=ci.component_installation_id
+		LEFT JOIN agent_component_plane_support ps
+		  ON ps.agent_installation_id=ai.agent_installation_id
+		 AND ps.component_kind='skill' AND ps.plane='exposed'
+		LEFT JOIN inventory_snapshots snap ON snap.snapshot_id=cis.last_snapshot_id
 		WHERE c.kind='skill'
 		ORDER BY coalesce(ac.invoked_count,0) DESC, coalesce(c.declared_name,c.component_id), ci.component_installation_id
 	`, from, to)
@@ -177,11 +207,12 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 		return SkillObservatoryResponse{}, budgetOrErr(budget, started, err)
 	}
 	var response SkillObservatoryResponse
-	var eligible int64
+	var eligible, missingExposureWindow, unsupportedWithoutInventory int64
 	for rows.Next() {
 		var row SkillObservatoryRow
 		var outcomeCount int64
 		var completeExposure bool
+		var planeState, planeReason, inventoryCompleteness string
 		if err := rows.Scan(
 			&row.ComponentInstallationID, &row.ComponentID, &row.DeclaredName,
 			&row.Version, &row.VersionState, &row.SourceScope, &row.AgentID,
@@ -190,6 +221,7 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 			&row.UniqueSessions, &row.ActiveDays, &row.LastInvokedAt,
 			&row.Modes.Explicit, &row.Modes.Proactive, &row.Modes.Nested,
 			&outcomeCount, &completeExposure,
+			&planeState, &planeReason, &inventoryCompleteness,
 		); err != nil {
 			rows.Close()
 			return SkillObservatoryResponse{}, err
@@ -199,10 +231,44 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 		if outcomeCount > 0 {
 			row.OutcomeState = "observed"
 		}
+		// An undeclared plane is supported. That is what preserves today's
+		// behaviour byte for byte for every adapter that has not declared
+		// anything -- fakeadapter, wayfinder, and any future adapter -- and
+		// it is why planeState is compared against the one value that changes
+		// the outcome rather than switched over exhaustively.
+		exposureUnsupported := planeState == string(adaptersdk.PlaneUnsupported)
+		inventoryComplete := inventoryCompleteness == "complete"
+		row.InventoryCoverage = inventoryCompleteness
 		switch {
-		case !row.Enabled || !completeExposure || row.ExposedCount == 0:
+		case exposureUnsupported:
+			row.ExposureState = "unsupported"
+			row.ExposureReason = planeReason
+		case row.ExposedCount > 0:
+			row.ExposureState = "observed"
+		default:
+			row.ExposureState = "not_observed"
+		}
+		// Cold eligibility has two paths, and exactly one applies per row.
+		//   supported plane: the agent told us what it exposed, inside a
+		//     complete window. Unchanged from /1.
+		//   unsupported plane: there is no exposure surface at all, so
+		//     eligibility rests on the inventory snapshot being complete.
+		//     This is deliberately coupled to coverage gaps: a mis-mounted
+		//     host reports a partial snapshot and drops out of the
+		//     denominator, instead of producing a confident cold count over a
+		//     silently truncated inventory.
+		rowEligible := row.Enabled &&
+			((!exposureUnsupported && completeExposure && row.ExposedCount > 0) ||
+				(exposureUnsupported && inventoryComplete))
+		switch {
+		case !rowEligible:
 			row.ColdState = "not_observed"
 			row.Completeness = "partial"
+			if row.Enabled && exposureUnsupported {
+				unsupportedWithoutInventory++
+			} else if row.Enabled {
+				missingExposureWindow++
+			}
 		case row.InvokedCount == 0:
 			row.ColdState = "cold"
 			row.Completeness = "complete"
@@ -244,14 +310,19 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 	`, from, to).Scan(&unresolved, &ambiguous); err != nil {
 		return SkillObservatoryResponse{}, err
 	}
-	response.FormulaVersion = FormulaVersionSkillObservatory1
+	response.FormulaVersion = FormulaVersionSkillObservatory2
 	response.Population = Population{
 		Numerator: response.Counts.Cold, Denominator: eligible,
 	}
+	// The two exposure exclusions partition the ineligible enabled rows, so
+	// nothing is counted twice: partial_or_missing_exposure_window covers
+	// supported planes only, and the new key covers the rest. Their sum is
+	// still enabled - eligible.
 	response.Exclusions = map[string]int64{
-		"partial_or_missing_exposure_window": response.Counts.Enabled - eligible,
-		"unresolved_identity":                unresolved,
-		"ambiguous_identity":                 ambiguous,
+		"partial_or_missing_exposure_window":                    missingExposureWindow,
+		"exposure_plane_unsupported_without_complete_inventory": unsupportedWithoutInventory,
+		"unresolved_identity":                                   unresolved,
+		"ambiguous_identity":                                    ambiguous,
 	}
 	response.Completeness = completenessFor(eligible, response.Counts.Enabled)
 	if elapsed := time.Since(started).Milliseconds(); elapsed > budget.MaxMS {
@@ -385,7 +456,7 @@ func SkillProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to t
 	`, response.Identity.AgentInstallationID).Scan(&response.IncidentCount); err != nil {
 		return SkillProfileResponse{}, err
 	}
-	response.FormulaVersion = FormulaVersionSkillProfile1
+	response.FormulaVersion = FormulaVersionSkillProfile2
 	response.Population = Population{Numerator: int64(len(response.Assertions)), Denominator: int64(len(response.Assertions))}
 	response.Exclusions = list.Exclusions
 	response.Completeness = list.Completeness

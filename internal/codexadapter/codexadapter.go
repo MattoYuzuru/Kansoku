@@ -114,6 +114,19 @@ func (a *Adapter) Manifest() adaptersdk.Manifest {
 			Network:     adaptersdk.NetworkLoopbackOnly,
 			ProcessExec: []string{executableName},
 		},
+		// Codex reports the model-visible skill set directly: the App Server
+		// skills/list response is what the exposure observation windows are
+		// built from. Declaring it explicitly pins today's behaviour by
+		// contract rather than by the absence of a declaration, so a
+		// regression that stopped populating exposure has something to fail
+		// against instead of quietly looking like an adapter that never
+		// supported the plane.
+		ComponentPlaneSupport: []adaptersdk.ComponentPlaneSupport{{
+			ComponentKind: "skill",
+			Plane:         adaptersdk.PlaneExposed,
+			State:         adaptersdk.PlaneNative,
+			Reason:        "app_server_skills_list_response",
+		}},
 		HealthChecks: []string{"config", "hook_trust", "otel_config", "fixture_replay", "watermark", "live_canary"},
 	}
 }

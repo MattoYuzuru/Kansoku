@@ -136,6 +136,24 @@ func (a *Adapter) Manifest() adaptersdk.Manifest {
 			Network:     adaptersdk.NetworkLoopbackOnly,
 			ProcessExec: []string{executableName},
 		},
+		// Claude Code has no model-visible skill surface to read. It emits no
+		// event and writes no snapshot naming the skills actually offered to
+		// the model for a turn: skill_activated reports one activation after
+		// the fact, and the SessionStart hook payload carries session_id,
+		// transcript_path, cwd, hook_event_name and source -- no skill list.
+		// Declaring that here is what lets the data platform tell "there is no
+		// surface to look at" from "we looked and saw nothing", without any
+		// core query learning this adapter's name. Deriving the plane from
+		// installed AND enabled was rejected (ADR 0023): a global enabled list
+		// is not an exposure assertion when the agent applies its own context
+		// limits, and cold is a user-facing claim that must not become partly
+		// inferred.
+		ComponentPlaneSupport: []adaptersdk.ComponentPlaneSupport{{
+			ComponentKind: "skill",
+			Plane:         adaptersdk.PlaneExposed,
+			State:         adaptersdk.PlaneUnsupported,
+			Reason:        "claude_code_documents_no_model_visible_skill_set_event_or_snapshot",
+		}},
 		HealthChecks: []string{"config", "hook_trust", "otel_config", "fixture_replay", "watermark", "live_canary"},
 	}
 }

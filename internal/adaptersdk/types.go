@@ -131,18 +131,68 @@ type Permissions struct {
 	ProcessExec    []string     `json:"process_exec"`
 }
 
+// EvidencePlane names one component evidence surface whose support an adapter
+// may declare. It is not the plane vocabulary of
+// contracts/component-evidence.yaml (availability/runtime/optimization): those
+// group assertion kinds, while this names the one surface whose *existence*
+// varies between agents and therefore has to be stated rather than inferred.
+type EvidencePlane string
+
+// PlaneExposed is the model-visible component set: what the agent actually
+// offered the model for this turn, as distinct from what is installed or
+// enabled. Codex reports it through the App Server skills/list response.
+// Claude Code documents no equivalent event or snapshot, so its absence there
+// is a property of the agent, not an observation gap.
+const PlaneExposed EvidencePlane = "exposed"
+
+// PlaneSupportState is how an adapter obtains one evidence plane.
+type PlaneSupportState string
+
+const (
+	// PlaneNative: the agent reports the plane directly.
+	PlaneNative PlaneSupportState = "native"
+	// PlaneReconstructed: the adapter derives the plane from another
+	// observed surface, with the evidence tier that implies.
+	PlaneReconstructed PlaneSupportState = "reconstructed"
+	// PlaneUnsupported: the agent exposes no surface to read at all. This is
+	// never rendered as zero and never as "not enough evidence yet" -- there
+	// is nothing to look at, which is a different claim from having looked.
+	PlaneUnsupported PlaneSupportState = "unsupported"
+)
+
+// ComponentPlaneSupport is one adapter's declaration, for one component kind,
+// of how (or whether) it can observe one evidence plane. It is data: the data
+// platform reads it to decide eligibility instead of branching on an agent
+// name, and a future adapter with the same missing surface inherits the
+// behaviour by declaring it.
+//
+// Reason is a bounded, machine-stable token explaining the state -- not a
+// user-facing sentence and never a path, credential or host value.
+type ComponentPlaneSupport struct {
+	ComponentKind string            `json:"component_kind"`
+	Plane         EvidencePlane     `json:"plane"`
+	State         PlaneSupportState `json:"state"`
+	Reason        string            `json:"reason"`
+}
+
 // Manifest is the closed, versioned, data-only description of one adapter.
 // Manifests are parsed with ParseManifest, never evaluated as code.
+//
+// ComponentPlaneSupport is optional: a manifest omitting it parses, and an
+// installation with no declaration is treated as supported, which preserves
+// today's behaviour exactly for fakeadapter, wayfinder and every future
+// adapter that has not yet been audited for this.
 type Manifest struct {
-	APIVersion     string                  `json:"api_version"`
-	ID             string                  `json:"id"`
-	Version        string                  `json:"version"`
-	Execution      ExecutionForm           `json:"execution"`
-	AgentDetection AgentDetection          `json:"agent_detection"`
-	Capabilities   map[CapabilityID]string `json:"capabilities"`
-	Sources        []SourceDescriptor      `json:"sources"`
-	Permissions    Permissions             `json:"permissions"`
-	HealthChecks   []string                `json:"health_checks"`
+	APIVersion            string                  `json:"api_version"`
+	ID                    string                  `json:"id"`
+	Version               string                  `json:"version"`
+	Execution             ExecutionForm           `json:"execution"`
+	AgentDetection        AgentDetection          `json:"agent_detection"`
+	Capabilities          map[CapabilityID]string `json:"capabilities"`
+	Sources               []SourceDescriptor      `json:"sources"`
+	Permissions           Permissions             `json:"permissions"`
+	HealthChecks          []string                `json:"health_checks"`
+	ComponentPlaneSupport []ComponentPlaneSupport `json:"component_plane_support,omitempty"`
 }
 
 // DetectionMethod records how an InstallationCandidate was found, so a
@@ -250,18 +300,89 @@ type Edge struct {
 	ToNode   string   `json:"to_node_id"`
 }
 
+// CoverageGapClass classifies one entry an inventory scan found but could not
+// turn into a component node. The vocabulary is closed: a scanner that meets
+// something outside it must extend this list rather than skip the entry, which
+// is the whole point — an unrecorded skip is a silently truncated inventory
+// that still reports itself complete.
+type CoverageGapClass string
+
+const (
+	// CoverageGapUnresolvableSymlink: the entry is a symlink whose target is
+	// not reachable from the permitted roots. On a containerised host this is
+	// the ordinary consequence of binding a link directory without binding the
+	// library the links point into.
+	CoverageGapUnresolvableSymlink CoverageGapClass = "unresolvable_symlink"
+	// CoverageGapUnreadableManifest: the manifest exists but the probe was
+	// refused or failed.
+	CoverageGapUnreadableManifest CoverageGapClass = "unreadable_component_manifest"
+	// CoverageGapTruncatedManifest: the manifest exceeded the bounded read
+	// ceiling, so any parse would be of a partial file.
+	CoverageGapTruncatedManifest CoverageGapClass = "truncated_component_manifest"
+	// CoverageGapUnparseableManifest: the manifest was read in full but its
+	// frontmatter declares no usable identity.
+	CoverageGapUnparseableManifest CoverageGapClass = "unparseable_component_manifest"
+)
+
+// ValidCoverageGapClass reports whether class is a member of the closed
+// vocabulary.
+func ValidCoverageGapClass(class CoverageGapClass) bool {
+	switch class {
+	case CoverageGapUnresolvableSymlink, CoverageGapUnreadableManifest,
+		CoverageGapTruncatedManifest, CoverageGapUnparseableManifest:
+		return true
+	default:
+		return false
+	}
+}
+
+// CoverageGaps is a per-class tally of entries one scan could not inventory.
+type CoverageGaps map[CoverageGapClass]int
+
+// Add records one gap of the given class. An out-of-vocabulary class is
+// recorded as unparseable rather than dropped.
+func (g CoverageGaps) Add(class CoverageGapClass) {
+	if !ValidCoverageGapClass(class) {
+		class = CoverageGapUnparseableManifest
+	}
+	g[class]++
+}
+
+// Merge folds another tally into this one.
+func (g CoverageGaps) Merge(other CoverageGaps) {
+	for class, count := range other {
+		g[class] += count
+	}
+}
+
+// Total is the number of entries the scan could not inventory.
+func (g CoverageGaps) Total() int {
+	total := 0
+	for _, count := range g {
+		total += count
+	}
+	return total
+}
+
 // InventorySnapshot is an immutable, point-in-time observation. Reconcile
 // derives current state by diffing two snapshots; a snapshot itself is
 // never mutated in place.
+//
+// CoverageGapCount/CoverageGapClasses carry what the scan could not read. They
+// are not cosmetic: cold eligibility for an agent with no exposure surface
+// rests on this snapshot being complete, so a mis-mounted host has to fail the
+// completeness check rather than yield a confident count over a truncated scan.
 type InventorySnapshot struct {
-	SnapshotID     string    `json:"snapshot_id"`
-	AdapterID      string    `json:"adapter_id"`
-	AdapterVersion string    `json:"adapter_version"`
-	InstallationID string    `json:"installation_id"`
-	ObservedAt     time.Time `json:"observed_at"`
-	Fingerprint    string    `json:"fingerprint"`
-	Nodes          []Node    `json:"nodes"`
-	Edges          []Edge    `json:"edges"`
+	SnapshotID         string       `json:"snapshot_id"`
+	AdapterID          string       `json:"adapter_id"`
+	AdapterVersion     string       `json:"adapter_version"`
+	InstallationID     string       `json:"installation_id"`
+	ObservedAt         time.Time    `json:"observed_at"`
+	Fingerprint        string       `json:"fingerprint"`
+	Nodes              []Node       `json:"nodes"`
+	Edges              []Edge       `json:"edges"`
+	CoverageGapCount   int          `json:"coverage_gap_count"`
+	CoverageGapClasses CoverageGaps `json:"coverage_gap_classes,omitempty"`
 }
 
 // ChangePlan is the reversible configuration change contract for one
