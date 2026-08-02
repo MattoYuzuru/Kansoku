@@ -1,6 +1,6 @@
 // AUTO-GENERATED from contracts/glossary.yaml by web/scripts/gen-routes.mjs.
 // Do not edit by hand. Regenerate: `npm run gen:routes` (runs on prebuild).
-// contract_version: 1.1.0, schema_version: kansoku.glossary/1
+// contract_version: 1.2.0, schema_version: kansoku.glossary/1
 
 export interface GlossaryTerm {
   readonly id: string;
@@ -48,6 +48,11 @@ export const GLOSSARY_TERMS: readonly GlossaryTerm[] = [
     "id": "exposed",
     "definition": "Evidence shows the component was available to a specific session or model; inventory alone is insufficient.",
     "plainDefinition": "The component was actually available inside a particular session or model context. This is stronger than installed or enabled."
+  },
+  {
+    "id": "exposure_plane_support",
+    "definition": "An adapter-declared state, per component kind, of how the model-visible component set can be observed: native, reconstructed, or unsupported. Declared in the adapter manifest and read as data; core never branches on an agent name.",
+    "plainDefinition": "Whether the agent tells Kansoku which components it actually offered the model. Some agents report this; others publish nothing at all. \"Unsupported\" means there is nothing to read, which is different from reading and finding none."
   },
   {
     "id": "invoked",
@@ -161,8 +166,8 @@ export const GLOSSARY_TERMS: readonly GlossaryTerm[] = [
   },
   {
     "id": "cold",
-    "definition": "An enabled and provably exposed skill or plugin had zero exact qualifying activity in a complete selected interval.",
-    "plainDefinition": "Kansoku knows the component was available but saw no exact use in the selected time range. Installed but unobserved components are not called cold."
+    "definition": "An enabled skill or plugin had zero exact qualifying activity in a complete selected interval, where availability is established either by a complete exposure observation window or, for an agent whose exposed plane is declared unsupported, by a complete inventory snapshot.",
+    "plainDefinition": "Kansoku knows the component was available but saw no exact use in the selected time range. Where an agent never reports which components it offered the model, availability rests on a complete inventory scan instead, and an incomplete scan is reported rather than counted. Installed but unobserved components are not called cold."
   },
   {
     "id": "call",

@@ -50,7 +50,13 @@ export function Skills() {
       key: "availability",
       header: <GlossaryTerm id="enabled">Availability</GlossaryTerm>,
       render: (row) =>
-        `${row.enabled_variants}/${row.variants.length} enabled · ${row.exposed_count} exposures`,
+        `${row.enabled_variants}/${row.variants.length} enabled · ${
+          // An agent that publishes no model-visible skill set has no exposure
+          // count to show. Printing "0 exposures" would read as a measurement.
+          row.exposure_state === "unsupported"
+            ? "exposure not reported by this agent"
+            : `${row.exposed_count} exposures`
+        }`,
     },
     {
       key: "invoked",
@@ -73,12 +79,17 @@ export function Skills() {
     {
       key: "demand",
       header: <GlossaryTerm id="cold">Activity state</GlossaryTerm>,
-      render: (row) =>
-        row.cold_state === "not_observed"
-          ? "Not enough evidence"
-          : row.cold_state === "cold"
-            ? "Cold"
-            : "Used",
+      render: (row) => {
+        if (row.cold_state === "cold") return "Cold";
+        if (row.cold_state === "used") return "Used";
+        // Ineligible rows are not all the same. With no exposure surface the
+        // fallback rests on inventory completeness, so an incomplete scan is
+        // the actual reason and the operator can fix it.
+        if (row.exposure_state === "unsupported" && row.inventory_coverage !== "complete") {
+          return `Inventory ${row.inventory_coverage.replaceAll("_", " ")}`;
+        }
+        return "Not enough evidence";
+      },
     },
   ];
   const sourceColumns: Column<RuntimeSourceFreshness>[] = [

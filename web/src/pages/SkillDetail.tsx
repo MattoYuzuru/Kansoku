@@ -143,8 +143,21 @@ export function SkillDetail({ id }: { id: string }) {
         <div className="k-grid k-grid--kpis">
           <KpiCard
             label={<GlossaryTerm id="exposed">Exposures</GlossaryTerm>}
-            value={display?.exposed_count ?? null}
-            state={state}
+            // A null value renders as an em dash rather than a zero, and the
+            // unsupported badge says why: this agent publishes no
+            // model-visible skill set, so there was never a number to measure.
+            value={
+              display?.exposure_state === "unsupported"
+                ? null
+                : (display?.exposed_count ?? null)
+            }
+            state={display?.exposure_state === "unsupported" ? "unsupported" : state}
+            stateReason={
+              display?.exposure_state === "unsupported"
+                ? (display.exposure_reason ??
+                  "this agent publishes no model-visible skill set")
+                : undefined
+            }
           />
           <KpiCard
             label={<GlossaryTerm id="invoked">Invocations</GlossaryTerm>}

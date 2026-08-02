@@ -123,6 +123,14 @@ export interface SkillCatalogRow {
   session_bounds: CountBounds;
   last_invoked_at?: string;
   cold_state: SkillObservatoryRow["cold_state"];
+  /**
+   * Family-level exposure state. `unsupported` only when every variant is
+   * unsupported: two installations of the same agent can disagree, and one
+   * that does report exposure is a real observation worth keeping.
+   */
+  exposure_state: SkillObservatoryRow["exposure_state"];
+  exposure_reason?: string;
+  inventory_coverage: string;
   completeness: string;
 }
 
@@ -160,6 +168,16 @@ export function groupSkillCatalog(rows: readonly SkillObservatoryRow[]): SkillCa
         : eligible.length > 0 && eligible.length === variants.length
           ? "cold"
           : "not_observed";
+    // "Unsupported" is a claim about the agent, so it only survives grouping
+    // when every variant makes it. Mixing it with a variant that does report
+    // exposure would hide a real observation behind an absent surface.
+    const exposureState: SkillObservatoryRow["exposure_state"] = variants.every(
+      (row) => row.exposure_state === "unsupported",
+    )
+      ? "unsupported"
+      : variants.some((row) => row.exposure_state === "observed")
+        ? "observed"
+        : "not_observed";
     const first = variants[0];
     return {
       catalog_id: stableCatalogID("skill", first.agent_id, first.declared_name),
@@ -176,6 +194,9 @@ export function groupSkillCatalog(rows: readonly SkillObservatoryRow[]): SkillCa
       session_bounds: distinctCountBounds(variants.map((row) => row.unique_sessions)),
       last_invoked_at: latestTimestamp(variants.map((row) => row.last_invoked_at)),
       cold_state: coldState,
+      exposure_state: exposureState,
+      exposure_reason: variants.find((row) => row.exposure_reason)?.exposure_reason,
+      inventory_coverage: leastComplete(variants.map((row) => row.inventory_coverage)),
       completeness: leastComplete(variants.map((row) => row.completeness)),
     };
   });

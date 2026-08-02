@@ -40,6 +40,8 @@ function skill(
     active_days: invoked > 0 ? 1 : 0,
     modes: { explicit: invoked, proactive: 0, nested: 0 },
     cold_state: invoked > 0 ? "used" : "cold",
+    exposure_state: "observed",
+    inventory_coverage: "complete",
     outcome_state: "unsupported",
     completeness: "complete",
   };
@@ -199,4 +201,53 @@ test("detail merging contains malformed legacy null collections", () => {
 
   assert.doesNotThrow(() => mergeSkillProfiles([skillProfile]));
   assert.doesNotThrow(() => mergePluginProfiles([pluginProfile]));
+});
+
+test("an agent with no exposure surface never renders exposure as an observation", () => {
+  // Every variant unsupported: the family inherits the claim, because the
+  // absence is a property of the agent rather than of one installation.
+  const unsupported = [skill("claude-a", "plugin_cache", 3, 3), skill("claude-b", "user", 0, 0)].map(
+    (row) => ({
+      ...row,
+      agent_id: "claude",
+      exposure_state: "unsupported" as const,
+      exposure_reason: "claude_code_documents_no_model_visible_skill_set_event_or_snapshot",
+      exposed_count: 0,
+    }),
+  );
+  const [family] = groupSkillCatalog(unsupported);
+  assert.equal(family.exposure_state, "unsupported");
+  assert.equal(
+    family.exposure_reason,
+    "claude_code_documents_no_model_visible_skill_set_event_or_snapshot",
+  );
+  assert.equal(family.invoked_count, 3);
+
+  // Two installations of the same agent can disagree -- one on an adapter
+  // build that declares the plane unsupported, one that reports exposure. A
+  // real observation must not be hidden behind the other's absent surface.
+  const mixed = [
+    { ...unsupported[0] },
+    {
+      ...skill("claude-c", "user", 0, 0),
+      agent_id: "claude",
+      exposure_state: "observed" as const,
+      exposed_count: 2,
+    },
+  ];
+  assert.equal(groupSkillCatalog(mixed)[0].exposure_state, "observed");
+
+  // Neither observed nor unsupported: the surface exists and reported nothing.
+  const silent = [
+    { ...skill("codex-b", "user", 0, 0), exposure_state: "not_observed" as const, exposed_count: 0 },
+  ];
+  assert.equal(groupSkillCatalog(silent)[0].exposure_state, "not_observed");
+});
+
+test("family inventory coverage reports the least complete variant", () => {
+  const rows = [
+    { ...skill("a", "user", 1, 1), inventory_coverage: "complete" },
+    { ...skill("b", "plugin_cache", 0, 0), inventory_coverage: "partial" },
+  ];
+  assert.equal(groupSkillCatalog(rows)[0].inventory_coverage, "partial");
 });

@@ -346,6 +346,17 @@ export interface SkillObservatoryRow {
   last_invoked_at?: string;
   modes: SkillModeCounts;
   cold_state: "cold" | "used" | "not_observed";
+  /**
+   * Whether the agent publishes a model-visible skill set at all.
+   * `unsupported` means there is no surface to read — it is never rendered as
+   * `0` and never as "not enough evidence yet", which are both claims about
+   * having looked.
+   */
+  exposure_state: "observed" | "not_observed" | "unsupported";
+  /** Bounded machine token explaining an `unsupported` exposure plane. */
+  exposure_reason?: string;
+  /** Completeness of the inventory snapshot this row's enabled state came from. */
+  inventory_coverage: string;
   outcome_state: "observed" | "unsupported";
   completeness: string;
 }
