@@ -5,10 +5,10 @@ Scope: the three-phase handoff in `reports/2026-08-01-claude-skill-observatory-r
 (defects A, A-bis, C, D), decided in
 `adr/0023-qualified-component-identity-and-exposure-plane-support.md`.
 Branch: `fix/skill-observatory-cold-state-2026-07-26`.
-Implementation state: **all seventeen handoff items are implemented in the working tree and verified
-against the live stack.** The work is uncommitted; the tree also carries three unrelated in-flight
+Implementation state: **all seventeen handoff items are implemented, verified against the live
+stack, and committed** in ten layered commits (`d0d6147`…`0598031`). Three unrelated in-flight
 streams (Session 13 `entity_breakdown`, model drill-down / ADR 0022, the 2026-08-01 plugin audit
-lane), which are listed below so the commit boundary stays honest.
+lane) remain uncommitted in the working tree and were deliberately left there; §7 lists them.
 
 Environment: `kansoku-kansoku-1` on image `kansoku:phase3-20260802`, `kansoku-postgres-1`,
 Claude Code `2.1.220`, Codex CLI `0.145.0`. Writes were confined to the repository, the appliance's
@@ -74,8 +74,15 @@ Phase 3 — coverage and deployment (items 13–17)
 Contracts updated with paired policy-lock entries and version bumps:
 `component-evidence`, `claude/hooks-and-otel`, `claude/manifest`,
 `claude/skill-evidence-and-reconciliation`, `codex/skill-evidence-and-reconciliation`,
-`adapter-sdk/manifest`, `data-platform/schema`, `data-platform/query-contract`,
-`privacy/installer`, `glossary`, `capabilities`, `dashboard`.
+`adapter-sdk/manifest`, `adapter-sdk/inventory-graph`, `data-platform/schema`,
+`privacy/installer`, `glossary`, `capabilities`. `dashboard.yaml` was verify-only as planned: its
+skill panel view states already include `unsupported`.
+
+`adapter-sdk/inventory-graph` 1.1.0 → 1.2.0 (`adapter-sdk.inventory-graph/3`) was the one contract
+the handoff listed that had not been written: the snapshot now declares `coverage_gap_count` and
+`coverage_gap_classes`, the closed class vocabulary, and the semantics that a non-zero tally
+downgrades completeness and that an unreadable entry is never dropped. `validate_adapter_sdk.py`
+compares that vocabulary against its own constant, in the same dialect as `source_scopes`.
 
 ## 3. Live verification (handoff §7)
 
@@ -191,7 +198,36 @@ Codex regression: exact-resolution counts match handoff §1 exactly (`native_bri
   at the start of the implementation session — the documented-path personal skill and the
   fabricated-zero symlink root — now **pass** as a side effect of item 13.
 
-## 7. Uncommitted neighbours in the same tree
+## 7. Commits and the verified committed tree
+
+```text
+d0d6147 feat(dataplatform): store component source scope and skill plane support
+83564d6 fix(observability): stop doubling the owner prefix on Claude skill identity
+20692e1 feat(skills): declare adapter exposure plane support and second cold path
+1e746f1 fix(inventory): report skill scan coverage gaps instead of dropping entries
+c49437d feat(deploy): mount read-only link roots for symlinked skill libraries
+37d13c7 fix(installer): split never-written settings out of forbidden settings
+5fa02ec chore(contracts): record skill observatory contract transitions
+370e783 feat(dashboard): render unsupported skill exposure distinctly
+9cff3fc docs(skills): reconcile Claude skill observatory implementation
+0598031 docs(skills): add live skill telemetry evidence for the 2026-08-01 diagnosis
+```
+
+The committed tree was checked out into a scratch worktree and verified in isolation from the
+uncommitted neighbours: `go build ./...` clean, `go test ./internal/...` **fully green** (14
+packages, no failures — the two red audit-lane tests live in files this split leaves uncommitted),
+twelve static validators exit 0, `validate_data_platform.validate()` returns no static errors, and
+all eight Python contract suites pass. `deploy/.env` is git-ignored, so the local
+`KANSOKU_AGENT_LINK_ROOT_1_PATH` and image pin stay out of history; `deploy/compose.yaml` carries
+the bind with its `./empty-agent-state` default.
+
+Two audit artifacts were held back from the evidence commit —
+`evidence/skills/otlp-proxy-capture.log` and `…-run2-hostbug.log` — because they contain a captured
+`Authorization: Bearer` value. It does not match the current `deploy/secrets/ingress_bearer`, so it
+is a stale local credential, but it is still worth scrubbing or rotating before those two files go
+anywhere.
+
+## 8. Uncommitted neighbours in the same tree
 
 Present in the working tree, unrelated to this plan, and left untouched: Session 13
 `entity_breakdown` (`entity_breakdown*.go`, `model_usage_test.go`,
