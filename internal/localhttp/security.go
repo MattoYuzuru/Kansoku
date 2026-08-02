@@ -18,7 +18,7 @@ const (
 	RouteUIStream                    RouteMode = "ui_stream"
 	RouteHookOTLP                    RouteMode = "hook_otlp"
 	RouteUIMutation                  RouteMode = "ui_mutation"
-	DeploymentContractSemanticSHA256           = "f4abdca08e3581dbf4387e468a5fc151e1e3a2dad6aa1e5031101f8aa5a6742a"
+	DeploymentContractSemanticSHA256           = "b528675917a19c708d7f1f0a3a1e57509ef2f14e5ab1eb748be04267b2a31104"
 )
 
 var canonicalHosts = map[string]struct{}{"127.0.0.1": {}, "::1": {}, "localhost": {}}

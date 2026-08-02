@@ -8,7 +8,7 @@ import (
 // PrivacyContractSemanticSHA256 is generated from the canonical JSON encoding
 // of every contracts/privacy registry, ordered by repository-relative path.
 // scripts/validate_privacy.py refuses a registry/runtime drift.
-const PrivacyContractSemanticSHA256 = "f4abdca08e3581dbf4387e468a5fc151e1e3a2dad6aa1e5031101f8aa5a6742a"
+const PrivacyContractSemanticSHA256 = "b528675917a19c708d7f1f0a3a1e57509ef2f14e5ab1eb748be04267b2a31104"
 
 type ValueState string
 

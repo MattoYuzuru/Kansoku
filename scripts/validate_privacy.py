@@ -157,7 +157,11 @@ EXPECTED_INSTALLER_TARGET_POLICIES = {
     },
     "claude.user_otel": {
         "required_settings": {"env.CLAUDE_CODE_ENABLE_TELEMETRY": "1", "env.OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318", "env.OTEL_LOG_USER_PROMPTS": "0", "env.OTEL_LOG_ASSISTANT_RESPONSES": "0", "env.OTEL_LOG_TOOL_DETAILS": "0", "env.OTEL_LOG_TOOL_CONTENT": "0", "env.OTEL_LOG_RAW_API_BODIES": "0"},
-        "forbidden_keys": ["env.OTEL_EXPORTER_OTLP_HEADERS", "env.OTEL_LOGS_EXPORTER_FILE", "remote_endpoint"],
+        # env.OTEL_EXPORTER_OTLP_HEADERS is Claude Code's only header mechanism
+        # and the loopback ingress requires a bearer, so the operator must set
+        # it. Kansoku still never writes it; it is disclosed, not forbidden.
+        "forbidden_keys": ["env.OTEL_LOGS_EXPORTER_FILE", "remote_endpoint"],
+        "never_written_keys": ["env.OTEL_EXPORTER_OTLP_HEADERS"],
     },
     "gemini.user_otel": {
         "required_settings": {"telemetry.enabled": True, "telemetry.target": "local", "telemetry.otlpEndpoint": "http://127.0.0.1:4318", "telemetry.logPrompts": False, "telemetry.useCliAuth": False},
@@ -408,8 +412,15 @@ def validate_independent_security_invariants(
         errors.append("independent policy: exact installer target set required")
     for target_id, expected in EXPECTED_INSTALLER_TARGET_POLICIES.items():
         target = targets.get(target_id, {})
-        if target.get("required_settings") != expected["required_settings"] or target.get("forbidden_keys") != expected["forbidden_keys"]:
+        if target.get("required_settings") != expected["required_settings"] or \
+                target.get("forbidden_keys") != expected["forbidden_keys"] or \
+                target.get("never_written_keys", expected.get("never_written_keys")) != expected.get("never_written_keys"):
             errors.append(f"independent policy: exact required/forbidden installer values required for {target_id}")
+        for never_written in expected.get("never_written_keys", []) or []:
+            if never_written in (expected["required_settings"] or {}):
+                errors.append(
+                    f"independent policy: {target_id} declares {never_written} as both required and never-written"
+                )
 
     accesses = {item.get("id"): item for item in host_access.get("accesses", []) if isinstance(item, dict)}
     if set(accesses) != set(EXPECTED_HOST_ACCESS):
@@ -622,9 +633,20 @@ def validate_installer(data: dict[str, Any] | None = None) -> list[str]:
     if data.get("implementation_scope_session_02") != "protocol and virtual apply/rollback model only; no real agent configuration mutation":
         errors.append("installer: Session 02 must not claim or perform real agent configuration mutation")
     target_keys = {"id", "agent_id", "config_locator_kind", "format", "ownership", "required_settings", "forbidden_keys", "precedence_checks", "disable_remove"}
+    # never_written_keys is optional: only a target with a key the operator must
+    # own declares it, so every other target keeps its exact previous shape.
     for target in data.get("targets", []):
-        if set(target) != target_keys or not target.get("required_settings") or not target.get("forbidden_keys") or not target.get("precedence_checks") or not target.get("disable_remove"):
+        if set(target) - {"never_written_keys"} != target_keys or not target.get("required_settings") or not target.get("forbidden_keys") or not target.get("precedence_checks") or not target.get("disable_remove"):
             errors.append(f"installer target {target.get('id')}: exact settings, precedence, ownership and removal required")
+        if "never_written_keys" in target and not target["never_written_keys"]:
+            errors.append(f"installer target {target.get('id')}: never_written_keys must be omitted rather than empty")
+    key_policy = data.get("key_policy_classes", {})
+    if "refuses_to_be_built_or_verified" not in str(key_policy.get("forbidden_keys", "")):
+        errors.append("installer: forbidden keys must still fail a plan when they pre-exist")
+    if "disclosed_on_the_plan" not in str(key_policy.get("never_written_keys", "")):
+        errors.append("installer: never-written keys must be disclosed on the plan rather than failing it")
+    if "may_never_appear_in_both" not in str(key_policy.get("disjointness", "")):
+        errors.append("installer: required and never-written key sets must be declared disjoint")
     gate = data.get("effective_settings_gate", {})
     if gate != {"required": True, "managed_or_environment_override": "fail_closed", "runtime_canary": "required_before_real_write", "session_02_real_write": False}:
         errors.append("installer: effective-setting and runtime-canary gate must fail closed with no Session 02 writes")
