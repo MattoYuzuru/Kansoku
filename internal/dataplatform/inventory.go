@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -128,14 +129,23 @@ func PersistInventorySnapshot(
 		return InventoryPersistResult{}, err
 	}
 
+	// The coverage gap tally is persisted with the snapshot it describes: it is
+	// evidence about that one observation, and downstream cold eligibility for
+	// an adapter with no exposure surface rests on this snapshot's completeness.
+	coverageGapClasses, err := inventoryCoverageGapJSON(snapshot.CoverageGapClasses)
+	if err != nil {
+		return InventoryPersistResult{}, err
+	}
 	commandTag, err := tx.Exec(ctx, `
 		INSERT INTO inventory_snapshots (
 			snapshot_id, adapter_id, adapter_version, agent_installation_id,
-			observed_at, fingerprint, completeness
-		) VALUES ($1,$2,$3,$4,$5,$6,$7)
+			observed_at, fingerprint, completeness,
+			coverage_gap_count, coverage_gap_classes
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
 		ON CONFLICT (snapshot_id) DO NOTHING
 	`, snapshot.SnapshotID, snapshot.AdapterID, snapshot.AdapterVersion,
-		snapshot.InstallationID, snapshot.ObservedAt.UTC(), snapshot.Fingerprint, completeness)
+		snapshot.InstallationID, snapshot.ObservedAt.UTC(), snapshot.Fingerprint, completeness,
+		snapshot.CoverageGapCount, coverageGapClasses)
 	if err != nil {
 		return InventoryPersistResult{}, err
 	}
@@ -628,4 +638,29 @@ type InventorySnapshotFreshness struct {
 	InstallationID string
 	ObservedAt     time.Time
 	Completeness   string
+}
+
+// inventoryCoverageGapJSON encodes a coverage gap tally as the bounded JSONB
+// object the schema declares. Only closed-vocabulary class names are ever
+// written, so an unrecognised class fails loudly here rather than becoming a
+// free-form key in a durable column.
+func inventoryCoverageGapJSON(gaps adaptersdk.CoverageGaps) (string, error) {
+	if len(gaps) == 0 {
+		return "{}", nil
+	}
+	encoded := make(map[string]int, len(gaps))
+	for class, count := range gaps {
+		if !adaptersdk.ValidCoverageGapClass(class) {
+			return "", errors.New("inventory_coverage_gap_class_unknown")
+		}
+		if count < 0 {
+			return "", errors.New("inventory_coverage_gap_count_negative")
+		}
+		encoded[string(class)] = count
+	}
+	raw, err := json.Marshal(encoded)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
 }

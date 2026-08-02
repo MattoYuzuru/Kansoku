@@ -678,3 +678,116 @@ func TestScanPluginCacheObservedIndependentlyOfSettingsAndSkillScans(t *testing.
 		}
 	})
 }
+
+// TestScanSkillRootRecordsCoverageGapsInsteadOfSkippingSilently pins the
+// difference between "this directory holds no skill" and "this skill could not
+// be read". Before the tally existed both produced the same empty result, so a
+// host whose skill library was symlinked out of the bound tree reported one
+// skill out of eight and still called the snapshot complete.
+func TestScanSkillRootRecordsCoverageGapsInsteadOfSkippingSilently(t *testing.T) {
+	base := t.TempDir()
+	library := filepath.Join(base, "library")
+	root := filepath.Join(base, "state")
+	skillRoot := filepath.Join(root, "skills", "user")
+	if err := os.MkdirAll(filepath.Join(library, "linked-skill"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(skillRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeSkillManifest(t, filepath.Join(skillRoot, "real-skill"), "real-skill", "readable")
+	// A symlink whose target sits outside the permitted roots: exactly the
+	// container case where the link directory is bound but the library is not.
+	if err := os.Symlink(filepath.Join(library, "linked-skill"),
+		filepath.Join(skillRoot, "linked-skill")); err != nil {
+		t.Fatal(err)
+	}
+	// A manifest that declares no identity.
+	if err := os.MkdirAll(filepath.Join(skillRoot, "nameless"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillRoot, "nameless", "SKILL.md"),
+		[]byte("---\ndescription: no name key\n---\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A plain directory that is simply not a skill: not a gap.
+	if err := os.MkdirAll(filepath.Join(skillRoot, "not-a-skill"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	host, err := adaptersdk.NewHostView([]string{root}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, scanned := claudeadapter.ScanHostInventory(host, adaptersdk.Installation{
+		InstallationID: "ain_coverage_gaps", AdapterID: claudeadapter.AdapterID,
+		SurfaceID: "cli", StateRoot: root,
+	})
+	if !scanned {
+		t.Fatal("a readable skill root must report scanned=true")
+	}
+	names := make([]string, 0, len(input.StandaloneSkills))
+	for _, skill := range input.StandaloneSkills {
+		names = append(names, skill.Name)
+	}
+	if len(names) != 1 || names[0] != "real-skill" {
+		t.Fatalf("skills=%v want only real-skill", names)
+	}
+	if got := input.CoverageGaps[adaptersdk.CoverageGapUnresolvableSymlink]; got != 1 {
+		t.Fatalf("unresolvable_symlink=%d want 1 (gaps=%v)", got, input.CoverageGaps)
+	}
+	if got := input.CoverageGaps[adaptersdk.CoverageGapUnparseableManifest]; got != 1 {
+		t.Fatalf("unparseable_component_manifest=%d want 1 (gaps=%v)", got, input.CoverageGaps)
+	}
+	if got := input.CoverageGaps.Total(); got != 2 {
+		t.Fatalf("total gaps=%d want 2; a plain non-skill directory must not count (gaps=%v)",
+			got, input.CoverageGaps)
+	}
+}
+
+// TestCleanSkillRootYieldsNoCoverageGapsAndCompleteReconcile is the other half
+// of the coupling: a fully readable scan must stay complete, or the new
+// eligibility path would exclude every honest installation too.
+func TestCleanSkillRootYieldsNoCoverageGapsAndCompleteReconcile(t *testing.T) {
+	root := t.TempDir()
+	writeSkillManifest(t, filepath.Join(root, "skills", "user", "clean-skill"), "clean-skill", "readable")
+	host, err := adaptersdk.NewHostView([]string{root}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{
+		InstallationID: "ain_clean", AdapterID: claudeadapter.AdapterID,
+		SurfaceID: "cli", StateRoot: root,
+	}
+	input, scanned := claudeadapter.ScanHostInventory(host, target)
+	if !scanned || input.CoverageGaps.Total() != 0 {
+		t.Fatalf("scanned=%v gaps=%v want a clean scan", scanned, input.CoverageGaps)
+	}
+	snapshot, err := claudeadapter.BuildInventorySnapshot(input, time.Unix(0, 0).UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.CoverageGapCount != 0 {
+		t.Fatalf("snapshot gap count=%d want 0", snapshot.CoverageGapCount)
+	}
+	adapter := claudeadapter.New()
+	scope := adaptersdk.ReconcileScope{InstallationID: target.InstallationID}
+	if clean := adapter.Reconcile(
+		context.Background(), scope, adaptersdk.InventorySnapshot{}, snapshot,
+	); clean.Completeness != "complete" {
+		t.Fatalf("clean reconcile completeness=%q want complete", clean.Completeness)
+	}
+
+	// The same snapshot with one recorded gap must report partial: this is what
+	// removes a mis-mounted host from the cold denominator.
+	degraded := snapshot
+	degraded.CoverageGapCount = 1
+	degraded.CoverageGapClasses = adaptersdk.CoverageGaps{
+		adaptersdk.CoverageGapUnresolvableSymlink: 1,
+	}
+	if result := adapter.Reconcile(
+		context.Background(), scope, adaptersdk.InventorySnapshot{}, degraded,
+	); result.Completeness != "partial" {
+		t.Fatalf("reconcile completeness=%q want partial with a coverage gap", result.Completeness)
+	}
+}

@@ -171,6 +171,14 @@ func (a *Adapter) Reconcile(ctx context.Context, scope adaptersdk.ReconcileScope
 	completeness := "complete"
 	if !hasComponentNodes(current) {
 		completeness = "unknown"
+	} else if current.CoverageGapCount > 0 {
+		// A scan that skipped entries it could not read is partial, never
+		// complete. This is the coupling that keeps skill.cold_count/2 honest:
+		// with no exposure surface, cold eligibility rests on this very
+		// completeness value, so a mis-mounted host must drop out of the
+		// denominator instead of producing a confident count over the
+		// fraction of the inventory that happened to be readable.
+		completeness = "partial"
 	}
 	return adaptersdk.ReconcileResult{
 		SnapshotID: current.SnapshotID, AddedNodeIDs: added, RemovedNodeIDs: removed,

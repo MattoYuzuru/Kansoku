@@ -2,6 +2,7 @@ package claudeadapter
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -58,7 +59,7 @@ var skillNameLine = regexp.MustCompile(`^name\s*:\s*["']?([A-Za-z0-9][A-Za-z0-9.
 // (enabledPlugins, mcpServers) and nothing else in the file -- no hook
 // command, env value or other settings.json key is ever parsed here.
 type claudeSettingsShape struct {
-	EnabledPlugins map[string]bool                     `json:"enabledPlugins"`
+	EnabledPlugins map[string]bool                      `json:"enabledPlugins"`
 	MCPServers     map[string]claudeMCPServerConfigJSON `json:"mcpServers"`
 }
 
@@ -113,7 +114,10 @@ type installedPluginEntry struct {
 // the caller can distinguish "we looked and found genuinely zero plugins/
 // MCP servers" from "we never looked."
 func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation) (InventoryInput, bool) {
-	input := InventoryInput{InstallationID: target.InstallationID}
+	input := InventoryInput{
+		InstallationID: target.InstallationID,
+		CoverageGaps:   adaptersdk.CoverageGaps{},
+	}
 	if host == nil || target.StateRoot == "" || !filepath.IsAbs(target.StateRoot) {
 		return input, false
 	}
@@ -167,17 +171,39 @@ func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation
 	}
 
 	for _, root := range documentedSkillRoots(target.StateRoot) {
-		skills, observed := scanSkillRoot(host, root.path, root.scope)
+		skills, gaps, observed := scanSkillRoot(host, root.path, root.scope)
 		if observed {
 			scanned = true
 		}
+		input.CoverageGaps.Merge(gaps)
 		input.StandaloneSkills = append(input.StandaloneSkills, skills...)
 	}
+	// Claude Code documents personal skills directly at
+	// <stateRoot>/skills/<name>/SKILL.md. The scope subdirectories above are
+	// Kansoku's own multi-surface layout and do not exist on a real host, so
+	// scanning only those made every personal skill on a real state root
+	// invisible. The reserved scope directory names are excluded so a
+	// containerised layout, where both shapes are present, cannot inventory the
+	// same skill twice.
+	personalSkills, personalGaps, personalObserved := scanSkillRoot(
+		host, filepath.Join(target.StateRoot, "skills"), adaptersdk.ScopeUser,
+	)
+	if personalObserved {
+		scanned = true
+	}
+	input.CoverageGaps.Merge(personalGaps)
+	for _, skill := range personalSkills {
+		if reservedSkillScopeDirectory(skill.Name) {
+			continue
+		}
+		input.StandaloneSkills = append(input.StandaloneSkills, skill)
+	}
 
-	marketplaces, cacheCandidates, cacheObserved := scanPluginCache(host, target.StateRoot)
+	marketplaces, cacheCandidates, cacheGaps, cacheObserved := scanPluginCache(host, target.StateRoot)
 	if cacheObserved {
 		scanned = true
 	}
+	input.CoverageGaps.Merge(cacheGaps)
 	input.Marketplaces = marketplaces
 	activeVersions := readActivePluginVersions(host, target.StateRoot)
 	extraCacheOnly := mergePluginCacheCandidates(pluginsByName, cacheCandidates, activeVersions)
@@ -209,15 +235,21 @@ func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation
 // per version-hash directory found; ScanHostInventory decides which
 // candidate(s) merge into an already-configured settings.json entry and
 // which remain distinct cache-only artifacts.
-func scanPluginCache(host *adaptersdk.HostView, stateRoot string) (marketplaces []MarketplaceDescriptor, candidates []PluginDescriptor, observed bool) {
+func scanPluginCache(host *adaptersdk.HostView, stateRoot string) (marketplaces []MarketplaceDescriptor, candidates []PluginDescriptor, gaps adaptersdk.CoverageGaps, observed bool) {
+	gaps = adaptersdk.CoverageGaps{}
 	root := pluginCacheRoot(stateRoot)
 	probe, err := host.ReadProbe(root)
-	if err != nil || !probe.Exists {
-		return nil, nil, false
+	if err != nil {
+		gaps.Add(rootGapClass(root))
+		return nil, nil, gaps, false
+	}
+	if !probe.Exists {
+		return nil, nil, nil, false
 	}
 	marketEntries, err := host.ListDirectoryProbe(root)
 	if err != nil {
-		return nil, nil, false
+		gaps.Add(rootGapClass(root))
+		return nil, nil, gaps, false
 	}
 
 	marketNames := make([]string, 0, len(marketEntries))
@@ -278,7 +310,8 @@ func scanPluginCache(host *adaptersdk.HostView, stateRoot string) (marketplaces 
 				versionDir := filepath.Join(pluginDir, versionHash)
 				declaredName := readPluginManifestName(host, versionDir, pluginFolder)
 				composite := declaredName + "@" + marketName
-				skills, _ := scanSkillRoot(host, filepath.Join(versionDir, "skills"), adaptersdk.ScopePluginCache)
+				skills, skillGaps, _ := scanSkillRoot(host, filepath.Join(versionDir, "skills"), adaptersdk.ScopePluginCache)
+				gaps.Merge(skillGaps)
 				candidates = append(candidates, PluginDescriptor{
 					Name:            composite,
 					Version:         versionHash,
@@ -306,7 +339,18 @@ func scanPluginCache(host *adaptersdk.HostView, stateRoot string) (marketplaces 
 		}
 	}
 
-	return marketplaces, candidates, true
+	return marketplaces, candidates, gaps, true
+}
+
+// reservedSkillScopeDirectory reports whether name is one of Kansoku's own
+// multi-surface scope directories rather than a skill.
+func reservedSkillScopeDirectory(name string) bool {
+	switch name {
+	case "user", "repository", "admin", "system":
+		return true
+	default:
+		return false
+	}
 }
 
 // readPluginManifestName reads one version-hash directory's
@@ -454,14 +498,25 @@ func documentedSkillRoots(stateRoot string) []skillRoot {
 // host.ReadConfigProbe (never a raw unbounded filesystem read) and parsed
 // for exactly its name/description frontmatter, mirroring codexadapter's
 // identical scan.
-func scanSkillRoot(host *adaptersdk.HostView, root string, scope adaptersdk.SourceScope) ([]SkillDescriptor, bool) {
+func scanSkillRoot(host *adaptersdk.HostView, root string, scope adaptersdk.SourceScope) ([]SkillDescriptor, adaptersdk.CoverageGaps, bool) {
+	gaps := adaptersdk.CoverageGaps{}
 	probe, err := host.ReadProbe(root)
-	if err != nil || !probe.Exists {
-		return nil, false
+	if err != nil {
+		// The root itself could not be read. Returning observed=false alone
+		// made a refused root indistinguishable from an absent one, so a
+		// mis-mounted host looked exactly like a host with no skills. Record
+		// it: a refused symlink is the container case (a link directory bound
+		// without the library it points into), anything else is unreadable.
+		gaps.Add(rootGapClass(root))
+		return nil, gaps, false
+	}
+	if !probe.Exists {
+		return nil, nil, false
 	}
 	entries, err := host.ListDirectoryProbe(root)
 	if err != nil {
-		return nil, false
+		gaps.Add(rootGapClass(root))
+		return nil, gaps, false
 	}
 	skills := make([]SkillDescriptor, 0, len(entries))
 	for _, entry := range entries {
@@ -470,11 +525,30 @@ func scanSkillRoot(host *adaptersdk.HostView, root string, scope adaptersdk.Sour
 		}
 		manifestPath := filepath.Join(root, entry.Name, "SKILL.md")
 		result, err := host.ReadConfigProbe(manifestPath)
-		if err != nil || !result.Exists || result.Truncated {
+		if err != nil {
+			if entry.IsSymlink {
+				gaps.Add(adaptersdk.CoverageGapUnresolvableSymlink)
+			} else {
+				gaps.Add(adaptersdk.CoverageGapUnreadableManifest)
+			}
+			continue
+		}
+		if !result.Exists {
+			// A symlinked entry was put there to be a skill, so a missing
+			// manifest behind it is a dangling link. A plain directory with no
+			// SKILL.md is simply not a skill directory and is not a gap.
+			if entry.IsSymlink {
+				gaps.Add(adaptersdk.CoverageGapUnresolvableSymlink)
+			}
+			continue
+		}
+		if result.Truncated {
+			gaps.Add(adaptersdk.CoverageGapTruncatedManifest)
 			continue
 		}
 		name, descriptionBytes, descriptionChars, ok := parseSkillFrontmatter(result.Content)
 		if !ok {
+			gaps.Add(adaptersdk.CoverageGapUnparseableManifest)
 			continue
 		}
 		skills = append(skills, SkillDescriptor{
@@ -490,7 +564,18 @@ func scanSkillRoot(host *adaptersdk.HostView, root string, scope adaptersdk.Sour
 		}
 		return skills[i].Name < skills[j].Name
 	})
-	return skills, true
+	return skills, gaps, true
+}
+
+// rootGapClass classifies a refused or failing skill-root probe. A symlinked
+// root is the container case: the compose bind maps the link directory while
+// the library the links point into stays outside the permitted roots, so every
+// probe below it is refused. Anything else is an ordinary unreadable root.
+func rootGapClass(root string) adaptersdk.CoverageGapClass {
+	if info, err := os.Lstat(root); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return adaptersdk.CoverageGapUnresolvableSymlink
+	}
+	return adaptersdk.CoverageGapUnreadableManifest
 }
 
 // parseSkillFrontmatter performs a bounded, non-executing, line-oriented

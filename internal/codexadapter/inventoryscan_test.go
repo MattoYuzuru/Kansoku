@@ -543,3 +543,62 @@ enabled = true
 		)
 	}
 }
+
+// TestCodexScanSkillRootMirrorsCoverageGapAccounting keeps the two adapters'
+// scanners the same shape. Codex has a native exposure plane and so does not
+// depend on inventory completeness for cold eligibility, but a silently
+// truncated Codex inventory is just as wrong, and one shared shape is what
+// stops the next scanner from reintroducing the bare `continue`.
+func TestCodexScanSkillRootMirrorsCoverageGapAccounting(t *testing.T) {
+	base := t.TempDir()
+	library := filepath.Join(base, "library")
+	root := filepath.Join(base, "state")
+	skillRoot := filepath.Join(root, "skills", "user")
+	if err := os.MkdirAll(filepath.Join(library, "linked-skill"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(skillRoot, "real-skill"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillRoot, "real-skill", "SKILL.md"),
+		[]byte("---\nname: real-skill\ndescription: readable\n---\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(library, "linked-skill"),
+		filepath.Join(skillRoot, "linked-skill")); err != nil {
+		t.Fatal(err)
+	}
+	host, err := adaptersdk.NewHostView([]string{root}, nil,
+		[]byte("codexadapter-coverage-gap-mirror-test-key-0001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, scanned := codexadapter.ScanHostInventory(host, adaptersdk.Installation{
+		InstallationID: "ain_codex_gaps", AdapterID: codexadapter.AdapterID,
+		SurfaceID: "cli", StateRoot: root,
+	})
+	if !scanned {
+		t.Fatal("a readable skill root must report scanned=true")
+	}
+	if len(input.Skills) != 1 || input.Skills[0].Name != "real-skill" {
+		t.Fatalf("skills=%+v want only real-skill", input.Skills)
+	}
+	if got := input.CoverageGaps[adaptersdk.CoverageGapUnresolvableSymlink]; got != 1 {
+		t.Fatalf("unresolvable_symlink=%d want 1 (gaps=%v)", got, input.CoverageGaps)
+	}
+	snapshot, err := codexadapter.BuildInventorySnapshot(input, time.Unix(0, 0).UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.CoverageGapCount != 1 {
+		t.Fatalf("snapshot gap count=%d want 1", snapshot.CoverageGapCount)
+	}
+	result := codexadapter.New().Reconcile(
+		context.Background(),
+		adaptersdk.ReconcileScope{InstallationID: "ain_codex_gaps"},
+		adaptersdk.InventorySnapshot{}, snapshot,
+	)
+	if result.Completeness != "partial" {
+		t.Fatalf("reconcile completeness=%q want partial with a coverage gap", result.Completeness)
+	}
+}

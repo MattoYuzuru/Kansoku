@@ -1,6 +1,7 @@
 package codexadapter
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -66,7 +67,10 @@ var skillNameLine = regexp.MustCompile(`^name\s*:\s*["']?([A-Za-z0-9][A-Za-z0-9.
 // zero MCP servers" from "we never looked" -- both cases still populate
 // only what was actually observed, never a fabricated entry.
 func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation) (InventoryInput, bool) {
-	input := InventoryInput{InstallationID: target.InstallationID}
+	input := InventoryInput{
+		InstallationID: target.InstallationID,
+		CoverageGaps:   adaptersdk.CoverageGaps{},
+	}
 	if host == nil || target.StateRoot == "" || !filepath.IsAbs(target.StateRoot) {
 		return input, false
 	}
@@ -131,10 +135,11 @@ func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation
 		)
 	}
 	for _, root := range documentedSkillRoots(target.StateRoot) {
-		skills, observed := scanSkillRoot(host, root.path, root.scope)
+		skills, gaps, observed := scanSkillRoot(host, root.path, root.scope)
 		if observed {
 			scanned = true
 		}
+		input.CoverageGaps.Merge(gaps)
 		input.Skills = append(input.Skills, skills...)
 	}
 	input.Plugins = deduplicateExactPluginDescriptors(input.Plugins)
@@ -506,14 +511,28 @@ func documentedSkillRoots(stateRoot string) []skillRoot {
 	}
 }
 
-func scanSkillRoot(host *adaptersdk.HostView, root string, scope adaptersdk.SourceScope) ([]SkillDescriptor, bool) {
+// scanSkillRoot mirrors claudeadapter's identical scan, including its coverage
+// gap tally: an entry the scanner found but could not read is recorded in a
+// closed class rather than silently skipped, so a truncated scan can never
+// present itself as a complete one. Codex has a native exposure plane and so
+// does not depend on inventory completeness for cold eligibility, but the
+// symmetry matters anyway -- a silently truncated Codex inventory is just as
+// wrong, and keeping one shape across both adapters is what stops the next
+// scanner from reintroducing the bare `continue`.
+func scanSkillRoot(host *adaptersdk.HostView, root string, scope adaptersdk.SourceScope) ([]SkillDescriptor, adaptersdk.CoverageGaps, bool) {
+	gaps := adaptersdk.CoverageGaps{}
 	probe, err := host.ReadProbe(root)
-	if err != nil || !probe.Exists {
-		return nil, false
+	if err != nil {
+		gaps.Add(rootGapClass(root))
+		return nil, gaps, false
+	}
+	if !probe.Exists {
+		return nil, nil, false
 	}
 	entries, err := host.ListDirectoryProbe(root)
 	if err != nil {
-		return nil, false
+		gaps.Add(rootGapClass(root))
+		return nil, gaps, false
 	}
 	skills := make([]SkillDescriptor, 0, len(entries))
 	for _, entry := range entries {
@@ -522,11 +541,29 @@ func scanSkillRoot(host *adaptersdk.HostView, root string, scope adaptersdk.Sour
 		}
 		manifestPath := filepath.Join(root, entry.Name, "SKILL.md")
 		result, err := host.ReadConfigProbe(manifestPath)
-		if err != nil || !result.Exists || result.Truncated {
+		if err != nil {
+			if entry.IsSymlink {
+				gaps.Add(adaptersdk.CoverageGapUnresolvableSymlink)
+			} else {
+				gaps.Add(adaptersdk.CoverageGapUnreadableManifest)
+			}
+			continue
+		}
+		if !result.Exists {
+			// A plain directory without a SKILL.md is simply not a skill; a
+			// symlink without one is a dangling link.
+			if entry.IsSymlink {
+				gaps.Add(adaptersdk.CoverageGapUnresolvableSymlink)
+			}
+			continue
+		}
+		if result.Truncated {
+			gaps.Add(adaptersdk.CoverageGapTruncatedManifest)
 			continue
 		}
 		name, descriptionBytes, descriptionChars, ok := parseSkillFrontmatter(result.Content)
 		if !ok {
+			gaps.Add(adaptersdk.CoverageGapUnparseableManifest)
 			continue
 		}
 		skills = append(skills, SkillDescriptor{
@@ -542,7 +579,16 @@ func scanSkillRoot(host *adaptersdk.HostView, root string, scope adaptersdk.Sour
 		}
 		return skills[i].Name < skills[j].Name
 	})
-	return skills, true
+	return skills, gaps, true
+}
+
+// rootGapClass classifies a refused or failing skill-root probe, mirroring
+// claudeadapter's identical helper.
+func rootGapClass(root string) adaptersdk.CoverageGapClass {
+	if info, err := os.Lstat(root); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return adaptersdk.CoverageGapUnresolvableSymlink
+	}
+	return adaptersdk.CoverageGapUnreadableManifest
 }
 
 func parseSkillFrontmatter(content []byte) (name string, descriptionBytes, descriptionChars int, ok bool) {

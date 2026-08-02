@@ -130,6 +130,9 @@ type InventoryInput struct {
 	// as active) or a target the user explicitly named. Inventory never
 	// discovers a repository root itself via speculative recursive walk.
 	RepositoryTargets []string
+	// CoverageGaps tallies every entry the scan found but could not turn into
+	// a component node, mirroring claudeadapter's identical field.
+	CoverageGaps adaptersdk.CoverageGaps
 }
 
 // ErrTooManyRepositoryTargets is returned when InventoryInput declares more
@@ -392,6 +395,9 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		Fingerprint:    fingerprint,
 		Nodes:          nodes,
 		Edges:          edges,
+		// The gap tally travels with the snapshot, mirroring claudeadapter.
+		CoverageGapCount:   input.CoverageGaps.Total(),
+		CoverageGapClasses: input.CoverageGaps,
 	}, nil
 }
 
