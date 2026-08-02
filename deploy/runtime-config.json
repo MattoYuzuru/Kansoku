@@ -52,7 +52,8 @@
       "target_id": "claude-local",
       "adapter_id": "claude",
       "surface_id": "cli",
-      "state_root": "/agent-state/claude"
+      "state_root": "/agent-state/claude",
+      "link_roots": ["/Users/m.ryabushkin/Projects/personal/yuzuru-skills"]
     }
   ],
   "inventory_scan_interval_seconds": 300,

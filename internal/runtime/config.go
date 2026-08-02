@@ -65,6 +65,20 @@ type InventoryTarget struct {
 	InstallationID string `json:"installation_id,omitempty"`
 	SurfaceID      string `json:"surface_id"`
 	StateRoot      string `json:"state_root"`
+	// LinkRoots are additional read-only roots the scan is permitted to
+	// resolve symlink targets into. An agent state root assembled out of
+	// symlinks into a separate library directory is otherwise unreadable:
+	// HostView resolves one symlink level and then requires the *target* to
+	// also sit inside a permitted root, so every link is refused and the
+	// inventory silently truncates.
+	//
+	// Each entry must be the narrowest directory that actually contains the
+	// link targets, bound into the container at its identical absolute path
+	// (the links store absolute paths, so any other mount point cannot
+	// resolve). $HOME and / are rejected: a read-only bind is still a
+	// readable bind, and this list is the whole filesystem surface the scan
+	// may touch outside the state root.
+	LinkRoots []string `json:"link_roots,omitempty"`
 }
 
 type DBConfig struct {
@@ -157,7 +171,7 @@ func (c Config) Validate() error {
 			(target.InstallationID != "" && !safeAgentInstallationID(target.InstallationID)) ||
 			!safeInventoryConfigID(target.SurfaceID) ||
 			!filepath.IsAbs(target.StateRoot) || target.StateRoot == "/" ||
-			seenTargets[target.TargetID] {
+			seenTargets[target.TargetID] || !validLinkRoots(target.LinkRoots) {
 			return errors.New("inventory_targets_invalid")
 		}
 		seenTargets[target.TargetID] = true
@@ -249,4 +263,34 @@ func (c Config) DatabaseDSN(password []byte) (string, error) {
 	query.Set("connect_timeout", fmt.Sprintf("%d", c.Database.ConnectTimeout))
 	u.RawQuery = query.Encode()
 	return u.String(), nil
+}
+
+// maxLinkRoots bounds how many additional read roots one inventory target may
+// declare. The list exists to reach one or two symlinked skill libraries, not
+// to reopen the filesystem.
+const maxLinkRoots = 8
+
+// validLinkRoots enforces that every additional read root is an absolute,
+// clean, bounded path that is neither the filesystem root nor a bare home
+// directory. Widening the readable surface to $HOME would hand the scan every
+// unrelated file the operator owns, which is exactly the outcome the state-root
+// model exists to prevent.
+func validLinkRoots(roots []string) bool {
+	if len(roots) > maxLinkRoots {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, root := range roots {
+		if root == "" || len(root) > 512 || !filepath.IsAbs(root) ||
+			root != filepath.Clean(root) || root == "/" || seen[root] {
+			return false
+		}
+		if depth := len(strings.Split(strings.Trim(root, "/"), "/")); depth < 2 {
+			// "/Users", "/home", "/root", "/mnt" and friends are too broad to
+			// be the narrowest directory containing a link target.
+			return false
+		}
+		seen[root] = true
+	}
+	return true
 }
