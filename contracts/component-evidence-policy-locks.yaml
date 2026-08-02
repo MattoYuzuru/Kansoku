@@ -11,6 +11,11 @@
       "policy_version": "component-evidence/2",
       "registry": "contracts/component-evidence.yaml",
       "semantic_sha256": "b5bcfd3f9e2962d73ddf3fb0d63d70c324930a17a3b5e74f4c025ba6cd5e2c0f"
+    },
+    {
+      "policy_version": "component-evidence/3",
+      "registry": "contracts/component-evidence.yaml",
+      "semantic_sha256": "b38fda27df8c24058fdc6b9aa342b67967fb245989c8ead1549314ab01f9052f"
     }
   ]
 }

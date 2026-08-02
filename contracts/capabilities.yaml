@@ -104,8 +104,8 @@
     },
     {
       "adapter_id": "claude-code",
-      "agent_versions": "documentation gates through 2.1.216; local runtime observed at 2.1.197 and not fixture-verified",
-      "version_scope": {"scheme": "semver_core", "documentation_snapshot": "2026-07-21", "documentation_version_gates_through": "2.1.216", "locally_observed_versions": ["2.1.197"], "public_claim_range": null},
+      "agent_versions": "documentation gates through 2.1.216; local runtime observed at 2.1.220 and not fixture-verified",
+      "version_scope": {"scheme": "semver_core", "documentation_snapshot": "2026-08-01", "documentation_version_gates_through": "2.1.216", "locally_observed_versions": ["2.1.197", "2.1.220"], "public_claim_range": null},
       "capabilities": [
         {"capability_id": "session.lifecycle", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/monitoring-usage"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},
         {"capability_id": "prompt.metadata", "support": "experimental", "evidence": {"official_docs": ["https://code.claude.com/docs/en/monitoring-usage"], "fixtures": [], "passive_audit": null, "end_to_end_verification": null}},

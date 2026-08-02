@@ -65,6 +65,10 @@ NODE_KINDS = [
 ]
 EDGE_KINDS = ["bundles", "provides", "configured_in", "enabled_for", "shadows", "collides_with", "depends_on", "observed_using"]
 SOURCE_SCOPES = ["system", "user", "repository", "admin", "marketplace", "plugin_cache", "transient_session"]
+COVERAGE_GAP_CLASSES = [
+    "unresolvable_symlink", "unreadable_component_manifest", "truncated_component_manifest",
+    "unparseable_component_manifest",
+]
 AUDIT_MODES = ["passive", "fixture_replay", "live_canary"]
 CHECK_STATUSES = ["pass", "fail", "skipped_unsupported"]
 DETECTION_METHODS = ["executable_on_path", "documented_env_var", "documented_config_file", "documented_state_root_present"]
@@ -114,6 +118,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
             "agent_detection_fields", "execution_forms", "execution_form_sequence", "permissions_fields",
             "network_grades", "parse_limits", "validation", "id_naming", "external_protocol",
             "compatibility_registry_fields", "unknown_agent_version_policy",
+            "component_plane_support",
         },
         "capabilities.yaml": {
             "schema_version", "contract_version", "effective_at", "capability_ids", "capability_states",
@@ -121,6 +126,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         },
         "inventory-graph.yaml": {
             "schema_version", "contract_version", "effective_at", "snapshot_fields", "snapshot_semantics",
+            "coverage_gap_classes", "coverage_gap_semantics",
             "node_kinds", "node_fields", "source_scopes", "edge_kinds", "edge_fields", "identity_rule",
             "cache_separation", "path_pseudonymization", "example_graph_paths", "change_plan_fields",
             "reconcile_scope_fields", "reconcile_result_fields", "reconcile_idempotency",
@@ -167,6 +173,21 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("unsigned external adapters must remain labeled and disabled by default")
     if external.get("environment", "").find("no_inherited_parent_environment") == -1:
         errors.append("external adapter environment must remain an explicit allowlist with no inherited parent environment")
+    plane_support = manifest.get("component_plane_support", {})
+    if plane_support.get("optional") is not True:
+        errors.append("component_plane_support must stay optional so manifests predating it still parse")
+    if plane_support.get("fields") != ["component_kind", "plane", "state", "reason"]:
+        errors.append("component_plane_support field set changed")
+    if plane_support.get("planes") != ["exposed"]:
+        errors.append("component_plane_support plane vocabulary changed")
+    if plane_support.get("states") != ["native", "reconstructed", "unsupported"]:
+        errors.append("component_plane_support state vocabulary changed")
+    if plane_support.get("reason_required") is not True:
+        errors.append("a plane support declaration must state its reason")
+    if "treated_as_supported" not in str(plane_support.get("absent_field_rule", "")):
+        errors.append("an undeclared plane must keep being treated as supported")
+    if "never_a_path_credential_host" not in str(plane_support.get("reason_shape", "")):
+        errors.append("plane support reason shape must exclude paths, credentials and host values")
     if manifest.get("unknown_agent_version_policy", "").find("defaults_to_degraded") == -1:
         errors.append("unknown agent version outside every compatibility range must default to degraded")
 
@@ -188,6 +209,14 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("inventory edge kind set changed")
     if inventory_graph.get("source_scopes") != SOURCE_SCOPES:
         errors.append("inventory source scope set changed")
+    if inventory_graph.get("coverage_gap_classes") != COVERAGE_GAP_CLASSES:
+        errors.append("inventory coverage gap class set changed")
+    for field in ("coverage_gap_count", "coverage_gap_classes"):
+        if field not in inventory_graph.get("snapshot_fields", []):
+            errors.append(f"snapshot must carry the coverage gap field: {field}")
+    gap_semantics = inventory_graph.get("coverage_gap_semantics", "")
+    if "downgrades_snapshot_completeness_to_partial" not in gap_semantics or "never_silently_dropped" not in gap_semantics:
+        errors.append("coverage gap semantics weakened: an unreadable entry must downgrade completeness and never be dropped")
     if "same_declared_name_never_forces_identity_merge" not in inventory_graph.get("identity_rule", ""):
         errors.append("same-declared-name identity merge rule weakened")
     cache_separation = inventory_graph.get("cache_separation", "")

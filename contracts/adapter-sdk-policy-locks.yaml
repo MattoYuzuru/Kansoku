@@ -13,6 +13,8 @@
     {"policy_version": "adapter-sdk.evidence-bridge/1", "registry": "contracts/adapter-sdk/evidence-bridge.yaml", "semantic_sha256": "1c13e049f18c8e877fbc6bcdd95e3e762e4753862266de68fb4180c9d51ea53c"},
     {"policy_version": "adapter-sdk.inventory-graph/2", "registry": "contracts/adapter-sdk/inventory-graph.yaml", "semantic_sha256": "db0a194e1af77b704b1c53f4a2a7196438a166ee316b9a3652481eda350debd0"},
     {"policy_version": "adapter-sdk.evidence-bridge/2", "registry": "contracts/adapter-sdk/evidence-bridge.yaml", "semantic_sha256": "44fb2dd1958c15b94b2c7145b1e03f65d81eb9d1d18c3e0bf7dfde1ca7a210ed"},
-    {"policy_version": "adapter-sdk.terminal-outcomes/1", "registry": "contracts/adapter-sdk/terminal-outcomes.yaml", "semantic_sha256": "1c74f6b3c58f373dfbdbbc140957c60f75e1193281eaa3b9a7a987205241cda6"}
+    {"policy_version": "adapter-sdk.terminal-outcomes/1", "registry": "contracts/adapter-sdk/terminal-outcomes.yaml", "semantic_sha256": "1c74f6b3c58f373dfbdbbc140957c60f75e1193281eaa3b9a7a987205241cda6"},
+    {"policy_version": "adapter-sdk.manifest/2", "registry": "contracts/adapter-sdk/manifest.yaml", "semantic_sha256": "fc96a4790ed6ae8e73747181ea6cacb469e77d8dc96f1de77186d492cd862f3a"},
+    {"policy_version": "adapter-sdk.inventory-graph/3", "registry": "contracts/adapter-sdk/inventory-graph.yaml", "semantic_sha256": "f6ade9bd55666f52bedbc252eb22864b6dce3b0c41ec215ddd9b6ee613b103bc"}
   ]
 }

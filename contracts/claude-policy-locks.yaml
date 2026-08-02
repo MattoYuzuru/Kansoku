@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.claude-policy-locks/1",
-  "effective_at": "2026-07-23",
+  "effective_at": "2026-08-01",
   "locks": [
     {"policy_version": "claude.manifest/1", "registry": "contracts/claude/manifest.yaml", "semantic_sha256": "990279fe2089c34b804317d28cadcf52a6353a21af425b9d1fa81c443929f2af"},
     {"policy_version": "claude.hooks-and-otel/1", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "ddb2bf306f3331b73e99089182be3262af7bd9177a0fe186a54e9b1eb819d107"},
@@ -9,6 +9,9 @@
     {"policy_version": "claude.hooks-and-otel/2", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "8dabad187e4644b1027fc83da22238fa3ad595310cf21fa6d815c0958c84efd6"},
     {"policy_version": "claude.hooks-and-otel/3", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "65f13dc2a81b0f636eae0d9b388428f7f01abf65f1504363a5f1b5d1ba96cc3b"},
     {"policy_version": "claude.hooks-and-otel/4", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "1bce99a9eee26166f461b331edba8f6ba546d21ca625fbe22e4a1f2b294c2137"},
-    {"policy_version": "claude.hooks-and-otel/5", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "312967ca91d972383b0b8071968fa1dc9a11d9aecf0fb9e3b28d8c8d313bef2e"}
+    {"policy_version": "claude.hooks-and-otel/5", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "312967ca91d972383b0b8071968fa1dc9a11d9aecf0fb9e3b28d8c8d313bef2e"},
+    {"policy_version": "claude.hooks-and-otel/6", "registry": "contracts/claude/hooks-and-otel.yaml", "semantic_sha256": "c3873f38435186be024f16bad50c6d0d3d4b85bb6de298b4f8264e36e7af9f3f"},
+    {"policy_version": "claude.manifest/2", "registry": "contracts/claude/manifest.yaml", "semantic_sha256": "e2a1419cd86fc8c6cca7287208755ebdae58460b8f79bc61068ec4a26678a098"},
+    {"policy_version": "claude.skill-evidence-and-reconciliation/2", "registry": "contracts/claude/skill-evidence-and-reconciliation.yaml", "semantic_sha256": "e5dc2822aaaab6129cc46b53c252450058be7f5d6923a8ad9cda4f7faefa1700"}
   ]
 }

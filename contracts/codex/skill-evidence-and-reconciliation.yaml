@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.codex-skill-evidence-and-reconciliation/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-30",
+  "contract_version": "1.2.0",
+  "effective_at": "2026-08-01",
   "skill_evidence_model": {
     "evidence_tiers_reused_from": "contracts/observability/lifecycles.yaml_evidence_tiers_verbatim_corroborated_native_reconstructed_inferred_no_new_tier_is_invented",
     "evidence_kinds": [
@@ -13,6 +13,14 @@
     ],
     "no_false_exact_count": "the_dashboard_never_combines_these_evidence_kinds_into_a_single_false_exact_activation_count_it_displays_an_evidence_breakdown_by_tier_and_a_best_supported_lifecycle_stage",
     "ambiguous_ownership_rule": "no_rule_converts_a_helper_or_mcp_call_into_component.invoked_evidence_when_ownership_across_multiple_candidate_skill_identity_nodes_is_ambiguous_it_remains_component.executed_with_plural_candidates",
+    "exposure_plane_support": {
+      "component_kind": "skill",
+      "plane": "exposed",
+      "state": "native",
+      "reason": "app_server_skills_list_response",
+      "why_declared_explicitly": "declaring_native_pins_todays_behaviour_by_contract_rather_than_by_the_absence_of_a_declaration_so_a_regression_that_stopped_populating_exposure_windows_fails_against_an_assertion_instead_of_looking_like_an_adapter_that_never_supported_the_plane",
+      "consequence": "cold_eligibility_for_this_adapter_keeps_requiring_a_complete_exposure_observation_window_exactly_as_under_skill.cold_count/1"
+    },
     "native_exact_activation_prohibition": "the_adapter_never_represents_component.opportunity_or_reconstructed_tier_evidence_as_a_component.invoked_native_exact_activation_this_is_the_session_06_exit_gate_invariant_and_is_enforced_independently_of_dashboard_rendering"
   },
   "source_to_canonical_mapping": [

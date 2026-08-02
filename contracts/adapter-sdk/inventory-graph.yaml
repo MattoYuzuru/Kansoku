@@ -1,8 +1,10 @@
 {
   "schema_version": "kansoku.adapter-sdk-inventory-graph/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-22",
-  "snapshot_fields": ["snapshot_id", "adapter_id", "adapter_version", "installation_id", "observed_at", "fingerprint", "nodes", "edges"],
+  "contract_version": "1.2.0",
+  "effective_at": "2026-08-02",
+  "snapshot_fields": ["snapshot_id", "adapter_id", "adapter_version", "installation_id", "observed_at", "fingerprint", "nodes", "edges", "coverage_gap_count", "coverage_gap_classes"],
+  "coverage_gap_classes": ["unresolvable_symlink", "unreadable_component_manifest", "truncated_component_manifest", "unparseable_component_manifest"],
+  "coverage_gap_semantics": "every_entry_a_scan_found_but_could_not_turn_into_a_node_is_tallied_into_exactly_one_closed_class_and_a_non_zero_tally_downgrades_snapshot_completeness_to_partial_an_unreadable_entry_is_never_silently_dropped",
   "snapshot_semantics": "snapshots_are_immutable_point_in_time_observations_reconciliation_derives_current_state_by_diffing_snapshots_never_by_mutating_a_prior_one",
   "node_kinds": [
     "device",
