@@ -18,7 +18,17 @@ class PluginContractTests(unittest.TestCase):
         metrics = validate_plugins.load(
             ROOT / "contracts" / "plugins" / "metrics-and-privacy.yaml",
         )
-        active = metrics["formulas"]["plugin.active_share/1"]
+        # The assertion is about the formula's semantics, not its revision:
+        # pinning the version made this test fail the moment the contract was
+        # bumped to /2, which reported a contract change as a broken invariant.
+        # Exactly one revision may be declared at a time, and that revision
+        # must still exclude an incomplete graph from its denominator.
+        versions = [
+            name for name in metrics["formulas"]
+            if name.rsplit("/", 1)[0] == "plugin.active_share"
+        ]
+        self.assertEqual(len(versions), 1, versions)
+        active = metrics["formulas"][versions[0]]
         self.assertIn("complete", active["denominator"])
         self.assertIn("incomplete_enabled_or_child_graph", active["exclusions"])
 
