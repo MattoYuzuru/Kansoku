@@ -1,0 +1,211 @@
+[07:24:44] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:45] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:46] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:47] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:48] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:50] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:51] 2 claude-conns
+ESTAB     0      0          127.0.0.1:35148    127.0.0.1:4318  users:(("claude",pid=402787,fd=14)) 
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:52] 2 claude-conns
+ESTAB     0      0          127.0.0.1:35148    127.0.0.1:4318  users:(("claude",pid=402787,fd=14)) 
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:53] 2 claude-conns
+ESTAB     0      0          127.0.0.1:35148    127.0.0.1:4318  users:(("claude",pid=402787,fd=14)) 
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:54] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:55] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:56] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:57] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:58] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:24:59] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:00] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:01] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:59750    127.0.0.1:4318  users:(("claude",pid=404170,fd=16)) 
+[07:25:02] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:59750    127.0.0.1:4318  users:(("claude",pid=404170,fd=16)) 
+[07:25:03] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:04] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:05] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:06] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:07] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:08] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:09] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:11] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:12] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:13] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:14] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:15] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:16] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:17] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:18] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:19] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:20] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:21] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:22] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:23] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:24] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:26] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:27] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:28] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:29] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:30] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:31] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:32] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:33] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:34] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:35] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:36] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:37] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:38] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:39] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:40] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:42] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:43] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:44] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:34566    127.0.0.1:4318  users:(("claude",pid=406939,fd=16)) 
+[07:25:45] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:34566    127.0.0.1:4318  users:(("claude",pid=406939,fd=16)) 
+[07:25:47] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:34566    127.0.0.1:4318  users:(("claude",pid=406939,fd=16)) 
+[07:25:48] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:50] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:25:51] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:25:52] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:25:54] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:25:55] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:25:56] 3 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:53956    127.0.0.1:4318  users:(("claude",pid=415337,fd=17)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:25:57] 3 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:53956    127.0.0.1:4318  users:(("claude",pid=415337,fd=17)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:25:58] 3 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:53956    127.0.0.1:4318  users:(("claude",pid=415337,fd=17)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:25:59] 3 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:53956    127.0.0.1:4318  users:(("claude",pid=415337,fd=17)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:26:01] 3 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:53956    127.0.0.1:4318  users:(("claude",pid=415337,fd=17)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:26:02] 3 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:53956    127.0.0.1:4318  users:(("claude",pid=415337,fd=17)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:26:03] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:26:04] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:26:05] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:26:06] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:26:08] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:54322    127.0.0.1:4318  users:(("claude",pid=410587,fd=11)) 
+[07:26:09] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:58832    127.0.0.1:4318  users:(("claude",pid=428710,fd=14)) 
+[07:26:10] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+ESTAB     0      0          127.0.0.1:58832    127.0.0.1:4318  users:(("claude",pid=428710,fd=14)) 
+[07:26:11] 2 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:12] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:13] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:14] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:15] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:17] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:18] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:19] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:20] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:21] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:26] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 
+[07:26:28] 1 claude-conns
+ESTAB     0      0          127.0.0.1:37262    127.0.0.1:4318  users:(("claude",pid=325218,fd=11)) 

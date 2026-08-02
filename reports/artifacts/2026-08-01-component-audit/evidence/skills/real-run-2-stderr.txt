@@ -1,0 +1,3 @@
+Permission deny rule (/home/m_ryabushkin.guest/.claude/settings.json): Write(**/application-local.yml) is not matched by file permission checks — only Edit(path) rules are. Use Edit(**/application-local.yml) instead (Edit rules cover all file-editing tools).
+Permission deny rule (/home/m_ryabushkin.guest/.claude/settings.json): Write(**/.env) is not matched by file permission checks — only Edit(path) rules are. Use Edit(**/.env) instead (Edit rules cover all file-editing tools).
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

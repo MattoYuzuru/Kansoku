@@ -1,0 +1,7 @@
+### BEFORE 2026-08-01T07:28:09Z
+events                   174
+component_assertions     140
+components               13
+ingest_failures          0
+unknown_schemas          ERROR:  relation "unknown_schemas" does not exist
+quarantine_records       ERROR:  relation "quarantine_records" does not exist
