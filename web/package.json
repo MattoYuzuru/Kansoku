@@ -12,6 +12,8 @@
     "build": "tsc --noEmit && vite build",
     "dev": "node scripts/gen-routes.mjs && vite",
     "preview": "vite preview",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:api-normalization": "node --experimental-strip-types --test tests/apiNormalization.test.ts",
     "test:component-catalog": "node --experimental-strip-types --test tests/componentCatalog.test.ts",
     "test:format": "node --experimental-strip-types --test tests/format.test.ts",
     "test:glossary-target": "node --experimental-strip-types --test tests/glossaryTarget.test.ts",
