@@ -285,3 +285,144 @@ func TestClaudeSkillInvocationModesAndPluginOwnership(t *testing.T) {
 		})
 	}
 }
+
+// TestClaude2_1_220SkillActivatedWireShapeQualifiesOwnerOnce replays the exact
+// skill_activated record captured from Claude Code 2.1.220 on 2026-08-01
+// (reports/artifacts/2026-08-01-component-audit). Unlike the bare-name cases
+// above -- which are kept unchanged as the backward-compatibility proof --
+// this shape already carries its owner on skill.name, and prepending
+// plugin.name a second time produced
+// "sre-agent:sre-agent:verification-strategy", which no inventory row can ever
+// equal.
+//
+// skill.source is asserted to survive verbatim: "plugin" is not a member of
+// adaptersdk.SourceScope, and the ingress must not repair, coerce or drop it
+// here. Classifying it is the data platform's job, and it deliberately widens
+// rather than narrows resolution there.
+func TestClaude2_1_220SkillActivatedWireShapeQualifiesOwnerOnce(t *testing.T) {
+	store, ingestor, _ := testIngestor(t, 4<<20)
+	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
+	request := realLogRequest(
+		claudeadapter.OTLPResourceServiceName,
+		string(claudeadapter.OTelSkillActivated),
+		[]*commonv1.KeyValue{
+			stringKV(string(claudeadapter.NativeAttributeSessionID), "wire-capture-session"),
+			stringKV(string(claudeadapter.AttributeSkillName), "sre-agent:verification-strategy"),
+			stringKV(string(claudeadapter.AttributePluginName), "sre-agent"),
+			stringKV(string(claudeadapter.AttributeInvocationTrigger), "claude-proactive"),
+			stringKV(string(claudeadapter.AttributeSkillSource), "plugin"),
+			// Emitted upstream, mapped onto no safe slot, and therefore
+			// dropped -- asserted below never to reach a durable record.
+			stringKV("marketplace.name", "yuzuru-engineering"),
+		},
+	)
+	if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
+		t.Fatalf("2.1.220 skill_activated rejected: %v", err)
+	}
+	state := store.Snapshot()
+	if len(state.Facts) != 1 || len(state.Quarantine) != 0 {
+		t.Fatalf("facts=%d quarantine=%d", len(state.Facts), len(state.Quarantine))
+	}
+	for _, fact := range state.Facts {
+		evidence := fact.Event.ComponentEvidence
+		if fact.Event.EventType != "component.invoked" || fact.Event.Subject.Kind != "skill" {
+			t.Fatalf("event_type=%s kind=%s", fact.Event.EventType, fact.Event.Subject.Kind)
+		}
+		if evidence.QualifiedIdentity != "sre-agent:verification-strategy" {
+			t.Fatalf("qualified identity=%q want single owner prefix", evidence.QualifiedIdentity)
+		}
+		if evidence.OwnerPluginIdentity != "sre-agent" {
+			t.Fatalf("owner=%q", evidence.OwnerPluginIdentity)
+		}
+		if evidence.SourceScope != "plugin" {
+			t.Fatalf("source scope=%q want the raw upstream value", evidence.SourceScope)
+		}
+		if evidence.InvocationMode != "proactive" {
+			t.Fatalf("invocation mode=%q", evidence.InvocationMode)
+		}
+	}
+	encoded, _ := json.Marshal(state)
+	if bytes.Contains(encoded, []byte("yuzuru-engineering")) {
+		t.Fatal("dropped marketplace.name reached a durable record")
+	}
+}
+
+// TestClaudeMetadataOnlyEventsAreDeclaredAndNeverQuarantine covers the two
+// events Claude Code 2.1.220 emits that this recipe had never declared:
+// hook_registered (every session start) and assistant_response (every
+// assistant turn). Undeclared, each one quarantined as unsupported adapter
+// drift, so both produced standing incident noise about a shape that had
+// simply never been written down.
+//
+// Both map to source.observed. assistant_response deliberately does not map to
+// model.responded: api_request already counts that same operation, and
+// counting both would double every model response.
+func TestClaudeMetadataOnlyEventsAreDeclaredAndNeverQuarantine(t *testing.T) {
+	for _, name := range []claudeadapter.OTelEventName{
+		claudeadapter.OTelHookRegistered, claudeadapter.OTelAssistantResponse,
+	} {
+		t.Run(string(name), func(t *testing.T) {
+			store, ingestor, _ := testIngestor(t, 4<<20)
+			receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
+			request := realLogRequest(
+				claudeadapter.OTLPResourceServiceName, string(name),
+				[]*commonv1.KeyValue{
+					stringKV(string(claudeadapter.NativeAttributeSessionID), "declared-session"),
+				},
+			)
+			if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
+				t.Fatalf("%s rejected: %v", name, err)
+			}
+			state := store.Snapshot()
+			if len(state.Quarantine) != 0 || len(state.Incidents) != 0 {
+				t.Fatalf("%s quarantined: quarantine=%d incidents=%d",
+					name, len(state.Quarantine), len(state.Incidents))
+			}
+			if len(state.Facts) != 1 {
+				t.Fatalf("%s facts=%d want 1", name, len(state.Facts))
+			}
+			for _, fact := range state.Facts {
+				if fact.Event.EventType != "source.observed" {
+					t.Fatalf("%s event_type=%s want source.observed", name, fact.Event.EventType)
+				}
+			}
+		})
+	}
+}
+
+// TestClaudeUnrecognisedInvocationTriggerIsRecordedNotDropped proves an
+// invocation_trigger outside the known vocabulary is preserved as the distinct
+// state "unknown". It used to be dropped by a bare `continue`, which made a
+// future Claude Code trigger addition indistinguishable from a skill
+// invocation that reported no trigger at all -- AGENTS.md keeps "unknown" and
+// "not_observed" as separate states precisely so drift stays visible.
+func TestClaudeUnrecognisedInvocationTriggerIsRecordedNotDropped(t *testing.T) {
+	store, ingestor, _ := testIngestor(t, 4<<20)
+	receiver, _ := NewOTLPReceiver(ingestor, 1<<20)
+	request := realLogRequest(
+		claudeadapter.OTLPResourceServiceName,
+		string(claudeadapter.OTelSkillActivated),
+		[]*commonv1.KeyValue{
+			stringKV(string(claudeadapter.NativeAttributeSessionID), "drift-session"),
+			stringKV(string(claudeadapter.AttributeSkillName), "owner:drifting-skill"),
+			stringKV(string(claudeadapter.AttributePluginName), "owner"),
+			stringKV(string(claudeadapter.AttributeInvocationTrigger), "future-trigger-shape"),
+		},
+	)
+	if err := receiver.ingestLogs(request, SourceOTLPLog); err != nil {
+		t.Fatalf("unrecognised trigger rejected the whole record: %v", err)
+	}
+	state := store.Snapshot()
+	if len(state.Facts) != 1 {
+		t.Fatalf("facts=%d want 1", len(state.Facts))
+	}
+	for _, fact := range state.Facts {
+		if mode := fact.Event.ComponentEvidence.InvocationMode; mode != "unknown" {
+			t.Fatalf("invocation mode=%q want unknown", mode)
+		}
+	}
+	encoded, _ := json.Marshal(state)
+	if bytes.Contains(encoded, []byte("future-trigger-shape")) {
+		t.Fatal("raw trigger value persisted verbatim")
+	}
+}

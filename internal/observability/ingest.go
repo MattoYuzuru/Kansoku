@@ -544,7 +544,10 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		}
 	}
 	switch invocationMode {
-	case "", "explicit", "proactive", "nested", "requested", "not_observed":
+	// "unknown" is an observed-but-unrecognized invocation trigger (see
+	// translateToSafeAttributes). It is deliberately distinct from
+	// "not_observed", which means the source reported no mode at all.
+	case "", "explicit", "proactive", "nested", "requested", "not_observed", "unknown":
 	default:
 		return CommitResult{}, errors.New("unsafe_otlp_field")
 	}
@@ -552,8 +555,8 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		identitySource = "native"
 	}
 	qualifiedIdentity := componentIdentity
-	if ownerPlugin != "" && componentKind == "skill" {
-		qualifiedIdentity = ownerPlugin + ":" + componentIdentity
+	if componentKind == "skill" {
+		qualifiedIdentity = qualifyComponentIdentity(ownerPlugin, componentIdentity)
 	}
 	if upstreamIdentityHash != "" {
 		upstreamIdentityHash = "hmac-sha256:" + i.keyedIdentity(
@@ -598,6 +601,39 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		},
 	}
 	return i.ingestSafe(record, kind, sequence, nil)
+}
+
+// qualifyComponentIdentity applies an owner plugin's namespace to a skill
+// identity at most once, so qualification is idempotent:
+//
+//	qualifyComponentIdentity(o, qualifyComponentIdentity(o, x)) ==
+//	    qualifyComponentIdentity(o, x)
+//
+// An agent may report a skill identity either bare ("verification-strategy",
+// with the owner carried separately) or already namespaced by its owner
+// ("sre-agent:verification-strategy", the shape Claude Code 2.1.220 actually
+// sends on skill_activated). Prepending unconditionally turned the second
+// shape into "sre-agent:sre-agent:verification-strategy", which
+// dataplatform's resolver -- comparing against
+// owner.declared_name || ':' || component.declared_name -- can never match,
+// so every such invocation resolved to zero candidates.
+//
+// The already-namespaced case is recognised by the ':' separator alone. That
+// is exact rather than heuristic: an inventory declared_name can never contain
+// ':' (both adapters' SKILL.md frontmatter parsers bound the name to
+// [A-Za-z0-9][A-Za-z0-9._-]{0,127}), so an identity carrying one is always an
+// upstream-qualified identity, never a bare name that merely looks like one.
+// This covers the owner spelled bare ("sre-agent:...") and the owner spelled
+// in its marketplace-qualified form ("t-skills-kotlin@yuzuru-engineering:...")
+// identically, without this boundary having to guess which spelling upstream
+// chose. A bare identity is still qualified exactly as before, which is what
+// keeps every existing unprefixed caller -- including codexadapter's App
+// Server bridge, whose identities arrive pre-qualified -- byte-identical.
+func qualifyComponentIdentity(ownerPlugin, identity string) string {
+	if ownerPlugin == "" || identity == "" || strings.Contains(identity, ":") {
+		return identity
+	}
+	return ownerPlugin + ":" + identity
 }
 
 func safeComponentMetadataValue(value string) bool {

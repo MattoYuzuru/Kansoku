@@ -352,7 +352,14 @@ func translateToSafeAttributes(kind otlpAdapterKind, attributes []*commonv1.KeyV
 					"nested-skill":     "nested",
 				}[raw]
 				if mode == "" {
-					continue
+					// A trigger this table does not recognize is recorded as
+					// "unknown", never dropped and never coerced to
+					// "not_observed". Dropping it made an observed-but-
+					// unrecognized invocation indistinguishable from one the
+					// agent never reported a mode for -- two states AGENTS.md
+					// requires be kept apart -- and hid every future trigger
+					// vocabulary addition behind a silent `continue`.
+					mode = "unknown"
 				}
 				value = &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: mode}}
 			}
