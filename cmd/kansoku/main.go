@@ -20,7 +20,7 @@ import (
 	kansokuruntime "kansoku.local/kansoku/internal/runtime"
 )
 
-var bridgeInstallationID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:@/|-]{0,255}$`)
+var bridgeInstallationID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:@/|-]{0,127}$`)
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -145,7 +145,9 @@ func run(arguments []string) error {
 		if err != nil {
 			return err
 		}
-		sink, err := observability.NewBridgeAssertionSink(appliance.Ingestor)
+		sink, err := observability.NewBridgeAssertionSinkForInstallation(
+			appliance.Ingestor, *installationID,
+		)
 		if err != nil {
 			return err
 		}

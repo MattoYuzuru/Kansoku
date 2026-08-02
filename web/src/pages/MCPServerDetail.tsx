@@ -7,9 +7,10 @@ import { KpiCard } from "../components/KpiCard";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { useRange } from "../hooks/useRange";
+import { formatMetric } from "../lib/format";
 
 export function MCPServerDetail({id}:{id:string}) {
-  const range=useRange();
+  const range=useRange("mcp");
   const params=useMemo(()=>({from:range.from,to:range.to,granularity:range.granularity,timezone:range.timezone}),[range.from,range.to,range.granularity,range.timezone]);
   const query=useMCPServerProfile(id,params); const p=query.data?.data; const i=p?.identity; const o=p?.outcomes;
   const columns:Column<MCPPrimitiveRow>[]=[
@@ -32,7 +33,7 @@ export function MCPServerDetail({id}:{id:string}) {
         <KpiCard label="Timeout" value={o?.timed_out??null}/>
         <KpiCard label="Cancelled" value={o?.cancelled??null}/>
         <KpiCard label="Denied" value={o?.denied??null}/>
-        <KpiCard label="Call p95" value={p?.call_p95_ms??null} unit="ms"/>
+        <KpiCard label="Call p95" value={p?.call_p95_ms??null} unit="ms" precision={2} formatValue={formatMetric}/>
       </div>
       <GapNote>Completed means MCP result with isError=false only. Error text, arguments, results, URLs, commands, environment and resource URIs are never available here.</GapNote>
     </Panel>

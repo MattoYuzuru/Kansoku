@@ -1,5 +1,6 @@
 .k-kpi {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4);
@@ -9,16 +10,24 @@
 }
 
 .k-kpi__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--text-muted);
 }
 
 .k-kpi__value-row {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: var(--space-2);
 }
 
 .k-kpi__value {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   color: var(--text-primary);
 }
 
@@ -27,6 +36,8 @@
 }
 
 .k-kpi__unit {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--text-muted);
 }
 

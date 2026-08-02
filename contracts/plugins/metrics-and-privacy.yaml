@@ -1,0 +1,22 @@
+{
+  "contract_id": "kansoku.plugins.metrics-and-privacy",
+  "version": "1.1.0",
+  "formulas": {
+    "plugin.loaded_sessions/1": {
+      "value": "distinct non-null session ids on exact loaded assertions",
+      "exclusions": ["unresolved_identity", "ambiguous_identity", "missing_session_identity"]
+    },
+    "plugin.active_share/2": {
+      "numerator": "enabled plugins with at least one exact loaded or exactly owned invoked-or-executable child_activity assertion in range; historical child_activity derived from component.loaded is excluded without rewriting its evidence",
+      "denominator": "enabled plugins whose current inventory snapshot and child graph are complete",
+      "exclusions": ["incomplete_enabled_or_child_graph", "unresolved_identity", "ambiguous_identity"]
+    },
+    "plugin.cold_count/2": {
+      "value": "enabled plugins in the active-share denominator with zero loaded and zero exactly owned invoked-or-executable child_activity assertions in range",
+      "exclusions": ["incomplete_enabled_or_child_graph", "unresolved_identity", "ambiguous_identity"]
+    }
+  },
+  "privacy_sinks": ["database", "durable_queue", "retry_queue", "quarantine", "application_logs", "internal_traces", "dashboard_network", "export", "backup", "error_response"],
+  "never_persist": ["plugin_content", "skill_content", "arguments", "results", "error_messages", "commands", "environment", "credentials", "unredacted_paths", "mcp_arguments", "mcp_results"],
+  "content_endpoint": false
+}

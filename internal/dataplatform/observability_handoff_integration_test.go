@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"kansoku.local/kansoku/internal/adaptersdk"
 	"kansoku.local/kansoku/internal/observability"
 )
@@ -140,6 +141,102 @@ func TestObservabilityHandoffPersistsNativeTelemetryProjectionsIdempotently(t *t
 	}
 }
 
+func TestProjectionRepairRebuildsFromPostgresAfterCanonicalCommitCrash(t *testing.T) {
+	pool := freshSchema(t, testDSN(t))
+	ctx := context.Background()
+	handoff, err := NewObservabilityHandoff(pool, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observedAt := time.Date(2026, 7, 29, 9, 0, 0, 0, time.UTC)
+	event := nativeProjectionEvent(
+		"evt_projection_crash_01", "prompt.submitted", observedAt,
+		"ses_projection_crash_01", "trn_projection_crash_01",
+	)
+	characters := int64(42)
+	event.Measurements.PromptCharacterCount = &characters
+	evidence := nativeProjectionEvidence(event)
+	scope := ObservabilityScope(event)
+	if err := EnsureDimensions(ctx, pool, DimensionRefs{
+		DeviceID: scope.DeviceID, AgentInstallationID: scope.AgentInstallationID,
+		AgentID: event.Source.AdapterID, SurfaceID: scope.SurfaceID,
+		ProjectID: scope.ProjectID, SessionID: scope.SessionID, TurnID: scope.TurnID,
+		AdapterVersionID: scope.AdapterVersionID, AdapterID: event.Source.AdapterID,
+		AdapterVersion:   event.Source.AdapterVersion,
+		SourceInstanceID: scope.SourceInstanceID, SourceKind: string(event.Source.Kind),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := InsertFact(ctx, pool, FactRow{
+		EventID: event.EventID, FactKey: event.FactKey, EventType: event.EventType,
+		ObservedAt: event.ObservedAt, IngestedAt: event.IngestedAt,
+		TimestampQuality:    event.TimestampQuality,
+		SourceInstanceID:    scope.SourceInstanceID,
+		SourceNativeEventID: event.Source.NativeEventID,
+		Sequence:            int64(event.Source.Sequence),
+		AgentInstallationID: scope.AgentInstallationID, SurfaceID: scope.SurfaceID,
+		ProjectID: scope.ProjectID, SessionID: scope.SessionID, TurnID: scope.TurnID,
+		DurationMS: event.Measurements.DurationMS, Success: event.Measurements.Success,
+		Count: event.Measurements.Count, ValueState: event.ValueState,
+		Outcome: event.Outcome, CorrelationStatus: string(event.CorrelationStatus),
+		ProjectionInput: &ObservabilityProjectionInput{
+			SpecVersion: ProjectionInputSpecVersion,
+			Event:       event,
+			Evidence:    evidence,
+		},
+	}, EvidenceRow{
+		EvidenceID: evidence.EvidenceID, EventID: evidence.EventID,
+		ObservedAt: event.ObservedAt, SourceInstanceID: scope.SourceInstanceID,
+		Tier: string(evidence.Tier), Confidence: evidence.Confidence,
+		Completeness: string(evidence.Completeness),
+		FirstSeenAt:  evidence.FirstSeenAt, LastSeenAt: evidence.LastSeenAt,
+		SanitizerVersion:  evidence.Sanitizer,
+		PrivacyContractID: evidence.PrivacySHA256,
+		AssertEventType:   evidence.Assertion.EventType,
+		AssertOutcome:     evidence.Assertion.Outcome,
+		AssertValueState:  evidence.Assertion.ValueState,
+	})
+	if err != nil || !result.FactInserted || !result.EvidenceInserted {
+		t.Fatalf("canonical commit result=%+v err=%v", result, err)
+	}
+	var receipts, projections int64
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM observability_projection_receipts),
+			(SELECT count(*) FROM prompt_features)
+	`).Scan(&receipts, &projections); err != nil {
+		t.Fatal(err)
+	}
+	if receipts != 1 || projections != 0 {
+		t.Fatalf("pre-repair receipts=%d projections=%d", receipts, projections)
+	}
+	replay, err := handoff.ReplayPendingProjections(ctx, MaxProjectionRepairBatch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.Attempted != 1 || replay.Succeeded != 1 || replay.Failed != 0 {
+		t.Fatalf("replay=%+v", replay)
+	}
+	var replayCount int64
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM observability_projection_receipts),
+			(SELECT count(*) FROM prompt_features),
+			(SELECT replay_count FROM event_evidence
+			 WHERE evidence_id=$1 AND observed_at=$2)
+	`, evidence.EvidenceID, event.ObservedAt).Scan(
+		&receipts, &projections, &replayCount,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if receipts != 0 || projections != 1 || replayCount != 0 {
+		t.Fatalf(
+			"post-repair receipts=%d projections=%d replay_count=%d",
+			receipts, projections, replayCount,
+		)
+	}
+}
+
 func TestObservabilityHandoffCreatesVersionedPublicAPICostEstimate(t *testing.T) {
 	pool := freshSchema(t, testDSN(t))
 	handoff, err := NewObservabilityHandoff(pool, 5*time.Second)
@@ -201,17 +298,47 @@ func TestObservabilityHandoffPersistsExactUnresolvedAndAmbiguousComponentIdentit
 	skillNode := inventoryTestNode(
 		"node_lifecycle_skill", adaptersdk.NodeSkillIdentity, "kansoku-noop-canary",
 	)
+	pluginNode := inventoryTestNode(
+		"node_lifecycle_plugin", adaptersdk.NodePluginPackage,
+		"sre-agent@yuzuru-engineering",
+	)
 	snapshot := adaptersdk.InventorySnapshot{
 		SnapshotID: "snap_lifecycle_1", AdapterID: "codex", AdapterVersion: "0.145.0",
 		InstallationID: "ain_native_01", ObservedAt: observedAt,
 		Fingerprint: inventoryTestFingerprint("lifecycle-snapshot"),
-		Nodes:       []adaptersdk.Node{installationNode, skillNode},
+		Nodes:       []adaptersdk.Node{installationNode, skillNode, pluginNode},
 		Edges: []adaptersdk.Edge{
 			inventoryTestEnabledEdge("edge_lifecycle_skill", skillNode.NodeID, installationNode.NodeID),
+			inventoryTestEnabledEdge("edge_lifecycle_plugin", pluginNode.NodeID, installationNode.NodeID),
+			{
+				EdgeID: "edge_lifecycle_plugin_skill", Kind: adaptersdk.EdgeBundles,
+				FromNode: pluginNode.NodeID, ToNode: skillNode.NodeID,
+			},
 		},
 	}
 	if _, err := PersistInventorySnapshot(ctx, pool, snapshot, "complete"); err != nil {
 		t.Fatal(err)
+	}
+	pluginLoaded := nativeProjectionEvent(
+		"evt_native_plugin_loaded_01", "component.loaded", observedAt.Add(30*time.Second),
+		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
+	)
+	pluginLoaded.Subject = observability.Subject{Kind: "plugin", ComponentID: "sre-agent"}
+	pluginLoaded.ComponentEvidence = observability.ComponentEvidenceMetadata{
+		QualifiedIdentity: "sre-agent", IdentitySource: "user-install",
+		UpstreamIdentityHash: "hmac-sha256:" +
+			"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}
+	resolvedPlugin, err := handoff.resolveInventoryLifecycleComponent(
+		ctx, pluginLoaded, ObservabilityScope(pluginLoaded),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolvedPlugin.ComponentResolution != "exact" ||
+		resolvedPlugin.ComponentID != pluginNode.NodeID ||
+		resolvedPlugin.ComponentCandidateCount != 1 {
+		t.Fatalf("plugin namespace alias resolution=%+v", resolvedPlugin)
 	}
 
 	invoked := nativeProjectionEvent(
@@ -261,6 +388,87 @@ func TestObservabilityHandoffPersistsExactUnresolvedAndAmbiguousComponentIdentit
 		t.Fatalf("ingress outcome was promoted to component success: %+v", byStage["succeeded"])
 	}
 
+	loaded := nativeProjectionEvent(
+		"evt_native_skill_loaded_01", "component.loaded", observedAt.Add(75*time.Second),
+		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
+	)
+	loaded.Subject = invoked.Subject
+	for i := 0; i < 2; i++ {
+		if err := handoff.PersistNormalizedFact(loaded, nativeProjectionEvidence(loaded)); err != nil {
+			t.Fatalf("PersistNormalizedFact loaded replay %d: %v", i, err)
+		}
+	}
+	var pluginChildActivity, fabricatedPluginInvocations int64
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			count(*) FILTER (WHERE assertion_kind='child_activity'),
+			count(*) FILTER (WHERE assertion_kind='invoked')
+		FROM component_assertions
+		WHERE component_installation_id=$1
+	`, inventoryID(
+		"component-installation", snapshot.InstallationID, pluginNode.NodeID,
+	)).Scan(&pluginChildActivity, &fabricatedPluginInvocations); err != nil {
+		t.Fatal(err)
+	}
+	if pluginChildActivity != 1 || fabricatedPluginInvocations != 0 {
+		t.Fatalf(
+			"plugin child summary activity=%d fabricated_invoked=%d, want 1/0",
+			pluginChildActivity, fabricatedPluginInvocations,
+		)
+	}
+	// Preserve a legacy loaded-derived summary row to prove read projections
+	// reconcile historical overcount without deleting or rewriting telemetry.
+	loadedScope := ObservabilityScope(loaded)
+	if err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		return persistPluginChildActivity(ctx, tx, pluginChildEvidence{
+			ChildComponentID: skillNode.NodeID, AgentInstallationID: snapshot.InstallationID,
+			SessionID: loadedScope.SessionID, TurnID: loadedScope.TurnID,
+			EventID: loaded.EventID, EvidenceID: nativeProjectionEvidence(loaded).EvidenceID,
+			SourceInstanceID: loadedScope.SourceInstanceID,
+			AdapterVersion:   loaded.Source.AdapterVersion, SchemaVersion: loaded.Source.SchemaID,
+			EvidenceTier: "native", Confidence: 1, ObservedAt: loaded.ObservedAt,
+			IdempotencyKey: nativeProjectionEvidence(loaded).EvidenceID + ":loaded",
+		})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	plugins, err := PluginObservatory(
+		ctx, pool, observedAt, observedAt.Add(3*time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pluginRow PluginObservatoryRow
+	for _, row := range plugins.Data {
+		if row.ComponentID == pluginNode.NodeID {
+			pluginRow = row
+		}
+	}
+	if pluginRow.ChildActivityCount != 1 ||
+		plugins.FormulaVersion != FormulaVersionPluginActiveShare2 {
+		t.Fatalf(
+			"legacy loaded summary leaked into active formula: row=%+v formula=%s",
+			pluginRow, plugins.FormulaVersion,
+		)
+	}
+	profile, err := PluginProfile(
+		ctx, pool,
+		inventoryID("component-installation", snapshot.InstallationID, pluginNode.NodeID),
+		observedAt, observedAt.Add(3*time.Minute),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range profile.Assertions {
+		if row.AssertionKind == "child_activity" && row.ObservedAt.Equal(loaded.ObservedAt) {
+			t.Fatalf("legacy loaded-derived child activity leaked into profile: %+v", row)
+		}
+	}
+	if len(profile.Children) != 1 || profile.Children[0].UsageCount != 1 ||
+		profile.FormulaVersion != FormulaVersionPluginProfile2 {
+		t.Fatalf("plugin profile exact child uses mismatch: %+v", profile)
+	}
+
 	exposed := nativeProjectionEvent(
 		"evt_native_skill_exposed_01", "component.exposed", observedAt.Add(90*time.Second),
 		"ses_native_lifecycle_01", "trn_native_lifecycle_01",
@@ -293,7 +501,7 @@ func TestObservabilityHandoffPersistsExactUnresolvedAndAmbiguousComponentIdentit
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM component_lifecycle_events`).Scan(&lifecycleCount); err != nil {
 		t.Fatal(err)
 	}
-	if lifecycleCount != 2 {
+	if lifecycleCount != 3 {
 		t.Fatalf("unmatched identity was promoted into lifecycle: count=%d", lifecycleCount)
 	}
 	var unmatchedComponentID *string

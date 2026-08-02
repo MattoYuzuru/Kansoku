@@ -1,10 +1,25 @@
 package dataplatform
 
-import "time"
+import (
+	"time"
+
+	"kansoku.local/kansoku/internal/observability"
+)
 
 const (
-	SchemaSpecVersion = "kansoku.data-platform-schema/1"
+	SchemaSpecVersion          = "kansoku.data-platform-schema/1"
+	ProjectionInputSpecVersion = "kansoku.projection-input/1"
 )
+
+// ObservabilityProjectionInput is the closed, content-free normalized input
+// retained only while a derived projection is pending. Event and Evidence
+// have no generic payload, attributes, prompt, response, tool-content, path,
+// command, environment or credential fields.
+type ObservabilityProjectionInput struct {
+	SpecVersion string                 `json:"spec_version"`
+	Event       observability.Event    `json:"event"`
+	Evidence    observability.Evidence `json:"evidence"`
+}
 
 // FactRow is the normalized row shape written to the partitioned `events`
 // table. It intentionally mirrors the closed Session 03
@@ -33,6 +48,7 @@ type FactRow struct {
 	ValueState          string
 	Outcome             string
 	CorrelationStatus   string
+	ProjectionInput     *ObservabilityProjectionInput
 }
 
 // EvidenceRow mirrors internal/observability.Evidence.
@@ -150,6 +166,8 @@ type EntityRow struct {
 	SurfaceKind         string       `json:"surface_kind,omitempty"`
 	AgentVersion        string       `json:"agent_version,omitempty"`
 	AdapterVersion      string       `json:"adapter_version,omitempty"`
+	InstallationClass   string       `json:"installation_class,omitempty"`
+	ClassProvenance     string       `json:"installation_class_provenance,omitempty"`
 	EventCount          int64        `json:"event_count"`
 	SuccessCount        int64        `json:"success_count"`
 	FailureCount        int64        `json:"failure_count"`
@@ -322,7 +340,18 @@ type ModelUsageDayRow struct {
 	UpperBoundCostCount int64        `json:"upper_bound_cost_count"`
 	Percentiles         *Percentiles `json:"percentiles,omitempty"`
 	ErrorRatio          *float64     `json:"error_ratio,omitempty"`
+	ErrorNumerator      int64        `json:"error_numerator"`
+	ErrorDenominator    int64        `json:"error_denominator"`
+	ErrorExcludedCount  int64        `json:"error_excluded_count"`
 	MatchedEventCount   int64        `json:"matched_event_count"`
+}
+
+type RatioMetric struct {
+	Value          *float64         `json:"value,omitempty"`
+	FormulaVersion string           `json:"formula_version"`
+	Population     Population       `json:"population"`
+	Exclusions     map[string]int64 `json:"exclusions"`
+	Completeness   Completeness     `json:"completeness"`
 }
 
 // ModelUsageResponse is the closed completeness-aware envelope for the
@@ -335,6 +364,7 @@ type ModelUsageResponse struct {
 	Population     Population         `json:"population"`
 	Completeness   Completeness       `json:"completeness"`
 	Freshness      Freshness          `json:"freshness"`
+	ErrorRatio     RatioMetric        `json:"error_ratio_metric"`
 }
 
 // ToolAnalyticsDayRow is one calendar day's tool-call volume/latency inside

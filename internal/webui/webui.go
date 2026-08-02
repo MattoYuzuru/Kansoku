@@ -5,7 +5,7 @@
 // index document is rendered per request as an html/template so the two
 // read-only credential meta tags (kansoku-read-token / kansoku-csrf-token) can
 // be injected with the live secret values the same Go process holds. The
-// mutation bearer is never embedded: the dashboard is read-only (all 14 routes
+// mutation bearer is never embedded: the dashboard is read-only (all routes
 // are GET analytics views), so the browser needs only the read bearer to call
 // the same-origin /api/v1 surface. Any path that is not an embedded file falls
 // back to index.html so client-side routing (wouter) survives refresh and

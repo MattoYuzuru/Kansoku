@@ -12,17 +12,18 @@ import { useMemo } from "react";
 import { KpiCard } from "../components/KpiCard";
 import { ChartContainer } from "../components/ChartContainer";
 import { DataTable, type Column } from "../components/DataTable";
+import { GlossaryTerm } from "../components/GlossaryTerm";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { deriveViewState } from "../api/client";
 import { useToolAnalytics } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { dayLabel, ratio, sum } from "../lib/format";
+import { dayLabel, formatMetric, formatMetricWithRaw, ratio, sum } from "../lib/format";
 import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { ToolAnalyticsDayRow } from "../api/types";
 
 export function Tools() {
-  const range = useRange();
+  const range = useRange("tools");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],
@@ -38,12 +39,12 @@ export function Tools() {
 
   const columns: Column<ToolAnalyticsDayRow>[] = [
     { key: "day", header: "Day", render: (r) => dayLabel(r.day) },
-    { key: "calls", header: "Calls", align: "right", render: (r) => r.call_count.toLocaleString() },
-    { key: "success", header: "Succeeded", align: "right", render: (r) => r.success_count.toLocaleString() },
+    { key: "calls", header: <GlossaryTerm id="call">Calls</GlossaryTerm>, align: "right", render: (r) => r.call_count.toLocaleString() },
+    { key: "success", header: <GlossaryTerm id="succeeded">Succeeded</GlossaryTerm>, align: "right", render: (r) => r.success_count.toLocaleString() },
     { key: "failure", header: "Failed", align: "right", render: (r) => r.failure_count.toLocaleString() },
     {
       key: "success_ratio",
-      header: "Success ratio",
+      header: <GlossaryTerm id="succeeded">Success ratio</GlossaryTerm>,
       align: "right",
       render: (r) => {
         const pct = ratio(r.success_count, r.call_count);
@@ -56,7 +57,7 @@ export function Tools() {
       align: "right",
       render: (r) =>
         r.percentiles?.p95 != null
-          ? r.percentiles.p95.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          ? <span title={formatMetricWithRaw(r.percentiles.p95, "ms")}>{formatMetric(r.percentiles.p95)}</span>
           : "—",
     },
   ];
@@ -72,11 +73,11 @@ export function Tools() {
 
       <Panel title="Tool call volume" actions={<RangeControl range={range} />}>
         <div className="k-grid k-grid--kpis">
-          <KpiCard label="Calls" value={calls} state={state} />
-          <KpiCard label="Succeeded" value={succeeded} state={state} />
+          <KpiCard label={<GlossaryTerm id="call">Calls</GlossaryTerm>} value={calls} state={state} />
+          <KpiCard label={<GlossaryTerm id="succeeded">Succeeded</GlossaryTerm>} value={succeeded} state={state} />
           <KpiCard label="Failed" value={failed} state={state} />
           <KpiCard
-            label="Success ratio"
+            label={<GlossaryTerm id="succeeded">Success ratio</GlossaryTerm>}
             value={calls > 0 ? Math.round(100 * (ratio(succeeded, calls) ?? 0)) : null}
             unit="%"
             state={calls > 0 ? state : "not_observed"}

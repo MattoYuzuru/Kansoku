@@ -269,3 +269,336 @@ func TestScanHostInventoryReturnsNotScannedWhenConfigFileAbsent(t *testing.T) {
 		t.Fatal("a missing config.toml must never fabricate MCP server entries")
 	}
 }
+
+func TestInventoryScansConfiguredPluginCacheSkillsWithQualifiedOwnership(t *testing.T) {
+	stateRoot := t.TempDir()
+	home := filepath.Join(stateRoot, "state", "personal")
+	writeConfigToml(t, home, `
+[plugins."sre-agent@yuzuru-engineering"]
+enabled = true
+`)
+	activeSkillDir := filepath.Join(
+		home, "plugins", "cache", "yuzuru-engineering", "sre-agent", "0.1.0",
+		"skills", "sre-agent",
+	)
+	cacheOnlySkillDir := filepath.Join(
+		home, "plugins", "cache", "marketplace-cache", "cached-plugin", "9.9.9",
+		"skills", "cached-skill",
+	)
+	for _, directory := range []string{activeSkillDir, cacheOnlySkillDir} {
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(activeSkillDir, "SKILL.md"), []byte(`---
+name: sre-agent
+description: metadata-only KANSOKU_PLUGIN_SKILL_SECRET_MUST_NOT_PERSIST
+---
+KANSOKU_PLUGIN_SKILL_BODY_MUST_NOT_PERSIST
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cacheOnlySkillDir, "SKILL.md"), []byte(`---
+name: cached-skill
+description: cached metadata
+---
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{
+		InstallationID: "ain_plugin_catalog", AdapterID: codexadapter.AdapterID,
+		SurfaceID: "cli", StateRoot: stateRoot,
+	}
+	snapshot, err := codexadapter.New().Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized := string(encoded)
+	for _, forbidden := range []string{
+		stateRoot,
+		"KANSOKU_PLUGIN_SKILL_SECRET_MUST_NOT_PERSIST",
+		"KANSOKU_PLUGIN_SKILL_BODY_MUST_NOT_PERSIST",
+	} {
+		if strings.Contains(serialized, forbidden) {
+			t.Fatalf("raw plugin catalog surface persisted: %q", forbidden)
+		}
+	}
+
+	nodeByID := make(map[string]adaptersdk.Node, len(snapshot.Nodes))
+	var pluginNode, skillNode, cacheNode, cacheSkillNode adaptersdk.Node
+	for _, node := range snapshot.Nodes {
+		nodeByID[node.NodeID] = node
+		switch {
+		case node.DeclaredName == "sre-agent@yuzuru-engineering" &&
+			node.Kind == adaptersdk.NodePluginPackage:
+			pluginNode = node
+		case node.DeclaredName == "sre-agent" &&
+			node.Kind == adaptersdk.NodeSkillIdentity:
+			skillNode = node
+		case node.DeclaredName == "cached-plugin@marketplace-cache":
+			cacheNode = node
+		case node.DeclaredName == "cached-skill":
+			cacheSkillNode = node
+		}
+	}
+	if pluginNode.NodeID == "" || pluginNode.Version != "0.1.0" ||
+		pluginNode.SourceScope != adaptersdk.ScopeMarketplace || pluginNode.CachedOnly {
+		t.Fatalf("configured plugin cache metadata was not promoted exactly: %+v", pluginNode)
+	}
+	if skillNode.NodeID == "" || skillNode.SourceScope != adaptersdk.ScopeMarketplace ||
+		skillNode.CachedOnly {
+		t.Fatalf("configured plugin skill metadata was not promoted exactly: %+v", skillNode)
+	}
+	if cacheNode.Kind != adaptersdk.NodeCacheArtifact || !cacheNode.CachedOnly ||
+		!cacheSkillNode.CachedOnly {
+		t.Fatalf("cache-only plugin/child must remain cache artifacts: plugin=%+v child=%+v", cacheNode, cacheSkillNode)
+	}
+
+	var bundled, pluginEnabled, skillEnabled, cacheEnabled bool
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeBundles &&
+			edge.FromNode == pluginNode.NodeID && edge.ToNode == skillNode.NodeID {
+			bundled = true
+		}
+		if edge.Kind == adaptersdk.EdgeEnabledFor {
+			switch edge.FromNode {
+			case pluginNode.NodeID:
+				pluginEnabled = true
+			case skillNode.NodeID:
+				skillEnabled = true
+			case cacheNode.NodeID, cacheSkillNode.NodeID:
+				cacheEnabled = true
+			}
+		}
+	}
+	if !bundled || !pluginEnabled || !skillEnabled {
+		t.Fatalf(
+			"configured plugin ownership/enabled graph incomplete: bundled=%t plugin=%t skill=%t",
+			bundled, pluginEnabled, skillEnabled,
+		)
+	}
+	if cacheEnabled {
+		t.Fatal("cache presence alone must never create enabled_for")
+	}
+}
+
+func TestInventoryDoesNotGuessConfiguredPluginVersionWhenCacheIsAmbiguous(t *testing.T) {
+	stateRoot := t.TempDir()
+	home := filepath.Join(stateRoot, "state", "personal")
+	writeConfigToml(t, home, `
+[plugins."ambiguous@yuzuru-engineering"]
+enabled = true
+`)
+	for _, version := range []string{"1.0.0", "2.0.0"} {
+		directory := filepath.Join(
+			home, "plugins", "cache", "yuzuru-engineering", "ambiguous", version,
+			"skills", "same-skill",
+		)
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(directory, "SKILL.md"), []byte(`---
+name: same-skill
+description: ambiguous cache version
+---
+`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{
+		InstallationID: "ain_plugin_ambiguous", AdapterID: codexadapter.AdapterID,
+		StateRoot: stateRoot,
+	}
+	snapshot, err := codexadapter.New().Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configured adaptersdk.Node
+	var cacheVersions int
+	var configuredBundles int
+	for _, node := range snapshot.Nodes {
+		if node.DeclaredName != "ambiguous@yuzuru-engineering" {
+			continue
+		}
+		if node.Kind == adaptersdk.NodePluginPackage {
+			configured = node
+		}
+		if node.Kind == adaptersdk.NodeCacheArtifact {
+			cacheVersions++
+		}
+	}
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeBundles && edge.FromNode == configured.NodeID {
+			configuredBundles++
+		}
+	}
+	if configured.NodeID == "" || configured.Version != "" ||
+		configured.SourceScope != adaptersdk.ScopeUser {
+		t.Fatalf("ambiguous cache must not be selected as configured version: %+v", configured)
+	}
+	if cacheVersions != 2 || configuredBundles != 0 {
+		t.Fatalf(
+			"ambiguous versions must remain two cache artifacts without guessed ownership: cache=%d bundles=%d",
+			cacheVersions, configuredBundles,
+		)
+	}
+}
+
+func TestInventoryDeduplicatesOnlyExactPluginCatalogsAcrossProfiles(t *testing.T) {
+	stateRoot := t.TempDir()
+	writeProfile := func(profile, description string) {
+		t.Helper()
+		home := filepath.Join(stateRoot, "state", profile)
+		writeConfigToml(t, home, `
+[plugins."shared@yuzuru-engineering"]
+enabled = true
+`)
+		skillDir := filepath.Join(
+			home, "plugins", "cache", "yuzuru-engineering", "shared", "1.0.0",
+			"skills", "shared-skill",
+		)
+		if err := os.MkdirAll(skillDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		manifest := "---\nname: shared-skill\ndescription: " + description + "\n---\n"
+		if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(manifest), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeProfile("personal", "identical")
+	writeProfile("corporate", "identical")
+	host, err := adaptersdk.NewHostView([]string{stateRoot}, nil, testInventoryScanPseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := adaptersdk.Installation{
+		InstallationID: "ain_shared_profiles", AdapterID: codexadapter.AdapterID,
+		StateRoot: stateRoot,
+	}
+	snapshot, err := codexadapter.New().Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plugins, skills, collisions int
+	for _, node := range snapshot.Nodes {
+		if node.DeclaredName == "shared@yuzuru-engineering" &&
+			node.Kind == adaptersdk.NodePluginPackage {
+			plugins++
+		}
+		if node.DeclaredName == "shared-skill" &&
+			node.Kind == adaptersdk.NodeSkillIdentity {
+			skills++
+		}
+	}
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeCollidesWith {
+			collisions++
+		}
+	}
+	if plugins != 1 || skills != 1 || collisions != 0 {
+		t.Fatalf(
+			"identical profile catalogs must be one logical bundle: plugins=%d skills=%d collisions=%d",
+			plugins, skills, collisions,
+		)
+	}
+
+	writeProfile("corporate", "different-content")
+	divergent, err := codexadapter.New().Inventory(context.Background(), target, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugins, skills, collisions = 0, 0, 0
+	for _, node := range divergent.Nodes {
+		if node.DeclaredName == "shared@yuzuru-engineering" &&
+			node.Kind == adaptersdk.NodePluginPackage {
+			plugins++
+		}
+		if node.DeclaredName == "shared-skill" &&
+			node.Kind == adaptersdk.NodeSkillIdentity {
+			skills++
+		}
+	}
+	for _, edge := range divergent.Edges {
+		if edge.Kind == adaptersdk.EdgeCollidesWith {
+			collisions++
+		}
+	}
+	if plugins != 2 || skills != 2 || collisions < 2 {
+		t.Fatalf(
+			"divergent profile catalogs must remain colliding candidates: plugins=%d skills=%d collisions=%d",
+			plugins, skills, collisions,
+		)
+	}
+}
+
+// TestCodexScanSkillRootMirrorsCoverageGapAccounting keeps the two adapters'
+// scanners the same shape. Codex has a native exposure plane and so does not
+// depend on inventory completeness for cold eligibility, but a silently
+// truncated Codex inventory is just as wrong, and one shared shape is what
+// stops the next scanner from reintroducing the bare `continue`.
+func TestCodexScanSkillRootMirrorsCoverageGapAccounting(t *testing.T) {
+	base := t.TempDir()
+	library := filepath.Join(base, "library")
+	root := filepath.Join(base, "state")
+	skillRoot := filepath.Join(root, "skills", "user")
+	if err := os.MkdirAll(filepath.Join(library, "linked-skill"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(skillRoot, "real-skill"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillRoot, "real-skill", "SKILL.md"),
+		[]byte("---\nname: real-skill\ndescription: readable\n---\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(library, "linked-skill"),
+		filepath.Join(skillRoot, "linked-skill")); err != nil {
+		t.Fatal(err)
+	}
+	host, err := adaptersdk.NewHostView([]string{root}, nil,
+		[]byte("codexadapter-coverage-gap-mirror-test-key-0001"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, scanned := codexadapter.ScanHostInventory(host, adaptersdk.Installation{
+		InstallationID: "ain_codex_gaps", AdapterID: codexadapter.AdapterID,
+		SurfaceID: "cli", StateRoot: root,
+	})
+	if !scanned {
+		t.Fatal("a readable skill root must report scanned=true")
+	}
+	if len(input.Skills) != 1 || input.Skills[0].Name != "real-skill" {
+		t.Fatalf("skills=%+v want only real-skill", input.Skills)
+	}
+	if got := input.CoverageGaps[adaptersdk.CoverageGapUnresolvableSymlink]; got != 1 {
+		t.Fatalf("unresolvable_symlink=%d want 1 (gaps=%v)", got, input.CoverageGaps)
+	}
+	snapshot, err := codexadapter.BuildInventorySnapshot(input, time.Unix(0, 0).UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.CoverageGapCount != 1 {
+		t.Fatalf("snapshot gap count=%d want 1", snapshot.CoverageGapCount)
+	}
+	result := codexadapter.New().Reconcile(
+		context.Background(),
+		adaptersdk.ReconcileScope{InstallationID: "ain_codex_gaps"},
+		adaptersdk.InventorySnapshot{}, snapshot,
+	)
+	if result.Completeness != "partial" {
+		t.Fatalf("reconcile completeness=%q want partial with a coverage gap", result.Completeness)
+	}
+}

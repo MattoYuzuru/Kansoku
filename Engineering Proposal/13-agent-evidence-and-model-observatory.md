@@ -108,3 +108,57 @@ migration 0008 adds fresh exact installation attribution without rewriting ambig
 Agent list/detail APIs and UI now expose identity, activity, per-model usage, exact populations and
 independent source health. Cross-lane PostgreSQL replay, source-loss, unknown-schema, ten-sink
 privacy, production restart, browser and repeated restore verification gates pass.
+
+## 2026-07-28 component identity amendment
+
+Fresh assertions carry `component_kind`, qualified identity, identity source, optional owner plugin
+identity, invocation mode, upstream identity HMAC and resolution version. Original assertions are
+immutable. Re-resolution appends versioned history after inventory changes, and queries consume the
+current-resolution view while preserving the original resolution for audit. Namespace/owner-aware
+matching may resolve a unique qualified candidate; equal plain names remain ambiguous.
+
+## 2026-07-29 supervised bridge amendment
+
+The Codex bridge is supervised inside the ordinary appliance on the existing ingress listener and
+bearer. Each request creates an isolated JSON-RPC demultiplexer, binds the configured opaque
+installation outside the agent frame, and reports configured/producing/degraded source health.
+This is exact evidence only for App Server streams explicitly routed to the endpoint; ordinary CLI
+sessions remain rollout requested/reconstructed evidence.
+
+Bridge version `0.2.0` also owns the exact Codex 0.145.0 `plugin/read` request/response pair.
+It projects a UTC-day-bucketed, position-independent metadata snapshot: plugin `requested` plus
+conditional `installed`/`enabled`, and conditional installed/enabled child assertions with
+`owner_plugin_identity`. A metadata read is never called plugin `invoked` or `loaded`. Upstream
+IDs are HMAC-only; paths, descriptions, URLs, source objects, app templates and scheduled-task
+prompts have no durable destination.
+
+## 2026-07-30 profile consistency and cost amendment
+
+An agent profile is one repeatable-read snapshot, even though its bounded contours execute in
+parallel connections. Identity exposes the durable `agent_id` independently from the adapter ID and
+adds an explicit evidence-reviewed installation class
+(`real|canary|fixture|imported|unknown`) with provenance. Runtime code does not infer this class
+from opaque ID spelling.
+
+Provider-reported cost and versioned public-API-equivalent estimates are separate populations and
+separate visual lanes. They are not added together or presented as billed spend. The existing
+agent-profile budget was initially retained at 200 ms, then re-reviewed against the live
+328,653-event installation on 2026-07-30. One exact events aggregation alone took 203.937 ms and
+the evidence contour took 289.723 ms while competing for the appliance's 128 MiB PostgreSQL shared
+buffers, so a 200 ms end-to-end claim was no longer true. The implementation now performs one
+`GROUPING SETS` pass for activity, distinct sessions/components and per-source facts, bounds price
+selection to the profile's token usage, and runs exact evidence on the same exported snapshot.
+`agent_profile_range <= 500 ms` is the reviewed ceiling for that measured shape; it is enforced by
+the same wall-clock deadline and per-contour `statement_timeout`, not treated as an unbounded retry.
+
+## 2026-07-30 terminal reconciliation amendment
+
+Bridge version `0.3.0` reconciles a native MCP call start and its terminal frame into one logical
+tool-call fact. Replayed identical terminals retain one fact, while a missing or contradictory
+terminal remains `unknown` and creates metadata-only rejection evidence. Neither case is coerced
+to `failed`. The mapping is shared through the adapter SDK terminal-outcome contract so later
+bridges can reuse the same canonical outcomes without core agent-name branching.
+
+The authenticated bridge route and the observability sink now enforce the same bounded opaque
+installation-ID alphabet. Existing explicit canary IDs are valid bridge targets; installation
+class remains separately reviewed profile metadata and is never inferred from ID spelling.

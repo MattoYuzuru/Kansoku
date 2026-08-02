@@ -14,8 +14,9 @@ import (
 // BridgeAssertionSink adapts the generic adapter SDK safe sink to the one
 // canonical Ingestor transaction path. It owns no protocol or brand logic.
 type BridgeAssertionSink struct {
-	ingestor *Ingestor
-	sequence atomic.Uint64
+	ingestor       *Ingestor
+	installationID string
+	sequence       atomic.Uint64
 }
 
 func NewBridgeAssertionSink(ingestor *Ingestor) (*BridgeAssertionSink, error) {
@@ -25,9 +26,28 @@ func NewBridgeAssertionSink(ingestor *Ingestor) (*BridgeAssertionSink, error) {
 	return &BridgeAssertionSink{ingestor: ingestor}, nil
 }
 
+func NewBridgeAssertionSinkForInstallation(
+	ingestor *Ingestor,
+	installationID string,
+) (*BridgeAssertionSink, error) {
+	if ingestor == nil || installationID == "" ||
+		!safeComponentMetadataValue(installationID) {
+		return nil, errors.New("bridge_ingestor_or_installation_required")
+	}
+	return &BridgeAssertionSink{
+		ingestor: ingestor, installationID: installationID,
+	}, nil
+}
+
 var _ adaptersdk.SafeAssertionSink = (*BridgeAssertionSink)(nil)
 
 func (s *BridgeAssertionSink) Accept(_ context.Context, record privacy.SafeRecord) error {
+	if s.installationID != "" {
+		_, err := s.ingestor.IngestSanitizedBridgeRecordForInstallation(
+			record, s.sequence.Add(1), s.installationID,
+		)
+		return err
+	}
 	_, err := s.ingestor.IngestSanitizedBridgeRecord(record, s.sequence.Add(1))
 	return err
 }

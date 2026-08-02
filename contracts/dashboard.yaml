@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.dashboard/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-26",
+  "contract_version": "1.2.0",
+  "effective_at": "2026-07-29",
   "global_query": {
     "ranges": ["day", "week", "sprint", "month", "six_months", "year", "all_time", "custom"],
     "range_semantics": "half-open [from,to) in selected timezone",
@@ -70,6 +70,12 @@
       ]
     },
     {
+      "path": "/components/plugins/:id", "title": "Plugin detail", "wireframe": "identity, provenance and versions; snapshot-scoped bundle tree; load and exact child-activity assertions; incidents and completeness",
+      "panels": [
+        {"id": "plugin-detail-evidence", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["component.lifecycle_count", "component.activation_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
       "path": "/components/mcp", "title": "MCP", "wireframe": "server tree; connection timeline; calls/errors/latency; support gaps",
       "panels": [
         {"id": "mcp-health", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS"], "metrics": ["mcp.connection_uptime_ratio", "tool.calls", "tool.success_ratio", "tool.latency_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
@@ -102,6 +108,12 @@
       "panels": [
         {"id": "system-overhead", "question_ids": ["Q-KANSOKU-OVERHEAD"], "metrics": ["system.collector_cpu_ratio", "system.collector_rss_bytes", "system.database_size_bytes", "system.database_growth_bytes_per_day", "system.common_query_latency_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]},
         {"id": "system-recovery", "question_ids": ["Q-RECOVERY"], "metrics": ["system.backup_age_seconds", "system.restore_test_age_seconds"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
+      ]
+    },
+    {
+      "path": "/glossary", "title": "Glossary", "wireframe": "searchable plain-language definitions linked from component, activity and operations metrics",
+      "panels": [
+        {"id": "glossary-reference", "question_ids": ["Q-COMPONENT-LIFECYCLE", "Q-COMPONENT-GAPS", "Q-KANSOKU-OVERHEAD"], "metrics": ["component.lifecycle_count", "tool.calls", "system.database_size_bytes", "collection.coverage_ratio"], "view_states": ["complete", "partial", "degraded", "unsupported", "not_observed", "redacted", "unknown", "numeric_zero"]}
       ]
     },
     {

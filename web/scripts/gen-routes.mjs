@@ -1,7 +1,7 @@
-// Build-time generator: reads the authoritative route registry from
-// contracts/dashboard.yaml (which is JSON-encoded despite the .yaml suffix)
-// and emits src/generated/routes.ts, so the frontend never hand-duplicates
-// the path/title list. Run automatically by `prebuild` and `dev`.
+// Build-time generator: reads the authoritative dashboard and glossary
+// registries (JSON-encoded despite the .yaml suffix) and emits typed frontend
+// modules, so routes and user-facing definitions never drift from contracts.
+// Run automatically by `prebuild` and `dev`.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,8 +9,10 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const contractPath = path.join(repoRoot, "contracts", "dashboard.yaml");
+const glossaryPath = path.join(repoRoot, "contracts", "glossary.yaml");
 const outDir = path.join(here, "..", "src", "generated");
 const outFile = path.join(outDir, "routes.ts");
+const glossaryOutFile = path.join(outDir, "glossary.ts");
 
 const raw = fs.readFileSync(contractPath, "utf8");
 let contract;
@@ -22,9 +24,9 @@ try {
   );
 }
 
-if (!Array.isArray(contract.routes) || contract.routes.length !== 15) {
+if (!Array.isArray(contract.routes) || contract.routes.length !== 17) {
   throw new Error(
-    `expected exactly 15 routes in the contract, found ${contract.routes?.length}`,
+    `expected exactly 17 routes in the contract, found ${contract.routes?.length}`,
   );
 }
 
@@ -54,4 +56,39 @@ export const GLOBAL_QUERY = ${JSON.stringify(contract.global_query, null, 2)} as
 `;
 
 fs.writeFileSync(outFile, banner + "\n" + body);
-console.log(`gen-routes: wrote ${routes.length} routes -> ${path.relative(repoRoot, outFile)}`);
+
+const glossaryRaw = fs.readFileSync(glossaryPath, "utf8");
+let glossary;
+try {
+  glossary = JSON.parse(glossaryRaw);
+} catch (err) {
+  throw new Error(
+    `contracts/glossary.yaml is expected to be JSON-encoded; parse failed: ${err.message}`,
+  );
+}
+if (!Array.isArray(glossary.terms) || glossary.terms.length === 0) {
+  throw new Error("contracts/glossary.yaml must contain at least one term");
+}
+const glossaryTerms = glossary.terms.map((term) => ({
+  id: term.id,
+  definition: term.definition,
+  plainDefinition: term.plain_definition ?? term.definition,
+}));
+const glossaryBanner = `// AUTO-GENERATED from contracts/glossary.yaml by web/scripts/gen-routes.mjs.
+// Do not edit by hand. Regenerate: \`npm run gen:routes\` (runs on prebuild).
+// contract_version: ${glossary.contract_version}, schema_version: ${glossary.schema_version}\n`;
+const glossaryBody = `export interface GlossaryTerm {
+  readonly id: string;
+  readonly definition: string;
+  readonly plainDefinition: string;
+}
+
+export const GLOSSARY_TERMS: readonly GlossaryTerm[] = ${JSON.stringify(glossaryTerms, null, 2)} as const;
+
+export const GLOSSARY_BY_ID = new Map(GLOSSARY_TERMS.map((term) => [term.id, term]));
+`;
+fs.writeFileSync(glossaryOutFile, glossaryBanner + "\n" + glossaryBody);
+
+console.log(
+  `gen-routes: wrote ${routes.length} routes and ${glossaryTerms.length} terms -> ${path.relative(repoRoot, outDir)}`,
+);

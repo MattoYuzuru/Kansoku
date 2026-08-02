@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"kansoku.local/kansoku/internal/adaptersdk"
 	"kansoku.local/kansoku/internal/claudeadapter"
 	"kansoku.local/kansoku/internal/codexadapter"
 	"kansoku.local/kansoku/internal/localhttp"
@@ -37,6 +38,19 @@ const maxHookBodyBytes = 1 << 20
 // adding a case to hookAdapterHandler, never registering a second HTTP
 // server, a second auth mechanism, or a second literal path per event.
 func NewIngressHTTPHandler(guard *localhttp.Guard, ingestor *Ingestor, otlp *OTLPReceiver) (http.Handler, error) {
+	return NewIngressHTTPHandlerWithEvidenceBridge(guard, ingestor, otlp, nil)
+}
+
+// NewIngressHTTPHandlerWithEvidenceBridge adds the supervised, explicitly
+// routed evidence-bridge lane to the same authenticated ingress listener as
+// hooks and OTLP. The supplied handler receives an already authenticated,
+// body-bounded POST request; it cannot introduce another listener or secret.
+func NewIngressHTTPHandlerWithEvidenceBridge(
+	guard *localhttp.Guard,
+	ingestor *Ingestor,
+	otlp *OTLPReceiver,
+	codexAppServer http.Handler,
+) (http.Handler, error) {
 	if guard == nil || ingestor == nil || otlp == nil {
 		return nil, errors.New("invalid_ingress_http_configuration")
 	}
@@ -50,6 +64,9 @@ func NewIngressHTTPHandler(guard *localhttp.Guard, ingestor *Ingestor, otlp *OTL
 	mux.HandleFunc("/v1/adapter-events/{adapter}", func(writer http.ResponseWriter, request *http.Request) {
 		adapterBatchHandler(writer, request, ingestor)
 	})
+	if codexAppServer != nil {
+		mux.Handle("/v1/evidence-bridges/codex-app-server", codexAppServer)
+	}
 	return guard.Wrap(localhttp.RouteHookOTLP, mux), nil
 }
 
@@ -219,16 +236,7 @@ func claudeHookHandler(writer http.ResponseWriter, request *http.Request, ingest
 }
 
 func hookOutcome(status string) string {
-	switch strings.ToLower(status) {
-	case "success", "succeeded", "ok", "completed":
-		return "succeeded"
-	case "failure", "failed", "error":
-		return "failed"
-	case "cancelled", "interrupted", "timed_out", "abandoned":
-		return strings.ToLower(status)
-	default:
-		return "unknown"
-	}
+	return adaptersdk.ClassifyTerminalStatus(status, false).Outcome
 }
 
 func addOptionalHookField(fields map[string]any, key string, value any) {

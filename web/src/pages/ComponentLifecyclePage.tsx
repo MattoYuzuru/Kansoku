@@ -44,7 +44,7 @@ export function ComponentLifecyclePage({
   componentKind,
   extraGapNote,
 }: ComponentLifecyclePageProps) {
-  const range = useRange();
+  const range = useRange(componentKind === "skill" ? "skills" : "plugins");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],

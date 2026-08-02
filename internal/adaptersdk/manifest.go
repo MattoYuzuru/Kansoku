@@ -70,7 +70,55 @@ func validateManifestShape(m Manifest) error {
 	if len(m.Sources) > MaxManifestConfigEntries {
 		return errors.New("manifest_sources_too_large")
 	}
+	return validateComponentPlaneSupport(m.ComponentPlaneSupport)
+}
+
+// validateComponentPlaneSupport enforces the closed vocabularies and bounds of
+// an optional plane-support declaration. Omitting the field entirely is valid
+// and means "supported", so every manifest written before the field existed
+// keeps parsing and keeps its current behaviour.
+func validateComponentPlaneSupport(declarations []ComponentPlaneSupport) error {
+	if len(declarations) > MaxManifestConfigEntries {
+		return errors.New("manifest_component_plane_support_too_large")
+	}
+	seen := map[string]struct{}{}
+	for _, declaration := range declarations {
+		if !validComponentKind(declaration.ComponentKind) {
+			return errors.New("unknown_manifest_component_plane_kind")
+		}
+		if declaration.Plane != PlaneExposed {
+			return errors.New("unknown_manifest_component_plane")
+		}
+		switch declaration.State {
+		case PlaneNative, PlaneReconstructed, PlaneUnsupported:
+		default:
+			return errors.New("unknown_manifest_component_plane_state")
+		}
+		// A declaration without a reason is an assertion with no basis: the
+		// whole point of the field is that a reader can tell why a plane is
+		// missing without reading the adapter's source.
+		if declaration.Reason == "" || len(declaration.Reason) > MaxManifestConfigString {
+			return errors.New("invalid_manifest_component_plane_reason")
+		}
+		key := declaration.ComponentKind + "\x00" + string(declaration.Plane)
+		if _, exists := seen[key]; exists {
+			return errors.New("duplicate_manifest_component_plane_support")
+		}
+		seen[key] = struct{}{}
+	}
 	return nil
+}
+
+// validComponentKind mirrors the component kinds the data platform's
+// components table already accepts, so a declaration can never name a kind
+// that has no rows to apply to.
+func validComponentKind(kind string) bool {
+	switch kind {
+	case "skill", "plugin", "mcp", "hook", "command", "app":
+		return true
+	default:
+		return false
+	}
 }
 
 func validAdapterID(id string) bool {

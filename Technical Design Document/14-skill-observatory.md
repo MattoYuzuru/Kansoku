@@ -53,6 +53,18 @@ configured inventory target completed successfully for the selected population.
 Requires a source event or snapshot proving the model-visible skill set for a session/turn. A global
 enabled list is not automatically exposure if the agent applies context limits or filtering.
 
+Some agents publish no such surface at all. That absence is a property of the agent, not an
+observation about a skill, so it is declared rather than inferred. Each adapter manifest states, per
+component kind, whether the exposed plane is `native`, `reconstructed` or `unsupported`, with a
+bounded reason. The declaration is persisted per installation and read by the data platform as data;
+the core never branches on an agent name. An undeclared plane is treated as supported.
+
+`unsupported` and `not_observed` are distinct and must stay distinct end to end. An unsupported
+exposure plane renders as `unsupported`, never as `0` and never as "not enough evidence". The rule
+above is unchanged by this: an enabled list still never becomes an exposure assertion. It only
+becomes an eligibility precondition, and only where no exposure surface exists — see the cold
+formula below.
+
 ### Invoked
 
 Requires native typed selection or a deterministic reconstructed assertion. Explicit/proactive/
@@ -104,8 +116,31 @@ Metrics include:
 - unresolved/ambiguous assertions;
 - source completeness.
 
-Cold means enabled and exposed during a complete observation window with zero invocation. Installed
-but never provably exposed is not cold; it is `not_observed` for demand.
+Cold means enabled, eligible and never invoked. Eligibility has two mutually exclusive paths,
+selected by the adapter's declared exposure-plane support:
+
+```text
+eligible = enabled AND (
+     exposure_plane <> 'unsupported' AND exposed_count > 0 AND complete_exposure
+  OR exposure_plane  = 'unsupported' AND inventory_snapshot.completeness = 'complete'
+)
+numerator = eligible AND invoked_count = 0
+```
+
+Where the plane is supported, the original rule is unchanged: installed but never provably exposed
+is not cold, it is `not_observed` for demand. Where the plane is unsupported, exposure cannot be
+observed at all, so eligibility falls back to a complete inventory snapshot — the same basis
+`plugin.active_share/2` already uses. This is why coverage gaps must downgrade snapshot completeness:
+without that, a mis-mounted host would produce a confident cold count over a truncated inventory.
+
+Each row carries `exposure_state ∈ {observed, not_observed, unsupported}`.
+
+Exclusions are disjoint, so no row is counted twice:
+
+- `unresolved_identity`, `ambiguous_identity` — unchanged;
+- `partial_or_missing_exposure_window` — supported planes only;
+- `exposure_plane_unsupported_without_complete_inventory` — unsupported planes whose inventory
+  snapshot is not complete.
 
 Every percentage returns numerator, denominator, exclusions, formula ID/version and completeness.
 
@@ -137,8 +172,25 @@ Session 14 exposes no file-content endpoint.
 Claude `skill_activated` maps to invoked after version and identity checks. Its documented load
 semantics may support loaded only through an explicit versioned rule.
 
-Codex typed skill selection/exposure comes from the Session 13 bridge. OTel-only Codex remains
-unsupported for exact activation. Hook/transcript reconstruction keeps its lower evidence tier.
+Claude sends `skill.name` **already qualified** as `<plugin>:<skill>` alongside a separate
+`plugin.name`. The owner namespace is therefore applied at most once. A declared name can never
+contain `:` — both adapters' frontmatter parsers restrict it to `[A-Za-z0-9][A-Za-z0-9._-]{0,127}` —
+so an identity already carrying the owner prefix is always upstream-qualified, never a bare name.
+Both the bare owner name and the `name@marketplace` form count as an existing prefix.
+
+`skill.source` and `plugin.scope` carry the agent's own vocabulary, not Kansoku's source-scope
+vocabulary. They are advisory evidence only and must never narrow inventory resolution. A value
+outside the closed vocabulary is recorded with state `unknown` and opens an idempotent `info`
+incident; it is not coerced into a vocabulary member, because a plugin-bundled skill does not always
+live in the plugin cache.
+
+Claude's exposed plane is declared `unsupported`: no documented event or snapshot reports the
+model-visible skill set.
+
+Codex typed skill selection/exposure comes from the Session 13 bridge, and its exposed plane is
+declared `native` so the behaviour is pinned by contract rather than by absence. OTel-only Codex
+remains unsupported for exact activation. Hook/transcript reconstruction keeps its lower evidence
+tier.
 
 The core processes assertion kinds and capabilities only. It does not branch on these agent names.
 
@@ -194,3 +246,84 @@ universal stages, and every unsupported or excluded result identifies the source
   is interpreted as terminal skill success without a registered terminal contract.
 
 The live and deterministic evidence is reconciled in `reports/session-14-reconciliation.md`.
+
+## P1 observer mapping (2026-07-28)
+
+Claude OTel dispatch recognizes 2.1.197 `skill_activated`, preserving only qualified skill identity,
+source scope, optional plugin owner, trigger mode and an HMAC of upstream identity. Codex rollout
+watching is read-only, append-only, checkpointed and rotation/truncation-aware. It parses content
+transiently and persists only identity/count/trigger/lineage/redaction metadata. A marker creates
+`requested`; a matching `SKILL.md` read plus native child activity creates reconstructed
+`loaded`/`invoked` at 0.85 confidence.
+
+The App Server bridge is an exact 0.145.0 JSON-RPC demultiplexer with up to 128 concurrent pending
+request IDs. Responses are associated with their request method; known service traffic is filtered,
+and only owned invalid frames enter quarantine. Normal `serve` supervises explicit streams on the
+authenticated bounded evidence-bridge route. This remains no evidence about ordinary CLI sessions
+unless their App Server stream is explicitly routed.
+
+## Catalog-family UI projection (2026-07-29)
+
+`web/src/lib/componentCatalog.ts` derives a stable opaque family ID from component kind, agent ID
+and normalized declared name. It groups only for presentation and carries every
+`component_installation_id` as a variant. Exact invocation/load assertions are additive across
+variants; session cardinality is represented internally as lower/upper bounds and is not displayed
+as an exact family number. Cold is emitted only when every family variant is eligible and cold.
+
+The list query remains one bounded `/api/v1/skills` request. A family profile first resolves its
+variant IDs from that response and then issues at most eight existing bounded profile GETs. Assertions
+and sources deduplicate by their durable IDs before the timeline renders. No migration, source
+write, collector branch or agent configuration change is introduced.
+
+## Rollout evidence hardening (2026-07-30)
+
+`CodexRolloutWatcher` uses a `bufio.Reader` and drains one newline-terminated record at a time.
+Retention is capped at 1 MiB with a 64 KiB reader buffer. Oversized content is reduced in-stream to
+a SHA-256 value used only as keyed metadata input, never stored. The watcher commits the byte
+offset after metadata-only quarantine and continues with the following record; an incomplete final
+line remains uncommitted until its newline arrives.
+
+The broad dollar-marker recognizer no longer writes on recognition. It keeps at most the bounded
+turn-local candidate map and requires a matching completed `SKILL.md` read before emitting
+reconstructed requested, loaded and invoked assertions. Their identity, evidence tier, confidence,
+installation binding and idempotency are explicit. A marker without the read is discarded on
+process-memory loss and creates no durable fact. Tests cover `$PATH`, `$HOME`, ordinary identifiers
+and currency, as well as oversized-then-valid replay.
+
+Source lifecycle comes from `/api/v1/health`; formula completeness remains attached to the metric
+population. The UI renders them as separate evidence surfaces.
+
+## Claude identity and exposure amendment (2026-08-01)
+
+Measured against the running local stack with Claude Code `2.1.220`, Claude skill telemetry was
+ingested and persisted but never counted. Four independent defects were isolated; each alone is
+sufficient to produce a zero. ADR 0023 records the decisions; the evidence and the ordered handoff
+are in `reports/2026-08-01-claude-skill-observatory-reconciliation.md`.
+
+- 22 Claude `skill`/`invoked` assertions existed, all at `identity_resolution='unresolved'` with
+  `candidate_count=0`. `GET /api/v1/skills` returned 140 Claude rows, all `not_observed`, all
+  `invoked_count=0`.
+- The owner-plugin namespace was applied twice, because Claude's `skill.name` is already qualified.
+  Stored identities looked like `t-skills-kotlin:t-skills-kotlin:kotlin-jpa-entity`.
+- `skill.source="plugin"` was used verbatim as the resolver's source-scope filter. It is not a member
+  of the closed vocabulary, and live inventory stores plugin-bundled Claude skills at `plugin_cache`.
+  Replaying the production CTE for `t-skills-dev-workflow:jira-workflow` gave 1 candidate with an
+  empty filter, 0 with `plugin`, and 1 with `plugin_cache`. Repairing the doubled prefix without
+  also gating the scope filter still resolves nothing; the two are one change.
+- Claude has no exposure surface, so `exposed_count` was 0 for every Claude skill and eligibility
+  never held. Live counts: 60 `exposed` assertions, all Codex.
+- Seven of eight user-scope skills were missing because `~/.claude/skills` entries were absolute
+  symlinks whose targets were not mounted, yet the snapshot was still marked `complete`.
+
+Naming correction for implementers: observation windows are stored with `plane='availability'`, not
+`plane='exposed'`. The migration's check constraint permits only `('availability','runtime')`. Earlier
+sections of this document use "exposure window" as prose for the availability-plane window covering
+`component.exposed`.
+
+Permanently unresolvable classes, recorded rather than papered over:
+
+- Built-in Claude skills are compiled into the executable and have no on-disk `SKILL.md`, so no
+  filesystem scan can inventory them. Their invocations stay `unresolved` behind a typed exclusion.
+- Repository-scope skills sharing a declared name across several bound projects resolve to
+  `ambiguous`. Claude's OTel carries no project or working-directory attribute, and `cwd` is dropped
+  at the privacy boundary, so this is unresolvable in principle rather than a defect.

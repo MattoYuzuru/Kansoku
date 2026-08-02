@@ -20,11 +20,67 @@ Kansoku allowlists identity/timing/count/result fields and drops `tool_input`, p
 even if users enabled detailed upstream telemetry. `skill.name` resolves against inventory; unknown
 names become scoped transient components, not arbitrary stored prompt text.
 
+On `skill_activated`, `skill.name` is **already qualified** as `<plugin>:<skill>` and arrives
+alongside a separate `plugin.name`. The owner namespace is applied at most once; a declared name can
+never contain `:`, so an identity already carrying the prefix is upstream-qualified rather than bare.
+Both the bare owner name and the `name@marketplace` form count as an existing prefix.
+
+`skill.source`, `plugin.scope` and `enabled_via` carry Claude's own vocabulary — observed values
+include `plugin`, `user-local` and `user-install` — none of which belongs to Kansoku's closed
+source-scope vocabulary. They are advisory evidence and must never narrow inventory resolution; a
+value outside the vocabulary is recorded with state `unknown` and opens an idempotent `info`
+incident. Coercing such a value into a vocabulary member is prohibited, because a plugin-bundled
+skill does not always live in the plugin cache.
+
+`marketplace.name` is present on `skill_activated` and `plugin_loaded`. It is the exact disambiguator
+the resolver currently approximates by splitting `owner.declared_name` on `@`.
+
+`hook_registered` and `assistant_response` are emitted but undeclared, so both quarantine on every
+session start. Both are metadata-only and map to `source.observed`; `assistant_response`'s response
+field stays outside the allowlist and is dropped.
+
+Claude's exposed plane is declared `unsupported`: no documented event or snapshot reports the
+model-visible skill set. See TDD 14 for the resulting cold-eligibility rule.
+
 ### Reconciliation
 
 Compare `Skill` transcript calls, skill OTel attribution and tool hooks; session/prompt/tool counts;
 plugin ownership and MCP server/tool identities; parent/subagent relationships. Attribute cost/tokens
 to skills/plugins only with native source semantics and retain potential double-attribution rules.
+
+Per-skill cost and token attribution is not achievable for third-party skills. Claude stamps the
+sentinel `skill.name="third-party"` / `plugin.name="third-party"` on `api_request` and on the
+cost/token metrics, so those records carry no per-skill identity. This is harmless today because
+only component-carrying event types resolve a component, but it bounds what the reconciliation can
+ever claim.
+
+### Skill root layout and symlinked libraries
+
+Standalone skill roots are `skills/{user,repository,admin,system}` under the state root, plus
+plugin-bundled skills discovered through the plugin cache. Only `SKILL.md` frontmatter is read.
+
+Entries are frequently symlinks into a separate library checkout. Because the appliance scans a
+read-only bind of the skill root, an **absolute** symlink resolves only if its target is also
+reachable at the identical absolute path inside the container. Operators with such a layout must
+bind the narrowest directory containing the targets at its identical path; never `$HOME` and never
+`/`. Without that bind the targets dangle and the affected skills are invisible.
+
+A skipped entry is never silently dropped. Each is classified into a closed vocabulary —
+`unresolvable_symlink`, `unreadable_component_manifest`, `truncated_component_manifest`,
+`unparseable_component_manifest` — carried on the snapshot as a coverage-gap tally, and any non-zero
+tally downgrades snapshot completeness to `partial`. This matters beyond visibility: TDD 14's
+cold-eligibility fallback for an unsupported exposure plane rests on inventory completeness, so a
+silently truncated inventory would otherwise yield a confident cold count.
+
+Two limits are structural rather than defects:
+
+- **Built-in skills** are compiled into the Claude Code executable and have no on-disk `SKILL.md`.
+  No filesystem scan can inventory them, so their invocations remain `unresolved` behind a typed
+  exclusion. No curated catalogue is maintained, because it would drift with every release and would
+  assert availability the appliance cannot observe.
+- **Repository scope across several projects** produces distinct component installations for
+  identically named skills, and Claude's OTel carries no project or working-directory attribute
+  (`cwd` is dropped at the privacy boundary). Such names resolve to `ambiguous`, not `exact`.
 
 ## Gemini CLI adapter
 

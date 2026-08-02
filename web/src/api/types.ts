@@ -19,7 +19,15 @@ export interface Population {
 
 /** Matches internal/dataplatform.Completeness (distinct from the envelope's Completeness). */
 export interface DataCompleteness {
-  status: string;
+  status:
+    | "complete"
+    | "partial"
+    | "degraded"
+    | "unsupported"
+    | "not_observed"
+    | "redacted"
+    | "unknown"
+    | "numeric_zero";
   covered_ratio: number;
   intervals: string[];
 }
@@ -65,6 +73,8 @@ export interface EntityRow {
   surface_kind?: string;
   agent_version?: string;
   adapter_version?: string;
+  installation_class?: "real" | "canary" | "fixture" | "imported" | "unknown";
+  installation_class_provenance?: string;
   event_count: number;
   success_count: number;
   failure_count: number;
@@ -77,6 +87,7 @@ export interface EntityRow {
 export interface AgentProfile {
   identity: {
     agent_installation_id: string;
+    agent_id: string;
     adapter_id: string;
     provider_id: string;
     display_name: string;
@@ -86,6 +97,8 @@ export interface AgentProfile {
     adapter_version?: string;
     completeness: DataCompleteness["status"];
     source_provenance: string;
+    installation_class: "real" | "canary" | "fixture" | "imported" | "unknown";
+    installation_class_provenance: string;
   };
   activity: {
     event_count: number;
@@ -105,6 +118,10 @@ export interface AgentProfile {
     output_tokens: number;
     costed_request_count: number;
     estimated_cost_micros: number;
+    provider_costed_request_count: number;
+    provider_cost_micros: number;
+    api_estimated_request_count: number;
+    api_equivalent_cost_micros: number;
     success_count: number;
     failure_count: number;
     percentiles?: Percentiles;
@@ -251,7 +268,17 @@ export interface ModelUsageDayRow {
   upper_bound_cost_count: number;
   percentiles?: Percentiles;
   error_ratio?: number | null;
+  error_numerator: number;
+  error_denominator: number;
+  error_excluded_count: number;
   matched_event_count: number;
+}
+export interface RatioMetric {
+  value?: number | null;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
 }
 export interface ModelUsageResponse {
   data: ModelUsageDayRow[];
@@ -259,6 +286,7 @@ export interface ModelUsageResponse {
   population: Population;
   completeness: DataCompleteness;
   freshness: Freshness;
+  error_ratio_metric: RatioMetric;
 }
 
 /* ---- /api/v1/tools/analytics ---- */
@@ -318,6 +346,17 @@ export interface SkillObservatoryRow {
   last_invoked_at?: string;
   modes: SkillModeCounts;
   cold_state: "cold" | "used" | "not_observed";
+  /**
+   * Whether the agent publishes a model-visible skill set at all.
+   * `unsupported` means there is no surface to read — it is never rendered as
+   * `0` and never as "not enough evidence yet", which are both claims about
+   * having looked.
+   */
+  exposure_state: "observed" | "not_observed" | "unsupported";
+  /** Bounded machine token explaining an `unsupported` exposure plane. */
+  exposure_reason?: string;
+  /** Completeness of the inventory snapshot this row's enabled state came from. */
+  inventory_coverage: string;
   outcome_state: "observed" | "unsupported";
   completeness: string;
 }
@@ -372,6 +411,77 @@ export interface SkillProfileResponse {
   assertions: SkillAssertionRow[];
   sources: SkillSourceRow[];
   file_tree: SkillFileTreeSummary[];
+  incident_count: number;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+  freshness: Freshness;
+}
+
+/* ---- /api/v1/plugins and /api/v1/plugins/:id ---- */
+export interface PluginObservatoryRow {
+  component_installation_id: string;
+  component_id: string;
+  declared_name: string;
+  version?: string;
+  version_state: string;
+  source_scope: string;
+  agent_id: string;
+  agent_installation_id: string;
+  installed: boolean;
+  enabled: boolean;
+  loaded_count: number;
+  loaded_sessions: number;
+  child_activity_count: number;
+  child_count: number;
+  collision_count: number;
+  last_loaded_at?: string;
+  activity_state: "active" | "cold" | "disabled" | "not_observed";
+  outcome_state: "unsupported";
+  bundle_completeness: string;
+}
+export interface PluginPlaneCounts {
+  installed: number;
+  enabled: number;
+  loaded: number;
+  active: number;
+  cold: number;
+}
+export interface PluginObservatoryResponse {
+  data: PluginObservatoryRow[];
+  counts: PluginPlaneCounts;
+  formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
+  freshness: Freshness;
+}
+export interface PluginChildRow {
+  component_id: string;
+  component_kind: string;
+  declared_name: string;
+  relation_kind: string;
+  version?: string;
+  version_state: string;
+  usage_count: number;
+  last_activity_at?: string;
+  relation_observed_at: string;
+  relation_completeness: string;
+}
+export interface PluginVersionRow {
+  version?: string;
+  version_state: string;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  current: boolean;
+}
+export interface PluginProfileResponse {
+  identity: PluginObservatoryRow;
+  children: PluginChildRow[];
+  versions: PluginVersionRow[];
+  assertions: SkillAssertionRow[];
+  sources: SkillSourceRow[];
   incident_count: number;
   formula_version: string;
   population: Population;
@@ -480,7 +590,11 @@ export interface ReliabilityCountsResponse {
 export interface CollectionHealthSnapshot {
   accepted_event_count: number;
   quarantined_record_count: number;
-  ingest_latency_p95_ms?: number | null;
+  receive_to_commit_p95_ms?: number | null;
+  observation_age_p95_seconds?: number | null;
+  replay_count: number;
+  late_backfill_candidate_count: number;
+  clock_skew_event_count: number;
   active_source_count: number;
   source_gap_count: number;
   oldest_source_age_seconds?: number | null;
@@ -489,6 +603,9 @@ export interface CollectionHealthSnapshot {
   queue_depth: number;
   oldest_queue_age_seconds: number;
   formula_version: string;
+  population: Population;
+  exclusions: Record<string, number>;
+  completeness: DataCompleteness;
 }
 
 /* ---- /api/v1/system/snapshot (flat, no `data` array, no from/to) ---- */
@@ -502,6 +619,70 @@ export interface SystemSnapshotResponse {
   population: Population;
   completeness: DataCompleteness;
   // no freshness field on this endpoint
+}
+
+/* ---- /api/v1/health (runtime durability/capacity snapshot) ---- */
+export type RuntimeHealthState = "pass" | "warning" | "degraded" | "critical" | "unknown";
+export interface CapacityMeasure {
+  current_bytes: number;
+  budget_bytes: number;
+  percentage: number;
+  state: RuntimeHealthState;
+  growth_bytes_per_day: number | null;
+  estimated_exhaustion_at: string | null;
+}
+export interface StorageComponent {
+  bytes: number | null;
+  value_state: "observed" | "not_observed" | "unsupported" | "unknown";
+  notes?: string;
+}
+export interface RuntimeSourceFreshness {
+  source_kind?: string;
+  source_id?: string;
+  state?: string;
+  value_state: "observed" | "not_observed" | "unsupported" | "unknown";
+  last_observed_at?: string;
+  last_committed_at?: string;
+  last_attempted_at?: string;
+  last_successful_at?: string | null;
+  last_error_class?: string | null;
+  gap_count?: number;
+  inactivity?: boolean;
+}
+export interface RuntimeHealthResponse {
+  status: RuntimeHealthState;
+  database: string;
+  workers: string;
+  spool: string;
+  migration_ledgers: string;
+  database_budget: CapacityMeasure;
+  checkpoint_usage: CapacityMeasure;
+  legacy_mirror: { current_bytes: number; state: string };
+  spool_bytes: Record<string, number>;
+  spool_budget_bytes: Record<string, number>;
+  queue_depth: Record<string, number>;
+  source_freshness: RuntimeSourceFreshness[];
+  storage_components: {
+    backups: StorageComponent;
+    indexes: StorageComponent;
+    table_heap: StorageComponent;
+    temporary_files: StorageComponent;
+    wal_headroom: StorageComponent;
+    filesystem: {
+      available_bytes: number;
+      total_bytes: number;
+      free_percentage: number;
+      minimum_recommended_free_bytes: number;
+      state: RuntimeHealthState;
+    };
+  };
+  last_successful_ingest_at: string | null;
+  last_rejected_ingest_at: string | null;
+  backpressure_rejected_total: number;
+  durability_unavailable_total: number;
+  pending_projection_count: number;
+  oldest_pending_projection_at: string | null;
+  counter_scope: string;
 }
 
 /* ---- /api/v1/privacy/canary-history ---- */

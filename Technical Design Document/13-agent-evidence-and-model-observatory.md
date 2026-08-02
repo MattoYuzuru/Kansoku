@@ -79,8 +79,9 @@ It MUST discard before logs, queues and persistence:
 - environment/config values;
 - any unknown fields.
 
-Unknown bridge schema creates metadata-only quarantine and a bridge capability incident. It does not
-fall back to parsing raw rollout content.
+An invalid owned frame creates metadata-only quarantine and a bridge capability incident. Known
+service methods and responses not owned by the bridge are filtered without quarantine. The bridge
+does not fall back to parsing raw rollout content.
 
 The bridge connects to an explicitly configured local App Server target. It does not start, stop or
 reconfigure Codex without a later ChangePlan. Reconnect uses bounded exponential backoff and a
@@ -120,14 +121,18 @@ installation/session correlation remains plural.
 The durable installation key remains opaque. A display record contains:
 
 - adapter-defined provider/display name;
+- adapter-owned agent ID, distinct from the adapter ID;
 - surface kind;
 - optional user alias;
 - observed version;
+- explicit installation class (`real`, `canary`, `fixture`, `imported` or `unknown`) and its
+  provenance;
 - pseudonymous short installation suffix for diagnostics;
 - completeness and source provenance.
 
 The provider is never derived from the model. Unknown adapter identity displays `Unknown agent`
-with the opaque suffix and incident link.
+with the opaque suffix and incident link. Runtime code never derives installation class from an
+opaque ID prefix or pattern.
 
 ## Dimensional propagation
 
@@ -157,7 +162,8 @@ registered mergeable distribution, never by averaging percentiles.
 
 Cost rows require model ID, exact token categories, matching price snapshot and formula version.
 Unknown pricing or incomplete token splits are excluded with counts. Subscription billing is never
-claimed.
+claimed. Provider-reported cost and public-API-equivalent estimates remain separate request and
+cost lanes; they are never summed into a billing claim.
 
 ## Health and audit
 
@@ -219,4 +225,79 @@ bridge works without core agent-name branches.
 - Core provider fallback is the adapter identity. No provider is inferred from a model and the
   former agent-name provider switch was removed.
 - The first App Server implementation accepts only the locally generated Codex 0.145.0 schema
-  subset documented in `SOURCES.md`; unsupported methods become metadata-only bridge incidents.
+  subset documented in `SOURCES.md`. Invalid owned skill/plugin frames become metadata-only bridge
+  incidents; known service methods and unowned responses are ignored as multiplexed traffic.
+
+Normal runtime wiring was completed on 2026-07-29. `CodexAppServerIngress` is an authenticated
+request-scoped supervisor, not a Codex launcher or transparent CLI observer. Trusted orchestration
+binds an opaque installation ID after SafeRecord validation; no installation is read from frame
+content. Source health is `configured` without a stream, `producing/observed` after accepted typed
+records, and `degraded` after owned rejection or sink failure.
+
+Bridge `0.2.0` demultiplexes `plugin/read` alongside concurrent `skills/list` requests. Because a
+JSON-RPC metadata response has no source timestamp, plugin and skills-list snapshots use a UTC-day
+bucket and position-independent evidence key. Reconnect/retry in the same day increments only the
+existing evidence replay count; a later day is a new bounded inventory observation. `plugin/read`
+emits plugin `requested` and conditional installed/enabled assertions, plus conditional
+installed/enabled child assertions for safe skill/MCP/hook/app identities. Children carry the
+owner-qualified plugin identity. Unrepresentable names are retained as HMAC-only redacted
+assertions rather than silently dropped. Metadata read never means plugin invoked/loaded.
+
+## Versioned component resolution (2026-07-28)
+
+Dataplatform migration `0013_component_identity_resolution` additively adds component kind,
+qualified/owner identity metadata, invocation mode, upstream identity hash and resolution version.
+It creates append-only `component_assertion_resolution_history` and
+`component_assertion_current_resolution`. Inventory scans re-run the namespace-aware resolver only
+for unresolved/ambiguous/redacted evidence and append a new decision; historical assertions are
+never updated. Down migration removes the additive view/history/columns but cannot reconstruct
+consumer behavior that relied on newer resolution semantics, so production rollback is
+application-first and retains a pre-migration backup.
+
+## Agent profile reconciliation (2026-07-30)
+
+`AgentProfile` exports one read-only repeatable-read PostgreSQL snapshot and imports it into seven
+bounded read-only contour transactions. Identity, the combined activity/source-fact aggregation,
+models, source metadata, exact evidence, population and freshness therefore describe the same
+database state. A concurrency integration test inserts a fact after snapshot export and proves
+that all first-response contours exclude it while the next request includes it. A conditional
+eighth contour reads evidence only for legacy source rows that lack exact source-installation
+attribution; it imports the same snapshot and does not rewrite those rows.
+
+The initial 200 ms proof used a small profile population and stopped matching the live appliance
+after the primary installation reached 328,653 events. Live `EXPLAIN (ANALYZE)` measured one exact
+events aggregation at 203.937 ms by itself and the exact evidence contour at 289.723 ms under
+shared-buffer contention. The resource-efficient plan now scans events once with
+`GROUPING SETS ((), source_instance_id, session_id, component_id)` and derives exact global,
+distinct and per-source counts from those bounded groups. Model pricing joins only token usage
+already selected into the profile. Migration 0016's covering indexes remain additive. Contract
+version 1.8.0 records the evidence-backed 500 ms ceiling; every contour receives that same
+`statement_timeout`, keeps `work_mem` at 16 MiB and permits at most one parallel gather worker.
+
+The PostgreSQL exit gate generates 330,000 sanitized synthetic event/evidence pairs, verifies exact
+reconciliation and fails if the complete snapshot response exceeds the reviewed budget. This
+fixture is transient inside an isolated Postgres container and adds no retained production data.
+
+Migration 0015 records the six evidence-reviewed local installation classes additively: two real,
+three canary and one fixture. It does not delete canaries, rewrite telemetry or classify future
+installations by name. The list and profile APIs initialize collections to `[]`; the UI exposes
+class/provenance, token composition, provider-reported cost, API-equivalent cost and each lane's
+coverage.
+
+## Terminal reconciliation (2026-07-30)
+
+Bridge `0.3.0` buffers at most the already bounded native-call population for one supervised
+stream. A start followed by exactly one terminal emits one logical `tool.called` record with the
+canonical adapter-SDK outcome. Replaying the same terminal is idempotent. Missing and contradictory
+terminal populations emit one `unknown` record plus a metadata-only bridge rejection; they never
+default to failure. Sanitized matrices cover success, failure, cancel, deny, timeout, missing,
+duplicate and contradictory frames.
+
+The bridge retains no arguments, results or raw errors while reconciling. Claude 2.1.197 uses a
+separate sanitized, version-pinned mapping test; no Claude process or configuration was started or
+changed for this amendment.
+
+The required installation header and the sink share the closed
+`ain_[A-Za-z0-9][A-Za-z0-9_-]{0,123}` shape. This admits existing explicit canary identifiers while
+rejecting paths, owner syntax, traversal punctuation and overlong values before persistence. The
+identifier does not encode or determine installation class.

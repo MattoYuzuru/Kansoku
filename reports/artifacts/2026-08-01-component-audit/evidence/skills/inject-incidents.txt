@@ -1,0 +1,61 @@
+### incidents table
+                                                                   Table "public.incidents"
+               Column                |           Type           | Collation | Nullable |                                Default                                
+-------------------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------
+ incident_id                         | text                     |           | not null | 
+ category                            | text                     |           | not null | 
+ opened_at                           | timestamp with time zone |           | not null | 
+ resolved_at                         | timestamp with time zone |           |          | 
+ last_seen_at                        | timestamp with time zone |           | not null | 
+ occurrence_count                    | bigint                   |           | not null | 1
+ occurrence_retention_excluded_count | bigint                   |           | not null | 0
+ schema_fingerprint                  | text                     |           |          | 
+ detector_state                      | text                     |           | not null | 'open'::text
+ triage_state                        | text                     |           | not null | 'new'::text
+ triage_note_category                | text                     |           |          | 
+ capability_id                       | text                     |           | not null | 'core_ingestion'::text
+ installation_id                     | text                     |           |          | 
+ installation_value_state            | text                     |           | not null | 'not_observed'::text
+ source_id                           | text                     |           |          | 
+ source_value_state                  | text                     |           | not null | 'not_observed'::text
+ severity                            | text                     |           | not null | 'warning'::text
+ adapter_version                     | text                     |           |          | 
+ source_schema_version               | text                     |           |          | 
+ parser_version                      | text                     |           |          | 
+ recovery_criteria                   | text                     |           | not null | 'fresh supported evidence followed by a passing targeted audit'::text
+ recovery_observed_at                | timestamp with time zone |           |          | 
+ERROR:  column "first_seen_at" does not exist
+LINE 1: select * from incidents order by first_seen_at desc nulls la...
+                                         ^
+HINT:  Perhaps you meant to reference the column "incidents.last_seen_at".
+### resolution history newest
+            assertion_id             | resolution_version | identity_resolution | candidate_count |   resolver_version   | resolution_trigger |        resolved_at         
+-------------------------------------+--------------------+---------------------+-----------------+----------------------+--------------------+----------------------------
+ oh_ae111f6f1bd19bf72085aacac4e637f2 |                  1 | unresolved          |               0 | component-resolver/2 | initial_ingest     | 2026-08-01 10:28:23.827+03
+ oh_be46d48644bd07dc2594b395c15eb73a |                  1 | unresolved          |               0 | component-resolver/2 | initial_ingest     | 2026-08-01 10:28:23.826+03
+ oh_8579f6c56dbdb3a86a9a21f8c16ea5d7 |                  1 | unresolved          |               0 | component-resolver/2 | initial_ingest     | 2026-08-01 10:28:23.826+03
+ oh_a79a47215d05e9ef8b22d62700bf8669 |                  1 | unresolved          |               0 | component-resolver/2 | initial_ingest     | 2026-08-01 10:28:23.826+03
+ oh_5536f52687efe8d4ff7aa79fa57df4ce |                  1 | unresolved          |               0 | component-resolver/2 | initial_ingest     | 2026-08-01 10:28:23.826+03
+(5 rows)
+
+### incidents (count by category)
+           category            |   capability_id   | severity | detector_state | occurrence_count |           opened_at           |         last_seen_at          
+-------------------------------+-------------------+----------+----------------+------------------+-------------------------------+-------------------------------
+ unknown_schema                | core_ingestion    | warning  | open           |                1 | 2026-08-01 10:29:31.772404+03 | 2026-08-01 10:29:31.772404+03
+ unknown_schema                | core_ingestion    | warning  | open           |                1 | 2026-08-01 10:29:31.770755+03 | 2026-08-01 10:29:31.770755+03
+ unknown_schema                | core_ingestion    | warning  | open           |                2 | 2026-08-01 10:29:31.76086+03  | 2026-08-01 10:29:31.76944+03
+ unknown_schema                | core_ingestion    | warning  | open           |                8 | 2026-08-01 10:22:02.602718+03 | 2026-08-01 10:28:48.944564+03
+ unknown_schema                | core_ingestion    | warning  | open           |               16 | 2026-08-01 10:26:17.240293+03 | 2026-08-01 10:28:48.938273+03
+ component_identity_unresolved | skill_observatory | warning  | open           |                8 | 2026-08-01 10:21:59.507+03    | 2026-08-01 10:28:23.827+03
+ component_identity_unresolved | skill_observatory | warning  | open           |                8 | 2026-08-01 10:21:59.506+03    | 2026-08-01 10:28:23.826+03
+ component_identity_unresolved | skill_observatory | warning  | open           |                8 | 2026-08-01 10:21:59.507+03    | 2026-08-01 10:28:23.826+03
+ component_identity_unresolved | skill_observatory | warning  | open           |                8 | 2026-08-01 10:21:59.507+03    | 2026-08-01 10:28:23.826+03
+ component_identity_unresolved | skill_observatory | warning  | open           |                8 | 2026-08-01 10:21:59.506+03    | 2026-08-01 10:28:23.826+03
+(10 rows)
+
+### total
+ count 
+-------
+    35
+(1 row)
+

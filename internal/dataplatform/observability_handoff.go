@@ -11,10 +11,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"kansoku.local/kansoku/internal/adaptersdk"
 	"kansoku.local/kansoku/internal/observability"
 )
 
 const defaultObservabilityHandoffTimeout = 15 * time.Second
+
+var ErrObservabilityProjectionPending = errors.New("observability_projection_pending")
 
 // ObservabilityHandoff is the production normalized-ingress to PostgreSQL
 // handoff. It consumes the same closed Event/Evidence pair committed by the
@@ -64,6 +67,53 @@ type ObservabilityFactScope struct {
 	ComponentResolution     string
 	ComponentCandidateCount int
 	DeclaredComponentPseudo string
+	ComponentKind           string
+	QualifiedIdentity       string
+	IdentitySource          string
+	OwnerPluginIdentity     string
+	InvocationMode          string
+	UpstreamIdentityHash    string
+	ComponentSourceScope    string
+	// ComponentSourceScopeState classifies ComponentSourceScope against the
+	// closed adaptersdk.SourceScope vocabulary: "observed" for a member,
+	// "not_observed" when the source reported nothing, "unknown" for a value
+	// outside the vocabulary. The three are distinct states, never collapsed
+	// into one another (AGENTS.md core contract).
+	ComponentSourceScopeState string
+	ResolutionVersion         int64
+}
+
+// canonicalSourceScopeFilter separates the durable, advisory record of an
+// observed component source scope from the value the inventory resolver is
+// allowed to filter on.
+//
+// The scope arrives from an agent's own attribute (Claude Code's
+// skill.source, Codex's inventory scope); only the attribute *key* is remapped
+// at the ingress boundary, the value passes through raw. Claude Code sends
+// skill.source="plugin", which is not a member of adaptersdk.SourceScope --
+// inventory records the same plugin-bundled skills at "plugin_cache". Feeding
+// that raw value into the resolver's `node.source_scope = $5` predicate
+// narrowed every candidate set to zero, silently.
+//
+// A non-vocabulary value therefore never narrows resolution: it returns an
+// empty filter (resolve across every scope) with state "unknown", so the value
+// is still recorded and surfaced as an incident rather than dropped, coerced
+// or allowed to fabricate a confident zero. It is deliberately not mapped onto
+// the nearest vocabulary member -- coercing "plugin" to "plugin_cache" would
+// recreate the identical silent zero for a plugin-bundled component that does
+// not live in the plugin cache (ADR 0023 decision 2).
+func canonicalSourceScopeFilter(raw string) (filter string, state string) {
+	if raw == "" {
+		return "", "not_observed"
+	}
+	switch adaptersdk.SourceScope(raw) {
+	case adaptersdk.ScopeSystem, adaptersdk.ScopeUser, adaptersdk.ScopeRepository,
+		adaptersdk.ScopeAdmin, adaptersdk.ScopeMarketplace, adaptersdk.ScopePluginCache,
+		adaptersdk.ScopeTransientSession:
+		return raw, "observed"
+	default:
+		return "", "unknown"
+	}
 }
 
 func handoffID(kind string, values ...string) string {
@@ -113,6 +163,7 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 		"source-instance", installationID, event.Source.AdapterID,
 		event.Source.AdapterVersion, string(event.Source.Kind),
 	)
+	_, sourceScopeState := canonicalSourceScopeFilter(event.ComponentEvidence.SourceScope)
 	return ObservabilityFactScope{
 		DeviceID:                deviceID,
 		AgentInstallationID:     installationID,
@@ -125,6 +176,15 @@ func ObservabilityScope(event observability.Event) ObservabilityFactScope {
 		SourceInstanceID:        sourceInstanceID,
 		ComponentResolution:     "unresolved",
 		DeclaredComponentPseudo: declaredComponentPseudo,
+		ComponentKind:           databaseComponentKind(event.Subject.Kind),
+		QualifiedIdentity:       event.ComponentEvidence.QualifiedIdentity,
+		IdentitySource:          event.ComponentEvidence.IdentitySource,
+		OwnerPluginIdentity:     event.ComponentEvidence.OwnerPluginIdentity,
+		InvocationMode:          event.ComponentEvidence.InvocationMode,
+		UpstreamIdentityHash:    event.ComponentEvidence.UpstreamIdentityHash,
+		ComponentSourceScope:      event.ComponentEvidence.SourceScope,
+		ComponentSourceScopeState: sourceScopeState,
+		ResolutionVersion:         1,
 		DimensionScope: installationID + "|" + surfaceID + "|" +
 			componentID + "|" + event.EventType,
 	}
@@ -134,7 +194,7 @@ func eventCarriesTurn(eventType string) bool {
 	switch eventType {
 	case "prompt.submitted", "tool.called", "model.requested", "model.responded",
 		"component.installed", "component.enabled", "component.exposed",
-		"component.loaded", "component.invoked", "component.executed":
+		"component.requested", "component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
 		return false
@@ -201,6 +261,11 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		ValueState:          event.ValueState,
 		Outcome:             event.Outcome,
 		CorrelationStatus:   string(event.CorrelationStatus),
+		ProjectionInput: &ObservabilityProjectionInput{
+			SpecVersion: ProjectionInputSpecVersion,
+			Event:       event,
+			Evidence:    evidence,
+		},
 	}, EvidenceRow{
 		EvidenceID:        evidence.EvidenceID,
 		EventID:           evidence.EventID,
@@ -225,9 +290,45 @@ func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, 
 		return nil
 	}
 	if err := h.persistSourceWatermark(ctx, event, scope); err != nil {
-		return err
+		h.markProjectionFailure(ctx, event, evidence, "source_watermark_failed", true)
+		return ErrObservabilityProjectionPending
 	}
-	return h.persistProjections(ctx, event, evidence, scope)
+	if err := h.persistProjections(ctx, event, evidence, scope); err != nil {
+		h.markProjectionFailure(ctx, event, evidence, "derived_projection_failed", true)
+		return ErrObservabilityProjectionPending
+	}
+	if _, err := h.pool.Exec(ctx, `
+		DELETE FROM observability_projection_receipts
+		WHERE evidence_id=$1 AND observed_at=$2
+	`, evidence.EvidenceID, event.ObservedAt.UTC()); err != nil {
+		h.markProjectionFailure(ctx, event, evidence, "projection_receipt_cleanup_failed", true)
+		return ErrObservabilityProjectionPending
+	}
+	return nil
+}
+
+func (h *ObservabilityHandoff) markProjectionFailure(
+	ctx context.Context,
+	event observability.Event,
+	evidence observability.Evidence,
+	errorClass string,
+	retryable bool,
+) {
+	state := "permanent_error"
+	if retryable {
+		state = "retryable"
+	}
+	_, _ = h.pool.Exec(ctx, `
+		UPDATE observability_projection_receipts
+		SET state=$3, attempt_count=attempt_count+1,
+		    last_error_class=$4, last_attempted_at=now()
+		WHERE evidence_id=$1 AND observed_at=$2
+	`, evidence.EvidenceID, event.ObservedAt.UTC(), state, errorClass)
+	_, _ = h.pool.Exec(ctx, `
+		INSERT INTO ingest_failures (ingest_failure_id, category, observed_at)
+		VALUES ($1,$2,$3)
+		ON CONFLICT (ingest_failure_id) DO NOTHING
+	`, handoffID("projection-failure", event.EventID, errorClass), errorClass, event.ObservedAt.UTC())
 }
 
 // resolveInventoryLifecycleComponent correlates a native, identity-only
@@ -251,22 +352,68 @@ func (h *ObservabilityHandoff) resolveInventoryLifecycleComponent(
 	scope.DimensionScope = scope.AgentInstallationID + "|" + scope.SurfaceID + "|" +
 		scope.DeclaredComponentPseudo + "|" + event.EventType
 	if declaredIdentity == "" || event.Subject.Kind == "" {
+		if scope.IdentitySource == "redacted" || scope.UpstreamIdentityHash != "" {
+			scope.ComponentResolution = "redacted"
+		}
 		return scope, nil
 	}
 	var candidateCount int
 	var componentID, componentInstallationID *string
+	// Only a vocabulary member ever narrows the candidate set; see
+	// canonicalSourceScopeFilter. An "unknown" scope resolves across every
+	// scope and is carried on the assertion (and as an incident) instead.
+	sourceScopeFilter, _ := canonicalSourceScopeFilter(scope.ComponentSourceScope)
 	err := h.pool.QueryRow(ctx, `
-		SELECT count(*)::integer, min(c.component_id), min(ci.component_installation_id)
-		FROM component_inventory_state cis
-		JOIN component_installations ci
-		  ON ci.component_installation_id = cis.component_installation_id
-		JOIN component_versions cv
-		  ON cv.component_version_id = ci.component_version_id
-		JOIN components c ON c.component_id = cv.component_id
-		WHERE ci.agent_installation_id = $1
-		  AND c.kind = $2
-		  AND c.declared_name = $3
-	`, scope.AgentInstallationID, databaseComponentKind(event.Subject.Kind), declaredIdentity).
+		WITH candidates AS (
+			SELECT DISTINCT c.component_id, ci.component_installation_id
+			FROM component_inventory_state cis
+			JOIN component_installations ci
+			  ON ci.component_installation_id = cis.component_installation_id
+			JOIN component_versions cv
+			  ON cv.component_version_id = ci.component_version_id
+			JOIN components c ON c.component_id = cv.component_id
+			LEFT JOIN inventory_nodes node
+			  ON node.snapshot_id = cis.last_snapshot_id
+			 AND node.node_id = cis.inventory_node_id
+			LEFT JOIN inventory_edges ownership
+			  ON ownership.snapshot_id = cis.last_snapshot_id
+			 AND ownership.to_node_id = cis.inventory_node_id
+			 AND ownership.kind = 'bundles'
+			LEFT JOIN inventory_nodes owner
+			  ON owner.snapshot_id = ownership.snapshot_id
+			 AND owner.node_id = ownership.from_node_id
+			 AND owner.kind = 'plugin_package'
+			WHERE ci.agent_installation_id = $1
+			  AND c.kind = $2
+			  AND (
+				($4 <> '' AND
+				 (
+				  CASE WHEN owner.declared_name IS NULL
+				       THEN c.declared_name
+				       ELSE owner.declared_name || ':' || c.declared_name
+				  END = $4
+				  OR (
+					c.kind='plugin' AND
+					split_part(c.declared_name,'@',1) = $4
+				  )
+				  OR (
+					c.kind='skill' AND owner.declared_name IS NOT NULL AND
+					split_part(owner.declared_name,'@',1) || ':' ||
+						c.declared_name = $4
+				  )
+				 ))
+				OR ($4 = '' AND (
+					c.declared_name = $3 OR
+					(c.kind='plugin' AND
+					 split_part(c.declared_name,'@',1) = $3)
+				))
+			  )
+			  AND ($5 = '' OR node.source_scope = $5)
+		)
+		SELECT count(*)::integer, min(component_id), min(component_installation_id)
+		FROM candidates
+	`, scope.AgentInstallationID, databaseComponentKind(event.Subject.Kind), declaredIdentity,
+		scope.QualifiedIdentity, sourceScopeFilter).
 		Scan(&candidateCount, &componentID, &componentInstallationID)
 	if err != nil {
 		return scope, err
@@ -293,7 +440,7 @@ func (h *ObservabilityHandoff) resolveInventoryLifecycleComponent(
 func isComponentLifecycleEvent(eventType string) bool {
 	switch eventType {
 	case "component.installed", "component.enabled", "component.exposed",
-		"component.loaded", "component.invoked", "component.executed":
+		"component.requested", "component.loaded", "component.invoked", "component.executed":
 		return true
 	default:
 		return false
@@ -318,7 +465,7 @@ func (h *ObservabilityHandoff) persistSourceWatermark(ctx context.Context, event
 
 func databaseComponentKind(kind string) string {
 	switch kind {
-	case "skill", "plugin", "mcp", "hook", "command":
+	case "skill", "plugin", "mcp", "hook", "command", "app":
 		return kind
 	case "tool", "agent":
 		// The v1 component catalog has no generic tool/subagent kind.
@@ -333,11 +480,12 @@ func databaseComponentKind(kind string) string {
 func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event observability.Event, evidence observability.Evidence, scope ObservabilityFactScope) error {
 	switch event.EventType {
 	case "component.installed", "component.enabled", "component.exposed",
-		"component.loaded", "component.invoked", "component.executed":
+		"component.requested", "component.loaded", "component.invoked", "component.executed":
 		stage := map[string]string{
 			"component.installed": "installed",
 			"component.enabled":   "enabled",
 			"component.exposed":   "exposed",
+			"component.requested": "requested",
 			"component.loaded":    "loaded",
 			"component.invoked":   "invoked",
 			"component.executed":  "executed",
@@ -360,7 +508,7 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			return err
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
-		if scope.ComponentInstallationID != "" {
+		if scope.ComponentInstallationID != "" && stage != "requested" {
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO component_lifecycle_events (
 					component_lifecycle_event_id, component_installation_id,
@@ -371,8 +519,16 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 				return err
 			}
 		}
+		// "unknown" is carried through rather than folded into
+		// "not_observed": the agent did report an invocation trigger, this
+		// build just does not recognize the value. Collapsing the two would
+		// make trigger-vocabulary drift indistinguishable from an agent that
+		// reports no trigger at all.
 		mode := "not_observed"
-		if event.Source.Kind == observability.SourceEvidenceBridge && stage == "invoked" {
+		if scope.InvocationMode == "explicit" || scope.InvocationMode == "proactive" ||
+			scope.InvocationMode == "nested" || scope.InvocationMode == "unknown" {
+			mode = scope.InvocationMode
+		} else if event.Source.Kind == observability.SourceEvidenceBridge && stage == "invoked" {
 			mode = "explicit"
 		}
 		assertionID := handoffID("component-assertion", evidence.EvidenceID, stage)
@@ -382,9 +538,12 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 				session_id, turn_id, event_id, evidence_id, assertion_kind, mode,
 				evidence_tier, confidence, source_instance_id, adapter_version,
 				schema_version, observed_at, idempotency_key, identity_resolution,
-				declared_identity_pseudonym, candidate_count
+				declared_identity_pseudonym, candidate_count, component_kind,
+				qualified_identity, identity_source, owner_plugin_identity,
+				invocation_mode, upstream_identity_hash, resolution_version,
+				source_scope, source_scope_state
 			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-				$17,$18,$19)
+				$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
 			ON CONFLICT (source_instance_id, idempotency_key) DO NOTHING
 		`, assertionID, nullableString(scope.ComponentInstallationID),
 			scope.AgentInstallationID, nullableString(scope.SessionID),
@@ -392,11 +551,51 @@ func (h *ObservabilityHandoff) persistProjections(ctx context.Context, event obs
 			mode, string(evidence.Tier), evidence.Confidence, scope.SourceInstanceID,
 			event.Source.AdapterVersion, event.Source.SchemaID, event.ObservedAt,
 			evidence.EvidenceID+":"+stage, scope.ComponentResolution,
-			scope.DeclaredComponentPseudo, scope.ComponentCandidateCount)
+			scope.DeclaredComponentPseudo, scope.ComponentCandidateCount,
+			scope.ComponentKind, nullableString(scope.QualifiedIdentity),
+			nullableString(scope.IdentitySource), nullableString(scope.OwnerPluginIdentity),
+			nullableString(scope.InvocationMode), nullableString(scope.UpstreamIdentityHash),
+			scope.ResolutionVersion, nullableString(scope.ComponentSourceScope),
+			scope.ComponentSourceScopeState)
 		if err != nil {
 			return err
 		}
+		if result.RowsAffected() > 0 {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO component_assertion_resolution_history (
+					resolution_history_id, assertion_id, resolution_version,
+					identity_resolution, component_installation_id, candidate_count,
+					resolver_version, resolution_trigger, resolved_at
+				) VALUES (
+					$1,$2,$3,$4,$5,$6,'component-resolver/2','initial_ingest',$7
+				)
+				ON CONFLICT (assertion_id, resolution_version) DO NOTHING
+			`, handoffID("component-resolution", assertionID, "1"), assertionID,
+				scope.ResolutionVersion, scope.ComponentResolution,
+				nullableString(scope.ComponentInstallationID),
+				scope.ComponentCandidateCount, event.ObservedAt.UTC()); err != nil {
+				return err
+			}
+			if err := persistSourceScopeVocabularyIncident(
+				ctx, tx, event, evidence, scope, assertionID,
+			); err != nil {
+				return err
+			}
+		}
 		if result.RowsAffected() == 0 || scope.ComponentResolution == "exact" {
+			if result.RowsAffected() > 0 && scope.ComponentResolution == "exact" &&
+				stage == "invoked" {
+				if err := persistPluginChildActivity(ctx, tx, pluginChildEvidence{
+					ChildComponentID: scope.ComponentID, AgentInstallationID: scope.AgentInstallationID,
+					SessionID: scope.SessionID, TurnID: scope.TurnID, EventID: event.EventID,
+					EvidenceID: evidence.EvidenceID, SourceInstanceID: scope.SourceInstanceID,
+					AdapterVersion: event.Source.AdapterVersion, SchemaVersion: event.Source.SchemaID,
+					EvidenceTier: string(evidence.Tier), Confidence: evidence.Confidence,
+					ObservedAt: event.ObservedAt, IdempotencyKey: evidence.EvidenceID + ":" + stage,
+				}); err != nil {
+					return err
+				}
+			}
 			if result.RowsAffected() > 0 && scope.ComponentResolution == "exact" &&
 				stage == "exposed" {
 				if _, err := tx.Exec(ctx, `
@@ -563,7 +762,12 @@ func (h *ObservabilityHandoff) persistMCPToolAssertion(
 	}
 	logicalID := handoffID("mcp-logical-call", event.Source.NativeEventID)
 	idempotency := evidence.EvidenceID + ":" + state
-	_, err = h.pool.Exec(ctx, `
+	tx, err := h.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	result, err := tx.Exec(ctx, `
 		INSERT INTO mcp_call_assertions(
 			call_assertion_id,logical_call_id,server_component_id,tool_component_id,
 			agent_installation_id,session_id,source_instance_id,state,observed_at,
@@ -577,6 +781,99 @@ func (h *ObservabilityHandoff) persistMCPToolAssertion(
 		state, event.ObservedAt, event.Measurements.DurationMS, failure,
 		string(evidence.Tier), evidence.Confidence, event.Source.AdapterVersion,
 		event.Source.SchemaID, idempotency)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() > 0 {
+		if err := persistPluginChildActivity(ctx, tx, pluginChildEvidence{
+			ChildComponentID: toolID, AgentInstallationID: scope.AgentInstallationID,
+			SessionID: scope.SessionID, TurnID: scope.TurnID, EventID: event.EventID,
+			EvidenceID: evidence.EvidenceID, SourceInstanceID: scope.SourceInstanceID,
+			AdapterVersion: event.Source.AdapterVersion, SchemaVersion: event.Source.SchemaID,
+			EvidenceTier: string(evidence.Tier), Confidence: evidence.Confidence,
+			ObservedAt: event.ObservedAt, IdempotencyKey: idempotency,
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+// persistSourceScopeVocabularyIncident records that a component source scope
+// outside the closed adaptersdk.SourceScope vocabulary was observed. The value
+// no longer narrows identity resolution (canonicalSourceScopeFilter), so
+// without this the drift would be invisible: resolution would simply succeed
+// while the appliance quietly ignored an attribute the agent meant something
+// by. AGENTS.md permits quarantining unknown data, never dropping it.
+//
+// The incident is idempotent on (adapter, component kind, raw value): one
+// standing info incident per distinct drift, with one occurrence per distinct
+// piece of evidence. Severity is info rather than warning because resolution
+// itself is unaffected -- this reports vocabulary drift to act on, not a
+// degraded metric. The raw value only ever reaches the durable row through
+// handoffID's hash, exactly like every other declared identity at this
+// boundary.
+func persistSourceScopeVocabularyIncident(
+	ctx context.Context,
+	tx pgx.Tx,
+	event observability.Event,
+	evidence observability.Evidence,
+	scope ObservabilityFactScope,
+	assertionID string,
+) error {
+	if scope.ComponentSourceScopeState != "unknown" {
+		return nil
+	}
+	const category = "component_source_scope_unknown"
+	incidentID := handoffID(
+		"component-source-scope-incident", category, event.Source.AdapterID,
+		scope.ComponentKind, scope.ComponentSourceScope,
+	)
+	idempotencyKey := handoffID(
+		"component-source-scope-occurrence", evidence.EvidenceID, category,
+	)
+	occurrenceID := handoffID("component-source-scope-occurrence-row", idempotencyKey)
+	var inserted bool
+	err := tx.QueryRow(ctx, `
+		INSERT INTO incident_occurrences (
+			incident_occurrence_id, incident_id, observed_at, evidence_ref,
+			safe_error_class, record_count, byte_count, idempotency_key
+		) VALUES ($1,$2,$3,$4,$5,1,0,$6)
+		ON CONFLICT (idempotency_key) DO NOTHING
+		RETURNING TRUE
+	`, occurrenceID, incidentID, event.ObservedAt.UTC(),
+		"component-assertion:"+assertionID, category, idempotencyKey).
+		Scan(&inserted)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if !inserted {
+		return nil
+	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO incidents (
+			incident_id, category, opened_at, resolved_at, last_seen_at,
+			occurrence_count, detector_state, triage_state, capability_id,
+			installation_id, installation_value_state, source_id,
+			source_value_state, severity, adapter_version,
+			source_schema_version, recovery_criteria, updated_at
+		) VALUES (
+			$1,$2,$3,NULL,$3,1,'open','new','skill_observatory',
+			$4,'observed',$5,'observed','info',$6,$7,
+			'the adapter declares the observed source scope in the closed vocabulary, or stops emitting it',
+			now()
+		)
+		ON CONFLICT (incident_id) DO UPDATE SET
+			last_seen_at=GREATEST(incidents.last_seen_at, EXCLUDED.last_seen_at),
+			occurrence_count=incidents.occurrence_count+1,
+			detector_state='open',
+			resolved_at=NULL,
+			adapter_version=EXCLUDED.adapter_version,
+			source_schema_version=EXCLUDED.source_schema_version,
+			updated_at=now()
+	`, incidentID, category, event.ObservedAt.UTC(),
+		scope.AgentInstallationID, scope.SourceInstanceID,
+		event.Source.AdapterVersion, event.Source.SchemaID)
 	return err
 }
 
@@ -669,6 +966,9 @@ func (h *ObservabilityHandoff) PersistQuarantineMetadata(quarantine observabilit
 		string(quarantine.SourceKind), quarantine.SchemaFingerprint,
 		fmt.Sprintf("%d", quarantine.ByteCount), fmt.Sprintf("%d", quarantine.RecordCount),
 	)
+	if quarantine.OccurrenceKey != "" {
+		idempotencyKey = quarantine.OccurrenceKey
+	}
 	occurrenceID := handoffID("incident-occurrence-row", idempotencyKey)
 	var inserted bool
 	if err := tx.QueryRow(ctx, `

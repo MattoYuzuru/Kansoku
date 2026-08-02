@@ -8,7 +8,7 @@ import (
 // PrivacyContractSemanticSHA256 is generated from the canonical JSON encoding
 // of every contracts/privacy registry, ordered by repository-relative path.
 // scripts/validate_privacy.py refuses a registry/runtime drift.
-const PrivacyContractSemanticSHA256 = "cf5ac9ee45e224840b7b13f7ac91901c0f2def7206c30c0482de99510adcc057"
+const PrivacyContractSemanticSHA256 = "b528675917a19c708d7f1f0a3a1e57509ef2f14e5ab1eb748be04267b2a31104"
 
 type ValueState string
 
@@ -176,29 +176,42 @@ type Lineage struct {
 	ContractSHA256        string `json:"contract_sha256"`
 }
 
+// ComponentEvidenceMetadata is the closed identity-only projection accepted
+// from native component telemetry. It cannot carry a payload, command,
+// environment value or filesystem location.
+type ComponentEvidenceMetadata struct {
+	QualifiedIdentity    string `json:"qualified_identity"`
+	IdentitySource       string `json:"identity_source"`
+	OwnerPluginIdentity  string `json:"owner_plugin_identity"`
+	InvocationMode       string `json:"invocation_mode"`
+	UpstreamIdentityHash string `json:"upstream_identity_hash"`
+	SourceScope          string `json:"source_scope"`
+}
+
 // SafeRecord is an explicit persistence allowlist. It deliberately has no
 // generic payload/attributes map.
 type SafeRecord struct {
-	RecordID          string                `json:"record_id"`
-	IdempotencyKey    string                `json:"idempotency_key"`
-	AdapterID         string                `json:"adapter_id"`
-	AdapterVersion    string                `json:"adapter_version"`
-	SourceSchemaID    string                `json:"source_schema_id"`
-	SchemaFingerprint string                `json:"schema_fingerprint"`
-	ObservedAt        time.Time             `json:"observed_at"`
-	ReceivedAt        time.Time             `json:"received_at"`
-	Confidence        float64               `json:"confidence"`
-	EventType         string                `json:"event_type"`
-	Outcome           string                `json:"outcome"`
-	ValueState        ValueState            `json:"value_state"`
-	Model             CatalogObservation    `json:"model"`
-	Tool              CatalogObservation    `json:"tool"`
-	ComponentKind     string                `json:"component_kind"`
-	ComponentMentions []string              `json:"component_mentions"`
-	PromptFeatures    PromptFeatures        `json:"prompt_features"`
-	Telemetry         TelemetryMeasurements `json:"telemetry"`
-	RedactionCounts   RedactionCounts       `json:"redaction_counts"`
-	Lineage           Lineage               `json:"lineage"`
+	RecordID          string                    `json:"record_id"`
+	IdempotencyKey    string                    `json:"idempotency_key"`
+	AdapterID         string                    `json:"adapter_id"`
+	AdapterVersion    string                    `json:"adapter_version"`
+	SourceSchemaID    string                    `json:"source_schema_id"`
+	SchemaFingerprint string                    `json:"schema_fingerprint"`
+	ObservedAt        time.Time                 `json:"observed_at"`
+	ReceivedAt        time.Time                 `json:"received_at"`
+	Confidence        float64                   `json:"confidence"`
+	EventType         string                    `json:"event_type"`
+	Outcome           string                    `json:"outcome"`
+	ValueState        ValueState                `json:"value_state"`
+	Model             CatalogObservation        `json:"model"`
+	Tool              CatalogObservation        `json:"tool"`
+	ComponentKind     string                    `json:"component_kind"`
+	ComponentMentions []string                  `json:"component_mentions"`
+	ComponentEvidence ComponentEvidenceMetadata `json:"component_evidence"`
+	PromptFeatures    PromptFeatures            `json:"prompt_features"`
+	Telemetry         TelemetryMeasurements     `json:"telemetry"`
+	RedactionCounts   RedactionCounts           `json:"redaction_counts"`
+	Lineage           Lineage                   `json:"lineage"`
 }
 
 // SafeError contains structural metadata only. Error intentionally returns

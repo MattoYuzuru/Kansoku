@@ -30,6 +30,26 @@
 
 ## Progress
 
+- **2026-07-29 P0/P1 incident amendment — P0 GO, capacity release gate NO-GO:** PostgreSQL is now the
+  authoritative fact/evidence store; the full JSON mirror was checksum-reconciled, backed up and
+  archived, and production uses a bounded 4 MiB checkpoint state plus 64 MiB per-lane emergency
+  spools. Capacity health/UI, 5 GiB soft budget, mixed-batch quarantine, Claude 2.1.197 identity
+  mapping, versioned re-resolution, Codex rollout watcher and exact App Server demux are
+  implemented and verified. Normal `serve` now supervises an authenticated, bounded App Server
+  ingress; restart/reconnect replay produced exact native skill evidence without inflation.
+  Codex `plugin/read` metadata and the bounded read-only plugin cache catalog now produce
+  owner-qualified plugin/skill identity without treating cache presence or plugin load as an
+  invocation. Codex inventory, ordinary-CLI rollout evidence and explicitly routed App Server
+  evidence now share one configured installation ID; no collector adopts a dynamic latest row.
+  Ingestion rejection counters survive restarts and pending projections retry from the sanitized
+  per-lane spool. Runtime collectors now activate only in `serve`; one-shot backup/restore and
+  evidence commands cannot overwrite inventory/source health from profiles without agent-state
+  mounts. Degraded/unknown source health, watermark gaps/inactivity and future clock skew now set
+  an explicit source-health floor on the overall status instead of appearing only as exclusions.
+  Claude runtime is intentionally excluded on this laptop by operator direction;
+  it is not a current Codex gate. Docker free space remains below 20%/25 GiB, so the 5 GiB full
+  soak is prohibited until capacity is increased. The executable residual backlog and evidence are in
+  `reports/2026-07-28-p0-p1-incident-reconciliation.md`.
 - **01 — complete (2026-07-21):** registries, SLO harness, reproducible spikes, ADR 0001 and
   reconciliation report exist; automated contract gates pass. ADR 0002 separates that sequencing
   gate from the still-blocked public adapter Supported/Beta gate, which requires two independent
@@ -234,15 +254,23 @@
   installed/enabled/exposed/invoked/loaded evidence planes, exact/unresolved/ambiguous identity,
   complete-window cold semantics and metadata-only profiles. A real Codex 0.145.0 App Server Luna
   canary reconciles exactly; privacy, browser, PostgreSQL and repeated restore gates pass.
-  Optimization stays unsupported until Session 20.
+  Optimization stays unsupported until Session 20. A 2026-07-29 UX amendment adds read-only
+  catalog families, preserved source/profile/version variants, event-total KPIs and a combined
+  skill evidence timeline without rewriting component identity.
 - **15 — implemented/P1 (2026-07-26; live gate green):** MCP configuration/inventory, protocol
   connection and call lifecycle are independent closed evidence contours. Migration 0010, generic
   Codex/Claude adapter mapping, server/tool APIs and profiles, observed-only uptime, exact
   start/terminal reconciliation, privacy-safe no-op protocol/real-Codex canaries, production
   restart, browser, PostgreSQL and repeated restore gates pass. Codex 0.145.0's failure to follow
   the fixture `nextCursor` is exposed as incomplete enumeration rather than fabricated coverage.
-- **16 — planned/P2 (approved 2026-07-26):** plugin bundle graph and child usage reuse stabilized
-  skill/MCP relations. There is no universal plugin-success metric.
+- **16 — implemented/P2 (2026-07-26; live gate green):** plugins are versioned, snapshot-scoped
+  bundle graphs across skills, hooks, MCP servers/tools, commands and apps. Independent
+  installed/enabled/loaded assertions, exact single-owner child attribution, active/cold formulas,
+  list/profile APIs and UI, collision/upgrade/disable/source-loss/replay/privacy tests, a real Codex
+  `plugin/read` canary, PostgreSQL migration/reconciliation, production restart, browser/API,
+  backup/restore and overhead gates pass. There is no plugin content endpoint or universal
+  plugin-success metric. A 2026-07-29 UX amendment folds same-named variants for browsing and
+  ranks bundled children by exact use while retaining collisions and zero-use children.
 - **17 — planned/P2 (approved 2026-07-26):** Kansoku measures its own bounded operational
   time-series separately from agent ingress.
 - **18 — planned/P3 (approved 2026-07-26):** design-system/browser regression and the complete
@@ -251,6 +279,23 @@
   and accepted read-only reconciliation evidence from Sessions 12–18.
 - **20 — research backlog:** opportunity detection requires deterministic eligibility semantics,
   privacy proof and false-positive evaluation before any production implementation.
+
+Cross-session dashboard amendment (2026-07-29): `/glossary` is generated from the canonical
+terminology contract and linked contextually from Skills, Plugins and System. `ADR 0021` records
+the distinction between catalog families, durable variants and event totals.
+
+Claude skill-observatory amendment (2026-08-01, documentation only — implementation pending):
+against Claude Code `2.1.220`, Claude skill activations were ingested but never counted. Identity
+resolution returned zero candidates for two compounding reasons — the owner plugin was prepended to
+an already-qualified `skill.name`, and a non-vocabulary `skill.source="plugin"` was used verbatim as
+the resolver's scope filter — and exposure eligibility could never hold because Claude publishes no
+model-visible skill set. The accepted direction makes exposure an adapter-declared support state,
+gives cold eligibility a second path on inventory completeness where the plane is `unsupported`, and
+turns unreadable or dangling skill entries into visible coverage gaps that downgrade a snapshot to
+`partial`. `ADR 0023` owns the semantics; evidence and the ordered implementation handoff are in
+`reports/2026-08-01-claude-skill-observatory-reconciliation.md`. Residual risks: multi-project
+repository skills resolve as `ambiguous`, built-in skills stay `unresolved` by decision, and
+`skill.cold_count` / `skill_profile` remain unregistered in `contracts/metrics.yaml`.
 
 ## Dependency graph
 

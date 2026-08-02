@@ -1,0 +1,18 @@
+402795 connect(12, {sa_family=AF_UNIX, sun_path="/var/run/nscd/socket"}, 110) = -1 ENOENT (No such file or directory)
+402795 connect(11, {sa_family=AF_UNIX, sun_path="/var/run/nscd/socket"}, 110) = -1 ENOENT (No such file or directory)
+402795 connect(13, {sa_family=AF_INET, sin_port=htons(53), sin_addr=inet_addr("127.0.0.53")}, 16) = 0
+402798 connect(13, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr("10.219.174.17")}, 16) = -1 EINPROGRESS (Operation now in progress)
+402787 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402799, si_uid=502, si_status=128, si_utime=0, si_stime=0} ---
+402787 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402800, si_uid=502, si_status=128, si_utime=0, si_stime=0} ---
+402787 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402804, si_uid=502, si_status=128, si_utime=0, si_stime=0} ---
+402787 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402880, si_uid=502, si_status=0, si_utime=0, si_stime=0} ---
+402890 connect(6, {sa_family=AF_UNIX, sun_path="/var/run/nscd/socket"}, 110) = -1 ENOENT (No such file or directory)
+402890 connect(6, {sa_family=AF_UNIX, sun_path="/var/run/nscd/socket"}, 110) = -1 ENOENT (No such file or directory)
+402798 connect(16, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr("10.219.174.17")}, 16) = -1 EINPROGRESS (Operation now in progress)
+402787 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402894, si_uid=502, si_status=0, si_utime=0, si_stime=0} ---
+402787 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402895, si_uid=502, si_status=1, si_utime=0, si_stime=2 /* 0.02 s */} ---
+402889 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402890, si_uid=502, si_status=0, si_utime=0, si_stime=4 /* 0.04 s */} ---
+402889 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402891, si_uid=502, si_status=0, si_utime=0, si_stime=0} ---
+402889 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402892, si_uid=502, si_status=0, si_utime=0, si_stime=0} ---
+402787 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=402889, si_uid=502, si_status=0, si_utime=0, si_stime=0} ---
+402787 connect(14, {sa_family=AF_INET, sin_port=htons(4318), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EINPROGRESS (Operation now in progress)

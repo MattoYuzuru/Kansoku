@@ -142,6 +142,102 @@ func TestBuildInventorySnapshotCacheEntryNeverReportedEnabled(t *testing.T) {
 	}
 }
 
+// TestBuildInventorySnapshotDedupesMarketplaceNodeSharedByMultiplePlugins
+// proves two different plugins pointing at the same FromMarketplace name
+// (the normal case for any real marketplace hosting more than one plugin)
+// produce exactly one marketplace node, never two -- two nodes with the
+// same declared name but no input.Marketplaces entry would otherwise get
+// the *same* NodeID (hashed from the name alone) and get silently
+// duplicated, which downstream snapshot validation rejects outright as an
+// invalid duplicate node.
+func TestBuildInventorySnapshotDedupesMarketplaceNodeSharedByMultiplePlugins(t *testing.T) {
+	now := time.Now()
+	input := claudeadapter.InventoryInput{
+		InstallationID: "install-4",
+		Plugins: []claudeadapter.PluginDescriptor{
+			{
+				Name: "plugin-x@shared-market", Scope: adaptersdk.ScopeUser,
+				ActiveEnabledFor: "install-4", FromMarketplace: "shared-market", Fingerprint: "fp-plugin-x",
+			},
+			{
+				Name: "plugin-y@shared-market", Scope: adaptersdk.ScopeUser,
+				ActiveEnabledFor: "install-4", FromMarketplace: "shared-market", Fingerprint: "fp-plugin-y",
+			},
+		},
+	}
+	snapshot, err := claudeadapter.BuildInventorySnapshot(input, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var marketNodes []adaptersdk.Node
+	for _, node := range snapshot.Nodes {
+		if node.DeclaredName == "shared-market" {
+			marketNodes = append(marketNodes, node)
+		}
+	}
+	if len(marketNodes) != 1 {
+		t.Fatalf("expected exactly one marketplace node shared by both plugins, got %d: %+v", len(marketNodes), marketNodes)
+	}
+
+	configuredInCount := 0
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeConfiguredIn && edge.ToNode == marketNodes[0].NodeID {
+			configuredInCount++
+		}
+		if edge.Kind == adaptersdk.EdgeCollidesWith && (edge.FromNode == marketNodes[0].NodeID || edge.ToNode == marketNodes[0].NodeID) {
+			t.Fatal("a single shared marketplace node must never collide with itself")
+		}
+	}
+	if configuredInCount != 2 {
+		t.Fatalf("expected both plugins' configured_in edges to point at the single shared marketplace node, got %d", configuredInCount)
+	}
+}
+
+// TestBuildInventorySnapshotMergesMarketplaceDescriptorWithPluginPointer
+// proves that when input.Marketplaces already describes a marketplace by
+// name (with a real PathPseudonym from a filesystem scan), a plugin's own
+// FromMarketplace pointer reuses that same node instead of minting a second,
+// path-less node under the same name -- which would otherwise spuriously
+// collide with the richer one despite describing the same real marketplace.
+func TestBuildInventorySnapshotMergesMarketplaceDescriptorWithPluginPointer(t *testing.T) {
+	now := time.Now()
+	input := claudeadapter.InventoryInput{
+		InstallationID: "install-5",
+		Plugins: []claudeadapter.PluginDescriptor{
+			{
+				Name: "plugin-z@scanned-market", Scope: adaptersdk.ScopeUser,
+				ActiveEnabledFor: "install-5", FromMarketplace: "scanned-market", Fingerprint: "fp-plugin-z",
+			},
+		},
+		Marketplaces: []claudeadapter.MarketplaceDescriptor{
+			{Name: "scanned-market", PathPseudonym: "pseudo-scanned-market", Fingerprint: "fp-scanned-market"},
+		},
+	}
+	snapshot, err := claudeadapter.BuildInventorySnapshot(input, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var marketNodes []adaptersdk.Node
+	for _, node := range snapshot.Nodes {
+		if node.DeclaredName == "scanned-market" {
+			marketNodes = append(marketNodes, node)
+		}
+	}
+	if len(marketNodes) != 1 {
+		t.Fatalf("expected exactly one marketplace node, got %d: %+v", len(marketNodes), marketNodes)
+	}
+	if marketNodes[0].PathPseudonym != "pseudo-scanned-market" {
+		t.Fatalf("expected the plugin pointer to reuse the richer scanned marketplace descriptor, got %+v", marketNodes[0])
+	}
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeCollidesWith && (edge.FromNode == marketNodes[0].NodeID || edge.ToNode == marketNodes[0].NodeID) {
+			t.Fatal("a plugin pointer merged into an already-scanned marketplace descriptor must never collide with it")
+		}
+	}
+}
+
 func TestBuildInventorySnapshotDisambiguatesDuplicateComponentNamesAcrossOwners(t *testing.T) {
 	// Two skills sharing the declared name "shared-skill": one standalone,
 	// one bundled inside a different plugin. Neither may be silently

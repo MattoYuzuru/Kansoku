@@ -1,0 +1,92 @@
+### 3 newest component_assertions
+-[ RECORD 1 ]-------------+--------------------------------------
+assertion_id              | oh_4d8ee40dfb6810d87bd250992d8407a0
+component_installation_id | 
+agent_installation_id     | ain_c2e4a67af4327907cd7a66172c685713
+session_id                | ses_hmac-sha256:859bba00282f
+assertion_kind            | invoked
+mode                      | explicit
+evidence_tier             | native
+identity_resolution       | unresolved
+candidate_count           | 0
+component_kind            | skill
+qualified_identity        | t-skills-golang:golang-s3
+identity_source           | native
+owner_plugin_identity     | 
+invocation_mode           | explicit
+observed_at               | 2026-08-01 10:28:09.174929+03
+-[ RECORD 2 ]-------------+--------------------------------------
+assertion_id              | oh_efc489258573a118c29bc24c6bf4c93f
+component_installation_id | 
+agent_installation_id     | ain_c2e4a67af4327907cd7a66172c685713
+session_id                | ses_hmac-sha256:859bba00282f
+assertion_kind            | invoked
+mode                      | explicit
+evidence_tier             | native
+identity_resolution       | unresolved
+candidate_count           | 0
+component_kind            | skill
+qualified_identity        | t-skills-dev-workflow:brainstorming
+identity_source           | native
+owner_plugin_identity     | 
+invocation_mode           | explicit
+observed_at               | 2026-08-01 10:28:09.173929+03
+-[ RECORD 3 ]-------------+--------------------------------------
+assertion_id              | oh_14253dfd132abd8544df956a11f39475
+component_installation_id | 
+agent_installation_id     | ain_c2e4a67af4327907cd7a66172c685713
+session_id                | ses_hmac-sha256:859bba00282f
+assertion_kind            | invoked
+mode                      | explicit
+evidence_tier             | native
+identity_resolution       | unresolved
+candidate_count           | 0
+component_kind            | skill
+qualified_identity        | t-skills-quality:systematic-debugging
+identity_source           | native
+owner_plugin_identity     | 
+invocation_mode           | explicit
+observed_at               | 2026-08-01 10:28:09.172929+03
+-[ RECORD 4 ]-------------+--------------------------------------
+assertion_id              | oh_16e30ff2a135af432f288d7367cc2c1f
+component_installation_id | 
+agent_installation_id     | ain_c2e4a67af4327907cd7a66172c685713
+session_id                | ses_hmac-sha256:1a5ae2b750ee
+assertion_kind            | loaded
+mode                      | not_observed
+evidence_tier             | native
+identity_resolution       | unresolved
+candidate_count           | 0
+component_kind            | plugin
+qualified_identity        | cleaner-agent
+identity_source           | user-install
+owner_plugin_identity     | cleaner-agent
+invocation_mode           | 
+observed_at               | 2026-08-01 10:26:38.489+03
+
+### 3 newest events
+-[ RECORD 1 ]+-------------------------------------
+event_id     | evt_19c348585929d650c3ef93e730e24e1e
+event_type   | component.invoked
+session_id   | ses_hmac-sha256:859bba00282f
+component_id | 
+observed_at  | 2026-08-01 10:28:09.174929+03
+-[ RECORD 2 ]+-------------------------------------
+event_id     | evt_5ba9713b8dbf90287ee5c53b9e0d150a
+event_type   | component.invoked
+session_id   | ses_hmac-sha256:859bba00282f
+component_id | 
+observed_at  | 2026-08-01 10:28:09.173929+03
+-[ RECORD 3 ]+-------------------------------------
+event_id     | evt_4238e814041f77702bc2b04039bc4625
+event_type   | component.invoked
+session_id   | ses_hmac-sha256:859bba00282f
+component_id | 
+observed_at  | 2026-08-01 10:28:09.172929+03
+-[ RECORD 4 ]+-------------------------------------
+event_id     | evt_c35fd922736974b8bfa0e3da9457ca79
+event_type   | model.responded
+session_id   | ses_hmac-sha256:1a5ae2b750ee
+component_id | 
+observed_at  | 2026-08-01 10:26:40.22+03
+

@@ -47,6 +47,19 @@ const (
 	OTelPluginInstalled OTelEventName = "plugin_installed"
 	OTelPluginLoaded    OTelEventName = "plugin_loaded"
 	OTelSkillActivated  OTelEventName = "skill_activated"
+	// OTelHookRegistered and OTelAssistantResponse are emitted by Claude Code
+	// 2.1.220 on every session start and on assistant turns respectively.
+	// Both were observed on the wire while undeclared here, so each one
+	// quarantined as an unsupported adapter event once per session -- standing
+	// incident noise that said "this schema drifted" about a shape that had
+	// simply never been written down. They are declared as metadata-only
+	// source activity: their canonical mapping is source.observed, and no
+	// measurement, component identity or content is read from either. In
+	// particular assistant_response is *not* mapped onto model.responded --
+	// api_request already counts that exact operation, and counting both would
+	// double every model response.
+	OTelHookRegistered    OTelEventName = "hook_registered"
+	OTelAssistantResponse OTelEventName = "assistant_response"
 )
 
 // DocumentedOTelEvents is the closed, documented Claude Code OTel event
@@ -57,6 +70,7 @@ func DocumentedOTelEvents() []OTelEventName {
 	return []OTelEventName{
 		OTelUserPrompt, OTelAPIRequest, OTelAPIError, OTelToolDecision, OTelToolResult,
 		OTelPluginInstalled, OTelPluginLoaded, OTelSkillActivated,
+		OTelHookRegistered, OTelAssistantResponse,
 	}
 }
 
@@ -66,14 +80,16 @@ func DocumentedOTelEvents() []OTelEventName {
 // absent because tool_result is the single counted tool execution; counting
 // both decision and result would double every call.
 var otelEventCanonical = map[OTelEventName]string{
-	OTelUserPrompt:      "prompt.submitted",
-	OTelToolDecision:    "source.observed",
-	OTelToolResult:      "tool.called",
-	OTelAPIRequest:      "model.responded",
-	OTelAPIError:        "model.responded",
-	OTelPluginInstalled: "component.installed",
-	OTelPluginLoaded:    "component.loaded",
-	OTelSkillActivated:  "component.invoked",
+	OTelUserPrompt:        "prompt.submitted",
+	OTelToolDecision:      "source.observed",
+	OTelToolResult:        "tool.called",
+	OTelAPIRequest:        "model.responded",
+	OTelAPIError:          "model.responded",
+	OTelPluginInstalled:   "component.installed",
+	OTelPluginLoaded:      "component.loaded",
+	OTelSkillActivated:    "component.invoked",
+	OTelHookRegistered:    "source.observed",
+	OTelAssistantResponse: "source.observed",
 }
 
 // OTLPSafeAttributes is the exact, closed OTLP attribute allowlist reused
@@ -89,7 +105,10 @@ func OTLPSafeAttributes() []string {
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
 		"kansoku.component.kind", "kansoku.duration_ms", "kansoku.prompt_length_characters",
 		"kansoku.input_tokens", "kansoku.cached_input_tokens", "kansoku.output_tokens", "kansoku.provider_cost_micros",
-		"kansoku.turn.id",
+		"kansoku.turn.id", "kansoku.component.identity",
+		"kansoku.component.identity_source", "kansoku.component.owner_plugin",
+		"kansoku.component.invocation_mode", "kansoku.component.upstream_identity_hash",
+		"kansoku.component.source_scope",
 	}
 }
 
@@ -119,9 +138,14 @@ func DroppedOTelSurfaces() []string {
 type ClaudeComponentAttribute string
 
 const (
-	AttributeSkillName  ClaudeComponentAttribute = "skill.name"
-	AttributePluginName ClaudeComponentAttribute = "plugin.name"
-	AttributeAgentName  ClaudeComponentAttribute = "agent.name"
+	AttributeSkillName         ClaudeComponentAttribute = "skill.name"
+	AttributePluginName        ClaudeComponentAttribute = "plugin.name"
+	AttributeAgentName         ClaudeComponentAttribute = "agent.name"
+	AttributeInvocationTrigger ClaudeComponentAttribute = "invocation_trigger"
+	AttributeSkillSource       ClaudeComponentAttribute = "skill.source"
+	AttributePluginScope       ClaudeComponentAttribute = "plugin.scope"
+	AttributeEnabledVia        ClaudeComponentAttribute = "enabled_via"
+	AttributePluginIDHash      ClaudeComponentAttribute = "plugin_id_hash"
 )
 
 // DocumentedComponentAttributes is the closed, documented identity/component
@@ -129,7 +153,11 @@ const (
 // contracts/claude/hooks-and-otel.yaml's
 // otel_source.documented_attributes.identity_and_component verbatim.
 func DocumentedComponentAttributes() []ClaudeComponentAttribute {
-	return []ClaudeComponentAttribute{AttributeSkillName, AttributePluginName, AttributeAgentName}
+	return []ClaudeComponentAttribute{
+		AttributeSkillName, AttributePluginName, AttributeAgentName,
+		AttributeInvocationTrigger, AttributeSkillSource, AttributePluginScope,
+		AttributeEnabledVia, AttributePluginIDHash,
+	}
 }
 
 // ComponentAttributeSafeSlot returns the existing OTLPSafeAttributes() slot a
@@ -139,10 +167,44 @@ func DocumentedComponentAttributes() []ClaudeComponentAttribute {
 // skill.name/plugin.name/agent.name.
 func ComponentAttributeSafeSlot(attribute ClaudeComponentAttribute) (string, bool) {
 	switch attribute {
-	case AttributeSkillName, AttributePluginName, AttributeAgentName:
-		return "kansoku.tool.id", true
+	case AttributeSkillName, AttributeAgentName:
+		return "kansoku.component.identity", true
+	case AttributePluginName:
+		return "kansoku.component.owner_plugin", true
+	case AttributeInvocationTrigger:
+		return "kansoku.component.invocation_mode", true
+	case AttributeSkillSource, AttributePluginScope:
+		return "kansoku.component.source_scope", true
+	case AttributeEnabledVia:
+		return "kansoku.component.identity_source", true
+	case AttributePluginIDHash:
+		return "kansoku.component.upstream_identity_hash", true
 	default:
 		return "", false
+	}
+}
+
+// DocumentedSourceScopeValues records, per source-scope-shaped attribute, the
+// raw values a locally-installed Claude Code has actually been observed to
+// stamp -- taken from the 2.1.220 wire capture in
+// reports/artifacts/2026-08-01-component-audit, not from a specification.
+//
+// This is advisory documentation only. Nothing resolves against it: the data
+// platform classifies an observed value against the closed
+// adaptersdk.SourceScope vocabulary itself, and a value outside that
+// vocabulary widens rather than narrows resolution. The list exists so the
+// divergence is written down where the adapter recipe lives -- none of these
+// values is a vocabulary member, and every one of them would otherwise look
+// like an unexplained mismatch to the next reader.
+//
+// Claude Code's own words are not Kansoku's: "plugin" describes where the
+// skill came from, while inventory records the same plugin-bundled skills at
+// "plugin_cache" (where they physically live). The two genuinely mean
+// different things, which is exactly why neither is translated into the other.
+func DocumentedSourceScopeValues() map[ClaudeComponentAttribute][]string {
+	return map[ClaudeComponentAttribute][]string{
+		AttributeSkillSource: {"plugin"},
+		AttributePluginScope: {"user-local"},
 	}
 }
 
@@ -257,9 +319,14 @@ func ExpectedOTelAttributeFingerprint(name OTelEventName) (string, bool) {
 		OTelToolResult:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
 		OTelAPIRequest:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"},
 		OTelAPIError:        {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms"},
-		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		// Metadata-only: identity and event type, never a measurement or a
+		// component. Requiring more would quarantine a record that is
+		// genuinely shaped this way upstream.
+		OTelHookRegistered:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelAssistantResponse: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
 	}
 	required, ok := requiredByEvent[name]
 	if !ok {
@@ -329,9 +396,14 @@ func requiredOTelKeys(name OTelEventName) []string {
 		OTelToolResult:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
 		OTelAPIRequest:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"},
 		OTelAPIError:        {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms"},
-		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		// Metadata-only: identity and event type, never a measurement or a
+		// component. Requiring more would quarantine a record that is
+		// genuinely shaped this way upstream.
+		OTelHookRegistered:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelAssistantResponse: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
 	}
 	return requiredByEvent[name]
 }

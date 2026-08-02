@@ -172,6 +172,21 @@ The implementation required one additional production layer beyond section C:
    audit can reconcile persisted node/edge counts with the collector status without rereading
    host configuration.
 
+The 2026-07-29 incident amendment makes `component_inventory_state` explicitly replaceable current
+state. A complete snapshot at or after the current observation removes absent current rows before
+re-resolution; immutable snapshots, component dimensions and historical installed/enabled
+assertions remain. Older snapshot replay and partial/degraded/unknown scans cannot resurrect stale
+candidates or erase the last complete state. Runtime persists adapter-derived completeness instead
+of hard-coding every successful call as `complete`.
+
+Codex collection additionally treats installation identity as target configuration, not as a
+query-time guess. The inventory collector and each rollout root use the same explicit ID; the
+fallback is deterministic and cannot select a newer unrelated installation row. The rollout
+parser emits a syntactically valid marker as unresolved `requested` when inventory is absent; the
+versioned resolver later considers only that installation's candidates. Every reconstructed event
+receives the ID in both source and scope. One physical file mapped to two IDs is a source error,
+not duplicate evidence.
+
 Live proof on 2026-07-25 found 14 installed/enabled Codex skills and two installed but disabled
 plugins. A low-effort no-op canary emitted session, prompt, model and tool events but no component
 identity or lifecycle event. Consequently later Codex skill stages remain `not_observed`. This is

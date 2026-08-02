@@ -1,6 +1,6 @@
 // AUTO-GENERATED from contracts/dashboard.yaml by web/scripts/gen-routes.mjs.
 // Do not edit by hand. Regenerate: `npm run gen:routes` (runs on prebuild).
-// contract_version: 1.1.0, schema_version: kansoku.dashboard/1
+// contract_version: 1.2.0, schema_version: kansoku.dashboard/1
 
 export interface RouteMeta {
   readonly path: string;
@@ -88,6 +88,14 @@ export const ROUTES: readonly RouteMeta[] = [
     ]
   },
   {
+    "path": "/components/plugins/:id",
+    "title": "Plugin detail",
+    "wireframe": "identity, provenance and versions; snapshot-scoped bundle tree; load and exact child-activity assertions; incidents and completeness",
+    "panelIds": [
+      "plugin-detail-evidence"
+    ]
+  },
+  {
     "path": "/components/mcp",
     "title": "MCP",
     "wireframe": "server tree; connection timeline; calls/errors/latency; support gaps",
@@ -130,6 +138,14 @@ export const ROUTES: readonly RouteMeta[] = [
     "panelIds": [
       "system-overhead",
       "system-recovery"
+    ]
+  },
+  {
+    "path": "/glossary",
+    "title": "Glossary",
+    "wireframe": "searchable plain-language definitions linked from component, activity and operations metrics",
+    "panelIds": [
+      "glossary-reference"
     ]
   },
   {

@@ -31,7 +31,8 @@ EXPECTED_VALUE_STATES = ["observed", "unsupported", "not_observed", "redacted", 
 EXPECTED_RECORD_FIELDS = {
     "record_id", "idempotency_key", "adapter_id", "adapter_version", "source_schema_id",
     "schema_fingerprint", "observed_at", "received_at", "confidence", "event_type", "outcome",
-    "value_state", "model", "tool", "component_kind", "component_mentions", "prompt_features", "telemetry",
+    "value_state", "model", "tool", "component_kind", "component_mentions",
+    "component_evidence", "prompt_features", "telemetry",
     "redaction_counts", "lineage",
 }
 EXPECTED_ERROR_FIELDS = {
@@ -41,13 +42,29 @@ EXPECTED_ERROR_FIELDS = {
 EXPECTED_RECORD_FIELD_ORDER = [
     "record_id", "idempotency_key", "adapter_id", "adapter_version", "source_schema_id",
     "schema_fingerprint", "observed_at", "received_at", "confidence", "event_type", "outcome",
-    "value_state", "model", "tool", "component_kind", "component_mentions", "prompt_features", "telemetry",
+    "value_state", "model", "tool", "component_kind", "component_mentions",
+    "component_evidence", "prompt_features", "telemetry",
     "redaction_counts", "lineage",
 ]
 EXPECTED_ERROR_FIELD_ORDER = [
     "incident_id", "source_schema_id", "schema_fingerprint", "field_path", "category",
     "total_bytes", "record_count", "observed_at", "received_at",
 ]
+EXPECTED_PROJECTION_RETRY_INPUT = {
+    "schema": "kansoku.projection-input/1",
+    "fields": ["spec_version", "event", "evidence"],
+    "event_shape": "internal_observability_event_closed_allowlist",
+    "evidence_shape": "internal_observability_evidence_closed_allowlist",
+    "maximum_serialized_bytes": 32768,
+    "storage": "postgresql_projection_receipt_only",
+    "retention": "deleted_after_successful_projection",
+    "legacy_rows": "not_rewritten_and_reported_as_input_absent",
+    "forbidden": [
+        "raw_request", "raw_api_body", "prompt", "response", "tool_input",
+        "tool_output", "source_code", "command", "environment", "credential",
+        "unredacted_path", "generic_attributes",
+    ],
+}
 EXPECTED_PREVIEW_FIELDS = {
     "plan_id", "plan_version", "target_id", "agent_id", "config_locator", "config_format",
     "config_locator_kind", "ownership",
@@ -84,6 +101,14 @@ EXPECTED_SOURCE_SCHEMA = {
 }
 EXPECTED_NESTED_TYPES = {
     "CatalogObservation": {"fields": {"state": "observation_state", "id": "nullable_catalog_id"}, "closed": True},
+    "ComponentEvidenceMetadata": {"fields": {
+        "qualified_identity": "safe_component_identity",
+        "identity_source": "safe_identity_source",
+        "owner_plugin_identity": "safe_component_identity_or_empty",
+        "invocation_mode": "explicit_proactive_nested_requested_or_not_observed",
+        "upstream_identity_hash": "optional_hmac_sha256",
+        "source_scope": "safe_source_scope_or_empty",
+    }, "closed": True},
     "PromptFeatures": {"fields": {
         "state": "completeness_state", "byte_count": "nonnegative_integer",
         "character_count": "nonnegative_integer", "word_count": "nonnegative_integer",
@@ -132,7 +157,11 @@ EXPECTED_INSTALLER_TARGET_POLICIES = {
     },
     "claude.user_otel": {
         "required_settings": {"env.CLAUDE_CODE_ENABLE_TELEMETRY": "1", "env.OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318", "env.OTEL_LOG_USER_PROMPTS": "0", "env.OTEL_LOG_ASSISTANT_RESPONSES": "0", "env.OTEL_LOG_TOOL_DETAILS": "0", "env.OTEL_LOG_TOOL_CONTENT": "0", "env.OTEL_LOG_RAW_API_BODIES": "0"},
-        "forbidden_keys": ["env.OTEL_EXPORTER_OTLP_HEADERS", "env.OTEL_LOGS_EXPORTER_FILE", "remote_endpoint"],
+        # env.OTEL_EXPORTER_OTLP_HEADERS is Claude Code's only header mechanism
+        # and the loopback ingress requires a bearer, so the operator must set
+        # it. Kansoku still never writes it; it is disclosed, not forbidden.
+        "forbidden_keys": ["env.OTEL_LOGS_EXPORTER_FILE", "remote_endpoint"],
+        "never_written_keys": ["env.OTEL_EXPORTER_OTLP_HEADERS"],
     },
     "gemini.user_otel": {
         "required_settings": {"telemetry.enabled": True, "telemetry.target": "local", "telemetry.otlpEndpoint": "http://127.0.0.1:4318", "telemetry.logPrompts": False, "telemetry.useCliAuth": False},
@@ -177,11 +206,12 @@ EXPECTED_ROUTE_MODES = {
 }
 EXPECTED_GO_SCHEMAS = {
     "CatalogObservation": {"state": "ObservationState", "id": "*string"},
+    "ComponentEvidenceMetadata": {"qualified_identity": "string", "identity_source": "string", "owner_plugin_identity": "string", "invocation_mode": "string", "upstream_identity_hash": "string", "source_scope": "string"},
     "PromptFeatures": {"state": "CompletenessState", "byte_count": "int", "character_count": "int", "word_count": "int", "line_count": "int", "coarse_script": "string", "code_fence_count": "int", "attachment_count": "int", "url_reference_count": "int", "file_reference_count": "int"},
     "TelemetryMeasurements": {"duration_ms": "*int64", "prompt_character_count": "*int64", "input_tokens": "*int64", "cached_input_tokens": "*int64", "output_tokens": "*int64", "provider_cost_micros": "*int64"},
     "RedactionCounts": {"prompt_fields": "int", "attachment_fields": "int", "response_fields": "int", "source_fields": "int", "tool_io_fields": "int", "command_fields": "int", "path_fields": "int", "environment_fields": "int", "credential_fields": "int", "exception_fields": "int", "sensitive_identifier_fields": "int"},
     "Lineage": {"source_record_pseudonym": "string", "session_pseudonym": "string", "turn_pseudonym": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "sanitizer_version": "string", "contract_sha256": "string"},
-    "SafeRecord": {"record_id": "string", "idempotency_key": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "observed_at": "time.Time", "received_at": "time.Time", "confidence": "float64", "event_type": "string", "outcome": "string", "value_state": "ValueState", "model": "CatalogObservation", "tool": "CatalogObservation", "component_kind": "string", "component_mentions": "[]string", "prompt_features": "PromptFeatures", "telemetry": "TelemetryMeasurements", "redaction_counts": "RedactionCounts", "lineage": "Lineage"},
+    "SafeRecord": {"record_id": "string", "idempotency_key": "string", "adapter_id": "string", "adapter_version": "string", "source_schema_id": "string", "schema_fingerprint": "string", "observed_at": "time.Time", "received_at": "time.Time", "confidence": "float64", "event_type": "string", "outcome": "string", "value_state": "ValueState", "model": "CatalogObservation", "tool": "CatalogObservation", "component_kind": "string", "component_mentions": "[]string", "component_evidence": "ComponentEvidenceMetadata", "prompt_features": "PromptFeatures", "telemetry": "TelemetryMeasurements", "redaction_counts": "RedactionCounts", "lineage": "Lineage"},
     "SafeError": {"incident_id": "string", "source_schema_id": "string", "schema_fingerprint": "string", "field_path": "string", "category": "string", "total_bytes": "int64", "record_count": "int", "observed_at": "time.Time", "received_at": "time.Time"},
     "SafeLogEvent": {"event_name": "string", "category": "string", "adapter_id": "string", "source_schema_id": "string", "schema_fingerprint": "string", "field_path": "string", "byte_count": "int64", "record_count": "int", "outcome": "string", "value_state": "ValueState", "duration_ms": "int64"},
 }
@@ -358,6 +388,8 @@ def validate_independent_security_invariants(
         errors.append("independent policy: exact durable Go schema fields required")
     if ingress.get("safe_error_fields") != EXPECTED_ERROR_FIELD_ORDER:
         errors.append("independent policy: exact safe error Go schema fields required")
+    if ingress.get("projection_retry_input") != EXPECTED_PROJECTION_RETRY_INPUT:
+        errors.append("independent policy: exact content-free projection retry input required")
     if ingress.get("nested_types") != EXPECTED_NESTED_TYPES:
         errors.append("independent policy: full nested Go schemas and types must remain exact and closed")
     if ingress.get("privacy_safe_log_fields") != EXPECTED_SAFE_LOG_FIELDS:
@@ -380,8 +412,15 @@ def validate_independent_security_invariants(
         errors.append("independent policy: exact installer target set required")
     for target_id, expected in EXPECTED_INSTALLER_TARGET_POLICIES.items():
         target = targets.get(target_id, {})
-        if target.get("required_settings") != expected["required_settings"] or target.get("forbidden_keys") != expected["forbidden_keys"]:
+        if target.get("required_settings") != expected["required_settings"] or \
+                target.get("forbidden_keys") != expected["forbidden_keys"] or \
+                target.get("never_written_keys", expected.get("never_written_keys")) != expected.get("never_written_keys"):
             errors.append(f"independent policy: exact required/forbidden installer values required for {target_id}")
+        for never_written in expected.get("never_written_keys", []) or []:
+            if never_written in (expected["required_settings"] or {}):
+                errors.append(
+                    f"independent policy: {target_id} declares {never_written} as both required and never-written"
+                )
 
     accesses = {item.get("id"): item for item in host_access.get("accesses", []) if isinstance(item, dict)}
     if set(accesses) != set(EXPECTED_HOST_ACCESS):
@@ -524,6 +563,8 @@ def validate_ingress(data: dict[str, Any] | None = None) -> list[str]:
         errors.append("ingress: durable SafeRecord allowlist differs from contract")
     if set(data.get("safe_error_fields", [])) != EXPECTED_ERROR_FIELDS:
         errors.append("ingress: SafeError allowlist differs from contract")
+    if data.get("projection_retry_input") != EXPECTED_PROJECTION_RETRY_INPUT:
+        errors.append("ingress: projection retry input policy differs from contract")
     aliases = set(registry("data-classes.yaml").get("prohibited_durable_aliases", []))
     if aliases & set(data.get("durable_record_fields", [])):
         errors.append("ingress: prohibited aliases appear in durable record fields")
@@ -537,7 +578,7 @@ def validate_ingress(data: dict[str, Any] | None = None) -> list[str]:
     if data.get("stable_prompt_hashes") is not False or data.get("embeddings") is not False or data.get("optional_prompt_hmac") is not False:
         errors.append("ingress: prompt hashes, embeddings and optional prompt HMAC remain disabled")
     nested = data.get("nested_types", {})
-    expected_nested = {"CatalogObservation", "PromptFeatures", "TelemetryMeasurements", "RedactionCounts", "Lineage", "SafeLogEvent"}
+    expected_nested = {"CatalogObservation", "ComponentEvidenceMetadata", "PromptFeatures", "TelemetryMeasurements", "RedactionCounts", "Lineage", "SafeLogEvent"}
     if set(nested) != expected_nested or any(set(value) != {"fields", "closed"} or value.get("closed") is not True for value in nested.values() if isinstance(value, dict)):
         errors.append("ingress: nested boundary types must be an exact closed schema")
     policy = data.get("decoder_policy", {})
@@ -592,9 +633,20 @@ def validate_installer(data: dict[str, Any] | None = None) -> list[str]:
     if data.get("implementation_scope_session_02") != "protocol and virtual apply/rollback model only; no real agent configuration mutation":
         errors.append("installer: Session 02 must not claim or perform real agent configuration mutation")
     target_keys = {"id", "agent_id", "config_locator_kind", "format", "ownership", "required_settings", "forbidden_keys", "precedence_checks", "disable_remove"}
+    # never_written_keys is optional: only a target with a key the operator must
+    # own declares it, so every other target keeps its exact previous shape.
     for target in data.get("targets", []):
-        if set(target) != target_keys or not target.get("required_settings") or not target.get("forbidden_keys") or not target.get("precedence_checks") or not target.get("disable_remove"):
+        if set(target) - {"never_written_keys"} != target_keys or not target.get("required_settings") or not target.get("forbidden_keys") or not target.get("precedence_checks") or not target.get("disable_remove"):
             errors.append(f"installer target {target.get('id')}: exact settings, precedence, ownership and removal required")
+        if "never_written_keys" in target and not target["never_written_keys"]:
+            errors.append(f"installer target {target.get('id')}: never_written_keys must be omitted rather than empty")
+    key_policy = data.get("key_policy_classes", {})
+    if "refuses_to_be_built_or_verified" not in str(key_policy.get("forbidden_keys", "")):
+        errors.append("installer: forbidden keys must still fail a plan when they pre-exist")
+    if "disclosed_on_the_plan" not in str(key_policy.get("never_written_keys", "")):
+        errors.append("installer: never-written keys must be disclosed on the plan rather than failing it")
+    if "may_never_appear_in_both" not in str(key_policy.get("disjointness", "")):
+        errors.append("installer: required and never-written key sets must be declared disjoint")
     gate = data.get("effective_settings_gate", {})
     if gate != {"required": True, "managed_or_environment_override": "fail_closed", "runtime_canary": "required_before_real_write", "session_02_real_write": False}:
         errors.append("installer: effective-setting and runtime-canary gate must fail closed with no Session 02 writes")
@@ -666,7 +718,7 @@ def validate_go_boundary() -> list[str]:
         body = struct_body(source, struct_name)
         if "map[string]any" in body or "json.RawMessage" in body or "interface{}" in body:
             errors.append(f"Go boundary: {struct_name} cannot contain a generic payload")
-    for struct_name in ("CatalogObservation", "PromptFeatures", "TelemetryMeasurements", "RedactionCounts", "Lineage", "SafeRecord", "SafeError"):
+    for struct_name in ("CatalogObservation", "ComponentEvidenceMetadata", "PromptFeatures", "TelemetryMeasurements", "RedactionCounts", "Lineage", "SafeRecord", "SafeError"):
         if struct_json_schema(source, struct_name) != EXPECTED_GO_SCHEMAS[struct_name]:
             errors.append(f"Go boundary: {struct_name} differs from independent exact field/type schema")
     sink_source = (ROOT / "internal" / "privacy" / "sinks.go").read_text(encoding="utf-8")

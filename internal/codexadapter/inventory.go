@@ -53,6 +53,20 @@ type SkillDescriptor struct {
 	Fingerprint   string
 }
 
+type CommandDescriptor struct {
+	Name          string
+	Scope         SkillScope
+	PathPseudonym string
+	Fingerprint   string
+}
+
+type AppDescriptor struct {
+	Name          string
+	Scope         SkillScope
+	PathPseudonym string
+	Fingerprint   string
+}
+
 // PluginDescriptor is one documented plugin/package declaration, which may
 // be either an active, configured plugin or a plugin-cache artifact.
 // CachedOnly must never be reported as enabled per
@@ -61,13 +75,18 @@ type SkillDescriptor struct {
 // when CachedOnly is true or when the plugin is merely present but not
 // enabled anywhere).
 type PluginDescriptor struct {
-	Name             string
-	Version          string
-	Scope            SkillScope
-	CachedOnly       bool
-	ActiveEnabledFor string
-	PathPseudonym    string
-	Fingerprint      string
+	Name              string
+	Version           string
+	Scope             SkillScope
+	CachedOnly        bool
+	ActiveEnabledFor  string
+	PathPseudonym     string
+	Fingerprint       string
+	BundledSkills     []SkillDescriptor
+	BundledCommands   []CommandDescriptor
+	BundledHooks      []HookDescriptor
+	BundledMCPServers []MCPServerDescriptor
+	BundledApps       []AppDescriptor
 }
 
 // HookDescriptor is one documented Codex hook definition (not necessarily
@@ -111,6 +130,9 @@ type InventoryInput struct {
 	// as active) or a target the user explicitly named. Inventory never
 	// discovers a repository root itself via speculative recursive walk.
 	RepositoryTargets []string
+	// CoverageGaps tallies every entry the scan found but could not turn into
+	// a component node, mirroring claudeadapter's identical field.
+	CoverageGaps adaptersdk.CoverageGaps
 }
 
 // ErrTooManyRepositoryTargets is returned when InventoryInput declares more
@@ -145,6 +167,7 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 	nodes = append(nodes, installationNode)
 
 	skillByNameScope := map[string][]adaptersdk.Node{}
+	mcpByName := map[string][]adaptersdk.Node{}
 	for _, skill := range input.Skills {
 		node := adaptersdk.Node{
 			NodeID:        "node_" + stableHex("skill", input.InstallationID, skill.Name, string(skill.Scope), skill.PathPseudonym),
@@ -164,8 +187,6 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 			})
 		}
 	}
-	edges = append(edges, collisionEdges(skillByNameScope, "skill-collision")...)
-
 	pluginByName := map[string][]adaptersdk.Node{}
 	for _, plugin := range input.Plugins {
 		kind := adaptersdk.NodePluginPackage
@@ -195,7 +216,101 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 				Kind:   adaptersdk.EdgeEnabledFor, FromNode: node.NodeID, ToNode: installationNode.NodeID,
 			})
 		}
+		for _, skill := range plugin.BundledSkills {
+			child := adaptersdk.Node{
+				NodeID: "node_" + stableHex("plugin-skill", node.NodeID, skill.Name, string(skill.Scope), skill.PathPseudonym),
+				Kind:   adaptersdk.NodeSkillIdentity, DeclaredName: skill.Name, Version: skill.Version,
+				SourceScope: skill.Scope, PathPseudonym: skill.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: skill.Fingerprint,
+			}
+			nodes = append(nodes, child)
+			if !plugin.CachedOnly {
+				skillByNameScope[skill.Name] = append(skillByNameScope[skill.Name], child)
+			}
+			edges = append(edges, adaptersdk.Edge{
+				EdgeID: "edge_" + stableHex("bundles", node.NodeID, child.NodeID),
+				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: child.NodeID,
+			})
+			if !plugin.CachedOnly && plugin.ActiveEnabledFor != "" &&
+				skill.Enabled && !skill.Disabled {
+				edges = append(edges, adaptersdk.Edge{
+					EdgeID: "edge_" + stableHex("plugin-skill-enabled", child.NodeID, installationNode.NodeID),
+					Kind:   adaptersdk.EdgeEnabledFor, FromNode: child.NodeID, ToNode: installationNode.NodeID,
+				})
+			}
+		}
+		for _, command := range plugin.BundledCommands {
+			child := adaptersdk.Node{
+				NodeID: "node_" + stableHex("plugin-command", node.NodeID, command.Name, string(command.Scope), command.PathPseudonym),
+				Kind:   adaptersdk.NodeCustomCommandDefinition, DeclaredName: command.Name,
+				SourceScope: command.Scope, PathPseudonym: command.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: command.Fingerprint,
+			}
+			nodes = append(nodes, child)
+			edges = append(edges, adaptersdk.Edge{
+				EdgeID: "edge_" + stableHex("bundles", node.NodeID, child.NodeID),
+				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: child.NodeID,
+			})
+		}
+		for _, hook := range plugin.BundledHooks {
+			child := adaptersdk.Node{
+				NodeID: "node_" + stableHex("plugin-hook", node.NodeID, hook.Name, string(hook.Scope), hook.PathPseudonym),
+				Kind:   adaptersdk.NodeHookDefinition, DeclaredName: hook.Name,
+				SourceScope: hook.Scope, PathPseudonym: hook.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: hook.Fingerprint,
+			}
+			nodes = append(nodes, child)
+			edges = append(edges, adaptersdk.Edge{
+				EdgeID: "edge_" + stableHex("bundles", node.NodeID, child.NodeID),
+				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: child.NodeID,
+			})
+		}
+		for _, mcp := range plugin.BundledMCPServers {
+			server := adaptersdk.Node{
+				NodeID: "node_" + stableHex("plugin-mcp", node.NodeID, mcp.Name, string(mcp.Scope), mcp.PathPseudonym),
+				Kind:   adaptersdk.NodeMCPServerInstance, DeclaredName: mcp.Name,
+				SourceScope: mcp.Scope, PathPseudonym: mcp.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: mcp.Fingerprint,
+			}
+			nodes = append(nodes, server)
+			if !plugin.CachedOnly {
+				mcpByName[mcp.Name] = append(mcpByName[mcp.Name], server)
+			}
+			edges = append(edges, adaptersdk.Edge{
+				EdgeID: "edge_" + stableHex("bundles", node.NodeID, server.NodeID),
+				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: server.NodeID,
+			})
+			toolNames := append([]string(nil), mcp.AdvertisedTools...)
+			sort.Strings(toolNames)
+			for _, toolName := range toolNames {
+				tool := adaptersdk.Node{
+					NodeID: "node_" + stableHex("mcp-tool", server.NodeID, toolName),
+					Kind:   adaptersdk.NodeMCPTool, DeclaredName: toolName,
+					SourceScope: mcp.Scope, CachedOnly: plugin.CachedOnly,
+					Fingerprint: stableHex("mcp-tool-fp", server.NodeID, toolName),
+				}
+				nodes = append(nodes, tool)
+				edges = append(edges, adaptersdk.Edge{
+					EdgeID: "edge_" + stableHex("mcp-provides", server.NodeID, tool.NodeID),
+					Kind:   adaptersdk.EdgeProvides, FromNode: server.NodeID, ToNode: tool.NodeID,
+				})
+			}
+		}
+		for _, app := range plugin.BundledApps {
+			child := adaptersdk.Node{
+				NodeID: "node_" + stableHex("plugin-app", node.NodeID, app.Name, string(app.Scope), app.PathPseudonym),
+				Kind:   adaptersdk.NodeAppDefinition, DeclaredName: app.Name,
+				SourceScope: app.Scope, PathPseudonym: app.PathPseudonym,
+				CachedOnly: plugin.CachedOnly, Fingerprint: app.Fingerprint,
+			}
+			nodes = append(nodes, child)
+			edges = append(edges, adaptersdk.Edge{
+				EdgeID: "edge_" + stableHex("provides", node.NodeID, child.NodeID),
+				Kind:   adaptersdk.EdgeProvides, FromNode: node.NodeID, ToNode: child.NodeID,
+			})
+		}
 	}
+	edges = append(edges, collisionEdges(skillByNameScope, "skill-collision")...)
 	edges = append(edges, collisionEdges(pluginByName, "plugin-collision")...)
 
 	for _, hook := range input.Hooks {
@@ -216,7 +331,6 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		}
 	}
 
-	mcpByName := map[string][]adaptersdk.Node{}
 	for _, mcp := range input.MCPServers {
 		serverNode := adaptersdk.Node{
 			NodeID:        "node_" + stableHex("mcp-server", input.InstallationID, mcp.Name, string(mcp.Scope), mcp.PathPseudonym),
@@ -281,6 +395,9 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		Fingerprint:    fingerprint,
 		Nodes:          nodes,
 		Edges:          edges,
+		// The gap tally travels with the snapshot, mirroring claudeadapter.
+		CoverageGapCount:   input.CoverageGaps.Total(),
+		CoverageGapClasses: input.CoverageGaps,
 	}, nil
 }
 

@@ -16,7 +16,7 @@ const (
 	maxConfigEntries                = 256
 	maxConfigDepth                  = 8
 	maxConfigString                 = 4096
-	InstallerContractSemanticSHA256 = "cf5ac9ee45e224840b7b13f7ac91901c0f2def7206c30c0482de99510adcc057"
+	InstallerContractSemanticSHA256 = "b528675917a19c708d7f1f0a3a1e57509ef2f14e5ab1eb748be04267b2a31104"
 )
 
 type Operation struct {
@@ -82,7 +82,16 @@ type AuditReceipt struct {
 type targetSpec struct {
 	agent, format, locatorKind, ownership string
 	required                              map[string]any
-	forbidden                             []string
+	// forbidden keys are unsafe wherever they appear: Kansoku never writes
+	// them, and a plan refuses to be built or verified while one pre-exists,
+	// because their presence defeats the privacy boundary the plan claims.
+	forbidden []string
+	// neverWritten keys are ones Kansoku must never write but the operator
+	// legitimately owns. Their presence is disclosed on the plan rather than
+	// failing it. The two lists were one list, which conflated "this must not
+	// happen" with "this is not ours to set" -- and made a required operator
+	// action look like a policy violation.
+	neverWritten []string
 }
 
 var targetSpecs = map[string]targetSpec{
@@ -93,8 +102,18 @@ var targetSpecs = map[string]targetSpec{
 	},
 	"claude.user_otel": {
 		agent: "claude", format: "json", locatorKind: "claude_user_settings", ownership: "plan_owned_env_keys_only",
-		required:  map[string]any{"env.CLAUDE_CODE_ENABLE_TELEMETRY": "1", "env.OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318", "env.OTEL_LOG_USER_PROMPTS": "0", "env.OTEL_LOG_ASSISTANT_RESPONSES": "0", "env.OTEL_LOG_TOOL_DETAILS": "0", "env.OTEL_LOG_TOOL_CONTENT": "0", "env.OTEL_LOG_RAW_API_BODIES": "0"},
-		forbidden: []string{"env.OTEL_EXPORTER_OTLP_HEADERS", "env.OTEL_LOGS_EXPORTER_FILE", "remote_endpoint"},
+		required: map[string]any{"env.CLAUDE_CODE_ENABLE_TELEMETRY": "1", "env.OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:4318", "env.OTEL_LOG_USER_PROMPTS": "0", "env.OTEL_LOG_ASSISTANT_RESPONSES": "0", "env.OTEL_LOG_TOOL_DETAILS": "0", "env.OTEL_LOG_TOOL_CONTENT": "0", "env.OTEL_LOG_RAW_API_BODIES": "0"},
+		// OTEL_LOGS_EXPORTER_FILE writes telemetry to a file outside the
+		// loopback sanitizer; a non-loopback endpoint defeats the boundary
+		// outright. Both stay hard-forbidden.
+		forbidden: []string{"env.OTEL_LOGS_EXPORTER_FILE", "remote_endpoint"},
+		// OTEL_EXPORTER_OTLP_HEADERS is Claude Code's only header mechanism,
+		// and the loopback OTLP ingress requires a bearer, so the operator has
+		// to set it for telemetry to be accepted at all. Treating a
+		// pre-existing value as a hard preview failure made the one supported
+		// configuration unreachable. Kansoku still never writes it -- a bearer
+		// is the operator's secret, not a value a preview should compose.
+		neverWritten: []string{"env.OTEL_EXPORTER_OTLP_HEADERS"},
 	},
 	"gemini.user_otel": {
 		agent: "gemini", format: "json", locatorKind: "gemini_user_settings", ownership: "plan_owned_telemetry_keys_only",
@@ -181,6 +200,14 @@ func buildTargetPlan(planID, targetID, locator, backupLocator, rollbackCommand s
 			return Plan{}, errors.New("unsafe_existing_target_setting")
 		}
 	}
+	// A never-written key must never also be a required key: the two lists
+	// would then contradict each other, and the plan would write exactly what
+	// it promises never to write.
+	for _, key := range spec.neverWritten {
+		if _, required := spec.required[key]; required {
+			return Plan{}, errors.New("contradictory_target_spec")
+		}
+	}
 	fields := sortedKeys(spec.required)
 	operations := make([]Operation, 0, len(fields))
 	for _, field := range fields {
@@ -205,7 +232,10 @@ func buildTargetPlan(planID, targetID, locator, backupLocator, rollbackCommand s
 		ConfigLocator: locator, ConfigLocatorKind: spec.locatorKind, ConfigFormat: spec.format, Ownership: spec.ownership,
 		DisclosedFields: fields, ExactOperations: operations, OriginalSHA256: digest(originalBytes), PlannedSHA256: digest(plannedBytes),
 		BackupLocator: backupLocator, RollbackCommand: rollbackCommand,
-		PrivacyTradeoffs: []string{"agent payloads remain untrusted and are sanitized at loopback ingress", "managed or environment precedence can block application"},
+		PrivacyTradeoffs: append([]string{
+			"agent payloads remain untrusted and are sanitized at loopback ingress",
+			"managed or environment precedence can block application",
+		}, neverWrittenDisclosures(spec, original)...),
 		plannedCanonical: plannedBytes, originalCanonical: originalBytes,
 	}, nil
 }
@@ -336,6 +366,29 @@ func auditReceipt(plan Plan, auditKey []byte, operation, result, before, after s
 
 func validTransientLocator(value string) bool {
 	return filepath.IsAbs(value) && filepath.Clean(value) == value && !strings.ContainsRune(value, '\x00')
+}
+
+// neverWrittenDisclosures reports, per never-written key, whether the operator
+// has already set it. Both outcomes are stated: an operator reading a preview
+// needs to know that Kansoku will not manage the key either way, and that a
+// value it can see is one it did not create.
+func neverWrittenDisclosures(spec targetSpec, original map[string]any) []string {
+	if len(spec.neverWritten) == 0 {
+		return nil
+	}
+	keys := append([]string(nil), spec.neverWritten...)
+	sort.Strings(keys)
+	disclosures := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if _, present := original[key]; present {
+			disclosures = append(disclosures,
+				key+" is user-owned and already set; it is disclosed, never written or read by this plan")
+			continue
+		}
+		disclosures = append(disclosures,
+			key+" is user-owned and must be set by the operator; this plan never writes it")
+	}
+	return disclosures
 }
 
 func disclosureFor(field string) string {

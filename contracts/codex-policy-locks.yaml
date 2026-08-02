@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.codex-policy-locks/1",
-  "effective_at": "2026-07-26",
+  "effective_at": "2026-07-30",
   "locks": [
     {"policy_version": "codex.manifest/1", "registry": "contracts/codex/manifest.yaml", "semantic_sha256": "2c7f28afd7abf6304cb8808e30638d6eb9941a018fa91f558698d092543341f7"},
     {"policy_version": "codex.hooks-and-otel/1", "registry": "contracts/codex/hooks-and-otel.yaml", "semantic_sha256": "ba6529160f7a4faf02c38e903cdd5ff3677d49da247408198e97c00354182923"},
@@ -13,6 +13,22 @@
     {"policy_version": "codex.manifest/2", "registry": "contracts/codex/manifest.yaml", "semantic_sha256": "15a2f3958907450a10b18edfa1f23245e220401fa8933750d325d57c4e8d58bb"},
     {"policy_version": "codex.app-server-bridge/1", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "8558137473b8674b51d4fd97fd53d7ebded2aa4d13635d79b61243c8cf3b4bf5"},
     {"policy_version": "codex.app-server-bridge/2", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "d528d373cd3d0ed1d7950c6eb6b8621e47320e7da0262eaa0940d8301237e4d0"},
-    {"policy_version": "codex.app-server-bridge/3", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "74718e3957568b399a2082596e22c9bae3156c7f09894a928ede4d61a121de18"}
+    {"policy_version": "codex.app-server-bridge/3", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "74718e3957568b399a2082596e22c9bae3156c7f09894a928ede4d61a121de18"},
+    {"policy_version": "codex.app-server-bridge/4", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "a2ce6603b382689de6b6cfb66eef17add116667d22b521941bdc2b6799a2ad78"},
+    {"policy_version": "codex.rollout-and-inventory/2", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "04ff5d8e85f9fc447162b79d9c3220aa5e4f9c3d81caad1a46747b9bf6d00092"},
+    {"policy_version": "codex.app-server-bridge/5", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "e2b93dbd99779e893778facdb1495479cf5e6819ff943b5f3e60151e64f6c5da"},
+    {"policy_version": "codex.rollout-and-inventory/3", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "9dffb4a77150ba707748f6c00b065e5c0809d3afcaa45df612e29b40f1f60ee8"},
+    {"policy_version": "codex.app-server-bridge/6", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "54ad40596de03bfff4249ba1c442dc9fbc5fbec188c25ed46491b413c01effda"},
+    {"policy_version": "codex.app-server-bridge/7", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "658e57b7fa4be011c7bc117f301111ccbbafe1df48eef221d4ca5bbba2e0dafd"},
+    {"policy_version": "codex.rollout-and-inventory/4", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "0346380a4b8d69feea76aff9930dca65b5934ab4303c92b1698c7be76f546515"},
+    {"policy_version": "codex.rollout-and-inventory/5", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "fe29da10f41adf5589558b647b2376381694dcafe2a12ea819b718a1d2030b57"},
+    {"policy_version": "codex.rollout-and-inventory/6", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "c0ee9c684b35d1303954e1b5de224d1e461a2862b14bf24b4b57331cbe4963a8"},
+    {"policy_version": "codex.rollout-and-inventory/7", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "b372a8e92278c0acfaf48b7ec79add883af3bd7f7cccaad40b91274f5695fff6"},
+    {"policy_version": "codex.rollout-and-inventory/8", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "96e21c3a5a28f472ddb9a80129ef21b98c67df433089c5c4c43f7a0fa548bca6"},
+    {"policy_version": "codex.app-server-bridge/8", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "8ad93ce5369a5bcd8720c8f96ec2e5f053cf0213ea883f64c02d11473ba10d52"},
+    {"policy_version": "codex.rollout-and-inventory/9", "registry": "contracts/codex/rollout-and-inventory.yaml", "semantic_sha256": "0c31a9485f8c6b8e66289b8753b373fbc06759a59ea7466bfbff80e22c93e739"},
+    {"policy_version": "codex.skill-evidence-and-reconciliation/2", "registry": "contracts/codex/skill-evidence-and-reconciliation.yaml", "semantic_sha256": "50d8c205aa009ceb28a5b82e495c517c30fa5d4036d004e70b4bfe154dd242fa"},
+    {"policy_version": "codex.app-server-bridge/9", "registry": "contracts/codex/app-server-bridge.yaml", "semantic_sha256": "fa0da709f6d284c7592f24e381d26f9c5ddd64509bad3974008eee0c6ebace41"},
+    {"policy_version": "codex.skill-evidence-and-reconciliation/3", "registry": "contracts/codex/skill-evidence-and-reconciliation.yaml", "semantic_sha256": "f94ae8799f40de7a17df635102d25c242aa7f682370b16b94ba774ca63885064"}
   ]
 }

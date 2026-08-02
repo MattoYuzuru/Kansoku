@@ -1,6 +1,6 @@
 /*
- * Sidebar navigation model — the §2 table mapping the 14 contracts/dashboard.yaml
- * routes into 7 nav entries with Tabler icons. Titles come from the generated
+ * Sidebar navigation model — the §2 table mapping contract-owned dashboard
+ * routes into semantic nav groups. Titles come from the generated
  * route registry so they never drift from the contract.
  */
 import { ROUTES } from "./generated/routes";
@@ -61,6 +61,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { path: "/privacy", label: title("/privacy"), icon: "shield-lock" },
       { path: "/system", label: title("/system"), icon: "server-2" },
+      { path: "/glossary", label: title("/glossary"), icon: "info-circle" },
     ],
   },
 ];

@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.claude-hooks-and-otel/1",
-  "contract_version": "1.3.0",
-  "effective_at": "2026-07-25",
+  "contract_version": "1.5.0",
+  "effective_at": "2026-08-01",
   "hook_source": {
     "source_id": "claude.hook",
     "source_kind": "hook_http",
@@ -45,7 +45,7 @@
   "otel_source": {
     "source_id": "claude.otel",
     "source_kind": "otlp_log_span_metric",
-    "installer_target_reuse": "claude.user_otel_target_already_declared_in_contracts/privacy/installer.yaml_targets_reused_verbatim_endpoint_http://127.0.0.1:4318_env.CLAUDE_CODE_ENABLE_TELEMETRY=1_env.OTEL_LOG_USER_PROMPTS=0_env.OTEL_LOG_ASSISTANT_RESPONSES=0_env.OTEL_LOG_TOOL_DETAILS=0_env.OTEL_LOG_TOOL_CONTENT=0_env.OTEL_LOG_RAW_API_BODIES=0_internal/installer/protocol.go_BuildClaudePlan_already_wired_to_exactly_this_target_and_reused_verbatim_never_redefined_or_renamed",
+    "installer_target_reuse": "claude.user_otel_target_already_declared_in_contracts/privacy/installer.yaml_targets_reused_verbatim_endpoint_http://127.0.0.1:4318_env.CLAUDE_CODE_ENABLE_TELEMETRY=1_existing_user_selected_OTEL_LOG_TOOL_DETAILS=1_is_observed_but_not_changed_by_Kansoku_env.OTEL_LOG_USER_PROMPTS=0_env.OTEL_LOG_ASSISTANT_RESPONSES=0_env.OTEL_LOG_TOOL_CONTENT=0_env.OTEL_LOG_RAW_API_BODIES=0_internal/installer/protocol.go_BuildClaudePlan_already_wired_to_exactly_this_target_and_reused_verbatim_never_redefined_or_renamed",
     "no_second_otel_target": "hooks-and-otel.yaml_declares_no_new_otel_installer_target_it_only_maps_documented_claude_code_otel_events_onto_the_existing_target",
     "resource_identity": {
       "source": "code.claude.com/docs/en/monitoring-usage_Anthropic_official_monitoring_documentation_re-checked_2026-07-25",
@@ -58,17 +58,41 @@
       "distinct_from_fixture_agent": "distinct_from_the_session_03_synthetic_fixture-agent/1.0.0_resource_identity_internal/observability/otlp.go_already_recognizes_and_distinct_from_codexadapter.OTLPResourceServiceName_this_is_the_real_upstream_identity_not_a_kansoku-invented_literal"
     },
     "documented_attributes": {
-      "source": "code.claude.com/docs/en/monitoring-usage_Anthropic_official_monitoring_documentation_re-checked_2026-07-25",
-      "identity_and_component": ["skill.name", "plugin.name", "agent.name"],
+      "source": "code.claude.com/docs/en/monitoring-usage_Anthropic_official_monitoring_documentation_re-checked_2026-08-01_supplemented_by_a_live_loopback_otlp_capture_of_claude_code_2.1.220",
+      "identity_and_component": ["skill.name", "plugin.name", "agent.name", "marketplace.name", "invocation_trigger", "skill.source", "plugin.scope", "enabled_via", "plugin_id_hash"],
+      "observed_and_dropped": {
+        "attributes": ["marketplace.name"],
+        "reason": "marketplace.name_is_emitted_on_skill_activated_and_plugin_loaded_and_maps_onto_no_otlp_safe_attributes_slot_so_it_is_dropped_at_the_ingress_boundary_it_is_recorded_here_because_it_is_the_exact_disambiguator_the_resolver_currently_approximates_by_splitting_the_owner_declared_name_on_@_dropping_it_is_a_known_precision_limit_not_an_oversight"
+      },
       "activity": ["session.id", "event.sequence", "prompt.id", "model", "tool_name", "success", "duration_ms", "prompt_length"],
       "cost_and_tokens": ["input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens", "cost_usd_micros"],
       "detailed_gates_may_expose": ["prompt_text", "assistant_response_text", "tool_input", "tool_output", "raw_api_bodies"]
     },
-    "event_name_vocabulary": "claude_code_stamps_its_real_per-record_event_identity_on_a_plain_event.name_attribute_using_short-form_names_never_a_claude_code.-prefixed_literal_user_prompt_api_request_api_error_tool_decision_tool_result_plugin_installed_plugin_loaded_and_skill_activated_are_documented_events_with_feature_and_version_dependent_availability_claude_code_never_emits_a_session-start_otel_log_event_at_all_session_start_is_hook-only_via_the_SessionStart_hook",
+    "event_name_vocabulary": "claude_code_stamps_its_real_per-record_event_identity_on_a_plain_event.name_attribute_using_short-form_names_never_a_claude_code.-prefixed_literal_user_prompt_api_request_api_error_tool_decision_tool_result_plugin_installed_plugin_loaded_skill_activated_hook_registered_and_assistant_response_are_documented_events_with_feature_and_version_dependent_availability_claude_code_never_emits_a_session-start_otel_log_event_at_all_session_start_is_hook-only_via_the_SessionStart_hook",
     "otlp_safe_attributes_reuse": "reuses_contracts/observability/ingress.yaml_otlp_safe_attributes_allowlist_verbatim_no_claude_specific_attribute_bypasses_it_skill.name_plugin.name_and_agent.name_are_mapped_onto_the_existing_kansoku.tool.id_and_kansoku.session.id_shaped_allowlist_slots_never_a_new_raw_attribute_passthrough",
     "dropped_surfaces": ["log.body", "span.name", "span.events", "span.links", "metric.description", "tool_payload", "output_snippet", "prompt_text", "assistant_response_text", "raw_api_body"],
     "unconditional_strip_rule": "claude_documented_detailed_telemetry_settings_env.OTEL_LOG_USER_PROMPTS_env.OTEL_LOG_ASSISTANT_RESPONSES_env.OTEL_LOG_TOOL_DETAILS_env.OTEL_LOG_TOOL_CONTENT_env.OTEL_LOG_RAW_API_BODIES_may_be_enabled_upstream_by_a_user_outside_kansoku_control_ingress_strips_prompt_text_assistant_response_text_tool_input_tool_output_and_raw_api_bodies_regardless_of_what_those_settings_report_this_is_stricter_than_the_flags_alone_and_is_the_actual_trust_boundary",
-    "log_user_prompt": false
+    "log_user_prompt": false,
+    "component_identity_mapping": "Claude_Code_2.1.220_skill_activated_maps_skill.name_skill.source_plugin.name_and_invocation_trigger_user-slash_claude-proactive_nested-skill_to_qualified_identity_source_owner_and_explicit_proactive_nested; plugin_loaded_maps_plugin.name_scope_enabled_via_and_HMAC_only_plugin_id_hash; raw_upstream_identity_is_never_persisted",
+    "qualified_identity_rule": {
+      "observed_shape": "skill.name_arrives_already_owner_qualified_as_<plugin>:<skill>_together_with_a_separate_plugin.name_user_scope_skills_with_no_owning_plugin_arrive_bare",
+      "rule": "the_owner_plugin_namespace_is_applied_at_most_once_qualification_is_idempotent_f(owner,f(owner,identity))==f(owner,identity)",
+      "why_exact": "an_inventory_declared_name_can_never_contain_a_colon_because_both_adapters_SKILL.md_frontmatter_parsers_bound_the_name_to_[A-Za-z0-9][A-Za-z0-9._-]{0,127}_so_an_identity_carrying_one_is_always_an_upstream_qualified_identity_never_a_bare_name",
+      "recognized_owner_forms": ["<owner>:<skill>", "<owner>@<marketplace>:<skill>"],
+      "failure_repaired": "prepending_unconditionally_produced_sre-agent:sre-agent:verification-strategy_which_the_resolver_comparing_against_owner.declared_name_colon_component.declared_name_can_never_match_so_every_claude_skill_invocation_resolved_to_zero_candidates"
+    },
+    "source_scope_vocabulary": {
+      "status": "advisory_observed_values_only_never_a_resolution_filter_vocabulary",
+      "observed": {"skill.source": ["plugin"], "plugin.scope": ["user-local"], "enabled_via": ["user-install"]},
+      "closed_vocabulary_reference": "contracts/adapter-sdk/inventory-graph.yaml_source_scope_system_user_repository_admin_marketplace_plugin_cache_transient_session",
+      "rule": "a_value_outside_the_closed_source_scope_vocabulary_never_narrows_identity_resolution_it_is_recorded_on_the_assertion_with_state_unknown_and_opens_one_idempotent_info_incident_component_source_scope_unknown_keyed_on_adapter_component_kind_and_raw_value",
+      "never_coerced": "plugin_is_never_mapped_onto_plugin_cache_a_plugin_bundled_component_does_not_always_live_in_the_plugin_cache_so_the_coercion_would_recreate_the_identical_silent_zero_in_a_new_place"
+    },
+    "invocation_trigger_vocabulary": {
+      "recognized": {"user-slash": "explicit", "claude-proactive": "proactive", "nested-skill": "nested"},
+      "unrecognized": "an_observed_but_unrecognized_trigger_is_recorded_as_the_distinct_state_unknown_never_dropped_and_never_coerced_to_not_observed_which_would_make_vocabulary_drift_indistinguishable_from_an_agent_that_reports_no_trigger_at_all"
+    },
+    "third_party_sentinel": "claude_code_stamps_skill.name_and_plugin.name_with_the_literal_third-party_on_api_request_and_on_cost_and_token_metrics_so_per_skill_cost_and_token_attribution_is_not_achievable_for_third_party_skills_the_sentinel_is_an_identity_shaped_value_that_names_no_component_and_must_never_be_counted_as_one"
   },
   "source_event_mapping": [
     {"source_event": "SessionStart", "source_kind": "hook_http", "canonical_event_type": "session.started", "tier": "native"},
@@ -85,7 +109,9 @@
     {"source_event": "skill_activated", "source_kind": "otlp_log_span_metric", "canonical_event_type": "component.invoked", "tier": "native"},
     {"source_event": "SubagentStart", "source_kind": "hook_http", "canonical_event_type": "subagent.started", "tier": "native"},
     {"source_event": "SubagentStop", "source_kind": "hook_http", "canonical_event_type": "subagent.completed", "tier": "native"},
-    {"source_event": "Stop", "source_kind": "hook_http", "canonical_event_type": "session.stopped", "tier": "native"}
+    {"source_event": "Stop", "source_kind": "hook_http", "canonical_event_type": "session.stopped", "tier": "native"},
+    {"source_event": "hook_registered", "source_kind": "otlp_log_span_metric", "canonical_event_type": "source.observed", "tier": "native_metadata_only"},
+    {"source_event": "assistant_response", "source_kind": "otlp_log_span_metric", "canonical_event_type": "source.observed", "tier": "native_metadata_only"}
   ],
   "independent_capability_degradation": "claude.hook_and_claude.otel_and_claude.transcript_are_independently_capability_scoped_disabling_or_breaking_one_source_degrades_only_the_capability_ids_that_source_backs_it_never_zeroes_out_the_other_sources_evidence"
 }

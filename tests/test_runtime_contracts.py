@@ -53,9 +53,9 @@ class Session09RuntimeContractTests(unittest.TestCase):
         ack["filestore_alone_is_not_production_acknowledgement"] = False
         self.assert_has(validate_runtime.validate(data, self.coherent(data), include_code=False), "durable acknowledgement")
 
-    def test_coherent_lock_cannot_remove_preaccept_reservation(self) -> None:
+    def test_coherent_lock_cannot_advance_checkpoint_before_durability(self) -> None:
         data = copy.deepcopy(validate_runtime.registries())
-        data["contracts/runtime/queue-and-durability.yaml"]["admission"]["reservation_before_filestore_acceptance"] = False
+        data["contracts/runtime/queue-and-durability.yaml"]["admission"]["postgresql_or_emergency_spool_before_checkpoint"] = False
         self.assert_has(validate_runtime.validate(data, self.coherent(data), include_code=False), "pre-acceptance")
 
     def test_coherent_lock_cannot_make_lanes_global(self) -> None:
@@ -79,6 +79,24 @@ class Session09RuntimeContractTests(unittest.TestCase):
         data = copy.deepcopy(validate_runtime.registries())
         data["contracts/runtime/operations-backup-and-soak.yaml"]["diagnostics"]["forbidden"].remove("paths")
         self.assert_has(validate_runtime.validate(data, self.coherent(data), include_code=False), "diagnostics privacy")
+
+    def test_coherent_lock_cannot_activate_collectors_in_one_shot_commands(self) -> None:
+        data = copy.deepcopy(validate_runtime.registries())
+        boundary = data["contracts/runtime/operations-backup-and-soak.yaml"]["one_shot_runtime_boundary"]
+        boundary["inventory_health_mutation"] = True
+        self.assert_has(
+            validate_runtime.validate(data, self.coherent(data), include_code=False),
+            "one-shot collector activation boundary",
+        )
+
+    def test_coherent_lock_cannot_mask_degraded_source_health(self) -> None:
+        data = copy.deepcopy(validate_runtime.registries())
+        source_health = data["contracts/runtime/runtime-and-api.yaml"]["api"]["health_source_state"]
+        source_health["overall_floor"] = "exclusions_only"
+        self.assert_has(
+            validate_runtime.validate(data, self.coherent(data), include_code=False),
+            "source freshness health floor",
+        )
 
     def test_coherent_lock_cannot_claim_wall_clock_soak(self) -> None:
         data = copy.deepcopy(validate_runtime.registries())

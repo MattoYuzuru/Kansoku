@@ -1,0 +1,11 @@
+{
+  "contract_id": "kansoku.plugins.inventory-and-identity",
+  "version": "1.0.0",
+  "plugin_identity": ["declared_name", "marketplace_or_source_scope", "agent_installation_id", "path_pseudonym"],
+  "version_states": ["observed", "unsupported", "not_observed", "redacted", "unknown"],
+  "child_kinds": ["skill", "hook", "mcp", "command", "app"],
+  "relations": ["bundles", "provides", "collides_with", "shadows"],
+  "relation_validity": "every current relation must be evidenced by the current inventory snapshot and retain its historical observations",
+  "collision_rule": "same declared name from a different marketplace scope or installation is a distinct identity and is never merged automatically",
+  "source_loss_rule": "a missing or incomplete current snapshot makes the bundle graph not_observed or partial; it never becomes a complete empty graph"
+}

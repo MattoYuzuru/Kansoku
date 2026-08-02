@@ -222,6 +222,7 @@ func TestAgentProfileRouteReconcilesExactModelsSourcesAndOpaqueIdentity(t *testi
 		ProviderID: "future-agent", AdapterVersionID: "adv_agent_profile",
 		AdapterID: "future-agent", AdapterVersion: "9.4.1",
 		SourceInstanceID: "src_agent_profile_bridge", SourceKind: "evidence_bridge",
+		InstallationClass: "fixture", InstallationClassProvenance: "runtime_test_fixture",
 	}
 	if err := dataplatform.EnsureDimensions(ctx, pool, refs); err != nil {
 		t.Fatalf("ensure profile dimensions: %v", err)
@@ -298,6 +299,10 @@ func TestAgentProfileRouteReconcilesExactModelsSourcesAndOpaqueIdentity(t *testi
 	}
 	if profile.Identity.DisplayName != "future-agent" ||
 		profile.Identity.ProviderID != "future-agent" ||
+		profile.Identity.AgentID != "future-agent" ||
+		profile.Identity.AdapterID != "future-agent" ||
+		profile.Identity.InstallationClass != "fixture" ||
+		profile.Identity.InstallationClassProvenance != "runtime_test_fixture" ||
 		profile.Identity.AgentInstallationID != "ain_agent_profile" {
 		t.Fatalf("identity guessed or lost: %#v", profile.Identity)
 	}
@@ -306,6 +311,12 @@ func TestAgentProfileRouteReconcilesExactModelsSourcesAndOpaqueIdentity(t *testi
 		profile.Models[0].CachedInputTokens != 20 || profile.Models[0].OutputTokens != 30 ||
 		profile.Models[0].EstimatedCostMicros != 1200 {
 		t.Fatalf("model reconciliation failed: %#v", profile.Models)
+	}
+	if profile.Models[0].ProviderCostedRequestCount != 1 ||
+		profile.Models[0].ProviderCostMicros != 1200 ||
+		profile.Models[0].APIEstimatedRequestCount != 0 ||
+		profile.Models[0].APIEquivalentCostMicros != 0 {
+		t.Fatalf("provider/API-equivalent cost lanes merged: %#v", profile.Models[0])
 	}
 	if len(profile.Sources) != 1 || profile.Sources[0].SourceKind != "evidence_bridge" ||
 		profile.Sources[0].FactCount != 1 || profile.Sources[0].EvidenceCount != 1 {

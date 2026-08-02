@@ -115,8 +115,8 @@ func TestDurableRecordHasExactAllowlistAndCanonicalStates(t *testing.T) {
 	expected := stringSet(
 		"record_id", "idempotency_key", "adapter_id", "adapter_version", "source_schema_id",
 		"schema_fingerprint", "observed_at", "received_at", "confidence", "event_type", "outcome",
-		"value_state", "model", "tool", "component_kind", "component_mentions", "prompt_features",
-		"telemetry", "redaction_counts", "lineage",
+		"value_state", "model", "tool", "component_kind", "component_mentions",
+		"component_evidence", "prompt_features", "telemetry", "redaction_counts", "lineage",
 	)
 	if !reflect.DeepEqual(fieldsToSet(fields), expected) {
 		t.Fatalf("safe fields=%v", fieldsToSet(fields))

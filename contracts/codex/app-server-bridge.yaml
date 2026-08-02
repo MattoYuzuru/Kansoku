@@ -1,15 +1,16 @@
 {
   "schema_version": "kansoku.codex-app-server-bridge/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-26",
+  "contract_version": "1.7.0",
+  "effective_at": "2026-07-30",
   "bridge_api_version": "kansoku.evidence-bridge/v1",
   "bridge_id": "codex-app-server",
-  "bridge_version": "0.1.0",
+  "bridge_version": "0.3.0",
   "agent_version_exact": "0.145.0",
   "protocol": "codex-app-server-jsonl",
   "schema_version_exact": "0.145.0",
   "schema_generation_command": "codex app-server generate-json-schema --experimental --out TARGET",
   "target_scope": "explicit_local",
+  "installation_id_rule": "required_ain_-prefixed_opaque_identifier_5_to_128_ASCII_characters_using_only_letters_digits_underscore_or_hyphen; the_same_rule_is_enforced_by_HTTP_and_the_observability_sink; installation_class_is_explicit_profile_metadata_and_is_never_inferred_from_identifier_spelling",
   "network_grade": "loopback_only",
   "accepted_methods": [
     "thread/started",
@@ -19,14 +20,17 @@
     "item/completed",
     "skills/changed",
     "skills/list",
-    "skills/list response"
+    "skills/list response",
+    "plugin/read",
+    "plugin/read response"
   ],
   "emitting_projections": {
     "thread/started": "session.started",
     "turn/started": "prompt.submitted",
     "item/started_userMessage_skill_input": "component.invoked plus component.loaded under codex-app-server-skill-input-load/1",
     "skills/list_enabled_response": "component.exposed",
-    "item/completed_mcpToolCall": "tool.called",
+    "plugin/read_response": "UTC-day-bucketed metadata snapshot with position-independent idempotency; component.requested plus conditional component.installed and component.enabled for the plugin; conditional installed/enabled assertions for named bundled skill MCP hook and app children carry owner_plugin_identity; raw upstream IDs are HMAC-only; paths descriptions URLs source objects app templates and scheduled-task prompts are discarded before persistence; plugin/read is never represented as plugin invoked or loaded",
+    "item_mcpToolCall": "one range-bounded logical tool.called record per native call identity; started plus one terminal collapses to terminal; duplicate same terminal is replay-idempotent; missing or contradictory completion remains unknown and creates a metadata-only incident",
     "content_only_items": "discarded_before_sink"
   },
   "safe_fields": [
@@ -67,8 +71,9 @@
     "connect_timeout_seconds": 30,
     "max_reconnects": 3
   },
-  "checkpoint": "sequence_only_no_source_replay",
-  "unknown_schema": "metadata_only_rejection_and_bridge_degraded_no_rollout_fallback",
-  "source_evidence": "official_codex_manual_plus_locally_generated_0.145.0_experimental_json_schema",
-  "support_grade": "experimental_opt_in_version_pinned"
+  "checkpoint": "sequence_only_no_source_replay_plus_bounded_128_concurrent_request_id_demultiplexing_and_bounded_native_call_terminal_reconciliation",
+  "terminal_contract": "contracts/adapter-sdk/terminal-outcomes.yaml",
+  "unknown_schema": "metadata_only_rejection_and_bridge_degraded_only_for_owned_bridge_frames_known_service_methods_and_unowned_responses_are_filtered_no_rollout_fallback",
+  "source_evidence": "official_codex_manual_plus_locally_generated_0.145.0_experimental_json_schema_hash_manifest_contracts/codex/generated/app-server-0.145.0-schema-manifest.json",
+  "support_grade": "experimental_opt_in_version_pinned_supervised_by_serve_at_authenticated_bounded_POST_/v1/evidence-bridges/codex-app-server_with_required_opaque_installation_header_and_not_evidence_for_ordinary_CLI_unless_that_session_stream_is_explicitly_routed"
 }

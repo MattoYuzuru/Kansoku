@@ -702,3 +702,26 @@ func TestResolveSkillComponentRejectsEmptyName(t *testing.T) {
 		t.Fatal("an empty skill.name must never resolve to a component id")
 	}
 }
+
+// TestManifestDeclaresExposedSkillPlaneUnsupported pins the declaration the
+// Skill observatory's cold eligibility now reads as data. Claude Code emits no
+// event and writes no snapshot naming the skills actually offered to the model
+// for a turn, so the absence of exposure evidence is a property of the agent,
+// not a collection gap. Without this declaration every Claude skill reads
+// not_observed forever, which claims the appliance looked and saw nothing.
+func TestManifestDeclaresExposedSkillPlaneUnsupported(t *testing.T) {
+	declarations := claudeadapter.New().Manifest().ComponentPlaneSupport
+	if len(declarations) != 1 {
+		t.Fatalf("declarations=%+v want exactly one", declarations)
+	}
+	declaration := declarations[0]
+	if declaration.ComponentKind != "skill" || declaration.Plane != adaptersdk.PlaneExposed {
+		t.Fatalf("declaration targets %+v", declaration)
+	}
+	if declaration.State != adaptersdk.PlaneUnsupported {
+		t.Fatalf("state=%s want unsupported", declaration.State)
+	}
+	if declaration.Reason == "" {
+		t.Fatal("an unsupported plane must state why, or the claim has no basis")
+	}
+}

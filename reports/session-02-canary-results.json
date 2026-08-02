@@ -3,7 +3,7 @@
   "fixture": "tests/fixtures/session-02/raw-canary-input.json",
   "fixture_sha256": "8fee2c5703ac2f6adeaa1d139f5da83a8a3e840744dc0ca9fd9c74b834146d6d",
   "generator": "scripts/run_privacy_canary.py",
-  "generator_sha256": "93f17aebb3d9178c57a7746e6b514f2a9edb9a2260e200f5913687edf73dceef",
+  "generator_sha256": "450ea30c12a7c55a676b44e4c32376eba36c6d36c1e994043822d89e9f6c27fa",
   "independent_external_scan": {
     "accepted_artifacts_scanned": 10,
     "backup_checksum_match": true,
@@ -26,7 +26,7 @@
     {
       "bytes": 650,
       "id": "application_logs",
-      "sha256": "190b27928a47c6b2386cc2ddd26497b7eb450d707415c09f0691a8c9a0651010"
+      "sha256": "04c2abeb19198869992df69d82790e2c8cebe943720b531800cc2e34024a6d08"
     },
     {
       "bytes": 530,
@@ -51,7 +51,7 @@
     {
       "bytes": 342,
       "id": "error_response",
-      "sha256": "fb97d45d06aef2bc56e22fd24a5ebb9493d86e779d6000ec5073d404868094b5"
+      "sha256": "24f3533dc1767bb06f0101b204d024f2ac7095d0505e39ad8532c04ab1c38b99"
     },
     {
       "bytes": 102,
@@ -61,17 +61,17 @@
     {
       "bytes": 746,
       "id": "internal_traces",
-      "sha256": "09e026002aa255af464268c7baa1be7ce72181c720ec8c04959b75a035af74d2"
+      "sha256": "192189a3ef9eead0aa263824ff0d088aa078c0f4a5cc54148117183ba5afe72d"
     },
     {
       "bytes": 798,
       "id": "quarantine",
-      "sha256": "5776357f30374cf6f55ba5a0ea0d201ec11b278d72c900136f1973c2335962a9"
+      "sha256": "0afce298fc179181fd3d8930120ad81647b7d4bff90a25893203a531d27b9191"
     },
     {
       "bytes": 876,
       "id": "retry_queue",
-      "sha256": "c15f82540c68ad5bd79973d63b0888bfb3acc491abdf405af5748a0ca7f6fd5b"
+      "sha256": "8792fff36dbe46e96274d3e4de1839fe65a799f50dfa20b5ac3da7ce8a9350aa"
     }
   ],
   "schema_version": "kansoku.privacy-canary-result/1",
@@ -81,27 +81,27 @@
     {
       "bytes": 336,
       "id": "application_logs",
-      "sha256": "26a870778432a412b6de99ae50d73cfc46a5c4e4b6e1d64db0c8ff5842052d75"
+      "sha256": "6773e9ad97bdde3b816b5e23679c472de8d4870e6278c5f6c894b6cf00888563"
     },
     {
-      "bytes": 2564,
+      "bytes": 3048,
       "id": "backup",
-      "sha256": "1421c6ad8328be02e22150eec8170bdeb1867da0ecb261d894583be2d7077418"
+      "sha256": "5f0ddd9efa7f24338218295c9e2a284ca0af338be9a6b487435a7bc233190c21"
     },
     {
-      "bytes": 1844,
+      "bytes": 2205,
       "id": "dashboard_network",
-      "sha256": "9b5761a3c4dbb09b19055399857b5d2f7d9a9e1d4f1d7491558e935396a7c053"
+      "sha256": "3ed6ec14fa7c4614b578ecccf1528b3f6225ad6cee39638ad0e5e037fdd140ca"
     },
     {
-      "bytes": 1769,
+      "bytes": 2130,
       "id": "database",
-      "sha256": "99fae3d39635da326a069c61e84ba5f7db0b50433638c07cf02e8ac692401370"
+      "sha256": "6f812691a27800f7ec870861326b66df4a3e299d9e2b9a203b4e8a30696633d8"
     },
     {
-      "bytes": 1769,
+      "bytes": 2130,
       "id": "durable_queue",
-      "sha256": "99fae3d39635da326a069c61e84ba5f7db0b50433638c07cf02e8ac692401370"
+      "sha256": "6f812691a27800f7ec870861326b66df4a3e299d9e2b9a203b4e8a30696633d8"
     },
     {
       "bytes": 39,
@@ -109,14 +109,14 @@
       "sha256": "99e0562472988acbdcd413387f0fa23cebfaf6e1032f9cac5e9bce6be7672498"
     },
     {
-      "bytes": 1776,
+      "bytes": 2137,
       "id": "export",
-      "sha256": "09e2fa743c9d21c681896413b8486685bce17cbdfce39bfcae296ef120d2868c"
+      "sha256": "3ff924163b53844ceeb30846e0064a11709ee0b7c2d19729d716cdb01eb2f85a"
     },
     {
       "bytes": 384,
       "id": "internal_traces",
-      "sha256": "559dc42089fdb6f88a48ae82d361c5163cd6fc5b8f6b1bb060a461be67b3a411"
+      "sha256": "68ba24e4fe6a20f6dda7408c1e27e92ebce32db2f23ee7bf960fe7701439bb9c"
     },
     {
       "bytes": 3,
@@ -129,7 +129,7 @@
       "sha256": "9c655d4fc06910d5363039ceaa70f9a0baebff314cd588ebdbdf4993d7f131e9"
     }
   ],
-  "source_revision": "sha256:b8d6edacb2025f1704546f5780eb1b85b6de731b4eff3fcc85ca83abc5b57e52",
+  "source_revision": "sha256:25bd87fb4fef9cd4a46b2901e3bb6db2e95d2d774b31dff3674c5fdfb7d33ecc",
   "status": "pass",
   "toolchain_digest": "sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651",
   "toolchain_image": "docker.io/library/golang:1.26.5-bookworm"

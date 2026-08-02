@@ -1,0 +1,720 @@
+{
+  "observed_at": "2026-07-30T21:29:25.303Z",
+  "browser": "Chrome/150.0.7871.187",
+  "base_url": "http://127.0.0.1:43100",
+  "source_state": "live_embedded_appliance",
+  "skill_profile": {
+    "selected": {
+      "href": "/components/skills/skf_1611d8593449fc17",
+      "label": "search-workflow"
+    },
+    "pathname": "/components/skills/skf_1611d8593449fc17",
+    "search": "",
+    "title": "Kansoku · Skill skf_1611d8593449fc17",
+    "h1": "search-workflow",
+    "body_text_length": 1373,
+    "root_child_count": 1,
+    "body_has_unknown_agent": false,
+    "body_has_error": false,
+    "body_has_loading": false,
+    "visible_alert": false,
+    "new_exceptions": []
+  },
+  "skill_source_health": {
+    "panel_present": true,
+    "source_rows": 8,
+    "text": "Skill evidence source healthCollector lifecycle is shown independently from skill metric completeness. A partial usage denominator does not turn an otherwise healthy inventory source into Degraded.Evidence sourceSource healthEvidence stateLast successful evidenceLast safe error classcodex_rolloutnot observedobserved7/30/2026, 10:57:52 AMNone observedcodex.app_serverconfigurednot observed7/30/2026, 11:22:43 PMNone observedcodex.rolloutproducingobserved7/31/2026, 12:29:22 AMNone observedevidence_bridgenot observedobserved7/30/2026, 11:22:43 PMNone observedhook_httpnot observedobserved7/30/2026, 6:03:52 AMNone observedotlp_lognot observedobserved7/31/2026, 12:29:22 AMNone observedotlp_metricnot observedobserved7/30/2026, 6:03:52 AMNone observedotlp_spannot observedobserved7/30/2026, 6:03:52 AMNone observed",
+    "metric_completeness_label_present": true
+  },
+  "malformed_null_fixture": {
+    "intercepted_profile_responses": 3,
+    "rendered_profile": true,
+    "shell_preserved": true,
+    "visible_error_state": false,
+    "new_exception_count": 0
+  },
+  "agent_profiles": [
+    {
+      "list_label": "codex",
+      "href": "/agents/ain_9cd7c4fbf5d8df4694834d7769a3747b",
+      "pathname": "/agents/ain_9cd7c4fbf5d8df4694834d7769a3747b",
+      "search": "",
+      "title": "Kansoku · Agent ain_9cd7c4fbf5d8df4694834d7769a3747b",
+      "h1": "Codex",
+      "body_text_length": 1874,
+      "root_child_count": 1,
+      "body_has_unknown_agent": false,
+      "body_has_error": false,
+      "body_has_loading": false,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 1.2,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 324.2,
+          "transfer_size": 3721
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
+      "new_exceptions": []
+    },
+    {
+      "list_label": "claude",
+      "href": "/agents/ain_c2e4a67af4327907cd7a66172c685713",
+      "pathname": "/agents/ain_c2e4a67af4327907cd7a66172c685713",
+      "search": "",
+      "title": "Kansoku · Agent ain_c2e4a67af4327907cd7a66172c685713",
+      "h1": "Claude",
+      "body_text_length": 1503,
+      "root_child_count": 1,
+      "body_has_unknown_agent": false,
+      "body_has_error": false,
+      "body_has_loading": false,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 5.3,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 59.8,
+          "transfer_size": 2523
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
+      "new_exceptions": []
+    },
+    {
+      "list_label": "fixture-agent",
+      "href": "/agents/ain_fixture",
+      "pathname": "/agents/ain_fixture",
+      "search": "",
+      "title": "Kansoku · Agent ain_fixture",
+      "h1": "Fixture Agent",
+      "body_text_length": 1616,
+      "root_child_count": 1,
+      "body_has_unknown_agent": false,
+      "body_has_error": false,
+      "body_has_loading": false,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 1.1,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 19.6,
+          "transfer_size": 2479
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
+      "new_exceptions": []
+    },
+    {
+      "list_label": "codex",
+      "href": "/agents/ain_codex_final_20260729",
+      "pathname": "/agents/ain_codex_final_20260729",
+      "search": "",
+      "title": "Kansoku · Agent ain_codex_final_20260729",
+      "h1": "Codex",
+      "body_text_length": 1406,
+      "root_child_count": 1,
+      "body_has_unknown_agent": false,
+      "body_has_error": false,
+      "body_has_loading": false,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 4.7,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 37.2,
+          "transfer_size": 1590
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
+      "new_exceptions": []
+    },
+    {
+      "list_label": "codex",
+      "href": "/agents/ain_codex_supervised_live",
+      "pathname": "/agents/ain_codex_supervised_live",
+      "search": "",
+      "title": "Kansoku · Agent ain_codex_supervised_live",
+      "h1": "Codex",
+      "body_text_length": 1401,
+      "root_child_count": 1,
+      "body_has_unknown_agent": false,
+      "body_has_error": false,
+      "body_has_loading": false,
+      "visible_alert": false,
+      "agent_api_resources": [
+        {
+          "duration_ms": 5.5,
+          "transfer_size": 0
+        },
+        {
+          "duration_ms": 27.6,
+          "transfer_size": 1591
+        }
+      ],
+      "chart_count": 2,
+      "has_cost_lanes": true,
+      "has_explicit_class": true,
+      "new_exceptions": []
+    }
+  ],
+  "route_error_boundary": {
+    "shell_preserved": true,
+    "retry_visible": true,
+    "back_visible": true,
+    "retry_recovered": true,
+    "intentional_exceptions": []
+  },
+  "agent_class_filter": {
+    "canary_rows": 2,
+    "table_text": "AgentProviderSurfaceClassVersionInstallationEventsSucceededFailedCoveragecodexcodexclicanary0.1.0ain_codex_fina…2500?codexcodexclicanary0.1.0ain_codex_supe…600?"
+  },
+  "range_persistence": {
+    "activity_before_leave": "Last 7 days",
+    "models_before_leave": "Last 12 months",
+    "activity_after_return": "Last 7 days",
+    "models_after_return": "Last 12 months",
+    "models_after_reload": "Last 12 months"
+  },
+  "model_error_ratio": {
+    "found": true,
+    "text": "Error ratio0.616%◑Partial",
+    "state": "Partial: 48 failed / 7793 terminal; 1293 unknown or non-terminal excluded; model.error_ratio/1."
+  },
+  "collection_health": {
+    "receive_to_commit_present": true,
+    "receive_to_commit_state": "Not observed: A durable per-event commit timestamp is not available; observation age is shown separately.",
+    "observation_age_present": true,
+    "replay_present": true,
+    "late_backfill_present": true,
+    "clock_skew_present": true,
+    "semantic_gap_note_present": true
+  },
+  "reliability_navigation": {
+    "direct": {
+      "pathname": "/reliability",
+      "search": "?tab=incidents",
+      "title": "Kansoku · Reliability",
+      "h1": "Reliability",
+      "body_text_length": 2741,
+      "root_child_count": 1,
+      "body_has_unknown_agent": false,
+      "body_has_error": false,
+      "body_has_loading": false,
+      "visible_alert": false
+    },
+    "sentinel_after_click": "present",
+    "sentinel_after_second_click": "present",
+    "sentinel_after_back": "present",
+    "sentinel_after_refresh": null,
+    "shell_after_refresh": true,
+    "native_select_count": 0,
+    "next_page_link_count": 0,
+    "load_more_button_count": 1,
+    "incident_row_count": 25,
+    "dom_limit_notice_count": 0,
+    "pathname": "/reliability",
+    "search": "?tab=incidents",
+    "title": "Kansoku · Reliability",
+    "h1": "Reliability",
+    "body_text_length": 2741,
+    "root_child_count": 1,
+    "body_has_unknown_agent": false,
+    "body_has_error": false,
+    "body_has_loading": false,
+    "visible_alert": false
+  },
+  "overflow": {
+    "reliability_desktop": [],
+    "system_desktop": [],
+    "reliability_tablet": [],
+    "system_tablet": [],
+    "reliability_mobile": [],
+    "system_mobile": [],
+    "reliability_zoom_200": [],
+    "system_zoom_200": []
+  },
+  "theme_tokens": {
+    "before": {
+      "accent_purple": "#8B7FD6",
+      "accent_gold": "#D9B45B",
+      "row_hover_token": "#22212E",
+      "row_selected_token": "#2B293D",
+      "active_background": "rgb(43, 41, 61)",
+      "active_marker": "rgb(217, 180, 91)"
+    },
+    "after_custom_accents": {
+      "accent_purple": "#00ff00",
+      "accent_gold": "#00ffff",
+      "row_hover_token": "#142D18",
+      "row_selected_token": "#124016",
+      "active_background": "rgb(18, 64, 22)",
+      "active_marker": "rgb(0, 255, 255)"
+    },
+    "after_light_preset": {
+      "accent_purple": "#2E7D5B",
+      "accent_gold": "#8A6D1F",
+      "row_hover_token": "#EAF2EF",
+      "row_selected_token": "#D9E8E1",
+      "active_background": "rgb(217, 232, 225)",
+      "active_marker": "rgb(138, 109, 31)"
+    }
+  },
+  "glossary_target": {
+    "found": true,
+    "animation_name": "glossary-target-pulse",
+    "animation_duration": "1.6s",
+    "transition_duration": "0s",
+    "border_color": "rgb(228, 227, 223)",
+    "focused": true
+  },
+  "glossary_reduced_motion": {
+    "found": true,
+    "animation_name": "none",
+    "background_color": "color(srgb 0.868863 0.918431 0.897098)",
+    "border_color": "rgb(46, 125, 91)",
+    "pulse_class": true,
+    "focused": true
+  },
+  "runtime_exceptions": [],
+  "failed_requests": [],
+  "api_responses": [
+    {
+      "path": "/api/v1/skills",
+      "status": 200,
+      "query": {
+        "from": "2021-07-31T21:00:00.000Z",
+        "to": "2026-07-30T21:29:25.683Z",
+        "granularity": "monthly",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/skills",
+      "status": 200,
+      "query": {
+        "from": "2021-07-31T21:00:00.000Z",
+        "to": "2026-07-30T21:29:26.189Z",
+        "granularity": "monthly",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/skills/inv_2dd965bc4bac227999cd322c2a3c8e40",
+      "status": 200,
+      "query": {
+        "from": "2021-07-31T21:00:00.000Z",
+        "to": "2026-07-30T21:29:26.189Z",
+        "granularity": "monthly",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/skills/inv_8e0ad2ea847de4b569e98a4be7710d98",
+      "status": 200,
+      "query": {
+        "from": "2021-07-31T21:00:00.000Z",
+        "to": "2026-07-30T21:29:26.189Z",
+        "granularity": "monthly",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/skills/inv_693516d5e2a9c77b19d3e0ced044aa91",
+      "status": 200,
+      "query": {
+        "from": "2021-07-31T21:00:00.000Z",
+        "to": "2026-07-30T21:29:26.189Z",
+        "granularity": "monthly",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/inventory",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "agent_breakdown_range",
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:28.043Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:28.496Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:29.241Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:29.669Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:30.097Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/agents/{installation}",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:30.521Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "model_breakdown_range",
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:31.351Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/models/usage",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:31.351Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/activity",
+      "status": 200,
+      "query": {
+        "from": "2026-07-24T21:00:00.000Z",
+        "to": "2026-07-30T21:29:31.456Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "model_breakdown_range",
+        "from": "2025-07-31T21:00:00.000Z",
+        "to": "2026-07-30T21:29:32.105Z",
+        "granularity": "monthly",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/models/usage",
+      "status": 200,
+      "query": {
+        "from": "2025-07-31T21:00:00.000Z",
+        "to": "2026-07-30T21:29:32.105Z",
+        "granularity": "monthly",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "reliability_coverage_timeline",
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:32.527Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/incidents",
+      "status": 200,
+      "query": {
+        "limit": "25"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:32.527Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:32.527Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/quarantine",
+      "status": 200,
+      "query": {
+        "limit": "25"
+      }
+    },
+    {
+      "path": "/api/v1/incidents",
+      "status": 200,
+      "query": {
+        "limit": "25"
+      }
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "reliability_coverage_timeline",
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:33.865Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:33.865Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:33.865Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "reliability_coverage_timeline",
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:35.082Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:35.082Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:35.082Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "reliability_coverage_timeline",
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:37.465Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:37.465Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:37.465Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "reliability_coverage_timeline",
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:39.846Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:39.846Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:39.846Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/analytics",
+      "status": 200,
+      "query": {
+        "budget_id": "reliability_coverage_timeline",
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:42.356Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/counts",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:42.356Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/reliability/collection-health",
+      "status": 200,
+      "query": {
+        "from": "2026-07-01T21:00:00.000Z",
+        "to": "2026-07-30T21:29:42.356Z",
+        "granularity": "daily",
+        "timezone": "Europe/Moscow"
+      }
+    },
+    {
+      "path": "/api/v1/system/snapshot",
+      "status": 200,
+      "query": {}
+    },
+    {
+      "path": "/api/v1/health",
+      "status": 200,
+      "query": {}
+    }
+  ]
+}

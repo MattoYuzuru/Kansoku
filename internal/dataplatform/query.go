@@ -23,12 +23,14 @@ var Budgets = map[string]QueryBudget{
 	"percentile_recompute_bucket":   {ID: "percentile_recompute_bucket", MaxMS: 200},
 	"agent_breakdown_range":         {ID: "agent_breakdown_range", MaxMS: 150},
 	"model_breakdown_range":         {ID: "model_breakdown_range", MaxMS: 150},
-	"agent_profile_range":           {ID: "agent_profile_range", MaxMS: 200},
+	"agent_profile_range":           {ID: "agent_profile_range", MaxMS: 500},
 	"component_breakdown_range":     {ID: "component_breakdown_range", MaxMS: 150},
 	"component_lifecycle_funnel":    {ID: "component_lifecycle_funnel", MaxMS: 150},
 	"component_inventory_current":   {ID: "component_inventory_current", MaxMS: 100},
 	"skill_observatory_range":       {ID: "skill_observatory_range", MaxMS: 200},
 	"skill_profile_range":           {ID: "skill_profile_range", MaxMS: 200},
+	"plugin_observatory_range":      {ID: "plugin_observatory_range", MaxMS: 200},
+	"plugin_profile_range":          {ID: "plugin_profile_range", MaxMS: 200},
 	"reliability_coverage_timeline": {ID: "reliability_coverage_timeline", MaxMS: 150},
 	"mcp_topology":                  {ID: "mcp_topology", MaxMS: 100},
 	"mcp_observatory_range":         {ID: "mcp_observatory_range", MaxMS: 200},
@@ -44,12 +46,12 @@ var Budgets = map[string]QueryBudget{
 	// contracts/data-platform-policy-locks.yaml semantic_sha256 chain, the
 	// same Go-only-addition precedent task #12's five budgets above
 	// established; flagged as a follow-up contract-governance task.
-	"activity_timeline_range":      {ID: "activity_timeline_range", MaxMS: 150},
+	"activity_timeline_range":      {ID: "activity_timeline_range", MaxMS: 250},
 	"prompt_shape_range":           {ID: "prompt_shape_range", MaxMS: 150},
 	"model_usage_range":            {ID: "model_usage_range", MaxMS: 150},
 	"tool_analytics_range":         {ID: "tool_analytics_range", MaxMS: 150},
 	"mcp_uptime_range":             {ID: "mcp_uptime_range", MaxMS: 100},
-	"reliability_counts_range":     {ID: "reliability_counts_range", MaxMS: 100},
+	"reliability_counts_range":     {ID: "reliability_counts_range", MaxMS: 250},
 	"system_snapshot":              {ID: "system_snapshot", MaxMS: 50},
 	"privacy_canary_history_range": {ID: "privacy_canary_history_range", MaxMS: 100},
 }

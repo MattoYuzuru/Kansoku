@@ -45,6 +45,7 @@ BUDGET_IDS = {
     "agent_breakdown_range", "agent_profile_range", "model_breakdown_range", "component_breakdown_range",
     "component_lifecycle_funnel", "component_inventory_current",
     "skill_observatory_range", "skill_profile_range",
+    "plugin_observatory_range", "plugin_profile_range",
     "reliability_coverage_timeline", "mcp_topology", "mcp_observatory_range",
     "mcp_server_profile_range", "incident_list",
     "incident_detail", "incident_occurrences", "quarantine_list", "quarantine_detail",
@@ -110,6 +111,14 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("partition drop policy weakened to allow row-by-row delete")
     if schema.get("constraints", {}).get("eav_policy", "").find("no generic entity-attribute-value table") != 0:
         errors.append("EAV avoidance policy changed")
+    current_inventory = str(schema.get("constraints", {}).get("current_inventory_projection", ""))
+    if not all(fragment in current_inventory for fragment in (
+        "replaceable_current_projection",
+        "complete_snapshot_not_older_than_current_state",
+        "older_replay_and_partial_degraded_unknown_snapshots_preserve",
+        "immutable_inventory_snapshots_components_and_historical_assertions_are_never_deleted_or_rewritten",
+    )):
+        errors.append("current inventory projection replacement/history semantics changed")
     jsonb = schema.get("jsonb_extension_fields", {})
     if not FORBIDDEN_JSONB_KEYS.issubset(set(jsonb.get("forbidden_keys", []))):
         errors.append("JSONB extension forbidden keys no longer cover the Session02 prohibited-content set")
@@ -255,7 +264,10 @@ def validate_code_and_fixture() -> list[str]:
 
     source = "\n".join(
         (ROOT / "internal" / "dataplatform" / name).read_text(encoding="utf-8")
-        for name in ("types.go", "migrate.go", "partitions.go", "ingest.go", "rollup.go", "repair.go", "query.go", "retention.go", "db.go")
+        for name in (
+            "types.go", "migrate.go", "partitions.go", "ingest.go", "rollup.go",
+            "repair.go", "projection_repair.go", "query.go", "retention.go", "db.go",
+        )
     )
     required_snippets = [
         "PARTITION BY RANGE (observed_at)".replace(" ", ""),  # placeholder to keep list format below intact
@@ -273,6 +285,25 @@ def validate_code_and_fixture() -> list[str]:
         errors.append("core schema migration must range-partition high-volume fact tables by observed_at")
     if "percentile_cont" in migrations_up:
         errors.append("percentiles must be computed at rollup time from normalized facts, not embedded in the base migration")
+    projection_migration = (
+        ROOT / "internal" / "dataplatform" / "migrations" /
+        "0014_projection_repair_inputs.up.sql"
+    )
+    projection_down = projection_migration.with_name(
+        "0014_projection_repair_inputs.down.sql"
+    )
+    if not projection_migration.exists() or not projection_down.exists():
+        errors.append("projection repair input migration pair is missing")
+    else:
+        projection_sql = projection_migration.read_text(encoding="utf-8")
+        for required in (
+            "kansoku.projection-input/1", "projection_input",
+            "PRIMARY KEY (evidence_id, observed_at)", "32768",
+        ):
+            if required not in projection_sql:
+                errors.append(
+                    f"projection repair input migration missing required behavior: {required}"
+                )
     for forbidden in FORBIDDEN_JSONB_KEYS:
         pattern = re.compile(rf'"{re.escape(forbidden)}"\s+(?:TEXT|JSONB|VARCHAR)', re.IGNORECASE)
         if pattern.search(migrations_up):

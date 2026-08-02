@@ -22,6 +22,9 @@
     {"policy_version": "privacy.ingress/3", "registry": "contracts/privacy/ingress.yaml", "semantic_sha256": "e491e7357e402f8d47d8c1b979f98e46e906621f9b459a6d73af9dd5354ad298"},
     {"policy_version": "privacy.ingress/4", "registry": "contracts/privacy/ingress.yaml", "semantic_sha256": "3817e8152e3013dae0202df45a95cdb400d0935e7bb8f07ff9e137ddc3453e63"},
     {"policy_version": "privacy.ingress/5", "registry": "contracts/privacy/ingress.yaml", "semantic_sha256": "90479a1e4163d072390eae73545f03a40b311ef5b6276247ebae0074a801e63e"},
-    {"policy_version": "privacy.sinks/2", "registry": "contracts/privacy/sinks.yaml", "semantic_sha256": "3b2d9ab00f6d6a50c4368e8f42dc2354d7edaf445052ea936e25ad65be2a3071"}
+    {"policy_version": "privacy.sinks/2", "registry": "contracts/privacy/sinks.yaml", "semantic_sha256": "3b2d9ab00f6d6a50c4368e8f42dc2354d7edaf445052ea936e25ad65be2a3071"},
+    {"policy_version": "privacy.ingress/6", "registry": "contracts/privacy/ingress.yaml", "semantic_sha256": "39483e5c3dd1ddb199f6742d4c914adb8420a6e45d6cfeabbd69f0b855b61979"},
+    {"policy_version": "privacy.ingress/7", "registry": "contracts/privacy/ingress.yaml", "semantic_sha256": "b17fd1bd9d7cef0a52fb0a99eb5d8b40d7014354b826b6b09bd4078f3f67bd98"},
+    {"policy_version": "privacy.installer/3", "registry": "contracts/privacy/installer.yaml", "semantic_sha256": "a31b693b82ae9d4092318bc928e4145369cf7162e0af5691b868f027d3fa8b51"}
   ]
 }

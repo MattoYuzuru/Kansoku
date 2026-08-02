@@ -55,8 +55,8 @@ def validate(
     errors: list[str] = []
     expected_top = {
         "schema_version", "contract_version", "effective_at", "planes",
-        "assertion", "identity", "cold", "file_tree_metadata",
-        "historical_compatibility",
+        "assertion", "identity", "cold", "component_plane_support",
+        "file_tree_metadata", "historical_compatibility",
     }
     if set(data) != expected_top or data.get("schema_version") != "kansoku.component-evidence/2":
         errors.append("component evidence top-level closed schema changed")
@@ -65,37 +65,73 @@ def validate(
     planes = data.get("planes", {})
     if planes.get("availability") != ["installed", "enabled", "exposed"]:
         errors.append("availability plane changed")
-    if planes.get("runtime") != ["invoked", "loaded", "child_activity", "outcome"]:
+    if planes.get("runtime") != ["requested", "invoked", "loaded", "child_activity", "outcome"]:
         errors.append("runtime plane changed")
     if planes.get("optimization", {}).get("support") != "unsupported_until_session_20":
         errors.append("optimization plane must remain unsupported until Session 20")
 
     assertion = data.get("assertion", {})
-    kinds = ["installed", "enabled", "exposed", "invoked", "loaded", "child_activity", "outcome"]
+    kinds = ["installed", "enabled", "exposed", "requested", "invoked", "loaded", "child_activity", "outcome"]
     if assertion.get("kinds") != kinds:
         errors.append("component assertion kind vocabulary changed")
-    if assertion.get("modes") != ["explicit", "proactive", "nested", "not_observed"]:
+    if assertion.get("modes") != [
+        "explicit", "proactive", "nested", "requested", "not_observed", "unknown"
+    ]:
         errors.append("component invocation mode vocabulary changed")
-    if assertion.get("identity_resolution") != ["exact", "unresolved", "ambiguous"]:
+    if "never folded into not_observed" not in str(assertion.get("mode_unknown_rule", "")):
+        errors.append("an unrecognized invocation trigger must stay distinct from not_observed")
+    if assertion.get("identity_resolution") != ["exact", "unresolved", "ambiguous", "redacted"]:
         errors.append("component identity resolution vocabulary changed")
     if "terminal_contract_id" not in str(assertion.get("outcome_rule", "")):
         errors.append("outcome must require a registered terminal contract")
 
     identity = data.get("identity", {})
-    if identity.get("promotion") != "exactly one inventory match":
+    if identity.get("promotion") != "exactly one namespace-and-owner-aware inventory match":
         errors.append("identity promotion must require exactly one inventory match")
     if "incident" not in str(identity.get("zero_matches", "")):
         errors.append("zero identity matches must remain durable and incident-backed")
     if "no winner" not in str(identity.get("multiple_matches", "")):
         errors.append("ambiguous identity must never select a winner")
+    if "append-only" not in str(identity.get("resolution_history", "")) or \
+            "never rewritten" not in str(identity.get("resolution_history", "")):
+        errors.append("resolution history must be append-only and preserve the original assertion")
+    if "current" not in str(identity.get("current_resolution", "")):
+        errors.append("current resolution view is not declared")
 
     cold = data.get("cold", {})
-    if cold.get("formula_version") != "skill.cold_count/1":
+    if cold.get("formula_version") != "skill.cold_count/2":
         errors.append("cold formula version changed")
     if "complete exposure observation window" not in str(cold.get("eligible", "")):
         errors.append("cold population requires a complete exposure window")
+    if "complete inventory snapshot" not in str(cold.get("eligible", "")):
+        errors.append(
+            "cold population must state the unsupported-plane fallback rests on a "
+            "complete inventory snapshot"
+        )
     if "not_observed" not in str(cold.get("zero_rule", "")):
         errors.append("unexposed installed skills must remain not_observed, never cold")
+    exclusions = set(cold.get("exclusions", []))
+    if not {
+        "partial_or_missing_exposure_window",
+        "exposure_plane_unsupported_without_complete_inventory",
+    }.issubset(exclusions):
+        errors.append("cold exclusions must keep both exposure exclusions so neither double counts")
+    if cold.get("exposure_states") != ["observed", "not_observed", "unsupported"]:
+        errors.append("per-row exposure states changed")
+    if "never rendered as zero" not in str(cold.get("unsupported_rendering", "")):
+        errors.append("an unsupported exposure plane must never be rendered as zero")
+
+    plane_support = data.get("component_plane_support", {})
+    if plane_support.get("planes") != ["exposed"]:
+        errors.append("declared component plane vocabulary changed")
+    if plane_support.get("states") != ["native", "reconstructed", "unsupported"]:
+        errors.append("declared component plane support states changed")
+    if "treated as supported" not in str(plane_support.get("undeclared", "")):
+        errors.append("an undeclared plane must keep behaving exactly as a supported one")
+    if "adapter manifest" not in str(plane_support.get("source", "")):
+        errors.append("plane support must originate in the adapter manifest, never in core branching")
+    if "never branches on an agent name" not in str(plane_support.get("core_rule", "")):
+        errors.append("plane support core rule must forbid agent-name branching")
 
     tree = data.get("file_tree_metadata", {})
     if tree.get("allowed_fields") != [
@@ -152,7 +188,11 @@ def validate(
         ):
             if snippet not in handoff:
                 errors.append(f"component identity handoff missing {snippet}")
-        for snippet in ("skill.cold_count/1", "partial_or_missing_exposure_window", "OutcomeState"):
+        for snippet in (
+            "skill.cold_count/2", "partial_or_missing_exposure_window",
+            "exposure_plane_unsupported_without_complete_inventory", "OutcomeState",
+            "ExposureState", "PlaneUnsupported",
+        ):
             if snippet not in query:
                 errors.append(f"skill observatory query missing {snippet}")
     return errors

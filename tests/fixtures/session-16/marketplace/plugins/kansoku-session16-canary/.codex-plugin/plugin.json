@@ -1,0 +1,19 @@
+{
+  "name": "kansoku-session16-canary",
+  "version": "0.1.0",
+  "description": "Kansoku Session16 Canary plugin",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Kansoku Session16 Canary",
+    "shortDescription": "Use Kansoku Session16 Canary in Codex.",
+    "longDescription": "Kansoku Session16 Canary adds a local Codex plugin scaffold.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Help me use Kansoku Session16 Canary."
+  },
+  "mcpServers": "./.mcp.json"
+}

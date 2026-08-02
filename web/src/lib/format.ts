@@ -17,20 +17,41 @@ export function hourLabel(iso: string): string {
   return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit" });
 }
 
+/** Shared presentation policy for measured values, including percentiles. */
+export function formatMetric(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+/**
+ * Tooltip/export-adjacent label: compact presentation plus the exact API
+ * number whenever rounding would otherwise hide source precision.
+ */
+export function formatMetricWithRaw(
+  value: number | null | undefined,
+  unit?: string,
+): string {
+  if (value === null || value === undefined) return "—";
+  const suffix = unit ? ` ${unit}` : "";
+  const display = `${formatMetric(value)}${suffix}`;
+  return Number.isInteger(value) ? display : `${display} · raw ${String(value)}${suffix}`;
+}
+
 export function sum(values: readonly (number | null | undefined)[]): number {
   return values.reduce<number>((acc, v) => acc + (v ?? 0), 0);
 }
 
 export function bytesToReadable(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined) return "—";
-  const units = ["B", "KB", "MB", "GB", "TB"];
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
   let value = bytes;
   let unitIndex = 0;
   while (value >= 1024 && unitIndex < units.length - 1) {
     value /= 1024;
     unitIndex += 1;
   }
-  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  return `${formatMetric(value)} ${units[unitIndex]}`;
 }
 
 export function secondsToReadable(seconds: number | null | undefined): string {

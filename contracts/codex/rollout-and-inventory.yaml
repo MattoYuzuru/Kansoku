@@ -1,38 +1,43 @@
 {
   "schema_version": "kansoku.codex-rollout-and-inventory/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-22",
+  "contract_version": "1.5.0",
+  "effective_at": "2026-07-30",
   "rollout_source": {
     "source_id": "codex.rollout",
     "source_kind": "transcript_jsonl",
     "route": "read_only_file",
     "route_reuse": "reuses_contracts/observability/ingress.yaml_transcript_jsonl_protocol_verbatim_one_bounded_json_record_per_line_never_a_second_file_ingestion_mechanism",
     "state_root": "resolved_CODEX_HOME_rollout_directory_only_never_a_speculative_home_directory_scan",
+    "installation_binding": "each_explicitly_mounted_CODEX_HOME_rollout_root_is_bound_to_the_same_configured_agent_installation_id_as_its_inventory_target; every_emitted_source_scope_uses_that_installation_and_versioned_resolution_filters_inventory_candidates_to_it; a_syntactically_valid_$skill_marker_remains_ephemeral_until_a_matching_SKILL.md_read_corroborates_it_and_then_all_emitted_requested_loaded_and_invoked_evidence_uses_that_explicit_installation_even_when_current_inventory_is_absent_or_late; checkpoint_advancement_never_silently_drops_a_corroborated_read; an_empty_legacy_binding_uses_the_deterministic_adapter_installation_id_never_a_latest_dynamic_database_row; one_file_discovered_under_conflicting_installation_bindings_degrades_the_source_and_emits_no_facts; an_App_Server_bridge_for_the_same_logical_installation_must_receive_that_same_explicit_ID",
     "checkpoint_fields": ["file_identity", "inode_or_file_id_where_available", "byte_offset", "first_record_fingerprint", "last_record_fingerprint", "rotation_generation", "truncation_detected"],
-    "parsing": "streams_jsonl_records_one_bounded_record_at_a_time_extracts_only_canonical_metadata_never_writes_to_the_codex_session_tree",
+    "parsing": "supervised_read_only_append_only_watcher_streams_jsonl_records_with_a_1_MiB_retention_bound_and_64_KiB_reader_buffer_extracts_only_canonical_metadata_drains_oversized_newline_terminated_records_without_retaining_their_content_and_never_writes_to_the_codex_session_tree",
     "historical_content_mode": {
       "default": "safe_structured_fields_only_may_report_lower_skill_coverage",
       "opt_in": "historical_content_feature_extraction_examines_content_bearing_records_transiently_in_memory_only_emits_approved_sanitized_features_and_evidence_and_discards_the_line_afterward_raw_content_is_never_written_to_a_durable_path",
       "user_disable": "users_may_disable_historical_content_parsing_entirely_falling_back_to_the_default_safe_structured_mode"
     },
     "corrupt_or_unknown_schema": {
-      "handling": "quarantined_as_a_metadata_only_incident_reusing_contracts/observability/ingress.yaml_unknown_schema_durable_fields",
+      "handling": "quarantined_as_a_metadata_only_incident_reusing_contracts/observability/ingress.yaml_unknown_schema_durable_fields; an_oversized_newline_terminated_record_is_drained_digest_reduced_checkpointed_and_following_records_continue_in_the_same_scan",
       "raw_bytes_durable": false
     },
     "replay_and_crash": {
       "offset_resume": "reopens_at_the_last_committed_byte_offset_checkpoint",
       "rotation_truncation": "detected_via_file_identity_and_first_last_record_fingerprint_mismatch_and_opens_a_degraded_incident_scoped_to_codex.rollout_only",
       "idempotency": "replaying_the_same_byte_range_twice_yields_the_same_fact_and_evidence_identities_never_a_duplicate_fact"
-    }
+    },
+    "skill_evidence": "a_$skill_marker_alone_is_ephemeral_and_never_durable_requested_or_invoked_evidence; trailing_prose_punctuation_is_not_part_of_the_skill_identity_while_internal_dotted_and_plugin:skill_names_are_preserved; requested_loaded_and_invoked_reconstructed_evidence_requires_a_matching_SKILL.md_read_while_native_child_activity_or_an_independent_runtime_signal_is_classified_separately; a_user_marker_plus_corroboration_has_explicit_invocation_mode; ordinary_shell_variables_and_currency_markers_without_that_read_produce_zero_durable_skill_assertions; tier_confidence_and_current_identity_resolution_are_visible"
   },
   "inventory_source": {
     "source_id": "codex.inventory",
     "scopes_inventoried": ["system", "user", "repository", "admin", "marketplace", "plugin_cache"],
     "scopes_reused_from": "contracts/adapter-sdk/inventory-graph.yaml_source_scopes_verbatim_no_new_scope_is_invented",
-    "components_inventoried": ["documented_system_admin_user_repository_skills", "enabled_disabled_skill_config", "plugins", "marketplaces_and_cache", "hooks", "mcp_servers"],
+    "components_inventoried": ["documented_system_admin_user_repository_skills", "enabled_disabled_skill_config", "plugins", "plugin_bundled_skills", "marketplaces_and_cache", "hooks", "mcp_servers"],
     "repository_scan_bound": "repository_roots_are_scanned_only_for_known_active_projects_or_an_explicit_user_target_never_a_speculative_recursive_filesystem_walk",
     "cache_rule": "cache_packages_are_never_considered_enabled_a_plugin_cache_artifact_node_requires_an_explicit_enabled_for_edge_to_an_active_installation_before_it_is_reported_as_enabled_reusing_contracts/adapter-sdk/inventory-graph.yaml_cache_separation_verbatim",
-    "node_kinds_used": ["agent_installation", "agent_surface", "agent_version", "plugin_package", "plugin_version", "skill_identity", "mcp_server_instance", "mcp_tool", "hook_definition", "custom_command_definition", "cache_artifact"],
+    "plugin_catalog_discovery": "read_only_one_level_bounded_walk_of_each_explicitly_mounted_CODEX_HOME_plugins/cache/<marketplace>/<plugin>/<version>/skills_tree; only_SKILL.md_identity_frontmatter_description_lengths_HMAC_path_and_fingerprints_leave_the_scanner; a_configured_plugin@marketplace_is_joined_to_bundled_skills_only_when_exactly_one_cache_version_is_present; multiple_versions_remain_cache_only_and_never_force_an_arbitrary_owner; the_same_logical_plugin_seen_in_multiple_profiles_is_deduplicated_only_when_identity_version_enabled_state_and_every_bundle_fingerprint_are_exactly_equal_otherwise_profiles_remain_distinct_colliding_candidates",
+    "plugin_skill_identity": "an_active_bundled_skill_is_a_distinct_skill_identity_joined_from_its_plugin_package_by_bundles_and_enabled_for_only_when_both_the_configured_plugin_and_skill_are_enabled; its_qualified_identity_is_plugin@marketplace:skill; cache_only_children_remain_cached_only_and_never_enter_installed_or_enabled_component_projections",
+    "coverage_failure_rule": "missing_cache_is_distinct_from_a_present_but_unreadable_truncated_or_limit_exceeded_cache; any_bounded_scan_failure_returns_no_partial_graph_and_inventory_collection_is_not_observed_or_degraded_never_complete_zero",
+    "node_kinds_used": ["agent_installation", "agent_surface", "agent_version", "plugin_package", "plugin_version", "skill_identity", "mcp_server_instance", "mcp_tool", "hook_definition", "custom_command_definition", "app_definition", "cache_artifact"],
     "node_kinds_source": "reused_verbatim_from_contracts/adapter-sdk/inventory-graph.yaml_node_kinds_no_codex_specific_node_kind_is_invented",
     "edge_kinds_used": ["bundles", "provides", "configured_in", "enabled_for", "shadows", "collides_with", "depends_on", "observed_using"],
     "collision_rule": "two_skill_identity_or_mcp_server_instance_nodes_sharing_a_declared_name_across_scopes_are_never_merged_they_remain_distinct_nodes_linked_by_a_shadows_or_collides_with_edge_reusing_contracts/adapter-sdk/inventory-graph.yaml_identity_rule_verbatim"

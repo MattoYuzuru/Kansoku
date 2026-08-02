@@ -25,7 +25,7 @@ import { bucketedTimeSeriesOption } from "../components/chartOptions";
 import type { EntityRow } from "../api/types";
 
 export function Models() {
-  const range = useRange();
+  const range = useRange("models");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],
@@ -48,7 +48,7 @@ export function Models() {
       : costedTotal < requestsTotal
         ? "partial"
         : state;
-  const errorRows = rows.filter((r) => r.error_ratio != null);
+  const errorMetric = usage.data?.data?.error_ratio_metric;
   const latencyRows = rows.filter((r) => r.percentiles?.p95 != null);
 
   const breakdownRows = breakdown.data?.data?.data ?? [];
@@ -93,14 +93,20 @@ export function Models() {
           <KpiCard label="Requests" value={requestsTotal} state={state} />
           <KpiCard label="Tokens" value={tokensTotal} state={state} />
           <KpiCard
-            label="Error ratio (days observed)"
+            label="Error ratio"
             value={
-              errorRows.length > 0
-                ? Math.round((100 * sum(errorRows.map((r) => r.error_ratio ?? 0))) / errorRows.length)
+              errorMetric?.value != null
+                ? errorMetric.value * 100
                 : null
             }
             unit="%"
-            state={errorRows.length === 0 && rows.length > 0 ? "not_observed" : state}
+            precision={2}
+            state={errorMetric?.completeness.status ?? (rows.length > 0 ? "not_observed" : state)}
+            stateReason={
+              errorMetric
+                ? `${errorMetric.population.numerator} failed / ${errorMetric.population.denominator} terminal; ${errorMetric.exclusions.non_terminal_or_unknown_outcome ?? 0} unknown or non-terminal excluded; ${errorMetric.formula_version}.`
+                : undefined
+            }
           />
         </div>
         {rows.length > 0 ? (

@@ -55,3 +55,29 @@ func TestTimeBucketSpecRangeBudgetsMatchResolution(t *testing.T) {
 		}
 	}
 }
+
+func TestInvocationDisplayTimezoneCanaries(t *testing.T) {
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := time.Date(2026, 7, 30, 9, 15, 0, 0, time.UTC).In(moscow); got.Hour() != 12 {
+		t.Fatalf("Moscow display=%s want 12:15", got)
+	}
+
+	newYork, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := time.Date(2026, 3, 8, 6, 30, 0, 0, time.UTC).In(newYork)
+	after := time.Date(2026, 3, 8, 7, 30, 0, 0, time.UTC).In(newYork)
+	_, beforeOffset := before.Zone()
+	_, afterOffset := after.Zone()
+	if before.Hour() != 1 || after.Hour() != 3 ||
+		beforeOffset != -5*60*60 || afterOffset != -4*60*60 {
+		t.Fatalf(
+			"New York DST display before=%s offset=%d after=%s offset=%d",
+			before, beforeOffset, after, afterOffset,
+		)
+	}
+}

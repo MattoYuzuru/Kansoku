@@ -160,3 +160,14 @@ sanitizer/normalizer/durable sink. Unsupported event names and incompatible coun
 quarantine metadata. Documented metadata-only events become `source.observed`; non-terminal Codex
 SSE records follow that path, while a token-bearing completed record becomes `model.responded`.
 This prevents normal exporter chatter from inflating unknown-schema incidents.
+
+## P0 PostgreSQL-authoritative durability (2026-07-28)
+
+Production assembly opens `CompactStore` at `checkpoints/state.json` with a 4 MiB limit. It retains
+at most 32 watermarks and 2,048 importer checkpoints and ignores fact/evidence/quarantine payloads.
+`Ingestor` reserves and commits the PostgreSQL/spool durability sink before advancing compact state.
+Unknown-schema metadata uses the same durability boundary; repeated fingerprints aggregate by
+hour, and batch dispatch continues with later recognized records.
+
+The former JSON `FileStore` remains available only for legacy reconciliation and deterministic
+tests. It is not opened on the production ingest path after a successful migration.

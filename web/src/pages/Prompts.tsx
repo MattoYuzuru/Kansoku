@@ -14,11 +14,11 @@ import { RangeControl } from "../components/RangeControl";
 import { deriveViewState } from "../api/client";
 import { usePromptShape } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { sum } from "../lib/format";
+import { formatMetric, sum } from "../lib/format";
 import { bucketedTimeSeriesOption } from "../components/chartOptions";
 
 export function Prompts() {
-  const range = useRange();
+  const range = useRange("prompts");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],
@@ -50,6 +50,8 @@ export function Prompts() {
             label="Median size (p50, last day)"
             value={rows.length > 0 ? lastMedian : null}
             unit={lastUnit}
+            precision={2}
+            formatValue={formatMetric}
             state={
               rows.length > 0 && lastMedian == null
                 ? "not_observed"

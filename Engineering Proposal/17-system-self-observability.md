@@ -39,3 +39,25 @@ route classes and backup/restore timeline. Unsupported host/container signals re
 Injected CPU/RSS load, database growth and a slow route become visible within budget; backup and
 isolated restore pass; a failed restore creates an incident; and the collector's own measured
 overhead remains below its declared CPU, memory, storage and query budgets.
+
+## 2026-07-28 capacity amendment
+
+Capacity health is an explicit budget model rather than a database-size proxy. It reports primary
+database, table heap, indexes, cumulative temporary bytes, backups, checkpoint state, per-lane
+emergency spool and filesystem free space. WAL/current temporary occupancy remain exclusions when
+unobservable. Database growth/day and estimated exhaustion are nullable until enough samples
+exist. Any critical filesystem or durability state dominates the overall status even when
+PostgreSQL is currently writable.
+
+## 2026-07-29 durable health amendment
+
+`runtime_ingestion_health` now receives throttled per-source success timestamps and synchronous
+backpressure/durability rejection increments. Queue startup reloads the aggregate, so health labels
+the scope `restart_durable`; a failed counter write independently degrades health. Projection
+receipts are retried from the bounded sanitized spool every 15 seconds and pending count remains a
+degraded dimension.
+
+Source freshness participates in the health rank. Degraded/unknown runtime sources, committed
+watermark gaps/inactivity and future clock skew cannot be hidden in exclusions while overall
+health remains green. Optional configured-but-not-yet-observed and explicitly unsupported sources
+remain non-numeric completeness exclusions.

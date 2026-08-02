@@ -42,7 +42,10 @@ LOCK_PATH = ROOT / "contracts" / "adapter-sdk-policy-locks.yaml"
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "session-05" / "loomwright-conformance.json"
 GO_IMAGE = "golang@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651"
 
-FILES = ("manifest.yaml", "capabilities.yaml", "inventory-graph.yaml", "discovery-and-plans.yaml", "evidence-bridge.yaml")
+FILES = (
+    "manifest.yaml", "capabilities.yaml", "inventory-graph.yaml",
+    "discovery-and-plans.yaml", "evidence-bridge.yaml", "terminal-outcomes.yaml",
+)
 
 EXECUTION_FORMS = ["builtin", "external_process", "wasm", "container"]
 NETWORK_GRADES = ["none", "loopback_only"]
@@ -58,10 +61,14 @@ EVIDENCE_TIERS = ["corroborated", "native", "reconstructed", "inferred"]
 NODE_KINDS = [
     "device", "agent_installation", "agent_surface", "agent_version", "plugin_package", "plugin_version",
     "skill_identity", "mcp_server_instance", "mcp_tool", "hook_definition", "custom_command_definition",
-    "subagent_definition", "cache_artifact",
+    "app_definition", "subagent_definition", "cache_artifact",
 ]
 EDGE_KINDS = ["bundles", "provides", "configured_in", "enabled_for", "shadows", "collides_with", "depends_on", "observed_using"]
 SOURCE_SCOPES = ["system", "user", "repository", "admin", "marketplace", "plugin_cache", "transient_session"]
+COVERAGE_GAP_CLASSES = [
+    "unresolvable_symlink", "unreadable_component_manifest", "truncated_component_manifest",
+    "unparseable_component_manifest",
+]
 AUDIT_MODES = ["passive", "fixture_replay", "live_canary"]
 CHECK_STATUSES = ["pass", "fail", "skipped_unsupported"]
 DETECTION_METHODS = ["executable_on_path", "documented_env_var", "documented_config_file", "documented_state_root_present"]
@@ -73,6 +80,7 @@ LOCK_BASES = {
     "adapter-sdk.inventory-graph": "contracts/adapter-sdk/inventory-graph.yaml",
     "adapter-sdk.discovery-and-plans": "contracts/adapter-sdk/discovery-and-plans.yaml",
     "adapter-sdk.evidence-bridge": "contracts/adapter-sdk/evidence-bridge.yaml",
+    "adapter-sdk.terminal-outcomes": "contracts/adapter-sdk/terminal-outcomes.yaml",
 }
 
 
@@ -100,7 +108,9 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("adapter-sdk registry set is not exact")
         return errors
     by_name = {Path(path).name: value for path, value in data.items()}
-    manifest, capabilities, inventory_graph, discovery_and_plans, evidence_bridge = (by_name[name] for name in FILES)
+    manifest, capabilities, inventory_graph, discovery_and_plans, evidence_bridge, terminal_outcomes = (
+        by_name[name] for name in FILES
+    )
 
     expected_top = {
         "manifest.yaml": {
@@ -108,6 +118,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
             "agent_detection_fields", "execution_forms", "execution_form_sequence", "permissions_fields",
             "network_grades", "parse_limits", "validation", "id_naming", "external_protocol",
             "compatibility_registry_fields", "unknown_agent_version_policy",
+            "component_plane_support",
         },
         "capabilities.yaml": {
             "schema_version", "contract_version", "effective_at", "capability_ids", "capability_states",
@@ -115,6 +126,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         },
         "inventory-graph.yaml": {
             "schema_version", "contract_version", "effective_at", "snapshot_fields", "snapshot_semantics",
+            "coverage_gap_classes", "coverage_gap_semantics",
             "node_kinds", "node_fields", "source_scopes", "edge_kinds", "edge_fields", "identity_rule",
             "cache_separation", "path_pseudonymization", "example_graph_paths", "change_plan_fields",
             "reconcile_scope_fields", "reconcile_result_fields", "reconcile_idempotency",
@@ -130,6 +142,12 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
             "interface_methods", "target_scope", "network_grade", "safe_sink_methods",
             "bridge_rejection_fields", "lifecycle_states", "supervision_limits", "privacy_boundary",
             "database_boundary", "deduplication_rule", "health_isolation_rule", "unknown_schema_rule",
+            "terminal_contract", "terminal_reconciliation_rule",
+        },
+        "terminal-outcomes.yaml": {
+            "schema_version", "contract_version", "effective_at", "canonical_outcomes",
+            "failure_classes", "mapping", "reconciliation", "source_matrix", "ratio_rule",
+            "privacy_rule",
         },
     }
     for name, fields in expected_top.items():
@@ -155,6 +173,21 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("unsigned external adapters must remain labeled and disabled by default")
     if external.get("environment", "").find("no_inherited_parent_environment") == -1:
         errors.append("external adapter environment must remain an explicit allowlist with no inherited parent environment")
+    plane_support = manifest.get("component_plane_support", {})
+    if plane_support.get("optional") is not True:
+        errors.append("component_plane_support must stay optional so manifests predating it still parse")
+    if plane_support.get("fields") != ["component_kind", "plane", "state", "reason"]:
+        errors.append("component_plane_support field set changed")
+    if plane_support.get("planes") != ["exposed"]:
+        errors.append("component_plane_support plane vocabulary changed")
+    if plane_support.get("states") != ["native", "reconstructed", "unsupported"]:
+        errors.append("component_plane_support state vocabulary changed")
+    if plane_support.get("reason_required") is not True:
+        errors.append("a plane support declaration must state its reason")
+    if "treated_as_supported" not in str(plane_support.get("absent_field_rule", "")):
+        errors.append("an undeclared plane must keep being treated as supported")
+    if "never_a_path_credential_host" not in str(plane_support.get("reason_shape", "")):
+        errors.append("plane support reason shape must exclude paths, credentials and host values")
     if manifest.get("unknown_agent_version_policy", "").find("defaults_to_degraded") == -1:
         errors.append("unknown agent version outside every compatibility range must default to degraded")
 
@@ -176,6 +209,14 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("inventory edge kind set changed")
     if inventory_graph.get("source_scopes") != SOURCE_SCOPES:
         errors.append("inventory source scope set changed")
+    if inventory_graph.get("coverage_gap_classes") != COVERAGE_GAP_CLASSES:
+        errors.append("inventory coverage gap class set changed")
+    for field in ("coverage_gap_count", "coverage_gap_classes"):
+        if field not in inventory_graph.get("snapshot_fields", []):
+            errors.append(f"snapshot must carry the coverage gap field: {field}")
+    gap_semantics = inventory_graph.get("coverage_gap_semantics", "")
+    if "downgrades_snapshot_completeness_to_partial" not in gap_semantics or "never_silently_dropped" not in gap_semantics:
+        errors.append("coverage gap semantics weakened: an unreadable entry must downgrade completeness and never be dropped")
     if "same_declared_name_never_forces_identity_merge" not in inventory_graph.get("identity_rule", ""):
         errors.append("same-declared-name identity merge rule weakened")
     cache_separation = inventory_graph.get("cache_separation", "")
@@ -239,6 +280,12 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
         errors.append("evidence bridge database boundary weakened")
     if "logical_fact_identity_is_lane_independent" not in evidence_bridge.get("deduplication_rule", ""):
         errors.append("evidence bridge cross-lane deduplication rule weakened")
+    if terminal_outcomes.get("canonical_outcomes") != [
+        "succeeded", "failed", "cancelled", "interrupted", "timed_out", "abandoned", "unknown"
+    ]:
+        errors.append("terminal outcome vocabulary changed")
+    if terminal_outcomes.get("reconciliation", {}).get("default_failure_for_missing_or_unknown") is not False:
+        errors.append("missing or unknown terminal defaulted to failure")
 
     errors.extend(validate_policy_locks(lock, data, historical))
 
@@ -266,7 +313,7 @@ def validate_policy_locks(lock: dict[str, Any], data: dict[str, dict[str, Any]],
             errors.append("adapter-sdk policy lock entries must be closed")
             continue
         version = item.get("policy_version", "")
-        match = re.fullmatch(r"(adapter-sdk\.(?:manifest|capabilities|inventory-graph|discovery-and-plans|evidence-bridge))/([1-9][0-9]*)", version)
+        match = re.fullmatch(r"(adapter-sdk\.(?:manifest|capabilities|inventory-graph|discovery-and-plans|evidence-bridge|terminal-outcomes))/([1-9][0-9]*)", version)
         if not match or item.get("registry") != LOCK_BASES.get(match.group(1)) or re.fullmatch(r"[0-9a-f]{64}", str(item.get("semantic_sha256"))) is None:
             errors.append("adapter-sdk policy lock entry has invalid version/registry/digest binding")
             continue

@@ -17,16 +17,51 @@
  * system.restore_test_age_seconds) are both real, from the same endpoint.
  */
 import { KpiCard } from "../components/KpiCard";
+import { GlossaryTerm } from "../components/GlossaryTerm";
 import { GapNote, Panel } from "../components/Panel";
 import { StatusBadge } from "../components/StatusBadge";
+import type { ViewState } from "../api/client";
 import { deriveViewState } from "../api/client";
-import { useSystemSnapshot } from "../api/queries";
+import { useRuntimeHealth, useSystemSnapshot } from "../api/queries";
 import { bytesToReadable, secondsToReadable } from "../lib/format";
+
+function healthViewState(state: string | undefined): Exclude<ViewState, "loading"> {
+  switch (state) {
+    case "pass":
+      return "complete";
+    case "warning":
+      return "partial";
+    case "degraded":
+    case "critical":
+      return "degraded";
+    default:
+      return "unknown";
+  }
+}
+
+function timestamp(value: string | null | undefined): string {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+}
 
 export function System() {
   const snapshot = useSystemSnapshot();
+  const runtimeHealth = useRuntimeHealth();
   const snap = snapshot.data?.data;
+  const health = runtimeHealth.data?.data;
   const state = deriveViewState(snapshot.data, { isLoading: snapshot.isLoading });
+  const healthState = runtimeHealth.isLoading
+    ? "loading"
+    : healthViewState(health?.status);
+  const spoolBytes = Object.values(health?.spool_bytes ?? {}).reduce(
+    (total, value) => total + value,
+    0,
+  );
+  const spoolBudget = Object.values(health?.spool_budget_bytes ?? {}).reduce(
+    (total, value) => total + value,
+    0,
+  );
 
   return (
     <section className="k-page">
@@ -44,6 +79,7 @@ export function System() {
           <KpiCard
             label="Database size"
             value={snap ? snap.database_size_bytes : null}
+            formatValue={bytesToReadable}
             state={state}
           />
           <KpiCard label="Database growth" value={null} unit="bytes/day" state="unsupported" />
@@ -61,6 +97,209 @@ export function System() {
           query-latency histogram (see <code>internal/runtime/diagnostics.go</code>). Only
           the current database size is a real, durable figure.
         </GapNote>
+      </Panel>
+
+      <Panel
+        title="Durability and capacity"
+        actions={
+          health ? (
+            <StatusBadge
+              state={healthViewState(health.status)}
+              reason={`Runtime health is ${health.status}.`}
+            />
+          ) : undefined
+        }
+      >
+        <div className="k-grid k-grid--kpis">
+          <KpiCard
+            label={<GlossaryTerm id="database_budget">Database budget used</GlossaryTerm>}
+            value={health?.database_budget.percentage ?? null}
+            unit="%"
+            precision={2}
+            state={
+              runtimeHealth.isLoading
+                ? "loading"
+                : healthViewState(health?.database_budget.state)
+            }
+          />
+          <KpiCard
+            label={<GlossaryTerm id="checkpoint_budget">Checkpoint budget used</GlossaryTerm>}
+            value={health?.checkpoint_usage.percentage ?? null}
+            unit="%"
+            precision={2}
+            state={
+              runtimeHealth.isLoading
+                ? "loading"
+                : healthViewState(health?.checkpoint_usage.state)
+            }
+          />
+          <KpiCard
+            label={<GlossaryTerm id="docker_filesystem">Docker filesystem free</GlossaryTerm>}
+            value={health?.storage_components.filesystem.free_percentage ?? null}
+            unit="%"
+            precision={2}
+            state={
+              runtimeHealth.isLoading
+                ? "loading"
+                : healthViewState(health?.storage_components.filesystem.state)
+            }
+          />
+          <KpiCard
+            label="Emergency spool"
+            value={health ? spoolBytes : null}
+            unit="bytes"
+            state={healthState}
+          />
+          <KpiCard
+            label={<GlossaryTerm id="backpressure_rejection">Backpressure rejections</GlossaryTerm>}
+            value={health?.backpressure_rejected_total ?? null}
+            state={healthState}
+          />
+          <KpiCard
+            label="Durability unavailable"
+            value={health?.durability_unavailable_total ?? null}
+            state={healthState}
+          />
+        </div>
+
+        {health && (
+          <>
+            <dl className="k-kv">
+              <div className="k-kv__row">
+                <dt className="t-caption">
+                  <GlossaryTerm id="database_budget">Database current / soft budget</GlossaryTerm>
+                </dt>
+                <dd className="t-body">
+                  {bytesToReadable(health.database_budget.current_bytes)} /{" "}
+                  {bytesToReadable(health.database_budget.budget_bytes)}
+                </dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">
+                  <GlossaryTerm id="estimated_exhaustion">
+                    Database growth / estimated exhaustion
+                  </GlossaryTerm>
+                </dt>
+                <dd className="t-body">
+                  {health.database_budget.growth_bytes_per_day == null
+                    ? "Not observed"
+                    : `${bytesToReadable(health.database_budget.growth_bytes_per_day)}/day`}
+                  {" · "}
+                  {timestamp(health.database_budget.estimated_exhaustion_at)}
+                </dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">
+                  <GlossaryTerm id="checkpoint_budget">Checkpoint current / budget</GlossaryTerm>
+                </dt>
+                <dd className="t-body">
+                  {bytesToReadable(health.checkpoint_usage.current_bytes)} /{" "}
+                  {bytesToReadable(health.checkpoint_usage.budget_bytes)}
+                </dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">Emergency spool current / aggregate lane budget</dt>
+                <dd className="t-body">
+                  {bytesToReadable(spoolBytes)} / {bytesToReadable(spoolBudget)}
+                </dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">Filesystem available / recommendation</dt>
+                <dd className="t-body">
+                  {bytesToReadable(health.storage_components.filesystem.available_bytes)} /{" "}
+                  {bytesToReadable(
+                    health.storage_components.filesystem.minimum_recommended_free_bytes,
+                  )}
+                </dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">Heap / indexes / backups</dt>
+                <dd className="t-body">
+                  {bytesToReadable(health.storage_components.table_heap.bytes)} /{" "}
+                  {bytesToReadable(health.storage_components.indexes.bytes)} /{" "}
+                  {bytesToReadable(health.storage_components.backups.bytes)}
+                </dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">WAL headroom</dt>
+                <dd className="t-body">
+                  <StatusBadge
+                    state="not_observed"
+                    reason={health.storage_components.wal_headroom.notes}
+                  />
+                </dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">Last successful / rejected ingest</dt>
+                <dd className="t-body">
+                  {timestamp(health.last_successful_ingest_at)} /{" "}
+                  {timestamp(health.last_rejected_ingest_at)}
+                </dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">Projection repair pending</dt>
+                <dd className="t-body">{health.pending_projection_count.toLocaleString()}</dd>
+              </div>
+              <div className="k-kv__row">
+                <dt className="t-caption">Counter scope</dt>
+                <dd className="t-body">{health.counter_scope.replaceAll("_", " ")}</dd>
+              </div>
+            </dl>
+
+            <div>
+              <h3 className="t-section-header">Emergency spool lanes</h3>
+              <dl className="k-kv">
+                {Object.keys(health.spool_budget_bytes)
+                  .sort()
+                  .map((lane) => (
+                    <div className="k-kv__row" key={lane}>
+                      <dt className="t-caption">{lane}</dt>
+                      <dd className="t-body">
+                        {bytesToReadable(health.spool_bytes[lane] ?? 0)} /{" "}
+                        {bytesToReadable(health.spool_budget_bytes[lane])}
+                        {" · queue "}
+                        {(health.queue_depth[lane] ?? 0).toLocaleString()}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            </div>
+
+            <div>
+              <h3 className="t-section-header">Source freshness</h3>
+              <dl className="k-kv">
+                {health.source_freshness.map((source, index) => (
+                  <div
+                    className="k-kv__row"
+                    key={`${source.source_id ?? source.source_kind ?? "source"}-${index}`}
+                  >
+                    <dt className="t-caption">
+                      {source.source_id ?? source.source_kind ?? "unknown source"}
+                    </dt>
+                    <dd className="t-body">
+                      {source.value_state.replaceAll("_", " ")}
+                      {" · "}
+                      {timestamp(
+                        source.last_successful_at ??
+                          source.last_committed_at ??
+                          source.last_observed_at ??
+                          source.last_attempted_at,
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+
+            {(runtimeHealth.data?.completeness?.exclusions?.length ?? 0) > 0 && (
+              <GapNote>
+                Completeness {runtimeHealth.data?.completeness?.numerator ?? 0}/
+                {runtimeHealth.data?.completeness?.denominator ?? 0}:{" "}
+                {runtimeHealth.data?.completeness?.exclusions?.join("; ")}
+              </GapNote>
+            )}
+          </>
+        )}
       </Panel>
 
       <Panel title="Backup and restore state">

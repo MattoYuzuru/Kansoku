@@ -1,36 +1,54 @@
 {
   "schema_version": "kansoku.component-evidence/2",
-  "contract_version": "2.0.0",
-  "effective_at": "2026-07-26",
+  "contract_version": "2.2.0",
+  "effective_at": "2026-08-01",
   "planes": {
     "availability": ["installed", "enabled", "exposed"],
-    "runtime": ["invoked", "loaded", "child_activity", "outcome"],
+    "runtime": ["requested", "invoked", "loaded", "child_activity", "outcome"],
     "optimization": {
       "states": ["eligible", "selected", "missed"],
       "support": "unsupported_until_session_20"
     }
   },
   "assertion": {
-    "kinds": ["installed", "enabled", "exposed", "invoked", "loaded", "child_activity", "outcome"],
-    "modes": ["explicit", "proactive", "nested", "not_observed"],
-    "identity_resolution": ["exact", "unresolved", "ambiguous"],
+    "kinds": ["installed", "enabled", "exposed", "requested", "invoked", "loaded", "child_activity", "outcome"],
+    "modes": ["explicit", "proactive", "nested", "requested", "not_observed", "unknown"],
+    "mode_unknown_rule": "unknown is an observed but unrecognized invocation trigger; it is never folded into not_observed, which means the source reported no mode at all",
+    "identity_resolution": ["exact", "unresolved", "ambiguous", "redacted"],
     "evidence_tiers": ["corroborated", "native", "reconstructed", "inferred"],
     "outcomes": ["succeeded", "failed", "cancelled", "timed_out", "denied", "unknown"],
     "dedupe": "source_instance_id plus idempotency_key; logical populations dedupe by assertion_kind plus component_installation_id plus native causal identity",
     "outcome_rule": "outcome requires a non-empty registered terminal_contract_id; without one the value state is unsupported"
   },
   "identity": {
-    "scope": ["agent_installation_id", "component_kind", "declared_name_or_native_id", "observed_interval"],
-    "promotion": "exactly one inventory match",
+    "scope": ["agent_installation_id", "component_kind", "qualified_identity_and_optional_owner_plugin_identity", "observed_interval"],
+    "promotion": "exactly one namespace-and-owner-aware inventory match",
     "zero_matches": "durable unresolved evidence plus incident",
-    "multiple_matches": "durable plural candidates plus incident; no winner"
+    "multiple_matches": "durable plural candidates plus incident; no winner",
+    "resolution_history": "append-only versioned decisions; original assertion resolution is never rewritten",
+    "current_resolution": "current view selects the latest versioned resolution after inventory-triggered re-resolution"
   },
   "cold": {
-    "formula_version": "skill.cold_count/1",
-    "eligible": "enabled and exposed inside a complete exposure observation window",
+    "formula_version": "skill.cold_count/2",
+    "eligible": "enabled and either (exposure plane is not unsupported and the skill was exposed inside a complete exposure observation window) or (exposure plane is unsupported and the installation reports a complete inventory snapshot)",
     "numerator": "eligible skills with zero exact invoked assertions",
-    "exclusions": ["partial_or_missing_exposure_window", "unresolved_or_ambiguous_identity"],
-    "zero_rule": "installed but not provably exposed is not_observed, never cold"
+    "exclusions": ["partial_or_missing_exposure_window", "exposure_plane_unsupported_without_complete_inventory", "unresolved_or_ambiguous_identity", "non_skill_component_kind"],
+    "exclusion_partition": "partial_or_missing_exposure_window applies only to supported exposure planes and exposure_plane_unsupported_without_complete_inventory covers the rest, so the two partition the ineligible enabled population and nothing is counted twice",
+    "zero_rule": "installed but not provably exposed is not_observed, never cold",
+    "exposure_states": ["observed", "not_observed", "unsupported"],
+    "unsupported_rendering": "an unsupported exposure plane is never rendered as zero and never as insufficient evidence; there is no surface to read, which is a different claim from having read one and found nothing",
+    "enabled_list_rule": "a global enabled list is still never an exposure assertion; where no exposure surface exists it becomes an eligibility precondition only, and inventory completeness carries the honesty of the number",
+    "second_path_precedent": "plugin.active_share/2 already gates eligibility on inventory completeness with no exposure window at all; skills were the outlier"
+  },
+  "component_plane_support": {
+    "source": "declared per component kind in the adapter manifest and persisted per installation; read by the data platform as data",
+    "core_rule": "core never branches on an agent name; a second agent with the same missing surface inherits the behaviour by declaring it",
+    "planes": ["exposed"],
+    "plane_meaning": "exposed names the model-visible component set for a turn, which is the one surface whose existence varies between agents; it is not the availability/runtime plane grouping above",
+    "states": ["native", "reconstructed", "unsupported"],
+    "reason_required": true,
+    "undeclared": "an installation with no declaration is treated as supported, preserving prior behaviour exactly for every adapter that declares nothing",
+    "coupling_to_inventory": "the unsupported path depends on inventory snapshot completeness, so a coverage gap must downgrade the snapshot; otherwise a mis-mounted host would produce a confident cold count over a truncated inventory"
   },
   "file_tree_metadata": {
     "allowed_fields": ["node_pseudonym", "parent_pseudonym", "entry_kind", "depth", "byte_count"],

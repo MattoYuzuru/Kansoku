@@ -37,6 +37,12 @@ type Config struct {
 	Secrets                      SecretFiles       `json:"secret_files"`
 	QueueCapacity                int               `json:"queue_capacity"`
 	SpoolMaxBytes                int64             `json:"spool_max_bytes"`
+	CheckpointStateMaxBytes      int64             `json:"checkpoint_state_max_bytes"`
+	DatabaseSoftLimitBytes       int64             `json:"database_soft_limit_bytes"`
+	DatabaseBudgetWarning        float64           `json:"database_budget_warning_fraction"`
+	DatabaseBudgetDegraded       float64           `json:"database_budget_degraded_fraction"`
+	DatabaseBudgetCritical       float64           `json:"database_budget_critical_fraction"`
+	StoragePreflightMinFreeBytes int64             `json:"storage_preflight_min_free_bytes"`
 	ShutdownTimeoutMS            int64             `json:"shutdown_timeout_ms"`
 	QueryTimeoutMS               int64             `json:"query_timeout_ms"`
 	ResponseMaxBytes             int64             `json:"response_max_bytes"`
@@ -48,6 +54,7 @@ type Config struct {
 	DiagnosticsMaxBytes          int64             `json:"diagnostics_max_bytes"`
 	InventoryTargets             []InventoryTarget `json:"inventory_targets,omitempty"`
 	InventoryScanIntervalSeconds int               `json:"inventory_scan_interval_seconds,omitempty"`
+	RolloutWatchIntervalSeconds  int               `json:"rollout_watch_interval_seconds"`
 }
 
 // InventoryTarget is one explicit, read-only adapter state root mounted into
@@ -58,6 +65,20 @@ type InventoryTarget struct {
 	InstallationID string `json:"installation_id,omitempty"`
 	SurfaceID      string `json:"surface_id"`
 	StateRoot      string `json:"state_root"`
+	// LinkRoots are additional read-only roots the scan is permitted to
+	// resolve symlink targets into. An agent state root assembled out of
+	// symlinks into a separate library directory is otherwise unreadable:
+	// HostView resolves one symlink level and then requires the *target* to
+	// also sit inside a permitted root, so every link is refused and the
+	// inventory silently truncates.
+	//
+	// Each entry must be the narrowest directory that actually contains the
+	// link targets, bound into the container at its identical absolute path
+	// (the links store absolute paths, so any other mount point cannot
+	// resolve). $HOME and / are rejected: a read-only bind is still a
+	// readable bind, and this list is the whole filesystem surface the scan
+	// may touch outside the state root.
+	LinkRoots []string `json:"link_roots,omitempty"`
 }
 
 type DBConfig struct {
@@ -129,6 +150,12 @@ func (c Config) Validate() error {
 		return errors.New("database_config_invalid")
 	}
 	if c.QueueCapacity != 64 || c.SpoolMaxBytes != 64<<20 ||
+		c.CheckpointStateMaxBytes != 4<<20 ||
+		c.DatabaseSoftLimitBytes != 5<<30 ||
+		c.DatabaseBudgetWarning != 0.70 ||
+		c.DatabaseBudgetDegraded != 0.85 ||
+		c.DatabaseBudgetCritical != 0.95 ||
+		c.StoragePreflightMinFreeBytes != 25<<30 ||
 		c.ShutdownTimeoutMS != 30_000 || c.QueryTimeoutMS != 500 ||
 		c.ResponseMaxBytes != 1<<20 || c.RetentionDays != 400 ||
 		c.DiskBudgetFraction != 0.90 || c.DiagnosticsMaxBytes != 1<<20 {
@@ -141,10 +168,10 @@ func (c Config) Validate() error {
 	for _, target := range c.InventoryTargets {
 		if !safeInventoryConfigID(target.TargetID) ||
 			!safeInventoryConfigID(target.AdapterID) ||
-			(target.InstallationID != "" && !safeInventoryConfigID(target.InstallationID)) ||
+			(target.InstallationID != "" && !safeAgentInstallationID(target.InstallationID)) ||
 			!safeInventoryConfigID(target.SurfaceID) ||
 			!filepath.IsAbs(target.StateRoot) || target.StateRoot == "/" ||
-			seenTargets[target.TargetID] {
+			seenTargets[target.TargetID] || !validLinkRoots(target.LinkRoots) {
 			return errors.New("inventory_targets_invalid")
 		}
 		seenTargets[target.TargetID] = true
@@ -155,6 +182,9 @@ func (c Config) Validate() error {
 		}
 	} else if c.InventoryScanIntervalSeconds < 60 || c.InventoryScanIntervalSeconds > 3600 {
 		return errors.New("inventory_scan_interval_invalid")
+	}
+	if c.RolloutWatchIntervalSeconds != 5 {
+		return errors.New("rollout_watch_interval_invalid")
 	}
 	if err := c.Secrets.ValidateLocators(); err != nil {
 		return err
@@ -172,6 +202,18 @@ func safeInventoryConfigID(value string) bool {
 			continue
 		}
 		return false
+	}
+	return true
+}
+
+func safeAgentInstallationID(value string) bool {
+	if len(value) != len("ain_")+32 || !strings.HasPrefix(value, "ain_") {
+		return false
+	}
+	for _, char := range value[len("ain_"):] {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
+			return false
+		}
 	}
 	return true
 }
@@ -221,4 +263,34 @@ func (c Config) DatabaseDSN(password []byte) (string, error) {
 	query.Set("connect_timeout", fmt.Sprintf("%d", c.Database.ConnectTimeout))
 	u.RawQuery = query.Encode()
 	return u.String(), nil
+}
+
+// maxLinkRoots bounds how many additional read roots one inventory target may
+// declare. The list exists to reach one or two symlinked skill libraries, not
+// to reopen the filesystem.
+const maxLinkRoots = 8
+
+// validLinkRoots enforces that every additional read root is an absolute,
+// clean, bounded path that is neither the filesystem root nor a bare home
+// directory. Widening the readable surface to $HOME would hand the scan every
+// unrelated file the operator owns, which is exactly the outcome the state-root
+// model exists to prevent.
+func validLinkRoots(roots []string) bool {
+	if len(roots) > maxLinkRoots {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, root := range roots {
+		if root == "" || len(root) > 512 || !filepath.IsAbs(root) ||
+			root != filepath.Clean(root) || root == "/" || seen[root] {
+			return false
+		}
+		if depth := len(strings.Split(strings.Trim(root, "/"), "/")); depth < 2 {
+			// "/Users", "/home", "/root", "/mnt" and friends are too broad to
+			// be the narrowest directory containing a link target.
+			return false
+		}
+		seen[root] = true
+	}
+	return true
 }

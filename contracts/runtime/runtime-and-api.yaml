@@ -1,12 +1,12 @@
 {
   "schema_version": "kansoku.runtime-and-api/1",
-  "contract_version": "1.2.0",
-  "effective_at": "2026-07-26",
+  "contract_version": "1.6.0",
+  "effective_at": "2026-07-29",
   "appliance": {
     "binary": "cmd/kansoku",
     "app_version": "0.9.0",
     "config_version": "kansoku.runtime-config/1",
-    "single_process_roles": ["api", "hook_otlp_ingress", "scheduler", "bounded_workers"],
+    "single_process_roles": ["api", "hook_otlp_evidence_bridge_ingress", "scheduler", "bounded_workers"],
     "shared_components": [
       "internal/observability",
       "internal/dataplatform",
@@ -25,7 +25,7 @@
     "container_bridge_rule": "the process may accept a container-bridge peer only in explicit appliance mode where the Compose publication is loopback-only, the network is internal, forwarded headers are rejected, exact Host is loopback, and route authentication still succeeds"
   },
   "startup": {
-    "order": ["strict_config_decode", "secret_file_validation", "database_connect", "compatibility_preflight", "dataplatform_migrate", "integrity_migrate", "runtime_migrate", "spool_replay", "start_workers", "start_listeners", "start_integrity_scheduler"],
+    "order": ["strict_config_decode", "secret_file_validation", "database_connect", "compatibility_preflight", "dataplatform_migrate", "integrity_migrate", "runtime_migrate", "legacy_mirror_backup_reconcile_and_atomic_archive", "spool_replay", "start_workers", "start_read_only_codex_rollout_watcher", "start_listeners", "start_integrity_scheduler"],
     "unknown_config_fields": "reject",
     "secret_values_in_environment": "forbidden",
     "secrets_from_files_only": true,
@@ -64,6 +64,8 @@
       "POST /api/v1/incidents/{opaque_id}/action-ready",
       "POST /api/v1/admin/retention/preview",
       "POST /api/v1/admin/retention/apply",
+      "POST /api/v1/admin/projection-repair/preview",
+      "POST /api/v1/admin/projection-repair/apply",
       "POST /api/v1/admin/export",
       "POST /api/v1/admin/import",
       "POST /api/v1/admin/backup",
@@ -75,7 +77,8 @@
       "POST /v1/logs",
       "POST /v1/metrics",
       "POST /v1/traces",
-      "POST /v1/adapter-events/{adapter}"
+      "POST /v1/adapter-events/{adapter}",
+      "POST /v1/evidence-bridges/codex-app-server"
     ],
     "response_envelope_fields": ["api_version", "request_id", "data", "completeness", "error"],
     "request_max_bytes": 1048576,
@@ -97,11 +100,18 @@
       "sql_parameters"
     ],
     "percentages_require": ["numerator", "denominator", "exclusions", "completeness"],
-    "unknown_not_zero": true
+    "unknown_not_zero": true,
+    "health_source_state": {
+      "overall_floor": "a degraded source state makes overall health at least degraded",
+      "watermark_degraded_when": ["missing_last_committed_at", "gap_count_positive", "inactivity_true", "last_observed_at_more_than_5_minutes_in_the_future"],
+      "runtime_degraded_when": ["state_degraded", "value_state_unknown", "invalid_state_value_combination"],
+      "non_failure_exclusions": ["configured_not_observed", "unsupported_unsupported"],
+      "clock_state_visible": true
+    }
   },
   "cli": {
     "commands": ["serve", "health --self", "config check", "migrate", "backup", "restore-verify", "export", "import", "diagnostics", "soak"],
-    "health_self_checks": ["config", "secret_files", "database", "migration_ledgers", "spool", "workers"],
+    "health_self_checks": ["config", "secret_files", "database", "database_soft_budget", "filesystem_preflight", "checkpoint_usage", "migration_ledgers", "spool_per_lane", "workers", "source_freshness", "projection_repair"],
     "health_self_outputs_safe_categories_only": true
   }
 }

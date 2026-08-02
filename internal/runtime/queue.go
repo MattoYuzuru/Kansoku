@@ -18,13 +18,18 @@ type SpoolStore interface {
 }
 
 type QueueMetrics struct {
-	Depth                 map[observability.SourceKind]int
-	OldestSpoolRecord     map[observability.SourceKind]time.Time
-	Accepted              uint64
-	Spooled               uint64
-	Replayed              uint64
-	BackpressureRejected  uint64
-	DurabilityUnavailable uint64
+	Depth                         map[observability.SourceKind]int
+	OldestSpoolRecord             map[observability.SourceKind]time.Time
+	SpoolBytes                    map[observability.SourceKind]int64
+	SpoolCapacityBytes            map[observability.SourceKind]int64
+	Accepted                      uint64
+	Spooled                       uint64
+	Replayed                      uint64
+	BackpressureRejected          uint64
+	DurabilityUnavailable         uint64
+	LastSuccessfulIngest          time.Time
+	LastRejectedIngest            time.Time
+	CounterPersistenceUnavailable bool
 }
 
 type queueLane struct {
@@ -42,18 +47,40 @@ type persistJob struct {
 }
 
 // DurableIngressQueue is the production durability boundary. A lane slot is
-// reserved before the compatibility FileStore mirror commits; completion is
-// acknowledged only after PostgreSQL or the fsynced sanitized spool owns it.
+// reserved before the compact checkpoint advances; completion is acknowledged
+// only after PostgreSQL or the fsynced sanitized spool owns the record.
 type DurableIngressQueue struct {
-	sink        observability.DurableFactSink
-	lanes       map[observability.SourceKind]*queueLane
-	stateMu     sync.RWMutex
-	accepting   bool
-	closeOnce   sync.Once
-	outstanding sync.WaitGroup
-	workers     sync.WaitGroup
-	metricsMu   sync.Mutex
-	metrics     QueueMetrics
+	sink           observability.DurableFactSink
+	lanes          map[observability.SourceKind]*queueLane
+	stateMu        sync.RWMutex
+	accepting      bool
+	closeOnce      sync.Once
+	outstanding    sync.WaitGroup
+	workers        sync.WaitGroup
+	metricsMu      sync.Mutex
+	metrics        QueueMetrics
+	healthRecorder IngestionHealthRecorder
+}
+
+func (q *DurableIngressQueue) ConfigureHealthRecorder(
+	ctx context.Context,
+	recorder IngestionHealthRecorder,
+) error {
+	if recorder == nil {
+		return errors.New("ingestion_health_recorder_required")
+	}
+	snapshot, err := recorder.Load(ctx)
+	if err != nil {
+		return err
+	}
+	q.metricsMu.Lock()
+	q.healthRecorder = recorder
+	q.metrics.BackpressureRejected = snapshot.BackpressureRejected
+	q.metrics.DurabilityUnavailable = snapshot.DurabilityUnavailable
+	q.metrics.LastSuccessfulIngest = snapshot.LastSuccessful
+	q.metrics.LastRejectedIngest = snapshot.LastRejected
+	q.metricsMu.Unlock()
+	return nil
 }
 
 var _ observability.ReservingDurableFactSink = (*DurableIngressQueue)(nil)
@@ -67,6 +94,7 @@ var productionSources = []observability.SourceKind{
 	observability.SourceTranscript,
 	observability.SourceAdapterBatch,
 	observability.SourceEvidenceBridge,
+	observability.SourceCodexRollout,
 }
 
 func NewDurableIngressQueue(sink observability.DurableFactSink, dataDir string, queueCapacity int, spoolMaxBytes int64) (*DurableIngressQueue, error) {
@@ -95,8 +123,10 @@ func NewDurableIngressQueueWithSpools(sink observability.DurableFactSink, spools
 		lanes:     make(map[observability.SourceKind]*queueLane, len(productionSources)),
 		accepting: true,
 		metrics: QueueMetrics{
-			Depth:             make(map[observability.SourceKind]int, len(productionSources)),
-			OldestSpoolRecord: make(map[observability.SourceKind]time.Time, len(productionSources)),
+			Depth:              make(map[observability.SourceKind]int, len(productionSources)),
+			OldestSpoolRecord:  make(map[observability.SourceKind]time.Time, len(productionSources)),
+			SpoolBytes:         make(map[observability.SourceKind]int64, len(productionSources)),
+			SpoolCapacityBytes: make(map[observability.SourceKind]int64, len(productionSources)),
 		},
 	}
 	for _, source := range productionSources {
@@ -106,7 +136,7 @@ func NewDurableIngressQueueWithSpools(sink observability.DurableFactSink, spools
 		}
 		capacity := queueCapacity
 		if source == observability.SourceTranscript || source == observability.SourceAdapterBatch ||
-			source == observability.SourceEvidenceBridge {
+			source == observability.SourceEvidenceBridge || source == observability.SourceCodexRollout {
 			capacity = 16
 		}
 		lane := &queueLane{capacity: capacity, jobs: make(chan *persistJob, capacity), spool: spool}
@@ -131,16 +161,19 @@ func (q *DurableIngressQueue) PersistQuarantineMetadata(quarantine observability
 	accepting := q.accepting
 	q.stateMu.RUnlock()
 	if !accepting {
+		q.recordRejected(quarantine.SourceKind, ingestionHealthDurabilityUnavailable)
 		return observability.ErrDurabilityUnavailable
 	}
 	sink, ok := q.sink.(observability.DurableMetadataSink)
 	if !ok {
+		q.recordRejected(quarantine.SourceKind, ingestionHealthDurabilityUnavailable)
 		return observability.ErrDurabilityUnavailable
 	}
 	if err := sink.PersistQuarantineMetadata(quarantine, incident); err != nil {
-		q.incrementMetric(func(metrics *QueueMetrics) { metrics.DurabilityUnavailable++ })
+		q.recordRejected(quarantine.SourceKind, ingestionHealthDurabilityUnavailable)
 		return observability.ErrDurabilityUnavailable
 	}
+	q.recordSuccessful(quarantine.SourceKind)
 	return nil
 }
 
@@ -159,7 +192,7 @@ func (q *DurableIngressQueue) ReserveNormalizedFact(event observability.Event, e
 		if lane.inUse >= lane.capacity {
 			lane.mu.Unlock()
 			q.stateMu.RUnlock()
-			q.incrementMetric(func(metrics *QueueMetrics) { metrics.BackpressureRejected++ })
+			q.recordRejected(event.Source.Kind, ingestionHealthBackpressureRejected)
 			return nil, observability.ErrBackpressure
 		}
 		lane.inUse++
@@ -168,6 +201,7 @@ func (q *DurableIngressQueue) ReserveNormalizedFact(event observability.Event, e
 	}
 	q.stateMu.RUnlock()
 	if !accepting {
+		q.recordRejected(event.Source.Kind, ingestionHealthDurabilityUnavailable)
 		return nil, observability.ErrDurabilityUnavailable
 	}
 	return &queueReservation{
@@ -216,7 +250,7 @@ func (q *DurableIngressQueue) runLane(source observability.SourceKind, lane *que
 			request := observability.CommitRequest{Event: &job.event, Evidence: &job.evidence}
 			if spoolErr := lane.spool.Append(request); spoolErr != nil {
 				err = observability.ErrDurabilityUnavailable
-				q.incrementMetric(func(metrics *QueueMetrics) { metrics.DurabilityUnavailable++ })
+				q.recordRejected(source, ingestionHealthDurabilityUnavailable)
 			} else {
 				err = nil
 				q.incrementMetric(func(metrics *QueueMetrics) { metrics.Spooled++ })
@@ -224,6 +258,7 @@ func (q *DurableIngressQueue) runLane(source observability.SourceKind, lane *que
 		}
 		if err == nil {
 			q.incrementMetric(func(metrics *QueueMetrics) { metrics.Accepted++ })
+			q.recordSuccessful(source)
 		}
 		job.result <- err
 		close(job.result)
@@ -255,6 +290,7 @@ func (q *DurableIngressQueue) ReplaySpools() error {
 		}
 		if replayed > 0 {
 			q.incrementMetric(func(metrics *QueueMetrics) { metrics.Replayed += replayed })
+			q.recordSuccessful(source)
 		}
 	}
 	return nil
@@ -263,13 +299,18 @@ func (q *DurableIngressQueue) ReplaySpools() error {
 func (q *DurableIngressQueue) Metrics() (QueueMetrics, error) {
 	q.metricsMu.Lock()
 	metrics := QueueMetrics{
-		Depth:                 make(map[observability.SourceKind]int, len(q.lanes)),
-		OldestSpoolRecord:     make(map[observability.SourceKind]time.Time, len(q.lanes)),
-		Accepted:              q.metrics.Accepted,
-		Spooled:               q.metrics.Spooled,
-		Replayed:              q.metrics.Replayed,
-		BackpressureRejected:  q.metrics.BackpressureRejected,
-		DurabilityUnavailable: q.metrics.DurabilityUnavailable,
+		Depth:                         make(map[observability.SourceKind]int, len(q.lanes)),
+		OldestSpoolRecord:             make(map[observability.SourceKind]time.Time, len(q.lanes)),
+		SpoolBytes:                    make(map[observability.SourceKind]int64, len(q.lanes)),
+		SpoolCapacityBytes:            make(map[observability.SourceKind]int64, len(q.lanes)),
+		Accepted:                      q.metrics.Accepted,
+		Spooled:                       q.metrics.Spooled,
+		Replayed:                      q.metrics.Replayed,
+		BackpressureRejected:          q.metrics.BackpressureRejected,
+		DurabilityUnavailable:         q.metrics.DurabilityUnavailable,
+		LastSuccessfulIngest:          q.metrics.LastSuccessfulIngest,
+		LastRejectedIngest:            q.metrics.LastRejectedIngest,
+		CounterPersistenceUnavailable: q.metrics.CounterPersistenceUnavailable,
 	}
 	q.metricsMu.Unlock()
 	for source, lane := range q.lanes {
@@ -282,6 +323,8 @@ func (q *DurableIngressQueue) Metrics() (QueueMetrics, error) {
 		}
 		metrics.Depth[source] += stats.Depth
 		metrics.OldestSpoolRecord[source] = stats.OldestAt
+		metrics.SpoolBytes[source] = stats.Bytes
+		metrics.SpoolCapacityBytes[source] = stats.Capacity
 	}
 	return metrics, nil
 }
@@ -290,6 +333,53 @@ func (q *DurableIngressQueue) incrementMetric(update func(*QueueMetrics)) {
 	q.metricsMu.Lock()
 	update(&q.metrics)
 	q.metricsMu.Unlock()
+}
+
+func (q *DurableIngressQueue) recordSuccessful(source observability.SourceKind) {
+	now := time.Now().UTC()
+	q.metricsMu.Lock()
+	q.metrics.LastSuccessfulIngest = now
+	recorder := q.healthRecorder
+	q.metricsMu.Unlock()
+	if recorder != nil {
+		if err := recorder.Record(source, ingestionHealthSuccessful, now); err != nil {
+			q.metricsMu.Lock()
+			q.metrics.CounterPersistenceUnavailable = true
+			q.metricsMu.Unlock()
+		} else {
+			q.metricsMu.Lock()
+			q.metrics.CounterPersistenceUnavailable = false
+			q.metricsMu.Unlock()
+		}
+	}
+}
+
+func (q *DurableIngressQueue) recordRejected(
+	source observability.SourceKind,
+	outcome IngestionHealthOutcome,
+) {
+	now := time.Now().UTC()
+	q.metricsMu.Lock()
+	switch outcome {
+	case ingestionHealthBackpressureRejected:
+		q.metrics.BackpressureRejected++
+	case ingestionHealthDurabilityUnavailable:
+		q.metrics.DurabilityUnavailable++
+	}
+	q.metrics.LastRejectedIngest = now
+	recorder := q.healthRecorder
+	q.metricsMu.Unlock()
+	if recorder != nil {
+		if err := recorder.Record(source, outcome, now); err != nil {
+			q.metricsMu.Lock()
+			q.metrics.CounterPersistenceUnavailable = true
+			q.metricsMu.Unlock()
+		} else {
+			q.metricsMu.Lock()
+			q.metrics.CounterPersistenceUnavailable = false
+			q.metricsMu.Unlock()
+		}
+	}
 }
 
 func (q *DurableIngressQueue) Close() {

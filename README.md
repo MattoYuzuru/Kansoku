@@ -64,20 +64,54 @@ KANSOKU_CODEX_USER_SKILLS=/absolute/path/to/user-skills
 KANSOKU_CODEX_SYSTEM_SKILLS=/absolute/path/to/system-skills
 EOF
 
+# Необязательно: дать Kansoku read-only доступ к inventory Claude Code.
+# KANSOKU_CLAUDE_HOME — каталог с settings.json (обычно ~/.claude).
+cat >> .env <<EOF
+KANSOKU_CLAUDE_HOME=/absolute/path/to/.claude
+KANSOKU_CLAUDE_USER_SKILLS=/absolute/path/to/.claude/skills
+KANSOKU_CLAUDE_REPOSITORY_SKILLS=/absolute/path/to/repo/.claude/skills
+KANSOKU_CLAUDE_SYSTEM_SKILLS=/absolute/path/to/system-skills
+KANSOKU_CLAUDE_PLUGIN_CACHE=/absolute/path/to/.claude/plugins/cache
+EOF
+
+# Если записи в skills-каталоге — симлинки на отдельную библиотеку (частый случай:
+# ~/.claude/skills/<name> -> ~/Projects/<library>/skills/<name>), укажите корень
+# библиотеки. Он монтируется read-only по тому же абсолютному пути внутрь контейнера,
+# иначе абсолютные симлинки внутри контейнера не разрешаются и такие скиллы не видны.
+# Указывайте максимально узкий каталог, содержащий цели симлинков — никогда $HOME и не /.
+cat >> .env <<EOF
+KANSOKU_AGENT_LINK_ROOT_1_PATH=/absolute/path/to/skills-library
+EOF
+
 # 4. Поднять стек
 docker compose -f compose.yaml up -d
 
-# 5. Дождаться healthy и проверить
+# 5. Проверить процессы и UI
 docker compose -f compose.yaml ps
 curl -s http://127.0.0.1:43100/ -o /dev/null -w '%{http_code}\n'
+
+# Capacity/ingestion health требует read bearer и может честно вернуть
+# warning/degraded/critical даже при работающем PostgreSQL.
+read_token=$(<secrets/read_bearer)
+curl -s -H "Authorization: Bearer ${read_token}" \
+  http://127.0.0.1:43100/api/v1/health
 ```
 
 Дашборд — `http://127.0.0.1:43100`. OTLP-приём (для агентов) — `http://127.0.0.1:4318`
 (HTTP) и `127.0.0.1:4317` (gRPC), оба требуют `ingress_bearer` из `secrets/ingress_bearer`.
 
-`secrets/` и `.env` — локальные и в git не попадают (см. `.gitignore`). Оба сервиса
-(`kansoku`, `postgres`) должны стать `Up ... (healthy)`; первый healthcheck может занять
-до 30 секунд после старта.
+`secrets/` и `.env` — локальные и в git не попадают (см. `.gitignore`). PostgreSQL должен стать
+`healthy`. Kansoku становится `healthy` только при полном operational `pass`; недостаток Docker
+disk, durability/backpressure или stale source намеренно оставляет контейнер `unhealthy`, хотя UI
+и read API продолжают работать. `source_state` становится как минимум `degraded` при gap,
+inactivity, неизвестном runtime state или source clock более чем на пять минут в будущем;
+`configured/not_observed` и `unsupported` остаются отдельными exclusions. Первый healthcheck может
+занять до 30 секунд после старта.
+
+По умолчанию база имеет advisory soft budget 5 GiB с порогами 70/85/95%, а не hard cap и не
+preallocation. Перед длительной эксплуатацией рекомендуется минимум 25–30 GiB свободного Docker
+disk space для БД, индексов, WAL/rollback, backup и emergency spool. Не запускайте 5 GiB soak, если
+свободное место уже ниже 20%; Kansoku не меняет allocation Docker Desktop автоматически.
 
 ## Подключение реальных агентов
 
@@ -115,17 +149,75 @@ headers = { "Authorization" = "Bearer <ingress_bearer>" }
 }
 ```
 
+`OTEL_EXPORTER_OTLP_HEADERS` здесь обязателен: loopback OTLP аутентифицирован, а заголовок —
+единственный механизм Claude Code передать bearer. Значение принадлежит оператору: Kansoku никогда
+его не пишет, не ротирует и не читает из чужого конфига; в installer-preview он показывается как
+disclosure, а не как ошибка. Запрещёнными для записи остаются `OTEL_LOGS_EXPORTER_FILE` и любой
+remote endpoint.
+
 Конфиг агенты читают один раз при старте — после правки нужна новая сессия/процесс агента.
 Проверка: откройте дашборд → Activity/Agents, там должны появиться события за последние
 минуты.
 
+**Скиллы Claude Code.** Активации приходят как OTel-событие `skill_activated` по тому же каналу —
+отдельная настройка не нужна. Но чтобы активация связалась с конкретным скиллом, он должен быть
+в inventory, поэтому скилл-каталоги выше нужно смонтировать, включая корень библиотеки для
+симлинков. Что не попадёт в inventory никогда:
+
+- встроенные скиллы Claude Code (`dataviz`, `simplify`, `run`, `review`, …) — они вкомпилированы в
+  исполняемый файл, `SKILL.md` на диске нет; их вызовы остаются в `unresolved_identity` как явное
+  исключение;
+- repository-скиллы более чем одного проекта с одинаковым именем — Claude не передаёт признак
+  проекта, такие имена разрешаются как `ambiguous`.
+
+У Claude Code нет источника exposure (списка скиллов, видимых модели), поэтому эта плоскость
+объявлена `unsupported` — в UI это отдельное состояние, а не ноль. Cold-состояние скиллов Claude
+считается по полноте inventory; Codex использует настоящие exposure-окна из App Server. Нечитаемая
+или битая запись в skills-каталоге понижает snapshot до `partial`, чтобы неполный inventory не
+выглядел уверенным нулём.
+
+**Codex App Server exact evidence** — normal `serve` принимает явно направленный JSONL stream на
+`POST http://127.0.0.1:4318/v1/evidence-bridges/codex-app-server`. Нужны тот же
+`ingress_bearer` и заголовок `X-Kansoku-Agent-Installation` с opaque installation ID из inventory.
+Request ограничен 1 MiB, отдельный stream получает отдельный JSON-RPC demux. Kansoku не запускает и
+не перенастраивает Codex: настройка producer/tee остаётся явной внешней операцией. Этот endpoint не
+является доказательством для обычной CLI-сессии, чей stream через него не проходил. Raw frames
+разбираются только в памяти; сохраняются typed identity/mode/tier/lineage и redaction counters.
+Значение заголовка должно совпадать с `installation_id` Codex target в
+`deploy/runtime-config.json`: тот же ID используется read-only inventory и rollout watcher.
+
+Если `/api/v1/health` показывает pending projection, оператор может выполнить только
+preview/approval-gated retry; автоматического discard нет:
+
+```bash
+mutation_token=$(<deploy/secrets/mutation_bearer)
+csrf_token=$(<deploy/secrets/csrf)
+
+curl -sS -X POST \
+  -H "Authorization: Bearer ${mutation_token}" \
+  -H "X-Kansoku-CSRF: ${csrf_token}" \
+  -H "Origin: http://127.0.0.1:43100" \
+  -H "Content-Type: application/json" \
+  --data '{}' \
+  http://127.0.0.1:43100/api/v1/admin/projection-repair/preview
+```
+
+Из ответа нужно вручную перенести `request_id` и `parameters_sha256`, сгенерировать новый
+одноразовый `approval_nonce` и отправить их на
+`POST /api/v1/admin/projection-repair/apply` с теми же auth/CSRF/origin headers. Один apply
+выполняет bounded PostgreSQL projection pass, один spool replay и reconciliation; он не возвращает
+сохранённый retry input и не удаляет неприменённые receipts.
+
 ### Что именно измеряет component inventory
 
 Kansoku раз в пять минут сканирует только явно смонтированные read-only roots из `.env`.
-Для Codex это профили `CODEX_HOME`, user/system skills и plugin-конфигурация. В Postgres попадают
-только нормализованные имена, scope, версия/её value state, enabled-state, pseudonym пути,
+Для Codex это профили `CODEX_HOME`, user/system skills, plugin-конфигурация и bounded
+`plugins/cache/<marketplace>/<plugin>/<version>/skills` catalog. Cache сам по себе не означает
+enabled: bundle ownership создаётся только для единственной однозначной версии настроенного
+`plugin@marketplace`, а несколько версий остаются cache-only. В Postgres попадают только
+нормализованные имена, scope, версия/её value state, enabled-state, HMAC-pseudonym пути,
 fingerprint и lineage snapshot; содержимое `SKILL.md`, команды MCP, env и credentials не
-сохраняются.
+сохраняются. Неполный scan отображается как coverage gap, а не как complete zero.
 
 Overview и component observatories показывают независимые классы доказательств:
 

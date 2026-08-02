@@ -43,6 +43,16 @@ type CommitResult struct {
 	Revision         uint64
 }
 
+// StateStore is the bounded local coordination state used by an Ingestor.
+// Production uses CompactStore; FileStore remains available only for legacy
+// reconciliation and deterministic pre-PostgreSQL tests.
+type StateStore interface {
+	Commit(CommitRequest) (CommitResult, error)
+	Snapshot() DurableState
+}
+
+var _ StateStore = (*FileStore)(nil)
+
 // FileStore is the pre-Session-04 durable writer. Each accepted mutation is a
 // single fsync+rename transaction over a bounded, typed state snapshot. It is
 // intentionally not described as a database and will be replaced by the
@@ -349,6 +359,8 @@ type DurableSpool struct {
 type SpoolStats struct {
 	Depth    int
 	OldestAt time.Time
+	Bytes    int64
+	Capacity int64
 }
 
 func NewDurableSpool(path string, maxBytes int64) (*DurableSpool, error) {
@@ -426,12 +438,12 @@ func (s *DurableSpool) Stats() (SpoolStats, error) {
 		return SpoolStats{}, errors.New("spool_open_failure")
 	}
 	if len(raw) == 0 {
-		return SpoolStats{}, nil
+		return SpoolStats{Capacity: s.maxBytes}, nil
 	}
 	if raw[len(raw)-1] != '\n' {
 		return SpoolStats{}, errors.New("spool_decode_failure")
 	}
-	stats := SpoolStats{}
+	stats := SpoolStats{Bytes: int64(len(raw)), Capacity: s.maxBytes}
 	for _, encoded := range bytes.Split(raw[:len(raw)-1], []byte{'\n'}) {
 		var request CommitRequest
 		if len(encoded) == 0 || strictUnmarshal(encoded, &request) != nil || validateSpoolRequest(request) != nil {

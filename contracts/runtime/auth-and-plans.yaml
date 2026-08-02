@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.runtime-auth-and-plans/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-24",
+  "contract_version": "1.2.0",
+  "effective_at": "2026-07-29",
   "secret_files": {
     "required": ["ingress_bearer", "read_bearer", "mutation_bearer", "csrf", "identity_hmac", "audit_hmac", "database_password"],
     "minimum_bytes": 32,
@@ -41,8 +41,19 @@
   },
   "admin_mutation": {
     "request_binding_fields": ["request_id", "operation", "parameters_sha256", "approval_nonce"],
-    "preview_required_for": ["retention_apply", "import"],
+    "preview_required_for": ["retention_apply", "import", "projection_repair_retry"],
     "approval_nonce_single_use": true,
     "external_agent_mutations_automatic_retry": false
+  },
+  "projection_repair": {
+    "preview_route": "POST /api/v1/admin/projection-repair/preview",
+    "apply_route": "POST /api/v1/admin/projection-repair/apply",
+    "exact_effect": "one_bounded_postgresql_projection_replay_then_one_idempotent_spool_replay_and_receipt_reconciliation",
+    "preview_exposes_payloads": false,
+    "preview_exposes": ["receipt_state_counts", "repairable_input_count", "legacy_input_absent_count", "bounded_error_class_counts", "per_lane_spool_occupancy", "completeness_and_exclusions"],
+    "apply_requires": ["mutation_bearer", "same_origin", "csrf", "unexpired_preview", "parameters_sha256", "single_use_approval_nonce"],
+    "failed_record": "receipt_and_sanitized_spool_frame_remain_owned_and_visible",
+    "automatic_discard": false,
+    "agent_configuration_write": false
   }
 }

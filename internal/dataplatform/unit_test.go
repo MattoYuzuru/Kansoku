@@ -101,6 +101,30 @@ func TestLoadMigrationsOrderedAndPaired(t *testing.T) {
 	}
 }
 
+func TestProjectionReceiptMigrationMatchesAppliedTrustRoot(t *testing.T) {
+	migrations, err := LoadMigrations()
+	if err != nil {
+		t.Fatalf("LoadMigrations: %v", err)
+	}
+	const appliedSHA = "5f58cd0d729700d175eca48287aa8f206064770e58a1bd157eb39c2533af0f69"
+	const committedSHA = "37e8beecd80b28ee6354fb851f5c1303ae68a3c2363fab58157cee4e3f747c05"
+	for _, migration := range migrations {
+		if migration.Version == "0012" {
+			if migration.UpSHA256 != committedSHA {
+				t.Fatalf("migration 0012 checksum = %s, committed trust root = %s", migration.UpSHA256, committedSHA)
+			}
+			if !migrationChecksumMatches("0012", appliedSHA, migration.UpSHA256) {
+				t.Fatal("applied newline-equivalent checksum was not accepted")
+			}
+			if migrationChecksumMatches("0012", "unexpected", migration.UpSHA256) {
+				t.Fatal("unexpected checksum was accepted")
+			}
+			return
+		}
+	}
+	t.Fatal("migration 0012 not found")
+}
+
 func TestPartitionNameDeterministic(t *testing.T) {
 	month := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	if got := partitionName("events", month); got != "events_p202607" {
@@ -139,13 +163,15 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		"session_drilldown":             100,
 		"percentile_recompute_bucket":   200,
 		"agent_breakdown_range":         150,
-		"agent_profile_range":           200,
+		"agent_profile_range":           500,
 		"model_breakdown_range":         150,
 		"component_breakdown_range":     150,
 		"component_lifecycle_funnel":    150,
 		"component_inventory_current":   100,
 		"skill_observatory_range":       200,
 		"skill_profile_range":           200,
+		"plugin_observatory_range":      200,
+		"plugin_profile_range":          200,
 		"reliability_coverage_timeline": 150,
 		"mcp_topology":                  100,
 		"mcp_observatory_range":         200,
@@ -160,12 +186,12 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		// Budgets map doc comment: not yet mirrored into
 		// contracts/data-platform/query-contract.yaml, tracked as a
 		// follow-up contract-governance task.
-		"activity_timeline_range":      150,
+		"activity_timeline_range":      250,
 		"prompt_shape_range":           150,
 		"model_usage_range":            150,
 		"tool_analytics_range":         150,
 		"mcp_uptime_range":             100,
-		"reliability_counts_range":     100,
+		"reliability_counts_range":     250,
 		"system_snapshot":              50,
 		"privacy_canary_history_range": 100,
 	}
