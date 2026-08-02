@@ -76,3 +76,19 @@ inventory requires no core branch; privacy and reconciliation tests pass across 
 Claude’s short `event.name` values and typed bounded metadata now drive prompt, tool, model,
 skill and plugin facts. `tool_decision` is retained only as `source.observed`; `tool_result` is the
 single execution count. Prompt/response bodies and tool input/output remain unrepresentable.
+
+## 2026-08-01 Claude skill identity correction
+
+Claude reaches exact skill identity without a native exposure surface. Two assumptions in the
+original mapping were wrong against real `2.1.220` traffic: `skill.name` is already owner-qualified,
+so the owner must not be prepended again, and `skill.source` reports Claude's own vocabulary rather
+than Kansoku's, so it is advisory evidence and never an inventory filter. Each mistake alone reduced
+every candidate set to nothing.
+
+Because Claude publishes no model-visible skill set, its exposed plane is declared unsupported rather
+than faked from the enabled list. Unsupported renders as unsupported, not as zero, and cold
+eligibility falls back to inventory completeness — which in turn requires unreadable or dangling
+skill entries to downgrade a snapshot to partial instead of vanishing.
+
+Built-in skills and same-named repository skills across several projects stay outside exact
+resolution by construction, and are surfaced as typed exclusions. `ADR 0023` owns these semantics.

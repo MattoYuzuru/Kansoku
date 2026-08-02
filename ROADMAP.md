@@ -284,6 +284,19 @@ Cross-session dashboard amendment (2026-07-29): `/glossary` is generated from th
 terminology contract and linked contextually from Skills, Plugins and System. `ADR 0021` records
 the distinction between catalog families, durable variants and event totals.
 
+Claude skill-observatory amendment (2026-08-01, documentation only — implementation pending):
+against Claude Code `2.1.220`, Claude skill activations were ingested but never counted. Identity
+resolution returned zero candidates for two compounding reasons — the owner plugin was prepended to
+an already-qualified `skill.name`, and a non-vocabulary `skill.source="plugin"` was used verbatim as
+the resolver's scope filter — and exposure eligibility could never hold because Claude publishes no
+model-visible skill set. The accepted direction makes exposure an adapter-declared support state,
+gives cold eligibility a second path on inventory completeness where the plane is `unsupported`, and
+turns unreadable or dangling skill entries into visible coverage gaps that downgrade a snapshot to
+`partial`. `ADR 0023` owns the semantics; evidence and the ordered implementation handoff are in
+`reports/2026-08-01-claude-skill-observatory-reconciliation.md`. Residual risks: multi-project
+repository skills resolve as `ambiguous`, built-in skills stay `unresolved` by decision, and
+`skill.cold_count` / `skill_profile` remain unregistered in `contracts/metrics.yaml`.
+
 ## Dependency graph
 
 ```text

@@ -149,3 +149,44 @@ checkpointed and skipped; later valid records continue in the same scan. Raw JSO
 destination. The Skills view now presents relevant source lifecycle/health independently from
 metric completeness, so a producing source cannot make an incomplete metric look complete or
 vice versa.
+
+## Exposure-plane and identity amendment (2026-08-01)
+
+Claude skill telemetry was arriving and being persisted, yet no Claude skill was ever counted as
+invoked. The cause was not ingestion but two later stages: identity resolution silently produced
+zero candidates, and exposure eligibility could never hold.
+
+Identity failed for two compounding reasons. Claude sends `skill.name` already qualified with its
+owner plugin, and the appliance prepended the owner a second time. Separately, Claude's
+`skill.source` carries its own vocabulary — `"plugin"` — which was used verbatim as a filter against
+Kansoku's closed source-scope vocabulary, narrowing every candidate set to nothing. Either defect
+alone produces a zero, so both are corrected together.
+
+The exposure question is a product decision, not a bug fix. Claude publishes no event or snapshot
+describing the model-visible skill set, so exposure cannot be observed for it at all. Three options
+were considered.
+
+Deriving exposure from the enabled list was rejected: it contradicts the standing rule that a global
+enabled list is not exposure when the agent filters or applies context limits, and it would turn
+`cold` — a claim shown to users — into a partly inferred number. Implementing the SessionStart hook
+helper was rejected because Claude's hook payload contains no skill list, so a helper would only run
+the same rejected inference inside the agent process.
+
+The accepted option is to make the absence explicit. An adapter declares, per component kind, whether
+its exposed plane is native, reconstructed or unsupported. Claude declares unsupported; Codex
+declares native, pinning existing behaviour by contract rather than by absence. Where the plane is
+unsupported, cold eligibility falls back to a complete inventory snapshot — exactly the basis
+`plugin.active_share/2` already uses, which makes skills the outlier rather than the precedent.
+
+This is what preserves the distinction between "we looked and saw nothing" and "there is no surface
+to look at". An unsupported exposure plane renders as `unsupported`, never as zero. Because the
+fallback rests on inventory completeness, an unreadable or dangling skill entry must downgrade a
+snapshot to `partial` rather than being skipped silently — otherwise a mis-mounted host would produce
+a confident cold count over a truncated inventory.
+
+Two coverage limits are recorded rather than hidden. Built-in Claude skills ship compiled into the
+executable with no on-disk manifest, so they stay unresolved behind a typed exclusion. Repository
+skills sharing a name across several bound projects resolve as ambiguous, because Claude emits no
+project attribute to separate them.
+
+`ADR 0023` owns these semantics.

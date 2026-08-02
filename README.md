@@ -74,6 +74,15 @@ KANSOKU_CLAUDE_SYSTEM_SKILLS=/absolute/path/to/system-skills
 KANSOKU_CLAUDE_PLUGIN_CACHE=/absolute/path/to/.claude/plugins/cache
 EOF
 
+# Если записи в skills-каталоге — симлинки на отдельную библиотеку (частый случай:
+# ~/.claude/skills/<name> -> ~/Projects/<library>/skills/<name>), укажите корень
+# библиотеки. Он монтируется read-only по тому же абсолютному пути внутрь контейнера,
+# иначе абсолютные симлинки внутри контейнера не разрешаются и такие скиллы не видны.
+# Указывайте максимально узкий каталог, содержащий цели симлинков — никогда $HOME и не /.
+cat >> .env <<EOF
+KANSOKU_AGENT_LINK_ROOT_1_PATH=/absolute/path/to/skills-library
+EOF
+
 # 4. Поднять стек
 docker compose -f compose.yaml up -d
 
@@ -140,9 +149,32 @@ headers = { "Authorization" = "Bearer <ingress_bearer>" }
 }
 ```
 
+`OTEL_EXPORTER_OTLP_HEADERS` здесь обязателен: loopback OTLP аутентифицирован, а заголовок —
+единственный механизм Claude Code передать bearer. Значение принадлежит оператору: Kansoku никогда
+его не пишет, не ротирует и не читает из чужого конфига; в installer-preview он показывается как
+disclosure, а не как ошибка. Запрещёнными для записи остаются `OTEL_LOGS_EXPORTER_FILE` и любой
+remote endpoint.
+
 Конфиг агенты читают один раз при старте — после правки нужна новая сессия/процесс агента.
 Проверка: откройте дашборд → Activity/Agents, там должны появиться события за последние
 минуты.
+
+**Скиллы Claude Code.** Активации приходят как OTel-событие `skill_activated` по тому же каналу —
+отдельная настройка не нужна. Но чтобы активация связалась с конкретным скиллом, он должен быть
+в inventory, поэтому скилл-каталоги выше нужно смонтировать, включая корень библиотеки для
+симлинков. Что не попадёт в inventory никогда:
+
+- встроенные скиллы Claude Code (`dataviz`, `simplify`, `run`, `review`, …) — они вкомпилированы в
+  исполняемый файл, `SKILL.md` на диске нет; их вызовы остаются в `unresolved_identity` как явное
+  исключение;
+- repository-скиллы более чем одного проекта с одинаковым именем — Claude не передаёт признак
+  проекта, такие имена разрешаются как `ambiguous`.
+
+У Claude Code нет источника exposure (списка скиллов, видимых модели), поэтому эта плоскость
+объявлена `unsupported` — в UI это отдельное состояние, а не ноль. Cold-состояние скиллов Claude
+считается по полноте inventory; Codex использует настоящие exposure-окна из App Server. Нечитаемая
+или битая запись в skills-каталоге понижает snapshot до `partial`, чтобы неполный inventory не
+выглядел уверенным нулём.
 
 **Codex App Server exact evidence** — normal `serve` принимает явно направленный JSONL stream на
 `POST http://127.0.0.1:4318/v1/evidence-bridges/codex-app-server`. Нужны тот же
