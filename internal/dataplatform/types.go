@@ -323,8 +323,12 @@ type PromptShapeResponse struct {
 	Data           []PromptShapeDayRow `json:"data"`
 	FormulaVersion string              `json:"formula_version"`
 	Population     Population          `json:"population"`
-	Completeness   Completeness        `json:"completeness"`
-	Freshness      Freshness           `json:"freshness"`
+	// Exclusions names the prompts counted in Denominator but absent from
+	// Numerator, so a percentile band computed from a fraction of the
+	// population cannot be read as covering all of it.
+	Exclusions   map[string]int64 `json:"exclusions"`
+	Completeness Completeness     `json:"completeness"`
+	Freshness    Freshness        `json:"freshness"`
 }
 
 // ModelUsageDayRow is one calendar day's model-usage volume/cost inside a

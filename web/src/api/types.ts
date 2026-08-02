@@ -253,6 +253,9 @@ export interface PromptShapeResponse {
   data: PromptShapeDayRow[];
   formula_version: string;
   population: Population;
+  /** Prompts counted in population.denominator but absent from the
+   *  percentile band, keyed by why they were excluded. */
+  exclusions: Record<string, number>;
   completeness: DataCompleteness;
   freshness: Freshness;
 }

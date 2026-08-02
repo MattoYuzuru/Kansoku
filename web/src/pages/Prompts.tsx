@@ -32,6 +32,11 @@ export function Prompts() {
   const lastRow = rows[rows.length - 1];
   const lastMedian = lastRow?.character_percentiles?.p50 ?? lastRow?.percentiles?.p50 ?? null;
   const lastUnit = lastRow?.character_percentiles?.p50 != null ? "characters" : "bytes";
+  // The percentile band is computed only from prompts that carried a length.
+  // Numerator, denominator and the named exclusion are shown together so the
+  // band is never read as covering every prompt in the range.
+  const population = shape.data?.data?.population;
+  const unmeasured = shape.data?.data?.exclusions?.prompt_without_length_measurement ?? 0;
 
   return (
     <section className="k-page">
@@ -108,6 +113,15 @@ export function Prompts() {
               and exact UTF-8 byte length were not observed).
             </p>
           )
+        )}
+        {population != null && (
+          <GapNote>
+            Length percentiles cover {population.numerator} of {population.denominator}{" "}
+            prompts in range
+            {unmeasured > 0
+              ? `; ${unmeasured} carried no length measurement and are excluded from the band while still being counted as prompts.`
+              : "."}
+          </GapNote>
         )}
         <GapNote>
           Calendar and weekday/hour heatmaps need a separate two-dimensional query.
