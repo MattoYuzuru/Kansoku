@@ -1,0 +1,28 @@
+### static index with attacker Host header (DNS-rebinding surrogate)
+status=200 size=3210
+tokens served to Host: evil.example.com -> [('kansoku-read-token', 44), ('kansoku-csrf-token', 44)]
+
+### static index with X-Forwarded-For
+status=200
+
+### API with attacker Host header (guard should reject)
+invalid_host
+
+status=421
+
+### API with X-Forwarded-For + valid bearer
+forwarded_headers_rejected
+
+status=400
+
+### scraped-token-from-unauthenticated-index works against API?
+status_with_scraped_token=200
+scraped token equals read_bearer file: YES
+
+### CSRF token also scrapable + usable for a mutation (with mutation bearer)
+scraped CSRF equals csrf file: YES
+
+### path traversal on static handler
+/../../etc/passwd                          200 text/html; charset=utf-8 3210
+/assets/../../../../etc/passwd             200 text/html; charset=utf-8 3210
+/%2e%2e/%2e%2e/etc/passwd                  200 text/html; charset=utf-8 3210

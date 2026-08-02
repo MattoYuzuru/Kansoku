@@ -1,0 +1,174 @@
+### kansoku health --self (exit code + stderr)
+{"error_class":"appliance_health_degraded","event_name":"command_failed","level":"error","timestamp":"2026-08-01T07:20:24.840692281Z"}
+exit=1
+
+### GET /api/v1/health
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_dce8d3643a8b8385a36fe841e3715d1b",
+    "data": {
+        "backpressure_rejected_total": 0,
+        "checkpoint_usage": {
+            "current_bytes": 0,
+            "budget_bytes": 4194304,
+            "percentage": 0,
+            "state": "pass",
+            "growth_bytes_per_day": null,
+            "estimated_exhaustion_at": null
+        },
+        "counter_persistence": {
+            "state": "pass"
+        },
+        "counter_scope": "restart_durable",
+        "database": "pass",
+        "database_budget": {
+            "current_bytes": 11646655,
+            "budget_bytes": 5368709120,
+            "percentage": 0.22,
+            "state": "pass",
+            "growth_bytes_per_day": null,
+            "estimated_exhaustion_at": null
+        },
+        "durability_unavailable_total": 0,
+        "last_rejected_ingest_at": null,
+        "last_successful_ingest_at": null,
+        "legacy_mirror": {
+            "current_bytes": 0,
+            "state": "archived_or_not_present"
+        },
+        "migration_ledgers": "pass",
+        "oldest_pending_projection_at": null,
+        "oldest_spooled_at": {
+            "adapter_batch": "0001-01-01T00:00:00Z",
+            "codex_rollout": "0001-01-01T00:00:00Z",
+            "evidence_bridge": "0001-01-01T00:00:00Z",
+            "hook_http": "0001-01-01T00:00:00Z",
+            "otlp_log": "0001-01-01T00:00:00Z",
+            "otlp_metric": "0001-01-01T00:00:00Z",
+            "otlp_span": "0001-01-01T00:00:00Z",
+            "transcript_jsonl": "0001-01-01T00:00:00Z"
+        },
+        "open_incident_count": 0,
+        "pending_projection_count": 0,
+        "queue_depth": {
+            "adapter_batch": 0,
+            "codex_rollout": 0,
+            "evidence_bridge": 0,
+            "hook_http": 0,
+            "otlp_log": 0,
+            "otlp_metric": 0,
+            "otlp_span": 0,
+            "transcript_jsonl": 0
+        },
+        "source_freshness": [
+            {
+                "freshness_state": "pass",
+                "last_attempted_at": "2026-08-01T10:14:12.282099+03:00",
+                "last_error_class": null,
+                "last_successful_at": null,
+                "source_id": "codex.app_server",
+                "state": "configured",
+                "updated_at": "2026-08-01T10:14:12.282099+03:00",
+                "value_state": "not_observed"
+            },
+            {
+                "freshness_state": "pass",
+                "last_attempted_at": "2026-08-01T10:20:22.287758+03:00",
+                "last_error_class": null,
+                "last_successful_at": null,
+                "source_id": "codex.remote_orchestration",
+                "state": "unsupported",
+                "updated_at": "2026-08-01T10:20:22.287758+03:00",
+                "value_state": "unsupported"
+            },
+            {
+                "freshness_state": "degraded",
+                "last_attempted_at": "2026-08-01T10:20:22.288243+03:00",
+                "last_error_class": null,
+                "last_successful_at": null,
+                "source_id": "codex.rollout",
+                "state": "configured",
+                "updated_at": "2026-08-01T10:20:22.288243+03:00",
+                "value_state": "observed"
+            }
+        ],
+        "source_state": "degraded",
+        "spool": "pass",
+        "spool_budget_bytes": {
+            "adapter_batch": 67108864,
+            "codex_rollout": 67108864,
+            "evidence_bridge": 67108864,
+            "hook_http": 67108864,
+            "otlp_log": 67108864,
+            "otlp_metric": 67108864,
+            "otlp_span": 67108864,
+            "transcript_jsonl": 67108864
+        },
+        "spool_bytes": {
+            "adapter_batch": 0,
+            "codex_rollout": 0,
+            "evidence_bridge": 0,
+            "hook_http": 0,
+            "otlp_log": 0,
+            "otlp_metric": 0,
+            "otlp_span": 0,
+            "transcript_jsonl": 0
+        },
+        "status": "degraded",
+        "storage_components": {
+            "backups": {
+                "bytes": 0,
+                "value_state": "observed"
+            },
+            "filesystem": {
+                "available_bytes": 3755368448,
+                "total_bytes": 4149706752,
+                "free_percentage": 90.5,
+                "minimum_recommended_free_bytes": 26843545600,
+                "state": "degraded"
+            },
+            "indexes": {
+                "bytes": 2310144,
+                "value_state": "observed"
+            },
+            "table_heap": {
+                "bytes": 139264,
+                "value_state": "observed"
+            },
+            "temporary_files": {
+                "bytes": 0,
+                "value_state": "observed",
+                "notes": "cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"
+            },
+            "wal_headroom": {
+                "bytes": null,
+                "value_state": "not_observed",
+                "notes": "WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"
+            }
+        },
+        "workers": "pass"
+    },
+    "completeness": {
+        "completeness": "partial",
+        "denominator": 16,
+        "exclusions": [
+            "current WAL occupancy and rollback headroom are not independently observed",
+            "temporary-file value is cumulative rather than current occupancy",
+            "production source lanes without committed freshness evidence are not observed",
+            "codex.app_server source state is not_observed",
+            "codex.remote_orchestration source state is unsupported",
+            "codex.rollout source health is degraded"
+        ],
+        "numerator": 5,
+        "status": "degraded"
+    }
+}
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs           3.9G  377M  3.5G  10% /tmp
+         source_id          |    state    | value_state  |       last_attempted_at       | last_successful_at | last_error_class |          updated_at           
+----------------------------+-------------+--------------+-------------------------------+--------------------+------------------+-------------------------------
+ codex.app_server           | configured  | not_observed | 2026-08-01 10:14:12.282099+03 |                    |                  | 2026-08-01 10:14:12.282099+03
+ codex.remote_orchestration | unsupported | unsupported  | 2026-08-01 10:20:22.287758+03 |                    |                  | 2026-08-01 10:20:22.287758+03
+ codex.rollout              | configured  | observed     | 2026-08-01 10:20:22.288243+03 |                    |                  | 2026-08-01 10:20:22.288243+03
+(3 rows)
+

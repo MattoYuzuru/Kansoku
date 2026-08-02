@@ -1,0 +1,177 @@
+=== P5 PRE-APPLY SNAPSHOT (taken 2026-08-01T10:23:21+03:00) ===
+
+--- COMMAND: find $HOME/.claude $HOME/.codex $HOME/.cursor -maxdepth 2 -newermt '-10 minutes' 2>/dev/null ---
+(exit=1)
+
+--- COMMAND: ls -la /tmp/kansoku-testbed/data ---
+total 0
+drwx------ 5 m_ryabushkin m_ryabushkin 100 Aug  1 10:12 .
+drwxr-xr-x 9 m_ryabushkin m_ryabushkin 360 Aug  1 10:22 ..
+drwx------ 2 m_ryabushkin m_ryabushkin  60 Aug  1 10:23 checkpoints
+drwx------ 2 m_ryabushkin m_ryabushkin  40 Aug  1 10:12 mirror
+drwx------ 2 m_ryabushkin m_ryabushkin  40 Aug  1 10:12 spool
+
+--- COMMAND: stat -c '%y %s' $HOME/.claude/settings.json ---
+2026-07-29 11:41:08.389107211 +0300 2985
+
+--- COMMAND: find / -path /proc -prune -o -name '*runtime-plan*' -print 2>/dev/null | head ---
+(no output above = none found)
+
+--- COMMAND: ls -laR $HOME/.claude $HOME/.codex $HOME/.cursor 2>/dev/null | md5sum ---
+fbb70e0b4db8a9ee923ab34d2d6098ff  -
+
+
+=== P5 POST-APPLY SNAPSHOT (taken 2026-08-01T10:25:39+03:00, after the P4 apply returned 200) ===
+
+--- COMMAND: find $HOME/.claude $HOME/.codex $HOME/.cursor -maxdepth 2 -newermt '-10 minutes' 2>/dev/null ---
+
+--- COMMAND: ls -la /tmp/kansoku-testbed/data ---
+total 0
+drwx------ 5 m_ryabushkin m_ryabushkin 100 Aug  1 10:12 .
+drwxr-xr-x 9 m_ryabushkin m_ryabushkin 360 Aug  1 10:22 ..
+drwx------ 2 m_ryabushkin m_ryabushkin  60 Aug  1 10:24 checkpoints
+drwx------ 2 m_ryabushkin m_ryabushkin  40 Aug  1 10:12 mirror
+drwx------ 2 m_ryabushkin m_ryabushkin  40 Aug  1 10:12 spool
+
+--- COMMAND: stat -c '%y %s' $HOME/.claude/settings.json ---
+2026-07-29 11:41:08.389107211 +0300 2985
+
+--- COMMAND: find / -path /proc -prune -o -name '*runtime-plan*' -print 2>/dev/null | head ---
+Terminated
+(find exit status of pipeline: 143  -- 124 would mean the 100s timeout fired)
+
+NOTE: the unrestricted "find /" is not completable here: /mnt/host/agent-vm and
+/home/m_ryabushkin.guest/projects are 461G virtiofs host mounts and the scan exceeded a 100s timeout
+(transcript above). Replaced with bounded equivalents below.
+
+--- COMMAND: timeout 120 find / -xdev -name '*runtime-plan*' -print 2>/dev/null (root ext4 only) ---
+[exit=1]
+
+--- COMMAND: timeout 60 find /tmp -xdev -name '*runtime-plan*' -print 2>/dev/null ---
+[exit=1]
+
+--- COMMAND: timeout 60 find /home/m_ryabushkin.guest -maxdepth 4 -name '*runtime-plan*' -print 2>/dev/null ---
+[exit=0]
+
+--- COMMAND: timeout 60 find /home/m_ryabushkin.guest/projects/Kansoku -maxdepth 4 -name '*runtime-plan*' -print 2>/dev/null ---
+[exit=0]
+
+(empty result lists above = no file anywhere on the root fs, /tmp, or the home/projects trees has
+a path component containing "runtime-plan")
+
+--- COMMAND: ls -laR $HOME/.claude $HOME/.codex $HOME/.cursor 2>/dev/null | md5sum   (POST-apply; PRE value was fbb70e0b4db8a9ee923ab34d2d6098ff) ---
+279b2a7c672082dca0b0cf62f1f22ef5  -
+
+--- COMMAND: timeout 60 find $HOME -maxdepth 3 -xdev -newermt '-25 minutes' 2>/dev/null | head -40 ---
+/home/m_ryabushkin.guest
+/home/m_ryabushkin.guest/.claude
+/home/m_ryabushkin.guest/.claude/projects
+/home/m_ryabushkin.guest/.claude/projects/-tmp-lane07-actor-long
+/home/m_ryabushkin.guest/.claude/projects/-home-m-ryabushkin-guest-projects
+/home/m_ryabushkin.guest/.claude/projects/-tmp
+/home/m_ryabushkin.guest/.claude/projects/-tmp-lane07-actor-interrupted
+/home/m_ryabushkin.guest/.claude/projects/-tmp-kansoku-lane06-work
+/home/m_ryabushkin.guest/.claude/projects/-tmp-kansoku-lane06-actorA
+/home/m_ryabushkin.guest/.claude/projects/-tmp-lane07-actor-subagent
+/home/m_ryabushkin.guest/.claude/projects/-tmp-lane07
+/home/m_ryabushkin.guest/.claude/projects/-tmp-kansoku-lane-skills-run2
+/home/m_ryabushkin.guest/.claude/projects/-tmp-kansoku-lane-skills-run1
+/home/m_ryabushkin.guest/.claude/projects/-tmp-kansoku-lane04-work
+/home/m_ryabushkin.guest/.claude/projects/-tmp-lane10
+/home/m_ryabushkin.guest/.claude/sessions
+/home/m_ryabushkin.guest/.claude/history.jsonl
+/home/m_ryabushkin.guest/.claude/backups
+/home/m_ryabushkin.guest/.claude/backups/.claude.json.backup.1785569366479
+/home/m_ryabushkin.guest/.claude/backups/.claude.json.backup.1785569182311
+/home/m_ryabushkin.guest/.claude/backups/.claude.json.backup.1785569244585
+/home/m_ryabushkin.guest/.claude/backups/.claude.json.backup.1785569121698
+/home/m_ryabushkin.guest/.claude/backups/.claude.json.backup.1785569426544
+/home/m_ryabushkin.guest/.claude/session-env
+/home/m_ryabushkin.guest/.claude/session-env/0cea1775-1bc3-4ee9-a5aa-c552e554d549
+/home/m_ryabushkin.guest/.claude/session-env/4fe60c16-39cb-43e2-86b2-36f50f76a17a
+/home/m_ryabushkin.guest/.claude/session-env/12e2c5c6-597d-46ce-bea1-41dabcda0d23
+/home/m_ryabushkin.guest/.claude/session-env/1612fb5f-0726-4976-a28b-c8e996d90825
+/home/m_ryabushkin.guest/.claude/shell-snapshots
+/home/m_ryabushkin.guest/.claude/shell-snapshots/snapshot-bash-1785569319690-xgog8o.sh
+/home/m_ryabushkin.guest/.claude/file-history
+/home/m_ryabushkin.guest/.claude/file-history/030acf57-adc2-43f5-99b8-e2dee2f3337d
+/home/m_ryabushkin.guest/projects
+/home/m_ryabushkin.guest/.npm/_logs
+/home/m_ryabushkin.guest/.npm/_logs/2026-08-01T07_30_15_696Z-debug-0.log
+/home/m_ryabushkin.guest/.npm/_logs/2026-08-01T07_30_14_386Z-debug-0.log
+/home/m_ryabushkin.guest/.npm/_logs/2026-08-01T07_30_15_040Z-debug-0.log
+/home/m_ryabushkin.guest/.npm/_logs/2026-08-01T07_30_14_693Z-debug-0.log
+/home/m_ryabushkin.guest/.npm/_logs/2026-08-01T07_30_14_021Z-debug-0.log
+/home/m_ryabushkin.guest/.npm/_logs/2026-08-01T07_30_15_406Z-debug-0.log
+[exit=0]
+
+--- COMMAND: timeout 60 find /tmp/kansoku-testbed -xdev -newermt '-25 minutes' -not -path "*/pgdata/*" 2>/dev/null | head -40 ---
+/tmp/kansoku-testbed
+/tmp/kansoku-testbed/lane03-mcp
+/tmp/kansoku-testbed/lane03-mcp/runtime-config.json
+/tmp/kansoku-testbed/lane03-mcp/evidence
+/tmp/kansoku-testbed/lane03-mcp/backups
+/tmp/kansoku-testbed/lane03-mcp/data
+/tmp/kansoku-testbed/lane03-mcp/data/checkpoints
+/tmp/kansoku-testbed/lane03-mcp/data/mirror
+/tmp/kansoku-testbed/lane03-mcp/data/spool
+/tmp/kansoku-testbed/BRIEFING.md
+/tmp/kansoku-testbed/setup.sh
+/tmp/kansoku-testbed/kansoku.pid
+/tmp/kansoku-testbed/run.sh
+/tmp/kansoku-testbed/.s.PGSQL.5432
+/tmp/kansoku-testbed/.s.PGSQL.5432.lock
+/tmp/kansoku-testbed/pgdata
+/tmp/kansoku-testbed/pg.sh
+/tmp/kansoku-testbed/logs
+/tmp/kansoku-testbed/logs/kansoku.log
+/tmp/kansoku-testbed/logs/postgres.log
+/tmp/kansoku-testbed/data
+/tmp/kansoku-testbed/data/checkpoints
+/tmp/kansoku-testbed/data/checkpoints/state.json
+/tmp/kansoku-testbed/data/mirror
+/tmp/kansoku-testbed/data/spool
+
+--- COMMAND: ls -la /tmp/kansoku-testbed/data/checkpoints /tmp/kansoku-testbed/data/mirror /tmp/kansoku-testbed/data/spool ---
+/tmp/kansoku-testbed/data/checkpoints:
+total 4
+drwx------ 2 m_ryabushkin m_ryabushkin   60 Aug  1 10:30 .
+drwx------ 5 m_ryabushkin m_ryabushkin  100 Aug  1 10:12 ..
+-rw------- 1 m_ryabushkin m_ryabushkin 1245 Aug  1 10:30 state.json
+
+/tmp/kansoku-testbed/data/mirror:
+total 0
+drwx------ 2 m_ryabushkin m_ryabushkin  40 Aug  1 10:12 .
+drwx------ 5 m_ryabushkin m_ryabushkin 100 Aug  1 10:12 ..
+
+/tmp/kansoku-testbed/data/spool:
+total 0
+drwx------ 2 m_ryabushkin m_ryabushkin  40 Aug  1 10:12 .
+drwx------ 5 m_ryabushkin m_ryabushkin 100 Aug  1 10:12 ..
+
+--- COMMAND: stat -c '%y %s %n' $HOME/.claude/settings.json (final re-check) ---
+2026-07-29 11:41:08.389107211 +0300 2985 /home/m_ryabushkin.guest/.claude/settings.json
+
+--- COMMAND: cat /tmp/kansoku-testbed/data/checkpoints/state.json ---
+{"spec_version":"kansoku.compact-state/1","revision":328,"watermarks":{"hook_http":{"source_id":"hook_http","lifecycle":"producing","last_discovered_at":"2026-08-01T07:21:02.358425758Z","last_read_sequence":0,"last_emitted_sequence":0,"last_observed_at":"2026-08-01T07:24:47.875089532Z","last_committed_at":"2026-08-01T07:24:47.875130448Z","last_eligible_activity_at":"2026-08-01T07:24:47.875130448Z","expected_cadence_ms":30000,"gap_count":0,"inactivity":false},"otlp_log":{"source_id":"otlp_log","lifecycle":"degraded","last_discovered_at":"2026-08-01T07:30:30.304103112Z","last_read_sequence":0,"last_emitted_sequence":0,"last_observed_at":"2026-08-01T07:30:30.304103112Z","last_committed_at":"2026-08-01T07:30:30.304103112Z","last_eligible_activity_at":"0001-01-01T00:00:00Z","expected_cadence_ms":30000,"gap_count":1,"inactivity":false},"otlp_metric":{"source_id":"otlp_metric","lifecycle":"degraded","last_discovered_at":"2026-08-01T07:30:36.580369865Z","last_read_sequence":0,"last_emitted_sequence":0,"last_observed_at":"2026-08-01T07:30:36.580369865Z","last_committed_at":"2026-08-01T07:30:36.580369865Z","last_eligible_activity_at":"0001-01-01T00:00:00Z","expected_cadence_ms":30000,"gap_count":1,"inactivity":false}},"checkpoints":{}}
+
+--- COMMAND: grep -c plan /tmp/kansoku-testbed/data/checkpoints/state.json ---
+0
+
+--- COMMAND: md5sum state.json ; sleep 65 ; md5sum state.json   (shows the checkpoint file rewrites on a timer, independent of any apply) ---
+6d4035473bc111f4c40f147efc9997f5  /tmp/kansoku-testbed/data/checkpoints/state.json
+2026-08-01 10:30:36.580496781 +0300
+e542f95e0653334f739a85c2376b7c2e  /tmp/kansoku-testbed/data/checkpoints/state.json
+2026-08-01 10:31:46.894698004 +0300
+
+--- CAVEAT recorded by the operator: $HOME/.claude IS being written continuously by the Claude Code
+agent session that is running this audit (shell-snapshots/, projects/, history.jsonl, session-env/).
+Those writes are NOT attributable to the appliance. The load-bearing observation is that
+$HOME/.claude/settings.json - the file claude.user_otel nominally targets - has mtime
+2026-07-29 11:41:08 and size 2985 both BEFORE and AFTER the apply, and that $HOME/.codex and
+$HOME/.cursor do not exist at all. ---
+
+--- COMMAND: ls -d $HOME/.codex $HOME/.cursor $HOME/.gemini 2>&1 ---
+ls: cannot access '/home/m_ryabushkin.guest/.codex': No such file or directory
+ls: cannot access '/home/m_ryabushkin.guest/.cursor': No such file or directory
+ls: cannot access '/home/m_ryabushkin.guest/.gemini': No such file or directory

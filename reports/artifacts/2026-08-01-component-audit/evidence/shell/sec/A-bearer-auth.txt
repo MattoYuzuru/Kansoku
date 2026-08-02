@@ -1,0 +1,299 @@
+=== GROUP A: Bearer auth ===
+date: 2026-08-01T10:22:08+03:00
+canonical read endpoint: GET /api/v1/health
+canonical mutation endpoint: POST /api/v1/plans/preview body {"target_id":"claude.user_otel","original":{}}
+NOTE: $READ/$MUT/$CSRF are literal contents of /tmp/kansoku-testbed/secrets/{read_bearer,mutation_bearer,csrf} (44 bytes, no trailing newline)
+===============================================
+### A1 read endpoint, NO Authorization header
+$ curl -sS -i --max-time 10 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### A2 read endpoint, Authorization: Bearer wrongtoken
+$ curl -sS -i --max-time 10 -H 'Authorization: Bearer wrongtoken' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### A3 read endpoint with MUTATION bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $MUT" 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### A4 mutation endpoint with READ bearer + correct CSRF + correct Origin
+$ curl -sS -i --max-time 10 -X POST -H "Authorization: Bearer $READ" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data '{"target_id":"claude.user_otel","original":{}}' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 401 Unauthorized
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### A5 read endpoint, lowercase scheme 'bearer <read_bearer>'
+$ curl -sS -i --max-time 10 -H "Authorization: bearer $READ" 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### A6 read endpoint, two spaces 'Bearer  <read_bearer>'
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer  $READ" 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### A7 read endpoint, token as query param ?token=... and NO Authorization header
+$ curl -sS -i --max-time 10 "http://127.0.0.1:43100/api/v1/health?token=$READ"
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### A8 read endpoint, valid bearer with trailing whitespace in token ('Bearer <read_bearer> ')
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ " 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Transfer-Encoding: chunked
+
+{"api_version":"kansoku.api/1","request_id":"req_9344a5dacfab1a9e69f881d273efaa6f","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":12990143,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:22:02.609839286Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:22:02.591455+03:00","last_observed_at":"2026-08-01T10:22:02.537+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:22:07.286205+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:22:07.286205+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:22:07.286467+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:22:07.286467+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719954432,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":393216,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+-----------------------------------------------
+### A8b read endpoint, valid bearer with trailing TAB in token
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $(printf '%s\t' "$READ")" 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Transfer-Encoding: chunked
+
+{"api_version":"kansoku.api/1","request_id":"req_93076d13c544beae0af7ed5de948b455","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":12990143,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:22:02.609839286Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:22:02.591455+03:00","last_observed_at":"2026-08-01T10:22:02.537+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:22:07.286205+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:22:07.286205+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:22:07.286467+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:22:07.286467+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719954432,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":393216,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+-----------------------------------------------
+### A9 read endpoint, empty bearer 'Authorization: Bearer '
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer " 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### A0-control read endpoint with CORRECT read bearer (baseline)
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:08 GMT
+Transfer-Encoding: chunked
+
+{"api_version":"kansoku.api/1","request_id":"req_0913b76c995dae8725305c241420b01d","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":12990143,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:22:02.609839286Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:22:02.591455+03:00","last_observed_at":"2026-08-01T10:22:02.537+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:22:07.286205+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:22:07.286205+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:22:07.286467+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:22:07.286467+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719954432,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":393216,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+-----------------------------------------------
+
+=== GROUP A ADDENDUM: raw-socket byte-exact variants (curl normalises header OWS, so these bypass curl) ===
+date: 2026-08-01T10:22:29+03:00
+-----------------------------------------------
+### A8-raw1  raw socket: 'Authorization: Bearer <read_bearer> ' (one trailing SP before CRLF)
+$ printf 'GET /api/v1/health HTTP/1.1\r\nHost: 127.0.0.1:43100\r\nAuthorization: Bearer $READ \r\nConnection: close\r\n\r\n' | timeout 10 nc 127.0.0.1 43100
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:29 GMT
+Connection: close
+Transfer-Encoding: chunked
+
+1076
+{"api_version":"kansoku.api/1","request_id":"req_15e2831eec8736842fd3f01ad3735a86","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":12990143,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:22:02.609839286Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:22:02.591455+03:00","last_observed_at":"2026-08-01T10:22:02.537+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:22:27.285423+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:22:27.285423+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:22:27.286366+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:22:27.286366+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719880704,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":393216,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+0
+
+
+-----------------------------------------------
+### A8-raw2  raw socket: 'Authorization: Bearer <read_bearer>\t' (trailing TAB before CRLF)
+$ printf '...Authorization: Bearer $READ\t\r\n...' | nc 127.0.0.1 43100
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:29 GMT
+Connection: close
+Transfer-Encoding: chunked
+
+1076
+{"api_version":"kansoku.api/1","request_id":"req_dd728a21186f206fe25c9c1cdafeea4b","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":12990143,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:22:02.609839286Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:22:02.591455+03:00","last_observed_at":"2026-08-01T10:22:02.537+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:22:27.285423+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:22:27.285423+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:22:27.286366+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:22:27.286366+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719880704,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":393216,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+0
+
+
+-----------------------------------------------
+### A8-raw3  raw socket: 'Authorization:  Bearer <read_bearer>' (leading double-space after colon)
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:29 GMT
+Connection: close
+Transfer-Encoding: chunked
+
+1076
+{"api_version":"kansoku.api/1","request_id":"req_393cd596499d3f83144236863510ea1a","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":12990143,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:22:02.609839286Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:22:02.591455+03:00","last_observed_at":"2026-08-01T10:22:02.537+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:22:27.285423+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:22:27.285423+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:22:27.286366+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:22:27.286366+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719880704,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":393216,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+0
+
+
+-----------------------------------------------
+### A6-raw  raw socket: 'Authorization: Bearer  <read_bearer>' (TWO spaces between scheme and token, byte-exact)
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:29 GMT
+Content-Length: 24
+Connection: close
+
+authentication_required
+
+-----------------------------------------------
+### A-extra-raw  raw socket: 'Authorization: Bearer <read_bearer> extra' (trailing token after a space -> strings.Count(header," ")!=1)
+HTTP/1.1 401 Unauthorized
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:29 GMT
+Content-Length: 24
+Connection: close
+
+authentication_required
+
+-----------------------------------------------
+NOTE: A8/A8b via curl returned 200; raw-socket results above disambiguate client-side vs server-side trimming.

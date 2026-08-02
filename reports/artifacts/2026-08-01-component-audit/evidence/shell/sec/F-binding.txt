@@ -1,0 +1,243 @@
+=== GROUP F: listener binding ===
+date: 2026-08-01T10:24:53+03:00
+===============================================
+### F1 ss -ltnp | grep -E '43100|4317|4318'
+$ ss -ltnp | grep -E '43100|4317|4318'
+LISTEN 0      4096            127.0.0.1:43100      0.0.0.0:*    users:(("kansoku",pid=378144,fd=8)) 
+LISTEN 0      64              127.0.0.1:24318      0.0.0.0:*    users:(("python3",pid=399372,fd=3)) 
+LISTEN 0      5               127.0.0.1:44318      0.0.0.0:*    users:(("python3",pid=391908,fd=3)) 
+LISTEN 0      4096            127.0.0.1:4318       0.0.0.0:*    users:(("kansoku",pid=378144,fd=9)) 
+LISTEN 0      4096            127.0.0.1:4317       0.0.0.0:*    users:(("kansoku",pid=378144,fd=10))
+LISTEN 0      5               127.0.0.1:14318      0.0.0.0:*    users:(("python3",pid=394314,fd=3)) 
+
+-----------------------------------------------
+### F1b full ss -ltnp (context)
+$ ss -ltnp
+State  Recv-Q Send-Q      Local Address:Port  Peer Address:PortProcess                              
+LISTEN 0      4096           127.0.0.54:53         0.0.0.0:*                                        
+LISTEN 0      4096            127.0.0.1:43100      0.0.0.0:*    users:(("kansoku",pid=378144,fd=8)) 
+LISTEN 0      64              127.0.0.1:24318      0.0.0.0:*    users:(("python3",pid=399372,fd=3)) 
+LISTEN 0      5               127.0.0.1:44318      0.0.0.0:*    users:(("python3",pid=391908,fd=3)) 
+LISTEN 0      4096            127.0.0.1:4318       0.0.0.0:*    users:(("kansoku",pid=378144,fd=9)) 
+LISTEN 0      5               127.0.0.1:4319       0.0.0.0:*    users:(("python3",pid=397902,fd=3)) 
+LISTEN 0      4096            127.0.0.1:4317       0.0.0.0:*    users:(("kansoku",pid=378144,fd=10))
+LISTEN 0      4096        127.0.0.53%lo:53         0.0.0.0:*                                        
+LISTEN 0      5               127.0.0.1:4399       0.0.0.0:*    users:(("python3",pid=390648,fd=4)) 
+LISTEN 0      4096              0.0.0.0:22         0.0.0.0:*                                        
+LISTEN 0      5               127.0.0.1:14318      0.0.0.0:*    users:(("python3",pid=394314,fd=3)) 
+LISTEN 0      200             127.0.0.1:5432       0.0.0.0:*    users:(("postgres",pid=377802,fd=6))
+LISTEN 0      50     [::ffff:127.0.0.1]:35829            *:*    users:(("java",pid=338410,fd=442))  
+LISTEN 0      50     [::ffff:127.0.0.1]:17299            *:*    users:(("java",pid=338487,fd=16))   
+LISTEN 0      4096                 [::]:22            [::]:*                                        
+LISTEN 0      50     [::ffff:127.0.0.1]:34247            *:*    users:(("java",pid=338410,fd=336))  
+
+-----------------------------------------------
+### F2/F3 host IPv4 addresses: ip -4 addr
+$ ip -4 addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    altname enx525555eb9a61
+    inet 192.168.5.15/24 metric 200 brd 192.168.5.255 scope global dynamic eth0
+       valid_lft 2145sec preferred_lft 2145sec
+
+-----------------------------------------------
+### F2/F3 route to default (which iface/src IP)
+$ ip -4 route get 1.1.1.1
+1.1.1.1 via 192.168.5.2 dev eth0 src 192.168.5.15 uid 502 
+    cache 
+
+-----------------------------------------------
+--- F2/F3: reachability on the non-loopback IPv4 192.168.5.15 (eth0) ---
+### F2 curl http://192.168.5.15:43100/api/v1/health with valid read bearer
+$ curl -sS -i --max-time 8 -H "Authorization: Bearer $READ" -w '\n[curl] http_code=%{http_code} connect_time=%{time_connect}\n' 'http://192.168.5.15:43100/api/v1/health'; echo "[curl] exit=$?"
+curl: (7) Failed to connect to 192.168.5.15 port 43100 after 0 ms: Could not connect to server
+
+[curl] http_code=000 connect_time=0.000000
+[curl] exit=7
+
+-----------------------------------------------
+### F2b same, verbose connect trace
+$ curl -sS -v --max-time 8 -o /dev/null 'http://192.168.5.15:43100/api/v1/health' 2>&1 | head -20; echo "[curl] exit=$?"
+*   Trying 192.168.5.15:43100...
+* connect to 192.168.5.15 port 43100 from 192.168.5.15 port 52756 failed: Connection refused
+* Failed to connect to 192.168.5.15 port 43100 after 0 ms: Could not connect to server
+* closing connection #0
+curl: (7) Failed to connect to 192.168.5.15 port 43100 after 0 ms: Could not connect to server
+[curl] exit=0
+
+-----------------------------------------------
+### F3 curl http://192.168.5.15:4318/v1/metrics (POST, ingress bearer)
+$ curl -sS -i --max-time 8 -X POST -H "Authorization: Bearer $ING" -H 'Content-Type: application/x-protobuf' --data-binary '' -w '\n[curl] http_code=%{http_code}\n' 'http://192.168.5.15:4318/v1/metrics'; echo "[curl] exit=$?"
+curl: (7) Failed to connect to 192.168.5.15 port 4318 after 0 ms: Could not connect to server
+
+[curl] http_code=000
+[curl] exit=7
+
+-----------------------------------------------
+### F3b curl http://192.168.5.15:4317 (OTLP gRPC port, TCP connect probe)
+$ timeout 8 bash -c 'exec 3<>/dev/tcp/192.168.5.15/4317' 2>&1; echo "[bash /dev/tcp] exit=$?"
+bash: connect: Connection refused
+bash: line 1: /dev/tcp/192.168.5.15/4317: Connection refused
+[bash /dev/tcp] exit=1
+
+-----------------------------------------------
+### F3c TCP connect probe to 192.168.5.15:43100 via /dev/tcp
+$ timeout 8 bash -c 'exec 3<>/dev/tcp/192.168.5.15/43100' 2>&1; echo "[bash /dev/tcp] exit=$?"
+bash: connect: Connection refused
+bash: line 1: /dev/tcp/192.168.5.15/43100: Connection refused
+[bash /dev/tcp] exit=1
+
+-----------------------------------------------
+### F3d TCP connect probe to 127.0.0.1:43100 via /dev/tcp (control, should succeed)
+$ timeout 8 bash -c 'exec 3<>/dev/tcp/127.0.0.1/43100' 2>&1; echo "[bash /dev/tcp] exit=$?"
+[bash /dev/tcp] exit=0
+
+-----------------------------------------------
+### F4 cat /tmp/kansoku-testbed/runtime-config.json (listen addresses)
+$ grep -n 'listen\|container_mode' /tmp/kansoku-testbed/runtime-config.json
+4:  "http_listen": "127.0.0.1:43100",
+5:  "otlp_http_listen": "127.0.0.1:4318",
+6:  "otlp_grpc_listen": "127.0.0.1:4317",
+7:  "container_mode": false,
+
+-----------------------------------------------
+### F4b full runtime-config.json
+$ cat /tmp/kansoku-testbed/runtime-config.json
+{
+  "version": "kansoku.runtime-config/1",
+  "app_version": "0.9.0",
+  "http_listen": "127.0.0.1:43100",
+  "otlp_http_listen": "127.0.0.1:4318",
+  "otlp_grpc_listen": "127.0.0.1:4317",
+  "container_mode": false,
+  "data_dir": "/tmp/kansoku-testbed/data",
+  "database": {
+    "host": "127.0.0.1", "port": 5432, "name": "kansoku",
+    "user": "kansoku", "ssl_mode": "disable", "connect_timeout_seconds": 10
+  },
+  "secret_files": {
+    "ingress_bearer": "/tmp/kansoku-testbed/secrets/ingress_bearer",
+    "read_bearer": "/tmp/kansoku-testbed/secrets/read_bearer",
+    "mutation_bearer": "/tmp/kansoku-testbed/secrets/mutation_bearer",
+    "csrf": "/tmp/kansoku-testbed/secrets/csrf",
+    "identity_hmac": "/tmp/kansoku-testbed/secrets/identity_hmac",
+    "audit_hmac": "/tmp/kansoku-testbed/secrets/audit_hmac",
+    "database_password": "/tmp/kansoku-testbed/secrets/database_password"
+  },
+  "queue_capacity": 64,
+  "spool_max_bytes": 67108864,
+  "checkpoint_state_max_bytes": 4194304,
+  "database_soft_limit_bytes": 5368709120,
+  "database_budget_warning_fraction": 0.70,
+  "database_budget_degraded_fraction": 0.85,
+  "database_budget_critical_fraction": 0.95,
+  "storage_preflight_min_free_bytes": 26843545600,
+  "shutdown_timeout_ms": 30000,
+  "query_timeout_ms": 500,
+  "response_max_bytes": 1048576,
+  "retention_days": 400,
+  "disk_budget_fraction": 0.9,
+  "integrity_enabled": true,
+  "privacy_canary_fixture": "/home/m_ryabushkin.guest/projects/Kansoku/tests/fixtures/session-02/raw-canary-input.json",
+  "backup_dir": "/tmp/kansoku-testbed/backups",
+  "diagnostics_max_bytes": 1048576,
+  "inventory_targets": [
+    {"target_id": "codex-local", "adapter_id": "codex",
+     "installation_id": "ain_9cd7c4fbf5d8df4694834d7769a3747b",
+     "surface_id": "cli", "state_root": "/tmp/kansoku-testbed/agent-state/codex"},
+    {"target_id": "claude-local", "adapter_id": "claude",
+     "surface_id": "cli", "state_root": "/tmp/kansoku-testbed/agent-state/claude"}
+  ],
+  "inventory_scan_interval_seconds": 60,
+  "rollout_watch_interval_seconds": 5
+}
+
+-----------------------------------------------
+### F5 code-level: where listeners are created and whether bind address is validated to be loopback
+$ cd /home/m_ryabushkin.guest/projects/Kansoku && grep -rn 'net\.Listen|http\.Server{|ListenAndServe|Addr:' internal/runtime/ --include=*.go | grep -v _test.go
+internal/runtime/assembly.go:346:	httpListener, err := net.Listen("tcp", a.Config.HTTPListen)
+internal/runtime/assembly.go:351:	ingressListener, err := net.Listen("tcp", a.Config.OTLPHTTPListen)
+internal/runtime/assembly.go:356:	grpcListener, err := net.Listen("tcp", a.Config.OTLPGRPCListen)
+internal/runtime/assembly.go:361:	a.httpServer = &http.Server{
+internal/runtime/assembly.go:365:	a.ingressServer = &http.Server{
+internal/runtime/assembly.go:427:func serveHTTP(server *http.Server, listener net.Listener, errorsOut chan<- error, errorClass string) {
+
+$ grep -rn 'loopback|IsLoopback|listen_must_be_loopback|validateListen' internal/runtime/ --include=*.go | grep -v _test.go
+internal/runtime/config.go:123:		if err := validateListen(value, c.ContainerMode); err != nil {
+internal/runtime/config.go:207:func validateListen(value string, containerMode bool) error {
+internal/runtime/config.go:223:		return errors.New("listen_must_be_loopback")
+internal/runtime/assembly.go:315:	// The Session 10 dashboard is served by this same loopback process: the
+
+--- quoted source: internal/runtime/assembly.go:346-368 (listener creation; NO inline bind validation) ---
+   346		httpListener, err := net.Listen("tcp", a.Config.HTTPListen)
+   347		if err != nil {
+   348			return errors.New("http_listener_failed")
+   349		}
+   350		defer httpListener.Close()
+   351		ingressListener, err := net.Listen("tcp", a.Config.OTLPHTTPListen)
+   352		if err != nil {
+   353			return errors.New("otlp_http_listener_failed")
+   354		}
+   355		defer ingressListener.Close()
+   356		grpcListener, err := net.Listen("tcp", a.Config.OTLPGRPCListen)
+   357		if err != nil {
+   358			return errors.New("otlp_grpc_listener_failed")
+   359		}
+   360		defer grpcListener.Close()
+   361		a.httpServer = &http.Server{
+   362			Handler: a.APIHandler, ReadHeaderTimeout: 5 * time.Second,
+   363			IdleTimeout: 30 * time.Second, MaxHeaderBytes: 32 << 10,
+   364		}
+   365		a.ingressServer = &http.Server{
+   366			Handler: a.IngressHTTP, ReadHeaderTimeout: 5 * time.Second,
+   367			IdleTimeout: 30 * time.Second, MaxHeaderBytes: 32 << 10,
+   368		}
+
+--- quoted source: internal/runtime/config.go:116-126 (Validate() calls validateListen per listener) ---
+   116	func (c Config) Validate() error {
+   117		if c.Version != ConfigVersion || c.AppVersion != AppVersion {
+   118			return errors.New("unsupported_runtime_config_version")
+   119		}
+   120		for label, value := range map[string]string{
+   121			"http": c.HTTPListen, "otlp_http": c.OTLPHTTPListen, "otlp_grpc": c.OTLPGRPCListen,
+   122		} {
+   123			if err := validateListen(value, c.ContainerMode); err != nil {
+   124				return fmt.Errorf("%s_listen_invalid", label)
+   125			}
+   126		}
+
+--- quoted source: internal/runtime/config.go:207-226 (validateListen: the loopback check) ---
+   207	func validateListen(value string, containerMode bool) error {
+   208		host, port, err := net.SplitHostPort(value)
+   209		if err != nil || port == "" {
+   210			return errors.New("listen_invalid")
+   211		}
+   212		allowedPort := port == "43100" || port == "4317" || port == "4318"
+   213		if !allowedPort {
+   214			return errors.New("listen_invalid")
+   215		}
+   216		if containerMode {
+   217			if host != "0.0.0.0" {
+   218				return errors.New("container_listen_must_be_wildcard")
+   219			}
+   220			return nil
+   221		}
+   222		if host != "127.0.0.1" && host != "::1" {
+   223			return errors.New("listen_must_be_loopback")
+   224		}
+   225		return nil
+   226	}
+
+--- callers of Config.Validate() (does the serve path actually run it?) ---
+$ grep -rn '\.Validate()' cmd/ internal/runtime/ --include=*.go | grep -v _test.go
+internal/runtime/backup.go:149:	if err := config.Validate(); err != nil || pool == nil || queue == nil || jobs == nil {
+internal/runtime/config.go:102:	if err := config.Validate(); err != nil {
+internal/runtime/assembly.go:98:	if err := config.Validate(); err != nil {
+internal/runtime/assembly.go:514:	if err := a.Config.Validate(); err != nil {
+internal/runtime/assembly.go:536:	if err := config.Validate(); err != nil {
+internal/runtime/api.go:81:	if err := config.Validate(); err != nil || pool == nil || queue == nil || plans == nil || jobs == nil || operations == nil {
+internal/runtime/integrity.go:141:			if err := fingerprint.Validate(); err != nil {
+
+-----------------------------------------------

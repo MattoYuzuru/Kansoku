@@ -1,0 +1,80 @@
+=== COMMAND ===
+curl -sS -i -X POST http://127.0.0.1:43100/api/v1/plans/preview -H "Authorization: Bearer $MB" -H "X-Kansoku-CSRF: $CS" -H "Origin: http://127.0.0.1:43100" -H "Content-Type: application/json" -d '{"target_id":"codex.user_otel","original":{}}'
+=== OUTPUT ===
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:42 GMT
+Content-Length: 1278
+
+{"api_version":"kansoku.api/1","request_id":"req_7e69b3390466115c61851ba1756f5d65","data":{"plan_id":"plan_cfb73226ba1ce4ee5494398cb8865dd0","target_id":"codex.user_otel","plan_sha256":"9b41079b4e9c182c47458f59f87ca71611c12239ff6d714a01bcc0bb3d593685","original_sha256":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","planned_sha256":"3ee2b7e1fa6d494436a05ea4f9df9b061999b65ffc5e0f5bd43c13912ef5b641","exact_operations":[{"action":"set","field":"otel.endpoint","old_preview":null,"new_preview":"http://127.0.0.1:4318","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"otel.environment","old_preview":null,"new_preview":"local","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"otel.exporter","old_preview":null,"new_preview":"otlp-http","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"otel.log_user_prompt","old_preview":null,"new_preview":false,"disclosure":"explicitly disables raw content exposure"}],"privacy_tradeoffs":["agent payloads remain untrusted and are sanitized at loopback ingress","managed or environment precedence can block application"],"expires_at":"2026-08-01T07:32:42.798024889Z"},"completeness":{"exclusions":[],"status":"complete"}}
+
+
+=== COMMAND ===
+curl -sS -i -X POST http://127.0.0.1:43100/api/v1/plans/preview -H "Authorization: Bearer $MB" -H "X-Kansoku-CSRF: $CS" -H "Origin: http://127.0.0.1:43100" -H "Content-Type: application/json" -d '{"target_id":"claude.user_otel","original":{}}'
+=== OUTPUT ===
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:42 GMT
+Content-Length: 1763
+
+{"api_version":"kansoku.api/1","request_id":"req_964afb4bab5f789139b99691103700e4","data":{"plan_id":"plan_2d2070cfe719b6090a1b78d17776f600","target_id":"claude.user_otel","plan_sha256":"46efe2f1d59494e34d686a44c3a31efe991a191811e8d7fecc3744d48118633e","original_sha256":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","planned_sha256":"508cfef8ca47f2f5d595f79c8ed61abf3bf8ca2ef58af464f583b24a1d0d967f","exact_operations":[{"action":"set","field":"env.CLAUDE_CODE_ENABLE_TELEMETRY","old_preview":null,"new_preview":"1","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_EXPORTER_OTLP_ENDPOINT","old_preview":null,"new_preview":"http://127.0.0.1:4318","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_LOG_ASSISTANT_RESPONSES","old_preview":null,"new_preview":"0","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_LOG_RAW_API_BODIES","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_TOOL_CONTENT","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_TOOL_DETAILS","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_USER_PROMPTS","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"}],"privacy_tradeoffs":["agent payloads remain untrusted and are sanitized at loopback ingress","managed or environment precedence can block application"],"expires_at":"2026-08-01T07:32:42.802945556Z"},"completeness":{"exclusions":[],"status":"complete"}}
+
+
+=== COMMAND ===
+curl -sS -i -X POST http://127.0.0.1:43100/api/v1/plans/preview -H "Authorization: Bearer $MB" -H "X-Kansoku-CSRF: $CS" -H "Origin: http://127.0.0.1:43100" -H "Content-Type: application/json" -d '{"target_id":"gemini.user_otel","original":{}}'
+=== OUTPUT ===
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:42 GMT
+Content-Length: 1429
+
+{"api_version":"kansoku.api/1","request_id":"req_0a3566ddfdaab4150ea56cada56496f8","data":{"plan_id":"plan_56a2f507eabb9acc0e399eb0cca513de","target_id":"gemini.user_otel","plan_sha256":"43ffd02d6cda70d60943d1fb836ed2d483a5ebd01873a6b6dd95c95e500a6fc3","original_sha256":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","planned_sha256":"ba10fc5177b6b57d4b29f8a654c6e6f4e3d038a45d35884f2042d918ceee1115","exact_operations":[{"action":"set","field":"telemetry.enabled","old_preview":null,"new_preview":true,"disclosure":"enables only loopback metadata collection"},{"action":"set","field":"telemetry.logPrompts","old_preview":null,"new_preview":false,"disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"telemetry.otlpEndpoint","old_preview":null,"new_preview":"http://127.0.0.1:4318","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"telemetry.target","old_preview":null,"new_preview":"local","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"telemetry.useCliAuth","old_preview":null,"new_preview":false,"disclosure":"enables only loopback metadata collection"}],"privacy_tradeoffs":["agent payloads remain untrusted and are sanitized at loopback ingress","managed or environment precedence can block application"],"expires_at":"2026-08-01T07:32:42.808315639Z"},"completeness":{"exclusions":[],"status":"complete"}}
+
+
+=== COMMAND ===
+curl -sS -i -X POST http://127.0.0.1:43100/api/v1/plans/preview -H "Authorization: Bearer $MB" -H "X-Kansoku-CSRF: $CS" -H "Origin: http://127.0.0.1:43100" -H "Content-Type: application/json" -d '{"target_id":"cursor.user_hooks","original":{}}'
+=== OUTPUT ===
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:42 GMT
+Content-Length: 1340
+
+{"api_version":"kansoku.api/1","request_id":"req_31f17e6988bce5b5c3def025369ef188","data":{"plan_id":"plan_e007126e164066675304a78e81a18108","target_id":"cursor.user_hooks","plan_sha256":"9c5f444b6d0e547902ba614d13f7dedb4b13818be0cb4434ae0b05fc4e9a992f","original_sha256":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","planned_sha256":"750f8dd28dd5debc5605e9a58c49b7f18d6db31dd02ddae5ea9649fe37da8efe","exact_operations":[{"action":"set","field":"hook.command","old_preview":null,"new_preview":"kansoku hook --endpoint http://127.0.0.1:4318 --strict-privacy","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"hook.privacy_boundary","old_preview":null,"new_preview":"loopback_sanitizer","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"hook.raw_persistence","old_preview":null,"new_preview":false,"disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"hook.role","old_preview":null,"new_preview":"collection_only","disclosure":"enables only loopback metadata collection"}],"privacy_tradeoffs":["agent payloads remain untrusted and are sanitized at loopback ingress","managed or environment precedence can block application"],"expires_at":"2026-08-01T07:32:42.813398222Z"},"completeness":{"exclusions":[],"status":"complete"}}
+
+

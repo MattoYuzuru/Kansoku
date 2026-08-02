@@ -1,0 +1,230 @@
+=== RUN   TestFaultComponent_hook_removed_disabled_or_untrusted
+--- PASS: TestFaultComponent_hook_removed_disabled_or_untrusted (0.00s)
+=== RUN   TestFaultComponent_otlp_wrong_port_protocol_or_auth
+--- PASS: TestFaultComponent_otlp_wrong_port_protocol_or_auth (0.00s)
+=== RUN   TestFaultComponent_transcript_truncate_rotate_schema_or_permission_change
+--- PASS: TestFaultComponent_transcript_truncate_rotate_schema_or_permission_change (0.00s)
+=== RUN   TestFaultComponent_active_process_with_absent_events
+--- PASS: TestFaultComponent_active_process_with_absent_events (0.00s)
+=== RUN   TestFaultComponent_duplicate_and_stalled_watermarks
+--- PASS: TestFaultComponent_duplicate_and_stalled_watermarks (0.00s)
+=== RUN   TestFaultComponent_parser_panic_timeout_or_unknown_field
+--- PASS: TestFaultComponent_parser_panic_timeout_or_unknown_field (0.00s)
+=== RUN   TestFaultComponent_delayed_rollup
+--- PASS: TestFaultComponent_delayed_rollup (0.00s)
+=== RUN   TestFaultComponent_full_disk
+--- PASS: TestFaultComponent_full_disk (0.00s)
+=== RUN   TestFaultComponent_stale_backup
+--- PASS: TestFaultComponent_stale_backup (0.00s)
+=== RUN   TestFaultComponent_privacy_canary_violation
+--- PASS: TestFaultComponent_privacy_canary_violation (0.00s)
+=== RUN   TestFaultComponent_live_canary_partial_dag
+--- PASS: TestFaultComponent_live_canary_partial_dag (0.00s)
+=== RUN   TestFaultComponent_live_canary_provider_timeout
+--- PASS: TestFaultComponent_live_canary_provider_timeout (0.00s)
+=== RUN   TestFaultComponent_endpoint_unreachable
+--- PASS: TestFaultComponent_endpoint_unreachable (0.00s)
+=== RUN   TestFaultComponent_unknown_schema_quarantine
+--- PASS: TestFaultComponent_unknown_schema_quarantine (0.00s)
+=== RUN   TestFaultComponent_cross_source_reconciliation_regression
+--- PASS: TestFaultComponent_cross_source_reconciliation_regression (0.00s)
+=== RUN   TestFaultComponent_ingest_lag
+--- PASS: TestFaultComponent_ingest_lag (0.00s)
+=== RUN   TestFaultComponent_inventory_cache_miscount
+--- PASS: TestFaultComponent_inventory_cache_miscount (0.00s)
+=== RUN   TestCrashRecoveryReusesOnlyFreshPassAndExecutesMissingCheck
+--- PASS: TestCrashRecoveryReusesOnlyFreshPassAndExecutesMissingCheck (0.05s)
+=== RUN   TestIntegrityMigrationsUpgradeTheExistingDataPlatformSchema
+--- PASS: TestIntegrityMigrationsUpgradeTheExistingDataPlatformSchema (0.18s)
+=== RUN   TestAdvisoryLockMutualExclusionUnderConcurrentGoroutines
+--- PASS: TestAdvisoryLockMutualExclusionUnderConcurrentGoroutines (0.03s)
+=== RUN   TestAdvisoryLockReleasedOnConnectionClose
+--- PASS: TestAdvisoryLockReleasedOnConnectionClose (0.03s)
+=== RUN   TestIsHeldByAnySessionReflectsLiveHolder
+--- PASS: TestIsHeldByAnySessionReflectsLiveHolder (0.04s)
+=== RUN   TestSchedulerStartRunConcurrentCallersExactlyOneRuns
+--- PASS: TestSchedulerStartRunConcurrentCallersExactlyOneRuns (0.04s)
+=== RUN   TestSchedulerFailsClosedWithoutReportSigningKey
+--- PASS: TestSchedulerFailsClosedWithoutReportSigningKey (0.04s)
+=== RUN   TestSchedulerStage11ReportFailureRollsBackAndOpensIncidentAtomically
+--- PASS: TestSchedulerStage11ReportFailureRollsBackAndOpensIncidentAtomically (0.04s)
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/hook_removed_disabled_or_untrusted
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/otlp_wrong_port_protocol_or_auth
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/transcript_truncate_rotate_schema_or_permission_change
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/active_process_with_absent_events
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/duplicate_and_stalled_watermarks
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/parser_panic_timeout_or_unknown_field
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/delayed_rollup
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/full_disk
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/stale_backup
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/privacy_canary_violation
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/live_canary_partial_dag
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/live_canary_provider_timeout
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/endpoint_unreachable
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/unknown_schema_quarantine
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/cross_source_reconciliation_regression
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/ingest_lag
+=== RUN   TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/inventory_cache_miscount
+--- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle (0.09s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/hook_removed_disabled_or_untrusted (0.01s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/otlp_wrong_port_protocol_or_auth (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/transcript_truncate_rotate_schema_or_permission_change (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/active_process_with_absent_events (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/duplicate_and_stalled_watermarks (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/parser_panic_timeout_or_unknown_field (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/delayed_rollup (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/full_disk (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/stale_backup (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/privacy_canary_violation (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/live_canary_partial_dag (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/live_canary_provider_timeout (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/endpoint_unreachable (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/unknown_schema_quarantine (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/cross_source_reconciliation_regression (0.00s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/ingest_lag (0.01s)
+    --- PASS: TestFaultComponentClassifiersPersistSchedulerStage11IncidentLifecycle/inventory_cache_miscount (0.00s)
+=== RUN   TestFaultMutationCorruptSpoolPersistsMeasuredIncidentLifecycle
+    postgres_integration_test.go:778: host cannot establish a safe baseline spool: spool_path_unsafe
+--- FAIL: TestFaultMutationCorruptSpoolPersistsMeasuredIncidentLifecycle (0.03s)
+=== RUN   TestSchedulerStage11SignsReportsDeduplicatesAndRecoversIncidents
+--- PASS: TestSchedulerStage11SignsReportsDeduplicatesAndRecoversIncidents (0.06s)
+=== RUN   TestPostgresLiveCanaryStatePersistsCooldownAcrossStoreInstances
+--- PASS: TestPostgresLiveCanaryStatePersistsCooldownAcrossStoreInstances (0.03s)
+=== RUN   TestUpsertCheckIdempotentRerunNeverDuplicates
+--- PASS: TestUpsertCheckIdempotentRerunNeverDuplicates (0.03s)
+=== RUN   TestMarkStaleRunsInterruptedReclassifiesEveryUnlockedRunningRun
+--- PASS: TestMarkStaleRunsInterruptedReclassifiesEveryUnlockedRunningRun (0.03s)
+=== RUN   TestMarkStaleRunsInterruptedNeverTouchesLiveHeldRun
+--- PASS: TestMarkStaleRunsInterruptedNeverTouchesLiveHeldRun (0.03s)
+=== RUN   TestStructuralFingerprintCanonicalAndRejectsValuesByType
+--- PASS: TestStructuralFingerprintCanonicalAndRejectsValuesByType (0.00s)
+=== RUN   TestTargetedFingerprintRevalidationNeverRunsCanaryOrRetention
+--- PASS: TestTargetedFingerprintRevalidationNeverRunsCanaryOrRetention (0.00s)
+=== RUN   TestHealthGrayDefaultFreshGreenStaleYellowAndFailureRed
+--- PASS: TestHealthGrayDefaultFreshGreenStaleYellowAndFailureRed (0.00s)
+=== RUN   TestLiveCanaryDisabledConsentBudgetDAGAndCleanup
+--- PASS: TestLiveCanaryDisabledConsentBudgetDAGAndCleanup (0.00s)
+=== RUN   TestLiveCanaryMeasuredBudgetFailureStillCleansAndPersistsFailure
+--- PASS: TestLiveCanaryMeasuredBudgetFailureStillCleansAndPersistsFailure (0.00s)
+=== RUN   TestLiveCanaryNonCooperativeObserverIsBoundedAndClassifiesDAGPrecisely
+--- PASS: TestLiveCanaryNonCooperativeObserverIsBoundedAndClassifiesDAGPrecisely (0.02s)
+=== RUN   TestStorageChecksFailStaleRepairAgeAndOverdueRetention
+--- PASS: TestStorageChecksFailStaleRepairAgeAndOverdueRetention (0.00s)
+=== RUN   TestTargetedFingerprintChangesFilterByAdapterSourceAndCapability
+--- PASS: TestTargetedFingerprintChangesFilterByAdapterSourceAndCapability (0.00s)
+=== RUN   TestSignedAuditReportTamperFailsVerification
+--- PASS: TestSignedAuditReportTamperFailsVerification (0.00s)
+=== RUN   TestProductionSyntheticPipelineTraversesPostgresRollupAndCleansExactly
+    stage5_test.go:173: outcome = {CheckID:stage_5_synthetic_pipeline_probe Status:fail Category:synthetic_pipeline_probe_failed DetailRef:synthetic_probe_cleanup_failed ObservedAt:2026-07-22 12:34:00 +0000 UTC}, want pass
+--- FAIL: TestProductionSyntheticPipelineTraversesPostgresRollupAndCleansExactly (0.19s)
+=== RUN   TestFaultMutationSyntheticPipelineFailurePersistsMeasuredIncidentAndCleans
+    stage5_test.go:285: source_instances retained 1 rows after first fact insert failure
+--- FAIL: TestFaultMutationSyntheticPipelineFailurePersistsMeasuredIncidentAndCleans (0.17s)
+=== RUN   TestRunBackupCycleRealRoundTripVerifiesChecksumAndRestoreCounts
+--- PASS: TestRunBackupCycleRealRoundTripVerifiesChecksumAndRestoreCounts (0.27s)
+=== RUN   TestRunBackupCycleDetectsRestoreMismatch
+--- PASS: TestRunBackupCycleDetectsRestoreMismatch (0.30s)
+=== RUN   TestRollupWatermarkBehindBudgetOpensIncident
+--- PASS: TestRollupWatermarkBehindBudgetOpensIncident (0.03s)
+=== RUN   TestRepeatedFailingRunsUpdateSameIncidentNeverDuplicate
+--- PASS: TestRepeatedFailingRunsUpdateSameIncidentNeverDuplicate (0.03s)
+=== RUN   TestRecoveryRequiresFreshPositiveEvidenceFromLaterRun
+--- PASS: TestRecoveryRequiresFreshPositiveEvidenceFromLaterRun (0.03s)
+=== RUN   TestCrossSourceReconciliationRegressionOpensReconciliationMismatchIncident
+--- PASS: TestCrossSourceReconciliationRegressionOpensReconciliationMismatchIncident (0.04s)
+=== RUN   TestTransitionScheduledToRunningIsLegal
+--- PASS: TestTransitionScheduledToRunningIsLegal (0.00s)
+=== RUN   TestTransitionRunningToEachTerminalStateIsLegal
+--- PASS: TestTransitionRunningToEachTerminalStateIsLegal (0.00s)
+=== RUN   TestTransitionScheduledDirectlyToTerminalIsIllegal
+--- PASS: TestTransitionScheduledDirectlyToTerminalIsIllegal (0.00s)
+=== RUN   TestTransitionOutOfTerminalStateIsIllegal
+--- PASS: TestTransitionOutOfTerminalStateIsIllegal (0.00s)
+=== RUN   TestTransitionRunningToRunningIsIllegal
+--- PASS: TestTransitionRunningToRunningIsIllegal (0.00s)
+=== RUN   TestEvaluateOutcomePassedWhenNoFailures
+--- PASS: TestEvaluateOutcomePassedWhenNoFailures (0.00s)
+=== RUN   TestEvaluateOutcomeDegradedOnYellowTierFailure
+--- PASS: TestEvaluateOutcomeDegradedOnYellowTierFailure (0.00s)
+=== RUN   TestEvaluateOutcomeFailedOnRedTierFailure
+--- PASS: TestEvaluateOutcomeFailedOnRedTierFailure (0.00s)
+=== RUN   TestEvaluateOutcomeFailedOnStageTimeoutCategory
+--- PASS: TestEvaluateOutcomeFailedOnStageTimeoutCategory (0.00s)
+=== RUN   TestStagesForRunFullModeIsEveryStageInOrdinalOrder
+--- PASS: TestStagesForRunFullModeIsEveryStageInOrdinalOrder (0.00s)
+=== RUN   TestStagesForRunReducedModeStartupIsThreeStages
+--- PASS: TestStagesForRunReducedModeStartupIsThreeStages (0.00s)
+=== RUN   TestStagesForRunReducedModeVersionChangeAddsStage4And7
+--- PASS: TestStagesForRunReducedModeVersionChangeAddsStage4And7 (0.00s)
+=== RUN   TestIsFresh
+--- PASS: TestIsFresh (0.00s)
+=== RUN   TestChangedAdapterIDsEmptyPreviousNeverReportsChange
+--- PASS: TestChangedAdapterIDsEmptyPreviousNeverReportsChange (0.00s)
+=== RUN   TestChangedAdapterIDsDetectsVersionBump
+--- PASS: TestChangedAdapterIDsDetectsVersionBump (0.00s)
+=== RUN   TestChangedAdapterIDsDetectsAddedAndRemovedAdapters
+--- PASS: TestChangedAdapterIDsDetectsAddedAndRemovedAdapters (0.00s)
+=== RUN   TestChangedAdapterIDsNoChangeReturnsEmpty
+--- PASS: TestChangedAdapterIDsNoChangeReturnsEmpty (0.00s)
+=== RUN   TestAdvisoryLockKeyIsDeterministic
+--- PASS: TestAdvisoryLockKeyIsDeterministic (0.00s)
+=== RUN   TestDiscoveryConfigCheckDrivesAdaptersGenerically
+--- PASS: TestDiscoveryConfigCheckDrivesAdaptersGenerically (0.00s)
+=== RUN   TestDiscoveryConfigCheckDetectsUnreadableStateRoot
+--- PASS: TestDiscoveryConfigCheckDetectsUnreadableStateRoot (0.00s)
+=== RUN   TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan
+=== RUN   TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan/never_configured_is_not_drift
+=== RUN   TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan/legitimately_reapplied_plan_is_not_drift
+=== RUN   TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan/observed_fingerprint_mismatch_is_drift
+=== RUN   TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan/lookup_error_is_a_genuine_failure
+--- PASS: TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan (0.00s)
+    --- PASS: TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan/never_configured_is_not_drift (0.00s)
+    --- PASS: TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan/legitimately_reapplied_plan_is_not_drift (0.00s)
+    --- PASS: TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan/observed_fingerprint_mismatch_is_drift (0.00s)
+    --- PASS: TestDiscoveryConfigCheckDistinguishesDriftFromReappliedPlan/lookup_error_is_a_genuine_failure (0.00s)
+=== RUN   TestDiscoveryConfigCheckEmptyRegistryProducesZeroTargets
+--- PASS: TestDiscoveryConfigCheckEmptyRegistryProducesZeroTargets (0.00s)
+=== RUN   TestSourceFreshnessCheckInactiveSourceNeverOpensGapIncident
+--- PASS: TestSourceFreshnessCheckInactiveSourceNeverOpensGapIncident (0.00s)
+=== RUN   TestSourceFreshnessCheckStalledActiveSourceOpensGapIncidentWithinSLO
+--- PASS: TestSourceFreshnessCheckStalledActiveSourceOpensGapIncidentWithinSLO (0.00s)
+=== RUN   TestSourceFreshnessCheckGapCountAloneAlsoOpensStall
+--- PASS: TestSourceFreshnessCheckGapCountAloneAlsoOpensStall (0.00s)
+=== RUN   TestSourceFreshnessCheckFreshEligibleSourcePasses
+--- PASS: TestSourceFreshnessCheckFreshEligibleSourcePasses (0.00s)
+=== RUN   TestSourceFreshnessCheckNoDeclaredCadenceNeverStallsByElapsedTimeAlone
+--- PASS: TestSourceFreshnessCheckNoDeclaredCadenceNeverStallsByElapsedTimeAlone (0.00s)
+=== RUN   TestSourceFreshnessCheckMissingWatermarkIsEligibilityUnknown
+--- PASS: TestSourceFreshnessCheckMissingWatermarkIsEligibilityUnknown (0.00s)
+=== RUN   TestSourceFreshnessCheckTargetsGenericAcrossAdapters
+--- PASS: TestSourceFreshnessCheckTargetsGenericAcrossAdapters (0.00s)
+=== RUN   TestSchemaParserCheckReplaysRealCodexAndClaudeFixturesCleanly
+--- PASS: TestSchemaParserCheckReplaysRealCodexAndClaudeFixturesCleanly (0.02s)
+=== RUN   TestSchemaParserCheckUnrecognizedEventShapeIsCountedNeverCrashesBatch
+--- PASS: TestSchemaParserCheckUnrecognizedEventShapeIsCountedNeverCrashesBatch (0.02s)
+=== RUN   TestSchemaParserCheckKnownFingerprintIsNotCountedAsNewOnSecondRun
+--- PASS: TestSchemaParserCheckKnownFingerprintIsNotCountedAsNewOnSecondRun (0.01s)
+=== RUN   TestSchemaParserCheckExpectedUnsupportedCaseIsNotAFailure
+--- PASS: TestSchemaParserCheckExpectedUnsupportedCaseIsNotAFailure (0.00s)
+=== RUN   TestSchemaParserCheckPanickingReplayerNeverCrashesSurroundingBatch
+--- PASS: TestSchemaParserCheckPanickingReplayerNeverCrashesSurroundingBatch (0.00s)
+=== RUN   TestSchemaParserCheckUnknownAdapterTargetSkipsRatherThanErrors
+--- PASS: TestSchemaParserCheckUnknownAdapterTargetSkipsRatherThanErrors (0.00s)
+=== RUN   TestComputeEventSchemaFingerprintIsStableAndFieldOrderIndependent
+--- PASS: TestComputeEventSchemaFingerprintIsStableAndFieldOrderIndependent (0.00s)
+=== RUN   TestStructuralShapeArrayCardinalityAndOrderDoNotChangeFingerprint
+--- PASS: TestStructuralShapeArrayCardinalityAndOrderDoNotChangeFingerprint (0.00s)
+=== RUN   TestSchemaParserCheckHonorsContextCancellationForBlockedReplay
+--- PASS: TestSchemaParserCheckHonorsContextCancellationForBlockedReplay (0.02s)
+=== RUN   TestSyntheticPipelineCheckSendsThroughRealIngressAndVerifiesDurableAppearance
+--- PASS: TestSyntheticPipelineCheckSendsThroughRealIngressAndVerifiesDurableAppearance (0.00s)
+=== RUN   TestSyntheticPipelineCheckExpiresRecordsAfterVerification
+--- PASS: TestSyntheticPipelineCheckExpiresRecordsAfterVerification (0.00s)
+=== RUN   TestSyntheticPipelineCheckRecordsAreExcludedFromRealReconciliationQueries
+--- PASS: TestSyntheticPipelineCheckRecordsAreExcludedFromRealReconciliationQueries (0.00s)
+=== RUN   TestSyntheticPipelineCheckNotWiredFailsClosed
+--- PASS: TestSyntheticPipelineCheckNotWiredFailsClosed (0.00s)
+FAIL
+FAIL	kansoku.local/kansoku/internal/integrity	1.936s
+FAIL

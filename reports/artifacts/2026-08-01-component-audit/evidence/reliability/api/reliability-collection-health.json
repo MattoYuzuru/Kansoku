@@ -1,0 +1,40 @@
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_af20ecb0efa1a3151311b665e60aecfd",
+    "data": {
+        "accepted_event_count": 177,
+        "quarantined_record_count": 9,
+        "observation_age_p95_seconds": 199.1562409,
+        "replay_count": 0,
+        "late_backfill_candidate_count": 0,
+        "clock_skew_event_count": 1,
+        "active_source_count": 3,
+        "source_gap_count": 0,
+        "oldest_source_age_seconds": 208.368691,
+        "pending_rollup_count": 0,
+        "rollup_age_seconds": 183.890058,
+        "queue_depth": 0,
+        "oldest_queue_age_seconds": 0,
+        "formula_version": "collection_health_snapshot/2",
+        "population": {
+            "numerator": 177,
+            "denominator": 186
+        },
+        "exclusions": {
+            "receive_to_commit_missing_commit_timestamp": 177
+        },
+        "completeness": {
+            "status": "partial",
+            "covered_ratio": 0.9516129032258065,
+            "intervals": []
+        }
+    },
+    "completeness": {
+        "completeness": "partial",
+        "denominator": 186,
+        "exclusions": [
+            "receive_to_commit_missing_commit_timestamp"
+        ],
+        "numerator": 177
+    }
+}

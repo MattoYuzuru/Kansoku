@@ -1,0 +1,23 @@
+glossary terms in contract: 46
+distinct term ids referenced in web/src: 18
+REFERENCED BUT NOT IN CONTRACT: []
+IN CONTRACT BUT NEVER LINKED FROM UI (28): ["agent","surface","session","turn","component","installed","executed","opportunity_detected","supported","beta","experimental","unsupported","not_observed","observed","redacted","unknown","numeric_zero","complete","partial","degraded","coverage","sprint","bundle_activity","population","exclusion","mirror","fsync","cost_estimate"]
+--- referenced ids ---
+active_plugin -> 1 site(s)
+backpressure_rejection -> 1 site(s)
+call -> 2 site(s)
+checkpoint_budget -> 1 site(s)
+child_activity -> 2 site(s)
+cold -> 2 site(s)
+collision -> 1 site(s)
+component_variant -> 4 site(s)
+database_budget -> 1 site(s)
+docker_filesystem -> 1 site(s)
+enabled -> 2 site(s)
+estimated_exhaustion -> 1 site(s)
+evidence -> 1 site(s)
+exposed -> 1 site(s)
+invoked -> 2 site(s)
+loaded -> 4 site(s)
+skill_family -> 1 site(s)
+succeeded -> 2 site(s)

@@ -1,0 +1,40 @@
+--- A: unknown field prompt_text (raw content smuggle attempt) ---
+invalid_hook
+
+HTTP 400
+--- B: unknown field extra + valid prompt ---
+invalid_hook
+
+HTTP 400
+--- C: trailing JSON after object ---
+invalid_hook
+
+HTTP 400
+--- D: malformed JSON ---
+invalid_hook
+
+HTTP 400
+--- E: missing session_id ---
+invalid_hook
+
+HTTP 400
+--- F: path mismatch (Stop body on UserPromptSubmit route) ---
+hook_event_path_mismatch
+
+HTTP 400
+--- G: unsupported hook event ---
+unsupported_hook_event
+
+HTTP 400
+--- H: prompt as non-string (int) ---
+invalid_hook
+
+HTTP 400
+--- I: empty prompt (empty string) ---
+{"accepted":true,"duplicate":false,"revision":171}
+
+HTTP 200
+--- J: no prompt field at all ---
+{"accepted":true,"duplicate":false,"revision":172}
+
+HTTP 200

@@ -1,0 +1,419 @@
+=== GROUP C: guard check ordering / information disclosure ===
+date: 2026-08-01T10:23:39+03:00
+BAD bearer literal = 'Bearer badbadbadbadbadbadbadbadbadbadbadbad'
+===============================================
+--- C1: precedence probes (each isolates one pairing) ---
+### C1a bad-bearer + bad-origin (GET /api/v1/health)
+$ curl -sS -i --max-time 10 -H 'Authorization: Bearer badbadbadbadbadbadbadbadbadbadbadbad' -H 'Origin: http://evil.local' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 403 Forbidden
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 15
+
+invalid_origin
+
+-----------------------------------------------
+### C1b bad-bearer + forwarded header (X-Forwarded-For: 1.2.3.4)
+$ curl -sS -i --max-time 10 -H 'Authorization: Bearer badbadbadbadbadbadbadbadbadbadbadbad' -H 'X-Forwarded-For: 1.2.3.4' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 27
+
+forwarded_headers_rejected
+
+-----------------------------------------------
+### C1c bad-bearer + wrong Host (evil.example.com)
+$ curl -sS -i --max-time 10 -H 'Authorization: Bearer badbadbadbadbadbadbadbadbadbadbadbad' -H 'Host: evil.example.com' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 421 Misdirected Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 13
+
+invalid_host
+
+-----------------------------------------------
+### C1d bad-origin + forwarded header (valid bearer) -> which of origin vs forwarded wins
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Origin: http://evil.local' -H 'X-Forwarded-For: 1.2.3.4' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 27
+
+forwarded_headers_rejected
+
+-----------------------------------------------
+### C1e bad-origin + wrong Host (valid bearer) -> which of origin vs host wins
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Origin: http://evil.local' -H 'Host: evil.example.com' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 421 Misdirected Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 13
+
+invalid_host
+
+-----------------------------------------------
+### C1f wrong Host + forwarded header (valid bearer) -> which of host vs forwarded wins
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Host: evil.example.com' -H 'X-Forwarded-For: 1.2.3.4' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 27
+
+forwarded_headers_rejected
+
+-----------------------------------------------
+### C1g wrong METHOD + forwarded header + bad bearer + bad origin + wrong Host (all violations at once) -> DELETE on read route
+$ curl -sS -i --max-time 10 -X DELETE -H 'Authorization: Bearer badbadbadbadbadbadbadbadbadbadbadbad' -H 'Origin: http://evil.local' -H 'X-Forwarded-For: 1.2.3.4' -H 'Host: evil.example.com' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 405 Method Not Allowed
+Allow: GET, HEAD
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 19
+
+method_not_allowed
+
+-----------------------------------------------
+### C1h wrong METHOD only (DELETE on read route, valid bearer)
+$ curl -sS -i --max-time 10 -X DELETE -H "Authorization: Bearer $READ" 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 405 Method Not Allowed
+Allow: GET, HEAD
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 19
+
+method_not_allowed
+
+-----------------------------------------------
+### C1i mutation route: bad bearer + missing CSRF (valid Origin) -> which of bearer vs csrf wins
+$ curl -sS -i --max-time 10 -X POST -H 'Authorization: Bearer badbadbadbadbadbadbadbadbadbadbadbad' -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data '{"target_id":"claude.user_otel","original":{}}' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 401 Unauthorized
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 24
+
+authentication_required
+
+-----------------------------------------------
+### C1j mutation route: bad bearer + bad Origin -> which of origin vs bearer wins
+$ curl -sS -i --max-time 10 -X POST -H 'Authorization: Bearer badbadbadbadbadbadbadbadbadbadbadbad' -H 'Origin: http://evil.local' -H "X-Kansoku-CSRF: $CSRF" -H 'Content-Type: application/json' --data '{"target_id":"claude.user_otel","original":{}}' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 403 Forbidden
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 15
+
+invalid_origin
+
+-----------------------------------------------
+--- C2 ---
+### C2 X-Forwarded-For: 1.2.3.4 with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'X-Forwarded-For: 1.2.3.4' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 27
+
+forwarded_headers_rejected
+
+-----------------------------------------------
+### C2b Forwarded: for=1.2.3.4 with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Forwarded: for=1.2.3.4' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 27
+
+forwarded_headers_rejected
+
+-----------------------------------------------
+### C2c X-Real-IP: 1.2.3.4 with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'X-Real-IP: 1.2.3.4' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 27
+
+forwarded_headers_rejected
+
+-----------------------------------------------
+### C2d X-Forwarded-Host: evil.local with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'X-Forwarded-Host: evil.local' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 27
+
+forwarded_headers_rejected
+
+-----------------------------------------------
+### C2e X-Forwarded-Proto: https with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'X-Forwarded-Proto: https' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Content-Length: 27
+
+forwarded_headers_rejected
+
+-----------------------------------------------
+### C2f X-Forwarded-For present but EMPTY value with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'X-Forwarded-For;' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:39 GMT
+Transfer-Encoding: chunked
+
+{"api_version":"kansoku.api/1","request_id":"req_3b2941cea9bd8780a1b6ae457aad8166","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":13063871,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:23:00.387612772Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:23:00.373102+03:00","last_observed_at":"2026-08-01T10:23:00.248+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:23:37.285387+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:23:37.285387+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:23:37.285835+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:23:37.285835+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719589888,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":434176,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+-----------------------------------------------
+--- C3 ---
+### C3 Host: evil.example.com with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Host: evil.example.com' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 421 Misdirected Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:40 GMT
+Content-Length: 13
+
+invalid_host
+
+-----------------------------------------------
+### C3b Host: evil.example.com:43100 with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Host: evil.example.com:43100' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 421 Misdirected Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:40 GMT
+Content-Length: 13
+
+invalid_host
+
+-----------------------------------------------
+### C3c Host: 127.0.0.1 (no port) with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Host: 127.0.0.1' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 421 Misdirected Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:40 GMT
+Content-Length: 19
+
+invalid_route_host
+
+-----------------------------------------------
+### C3d Host: localhost:43100 with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Host: localhost:43100' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:40 GMT
+Transfer-Encoding: chunked
+
+{"api_version":"kansoku.api/1","request_id":"req_9bbf554ea740648fefa7b9abeea07a28","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":13063871,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:23:00.387612772Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:23:00.373102+03:00","last_observed_at":"2026-08-01T10:23:00.248+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:23:37.285387+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:23:37.285387+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:23:37.285835+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:23:37.285835+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719589888,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":434176,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+-----------------------------------------------
+### C3e Host: [::1]:43100 with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Host: [::1]:43100' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:40 GMT
+Transfer-Encoding: chunked
+
+{"api_version":"kansoku.api/1","request_id":"req_d0edb90ff5e8c774209ef121a7409286","data":{"backpressure_rejected_total":0,"checkpoint_usage":{"current_bytes":1244,"budget_bytes":4194304,"percentage":0.03,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"counter_persistence":{"state":"pass"},"counter_scope":"restart_durable","database":"pass","database_budget":{"current_bytes":13063871,"budget_bytes":5368709120,"percentage":0.24,"state":"pass","growth_bytes_per_day":null,"estimated_exhaustion_at":null},"durability_unavailable_total":0,"last_rejected_ingest_at":null,"last_successful_ingest_at":"2026-08-01T07:23:00.387612772Z","legacy_mirror":{"current_bytes":0,"state":"archived_or_not_present"},"migration_ledgers":"pass","oldest_pending_projection_at":null,"oldest_spooled_at":{"adapter_batch":"0001-01-01T00:00:00Z","codex_rollout":"0001-01-01T00:00:00Z","evidence_bridge":"0001-01-01T00:00:00Z","hook_http":"0001-01-01T00:00:00Z","otlp_log":"0001-01-01T00:00:00Z","otlp_metric":"0001-01-01T00:00:00Z","otlp_span":"0001-01-01T00:00:00Z","transcript_jsonl":"0001-01-01T00:00:00Z"},"open_incident_count":26,"pending_projection_count":0,"queue_depth":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"source_freshness":[{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:21:02.358425+03:00","last_observed_at":"2026-08-01T10:21:02.358081+03:00","source_kind":"hook_http","value_state":"observed"},{"clock_state":"source_rfc3339","freshness_state":"pass","gap_count":0,"inactivity":false,"last_committed_at":"2026-08-01T10:23:00.373102+03:00","last_observed_at":"2026-08-01T10:23:00.248+03:00","source_kind":"otlp_log","value_state":"observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:14:12.282099+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.app_server","state":"configured","updated_at":"2026-08-01T10:14:12.282099+03:00","value_state":"not_observed"},{"freshness_state":"pass","last_attempted_at":"2026-08-01T10:23:37.285387+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.remote_orchestration","state":"unsupported","updated_at":"2026-08-01T10:23:37.285387+03:00","value_state":"unsupported"},{"freshness_state":"degraded","last_attempted_at":"2026-08-01T10:23:37.285835+03:00","last_error_class":null,"last_successful_at":null,"source_id":"codex.rollout","state":"configured","updated_at":"2026-08-01T10:23:37.285835+03:00","value_state":"observed"}],"source_state":"degraded","spool":"pass","spool_budget_bytes":{"adapter_batch":67108864,"codex_rollout":67108864,"evidence_bridge":67108864,"hook_http":67108864,"otlp_log":67108864,"otlp_metric":67108864,"otlp_span":67108864,"transcript_jsonl":67108864},"spool_bytes":{"adapter_batch":0,"codex_rollout":0,"evidence_bridge":0,"hook_http":0,"otlp_log":0,"otlp_metric":0,"otlp_span":0,"transcript_jsonl":0},"status":"degraded","storage_components":{"backups":{"bytes":0,"value_state":"observed"},"filesystem":{"available_bytes":3719589888,"total_bytes":4149706752,"free_percentage":89.64,"minimum_recommended_free_bytes":26843545600,"state":"degraded"},"indexes":{"bytes":3039232,"value_state":"observed"},"table_heap":{"bytes":434176,"value_state":"observed"},"temporary_files":{"bytes":0,"value_state":"observed","notes":"cumulative PostgreSQL temporary bytes; current temporary-file occupancy is not observed"},"wal_headroom":{"bytes":null,"value_state":"not_observed","notes":"WAL occupies shared database storage; a safe independent WAL reservation is not observable from this role"}},"workers":"pass"},"completeness":{"completeness":"partial","denominator":16,"exclusions":["current WAL occupancy and rollback headroom are not independently observed","temporary-file value is cumulative rather than current occupancy","production source lanes without committed freshness evidence are not observed","codex.app_server source state is not_observed","codex.remote_orchestration source state is unsupported","codex.rollout source health is degraded"],"numerator":7,"status":"degraded"}}
+
+-----------------------------------------------
+--- C4 ---
+### C4 Host: 127.0.0.1:4318 (ingress port) sent to UI port 43100 with VALID read bearer
+$ curl -sS -i --max-time 10 -H "Authorization: Bearer $READ" -H 'Host: 127.0.0.1:4318' 'http://127.0.0.1:43100/api/v1/health'
+HTTP/1.1 421 Misdirected Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:40 GMT
+Content-Length: 19
+
+invalid_route_host
+
+-----------------------------------------------
+### C4b Host: 127.0.0.1:43100 sent to INGRESS port 4318, POST /v1/metrics, ingress bearer
+$ curl -sS -i --max-time 10 -X POST -H "Authorization: Bearer $(cat /tmp/kansoku-testbed/secrets/ingress_bearer)" -H 'Host: 127.0.0.1:43100' -H 'Content-Type: application/x-protobuf' --data-binary '' 'http://127.0.0.1:4318/v1/metrics'
+HTTP/1.1 421 Misdirected Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/plain; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:40 GMT
+Content-Length: 19
+
+invalid_route_host
+
+-----------------------------------------------
+### C4c control: Host: 127.0.0.1:4318 POST /v1/metrics on 4318 with ingress bearer (baseline)
+$ curl -sS -i --max-time 10 -X POST -H "Authorization: Bearer $(cat /tmp/kansoku-testbed/secrets/ingress_bearer)" -H 'Content-Type: application/x-protobuf' --data-binary '' 'http://127.0.0.1:4318/v1/metrics'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/x-protobuf
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:23:40 GMT
+Content-Length: 0
+
+
+-----------------------------------------------

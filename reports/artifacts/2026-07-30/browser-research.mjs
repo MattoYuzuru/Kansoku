@@ -114,6 +114,8 @@ try {
     agent_class_filter: {},
     range_persistence: {},
     model_error_ratio: {},
+    model_drilldown: {},
+    fleet_hierarchy: {},
     collection_health: {},
     reliability_navigation: {},
     overflow: {},
@@ -223,6 +225,15 @@ try {
   await screenshot(page, "skill-profile-after-spa-click.png");
 
   await navigate(page, "/agents", `document.querySelectorAll('a[href^="/agents/"]').length > 0`);
+  evidence.fleet_hierarchy = await evaluate(page, `
+    (() => ({
+      heading: document.querySelector("h1")?.textContent?.trim() ?? null,
+      canonical_path: location.pathname,
+      hierarchy_text: document.querySelector('[aria-label="Fleet analytics hierarchy"]')
+        ?.textContent?.replace(/\\s+/g, " ").trim() ?? null,
+      installation_link_count: document.querySelectorAll('a[href^="/agents/"]').length,
+    }))()
+  `);
   const agentLinks = await evaluate(page, `
     [...document.querySelectorAll('a[href^="/agents/"]')]
       .slice(0, 8)
@@ -305,6 +316,13 @@ try {
           document.body.innerText.includes("class fixture") ||
           document.body.innerText.includes("class imported") ||
           document.body.innerText.includes("class unknown")
+      `),
+      hierarchy_text: await evaluate(page, `
+        document.querySelector('[aria-label="Fleet hierarchy"]')
+          ?.textContent?.replace(/\\s+/g, " ").trim() ?? null
+      `),
+      model_drilldown_link_count: await evaluate(page, `
+        document.querySelectorAll('a[href^="/models?model="]').length
       `),
       new_exceptions: exceptions.slice(start),
     });
@@ -427,6 +445,73 @@ try {
       };
     })()
   `);
+  await waitFor(page, `document.querySelector('a[data-model-id]')`, 10000);
+  await evaluate(page, `window.__kansokuModelSentinel = "present"; true`);
+  const selectedModelHref = await evaluate(page, `
+    document.querySelector('a[data-model-id]')?.getAttribute("href") ?? null
+  `);
+  await evaluate(page, `
+    (() => {
+      const link = document.querySelector('a[data-model-id]');
+      if (!(link instanceof HTMLElement)) throw new Error("model_drilldown_link_missing");
+      link.click();
+      return true;
+    })()
+  `);
+  await waitFor(page, `
+    location.pathname === "/models" &&
+      location.search.includes("model=") &&
+      Boolean(document.querySelector("[data-selected-model]"))
+  `, 10000);
+  const modelAfterClick = await evaluate(page, `
+    (() => {
+      const globalHeading = [...document.querySelectorAll("h2")]
+        .find((node) => node.textContent?.trim() === "Global cross-installation model comparison");
+      const drilldownHeading = [...document.querySelectorAll("h2")]
+        .find((node) => node.textContent?.trim() === "Model drill-down");
+      return {
+        pathname: location.pathname,
+        search: location.search,
+        selected_model: document.querySelector("[data-selected-model]")
+          ?.getAttribute("data-selected-model") ?? null,
+        sentinel: window.__kansokuModelSentinel ?? null,
+        drilldown_present: Boolean(drilldownHeading),
+        global_comparison_present: Boolean(globalHeading),
+        coverage_text: drilldownHeading?.closest(".k-panel")
+          ?.textContent?.replace(/\\s+/g, " ").trim() ?? null,
+      };
+    })()
+  `);
+  await page.call("Page.reload", { ignoreCache: true });
+  await waitFor(page, `
+    document.readyState === "complete" &&
+      location.pathname === "/models" &&
+      location.search.includes("model=") &&
+      Boolean(document.querySelector("[data-selected-model]"))
+  `, 10000);
+  const modelAfterReload = await pageState(page);
+  const history = await page.call("Page.getNavigationHistory");
+  await page.call("Page.navigateToHistoryEntry", {
+    entryId: history.entries[history.currentIndex - 1].id,
+  });
+  await waitFor(page, `
+    location.pathname === "/models" &&
+      location.search === "" &&
+      [...document.querySelectorAll("h2")]
+        .some((node) => node.textContent?.trim() === "Global cross-installation model comparison")
+  `, 10000);
+  evidence.model_drilldown = {
+    selected_href: selectedModelHref,
+    after_click: modelAfterClick,
+    after_reload: modelAfterReload,
+    after_back: await pageState(page),
+    selected_panel_after_back: await evaluate(page, `
+      Boolean(document.querySelector("[data-selected-model]"))
+    `),
+    global_row_count_after_back: await evaluate(page, `
+      document.querySelectorAll('a[data-model-id]').length
+    `),
+  };
 
   await navigate(page, "/reliability", `document.querySelector(".k-reliability-tabs")`);
   await evaluate(page, `window.__kansokuResearchSentinel = "present"; true`);
@@ -618,6 +703,8 @@ try {
     skill_profile: evidence.skill_profile,
     range_persistence: evidence.range_persistence,
     model_error_ratio: evidence.model_error_ratio,
+    model_drilldown: evidence.model_drilldown,
+    fleet_hierarchy: evidence.fleet_hierarchy,
     collection_health: evidence.collection_health,
     reliability_navigation: evidence.reliability_navigation,
     overflow_counts: Object.fromEntries(

@@ -1,0 +1,183 @@
+### daily UTC 2026-07-01..2026-08-02
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_63e8723032f953046a3f9b0c51664a0b",
+    "data": {
+        "data": [
+            {
+                "day": "2026-07-15T03:00:00+03:00",
+                "prompt_count": 1,
+                "character_percentiles": {
+                    "p50": 61,
+                    "p90": 61,
+                    "p95": 61,
+                    "p99": 61
+                }
+            },
+            {
+                "day": "2026-08-01T03:00:00+03:00",
+                "prompt_count": 7,
+                "character_percentiles": {
+                    "p50": 33,
+                    "p90": 184.80000000000004,
+                    "p95": 243.89999999999995,
+                    "p99": 291.18
+                }
+            }
+        ],
+        "formula_version": "prompt_shape/3",
+        "population": {
+            "numerator": 8,
+            "denominator": 8
+        },
+        "completeness": {
+            "status": "complete",
+            "covered_ratio": 1,
+            "intervals": []
+        },
+        "freshness": {
+            "rollup_watermark": "2026-08-01T10:24:47.673714+03:00",
+            "late_events_pending": 0
+        }
+    },
+    "completeness": {
+        "completeness": "complete",
+        "denominator": 8,
+        "exclusions": [],
+        "numerator": 8
+    }
+}
+
+### hourly UTC 2026-08-01
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_d82e211a13ac969c33914cf451695b46",
+    "data": {
+        "data": [
+            {
+                "day": "2026-08-01T10:00:00+03:00",
+                "prompt_count": 7,
+                "character_percentiles": {
+                    "p50": 33,
+                    "p90": 184.80000000000004,
+                    "p95": 243.89999999999995,
+                    "p99": 291.18
+                }
+            }
+        ],
+        "formula_version": "prompt_shape/3",
+        "population": {
+            "numerator": 7,
+            "denominator": 7
+        },
+        "completeness": {
+            "status": "complete",
+            "covered_ratio": 1,
+            "intervals": []
+        },
+        "freshness": {
+            "rollup_watermark": "2026-08-01T10:24:47.673714+03:00",
+            "late_events_pending": 0
+        }
+    },
+    "completeness": {
+        "completeness": "complete",
+        "denominator": 7,
+        "exclusions": [],
+        "numerator": 7
+    }
+}
+
+### no granularity/timezone params
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_b327edd8aa07694681f3dfe37b25d509",
+    "data": {
+        "data": [
+            {
+                "day": "2026-07-15T03:00:00+03:00",
+                "prompt_count": 1,
+                "character_percentiles": {
+                    "p50": 61,
+                    "p90": 61,
+                    "p95": 61,
+                    "p99": 61
+                }
+            },
+            {
+                "day": "2026-08-01T03:00:00+03:00",
+                "prompt_count": 7,
+                "character_percentiles": {
+                    "p50": 33,
+                    "p90": 184.80000000000004,
+                    "p95": 243.89999999999995,
+                    "p99": 291.18
+                }
+            }
+        ],
+        "formula_version": "prompt_shape/3",
+        "population": {
+            "numerator": 8,
+            "denominator": 8
+        },
+        "completeness": {
+            "status": "complete",
+            "covered_ratio": 1,
+            "intervals": []
+        },
+        "freshness": {
+            "rollup_watermark": "2026-08-01T10:24:47.673714+03:00",
+            "late_events_pending": 0
+        }
+    },
+    "completeness": {
+        "completeness": "complete",
+        "denominator": 8,
+        "exclusions": [],
+        "numerator": 8
+    }
+}
+
+### invalid granularity
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_bd80df96bb0c886971c12a9be9953d9d",
+    "error": "invalid_analytics_range"
+}
+
+### invalid timezone
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_4dad4b26355576b40536f9dca4b16128",
+    "error": "invalid_analytics_range"
+}
+
+### range with zero prompts (2020)
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_473ca0882a1c485785044dd67772b6c4",
+    "data": {
+        "data": null,
+        "formula_version": "prompt_shape/3",
+        "population": {
+            "numerator": 0,
+            "denominator": 0
+        },
+        "completeness": {
+            "status": "unknown",
+            "covered_ratio": 0,
+            "intervals": []
+        },
+        "freshness": {
+            "rollup_watermark": "2026-08-01T10:24:47.673714+03:00",
+            "late_events_pending": 0
+        }
+    },
+    "completeness": {
+        "completeness": "unknown",
+        "denominator": 0,
+        "exclusions": [],
+        "numerator": 0
+    }
+}
+
