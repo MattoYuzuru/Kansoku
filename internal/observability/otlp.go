@@ -428,6 +428,27 @@ func outcomeValue(value *commonv1.AnyValue) (string, bool) {
 	return "", false
 }
 
+// plainScalar renders an attribute value as the agent wrote it. canonicalScalar
+// below deliberately prefixes a type tag because it feeds schema fingerprints,
+// where "1" the string and 1 the integer must not collide. A stored dimension
+// or a pseudonym input needs the opposite: the value itself, so a metric's
+// session handle is byte-identical to the one the log lane derives from the
+// same session id.
+func plainScalar(value *commonv1.AnyValue) string {
+	switch typed := value.GetValue().(type) {
+	case *commonv1.AnyValue_StringValue:
+		return typed.StringValue
+	case *commonv1.AnyValue_IntValue:
+		return strconv.FormatInt(typed.IntValue, 10)
+	case *commonv1.AnyValue_BoolValue:
+		return strconv.FormatBool(typed.BoolValue)
+	case *commonv1.AnyValue_DoubleValue:
+		return strconv.FormatFloat(typed.DoubleValue, 'g', -1, 64)
+	default:
+		return ""
+	}
+}
+
 func canonicalScalar(value *commonv1.AnyValue) string {
 	switch typed := value.GetValue().(type) {
 	case *commonv1.AnyValue_StringValue:
@@ -824,16 +845,59 @@ func (r *OTLPReceiver) ingestMetrics(request *collectormetricsv1.ExportMetricsSe
 		for _, scope := range resourceMetrics.GetScopeMetrics() {
 			scopeName := scope.GetScope().GetName()
 			for _, metric := range scope.GetMetrics() {
+				// Only Claude Code publishes a documented metric vocabulary,
+				// so only Claude metrics take the metric lane. The fixture
+				// agent stamps kansoku.event.type on its metric points by
+				// wire convention and genuinely belongs on the event lane;
+				// Codex publishes no metric attribute vocabulary at all.
+				// Routing either through the metric lane would replace
+				// working behaviour with a guess.
+				if adapterKind != adapterClaude {
+					points := numberPoints(metric)
+					count += len(points)
+					for _, point := range points {
+						if err := r.ingestOneRecord(adapterKind, scopeName, point.GetAttributes(), point.GetTimeUnixNano(), kind); err != nil {
+							if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+								return err
+							}
+							fingerprint := stableID(
+								"invalid-otlp-record/1", string(kind), adapterIdentity(adapterKind),
+								scopeName, nativeEventName(adapterKind, scopeName, point.GetAttributes()),
+							)
+							if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(point)), 1); quarantineErr != nil {
+								return quarantineErr
+							}
+						}
+					}
+					continue
+				}
 				points := numberPoints(metric)
+				// A histogram, exponential histogram or summary yields no
+				// number points. Previously that produced an empty slice and
+				// the metric vanished without a trace; now the shape is
+				// quarantined, because "we do not understand this" and "there
+				// was nothing here" are different facts.
+				if len(points) == 0 {
+					count++
+					fingerprint := stableID(
+						"unsupported-otlp-metric-shape/1", string(kind),
+						adapterIdentity(adapterKind), scopeName, metric.GetName(),
+					)
+					if err := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(metric)), 1); err != nil {
+						return err
+					}
+					continue
+				}
 				count += len(points)
 				for _, point := range points {
-					if err := r.ingestOneRecord(adapterKind, scopeName, point.GetAttributes(), point.GetTimeUnixNano(), kind); err != nil {
-						if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+					if err := r.ingestMetricPoint(adapterKind, scopeName, metric, point, kind); err != nil {
+						if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) ||
+							errors.Is(err, ErrMetricLaneUnavailable) {
 							return err
 						}
 						fingerprint := stableID(
-							"invalid-otlp-record/1", string(kind), adapterIdentity(adapterKind),
-							scopeName, nativeEventName(adapterKind, scopeName, point.GetAttributes()),
+							"invalid-otlp-metric/1", string(kind), adapterIdentity(adapterKind),
+							scopeName, metric.GetName(),
 						)
 						if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(point)), 1); quarantineErr != nil {
 							return quarantineErr
@@ -844,6 +908,95 @@ func (r *OTLPReceiver) ingestMetrics(request *collectormetricsv1.ExportMetricsSe
 		}
 	}
 	return nil
+}
+
+// ingestMetricPoint routes one metric data point through the metric lane.
+//
+// The dispatch key is the metric name, not an event name: a metric point
+// carries no event.name attribute, so the previous event-lane routing made
+// nativeEventName fall back to the instrumentation-scope name and quarantine
+// every point Claude Code has ever sent. Name, unit and value are all read
+// here -- previously only the point's attributes were, which is why four
+// documented measurements including the only "time actually spent" signal any
+// agent reports were never stored.
+func (r *OTLPReceiver) ingestMetricPoint(
+	adapterKind otlpAdapterKind,
+	scopeName string,
+	metric *metricsv1.Metric,
+	point *metricsv1.NumberDataPoint,
+	sourceKind SourceKind,
+) error {
+	if adapterKind != adapterClaude {
+		// Only Claude Code publishes a documented metric vocabulary. Another
+		// adapter's metrics are quarantined rather than guessed at.
+		return errors.New("metric_vocabulary_not_documented_for_adapter")
+	}
+	metricName, ok := claudeadapter.MetricNameFromString(metric.GetName())
+	if !ok {
+		return errors.New("undocumented_metric_name")
+	}
+
+	sample := MetricSample{
+		MetricName:        string(metricName),
+		Unit:              metric.GetUnit(),
+		ObservedAt:        time.Unix(0, int64(point.GetTimeUnixNano())).UTC(),
+		AdapterID:         claudeadapter.AdapterID,
+		AdapterVersion:    "1.0.0",
+		SourceKind:        sourceKind,
+		SchemaFingerprint: stableID("otel-metric-schema/1", scopeName, string(metricName), metric.GetUnit()),
+	}
+	switch point.GetValue().(type) {
+	case *metricsv1.NumberDataPoint_AsInt:
+		value := point.GetAsInt()
+		sample.ValueInt = &value
+	case *metricsv1.NumberDataPoint_AsDouble:
+		value := point.GetAsDouble()
+		sample.ValueDouble = &value
+	default:
+		return errors.New("metric_point_without_value")
+	}
+
+	for _, attribute := range point.GetAttributes() {
+		slot, mapped := claudeadapter.MetricAttributeSafeSlot(
+			claudeadapter.MetricAttribute(attribute.GetKey()))
+		if !mapped {
+			continue
+		}
+		value := plainScalar(attribute.GetValue())
+		if value == "" {
+			continue
+		}
+		switch slot {
+		case "kansoku.session.id":
+			sample.SessionID = "ses_" + r.ingestor.SyntheticProbeIdentity("session/1",
+				claudeadapter.AdapterID+"\x00"+value)[:24]
+		case "kansoku.user.id":
+			sample.UserID = "usr_" + r.ingestor.SyntheticProbeIdentity("user/1",
+				claudeadapter.AdapterID+"\x00"+value)[:24]
+		case "kansoku.model.id":
+			sample.ModelID = value
+		case "kansoku.session.terminal_type":
+			sample.TerminalType = value
+		case "kansoku.session.query_source":
+			sample.QuerySource = value
+		case "kansoku.session.start_type":
+			sample.StartType = value
+		case "kansoku.metric.dimension":
+			sample.Dimension = value
+		}
+	}
+
+	// One point per (metric, dimensions, timestamp) is one fact. Replaying the
+	// same export must not add a second row.
+	sample.IdempotencyKey = stableID("otel-metric-sample/1",
+		string(sourceKind), string(metricName), sample.Unit, sample.SessionID,
+		sample.UserID, sample.ModelID, sample.TerminalType, sample.QuerySource,
+		sample.StartType, sample.Dimension,
+		strconv.FormatUint(point.GetTimeUnixNano(), 10))
+	sample.SampleID = "mts_" + sample.IdempotencyKey[:32]
+	sample.AgentInstallationID = "ain_" + stableID("agent-installation/1", claudeadapter.AdapterID)[:32]
+
+	return r.ingestor.IngestMetricSample(sample)
 }
 
 func numberPoints(metric *metricsv1.Metric) []*metricsv1.NumberDataPoint {
