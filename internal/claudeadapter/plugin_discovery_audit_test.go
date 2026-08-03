@@ -132,9 +132,19 @@ func TestAuditLane02DirectStateRootDiscoversRealPluginLayout(t *testing.T) {
 // read error), so a fully-populated host is reported as a host with no plugins
 // at all.
 //
-// Expected: either the scan follows the link into the linked tree, or the
-// refusal is reported distinguishably. Actual: zero plugins, zero
-// marketplaces, and no error class that separates "refused" from "absent".
+// Resolution (2026-08-03). Of the two acceptable outcomes the paragraph above
+// names, only the second is available: following the link would mean reading a
+// target the operator did not put inside an allowed root, which is the one
+// guarantee HostView exists to make. Widening it to make a scan succeed would
+// trade a visible gap for an invisible privilege.
+//
+// So the refusal is now reported distinguishably -- the settings read, the
+// marketplace listing and the plugin-folder listing each tally a coverage gap
+// instead of returning silently -- and this test asserts that, not discovery.
+// The deployment answer to a symlinked state root is to mount the link target
+// read-only as an allowed root (KANSOKU_AGENT_LINK_ROOT_*, added in
+// c49437d); TestAuditLane02LinkedLibraryInsideAllowedRootsIsFullyDiscovered
+// below pins that supported layout end to end.
 func TestAuditLane02SymlinkedStateRootDiscoversPlugins(t *testing.T) {
 	base := t.TempDir()
 	real := filepath.Join(base, "real")
@@ -154,14 +164,80 @@ func TestAuditLane02SymlinkedStateRootDiscoversPlugins(t *testing.T) {
 		}
 	}
 
-	input, scanned := lane02ScanRoot(t, stateRoot, stateRoot)
-	if len(input.Plugins) == 0 {
-		t.Fatalf(
-			"F-02-1: symlinked state root reported %d plugins / %d marketplaces (scanned=%v); "+
-				"HostView rejects the link target as outside_allowed_roots and inventoryscan.go "+
-				"swallows the rejection, so a populated host is indistinguishable from an empty one",
-			len(input.Plugins), len(input.Marketplaces), scanned,
+	input, _ := lane02ScanRoot(t, stateRoot, stateRoot)
+	if len(input.Plugins) != 0 {
+		t.Fatalf("a link target outside the allowed roots was read anyway: %d plugins", len(input.Plugins))
+	}
+	if input.CoverageGaps.Total() == 0 {
+		t.Fatal(
+			"F-02-1: a refused symlinked state root reported no coverage gap at all, so a " +
+				"populated host stays indistinguishable from an empty one",
 		)
+	}
+	if input.CoverageGaps[adaptersdk.CoverageGapUnresolvableSymlink] == 0 {
+		t.Fatalf(
+			"the refusal was tallied but not classified as an unresolvable symlink: %v",
+			input.CoverageGaps,
+		)
+	}
+}
+
+// TestAuditLane02LinkedLibraryInsideAllowedRootsIsFullyDiscovered is the other
+// half of F-02-1: the supported deployment, where the link target is itself
+// mounted read-only as an allowed root. Discovery must then be complete --
+// plugin, version, and all five bundled child kinds -- with no coverage gap.
+func TestAuditLane02LinkedLibraryInsideAllowedRootsIsFullyDiscovered(t *testing.T) {
+	base := t.TempDir()
+	real := filepath.Join(base, "real")
+	stateRoot := filepath.Join(base, "state")
+	lane02BuildRealPluginTree(t, real)
+
+	if err := os.MkdirAll(filepath.Join(stateRoot, "plugins"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, link := range []struct{ from, to string }{
+		{filepath.Join(real, "settings.json"), filepath.Join(stateRoot, "settings.json")},
+		{filepath.Join(real, "plugins", "cache"), filepath.Join(stateRoot, "plugins", "cache")},
+		{filepath.Join(real, "plugins", "installed_plugins.json"), filepath.Join(stateRoot, "plugins", "installed_plugins.json")},
+	} {
+		if err := os.Symlink(link.from, link.to); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// base covers both the state root and the linked library, which is exactly
+	// what mounting the link target read-only achieves in the compose stack.
+	host, err := adaptersdk.NewHostView([]string{base}, nil, lane02PseudonymKey())
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, scanned := claudeadapter.ScanHostInventory(host, adaptersdk.Installation{
+		InstallationID: "ain_0102030405060708090a0b0c0d0e0f10",
+		AdapterID:      claudeadapter.AdapterID,
+		SurfaceID:      "cli",
+		StateRoot:      stateRoot,
+	})
+	if !scanned || len(input.Plugins) == 0 {
+		t.Fatalf("linked library inside the allowed roots was not discovered: scanned=%v plugins=%d",
+			scanned, len(input.Plugins))
+	}
+	if input.CoverageGaps.Total() != 0 {
+		t.Errorf("a fully readable layout still reported coverage gaps: %v", input.CoverageGaps)
+	}
+	var found *claudeadapter.PluginDescriptor
+	for index := range input.Plugins {
+		if input.Plugins[index].Name == "sre-agent@yuzuru-engineering" {
+			found = &input.Plugins[index]
+		}
+	}
+	if found == nil {
+		t.Fatalf("expected plugin not discovered: %+v", input.Plugins)
+	}
+	if len(found.BundledSkills) == 0 || len(found.BundledSubagents) == 0 ||
+		len(found.BundledCommands) == 0 || len(found.BundledHooks) == 0 {
+		t.Errorf("bundled children incomplete through a link: skills=%d subagents=%d commands=%d hooks=%d",
+			len(found.BundledSkills), len(found.BundledSubagents),
+			len(found.BundledCommands), len(found.BundledHooks))
 	}
 }
 
