@@ -201,6 +201,42 @@ func eventCarriesTurn(eventType string) bool {
 	}
 }
 
+// PersistMetricSample stores one recognized OTLP metric point. It implements
+// observability.MetricSampleSink, which is an optional capability of the
+// durable sink: the metric lane is additive and never rewrites a fact.
+//
+// The sample is written with ON CONFLICT DO NOTHING against its idempotency
+// key so a re-exported point -- which the OTLP exporter will resend after any
+// 5xx -- cannot inflate a cost or a token total.
+func (h *ObservabilityHandoff) PersistMetricSample(sample observability.MetricSample) error {
+	if h == nil || h.pool == nil {
+		return errors.New("observability_handoff_not_configured")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), h.timeout)
+	defer cancel()
+	if err := EnsurePartition(ctx, h.pool, "metric_samples", sample.ObservedAt); err != nil {
+		return err
+	}
+	_, err := h.pool.Exec(ctx, `
+		INSERT INTO metric_samples (
+			metric_sample_id, observed_at, ingested_at, metric_name, unit,
+			value_int, value_double, adapter_id, adapter_version, source_kind,
+			schema_fingerprint, agent_installation_id, session_id, user_pseudonym,
+			model_id, terminal_type, query_source, start_type, dimension,
+			idempotency_key
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+		ON CONFLICT DO NOTHING
+	`, sample.SampleID, sample.ObservedAt, sample.IngestedAt, sample.MetricName,
+		nullableString(sample.Unit), sample.ValueInt, sample.ValueDouble,
+		sample.AdapterID, sample.AdapterVersion, string(sample.SourceKind),
+		sample.SchemaFingerprint, nullableString(sample.AgentInstallationID),
+		nullableString(sample.SessionID), nullableString(sample.UserID),
+		nullableString(sample.ModelID), nullableString(sample.TerminalType),
+		nullableString(sample.QuerySource), nullableString(sample.StartType),
+		nullableString(sample.Dimension), sample.IdempotencyKey)
+	return err
+}
+
 func (h *ObservabilityHandoff) PersistNormalizedFact(event observability.Event, evidence observability.Evidence) error {
 	if h == nil || h.pool == nil {
 		return errors.New("observability_handoff_not_configured")

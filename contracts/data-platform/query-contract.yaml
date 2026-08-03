@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.data-platform-query-contract/1",
-  "contract_version": "1.9.0",
+  "contract_version": "1.10.0",
   "effective_at": "2026-07-31",
   "response_fields": ["data", "formula_version", "population", "completeness", "freshness"],
   "population_fields": ["numerator", "denominator"],
@@ -33,6 +33,7 @@
       {"id": "incident_occurrences", "description": "one incident's metadata-only occurrence evidence ordered by observed_at and opaque occurrence id with signed keyset pagination", "max_ms": 100, "backing": "idx_incident_occurrences_page"},
       {"id": "quarantine_list", "description": "metadata-only structural manifests ordered by last_seen_at and opaque quarantine id with signed keyset pagination", "max_ms": 150, "backing": "idx_quarantine_manifests_page"},
       {"id": "quarantine_detail", "description": "one metadata-only structural manifest by opaque quarantine id", "max_ms": 100, "backing": "quarantine_structural_manifests_primary_key"},
+      {"id": "metric_reconciliation_range", "description": "per-measurement comparison of the agent-reported OTLP metric total against the api_request-derived fact total within a range, reporting the signed difference and marking any measurement only one lane reported as excluded rather than as agreement", "max_ms": 200, "backing": "metric_samples_and_token_usage_and_model_operations_partition_pruned"},
       {"id": "incident_debug_bundle", "description": "typed allowlisted incident debug bundle assembled from one incident, its occurrence count and optional structural manifest", "max_ms": 150, "backing": "incident_detail_incident_occurrences_quarantine_manifest"}
     ],
     "enforcement": "statement_timeout_set_per_session_at_the_budget_ceiling_and_measured_wall_clock_assertion_in_tests",

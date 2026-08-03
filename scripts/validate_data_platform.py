@@ -50,6 +50,7 @@ BUDGET_IDS = {
     "mcp_server_profile_range", "incident_list",
     "incident_detail", "incident_occurrences", "quarantine_list", "quarantine_detail",
     "incident_debug_bundle",
+    "metric_reconciliation_range",
 }
 COMPLETENESS_STATUSES = ["complete", "partial", "degraded", "unknown"]
 RESPONSE_FIELDS = ["data", "formula_version", "population", "completeness", "freshness"]

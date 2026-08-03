@@ -13,7 +13,7 @@ import (
 // matching contracts/data-platform/schema.yaml `partitioning.partitioned_tables`.
 var PartitionedTables = []string{
 	"events", "event_evidence", "model_operations", "token_usage", "tool_calls",
-	"mcp_connections", "tool_decisions", "hook_registrations",
+	"mcp_connections", "tool_decisions", "hook_registrations", "metric_samples",
 }
 
 func partitionName(table string, month time.Time) string {

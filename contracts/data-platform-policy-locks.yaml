@@ -24,6 +24,8 @@
     {"policy_version": "data-platform.query-contract/12", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "3b7c55321cd4155694e70643e8da22882bcc613fbf357e6d73c928406241dae9"},
     {"policy_version": "data-platform.schema/7", "registry": "contracts/data-platform/schema.yaml", "semantic_sha256": "8a69f202a71bdbd7010383099a9298b7003809ac6dc8c7fdaa8575cfa27f2942"},
     {"policy_version": "data-platform.query-contract/13", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "66c5312f6ff4bd60e35dbfe41ff3a4c43b97c966c8343e0cb999a70167fc1850"},
-    {"policy_version": "data-platform.schema/8", "registry": "contracts/data-platform/schema.yaml", "semantic_sha256": "4867dc0e736d00cfe87eb218bd0f86835d4c13282a452e010e83b3756028dd60"}
+    {"policy_version": "data-platform.schema/8", "registry": "contracts/data-platform/schema.yaml", "semantic_sha256": "4867dc0e736d00cfe87eb218bd0f86835d4c13282a452e010e83b3756028dd60"},
+    {"policy_version": "data-platform.schema/9", "registry": "contracts/data-platform/schema.yaml", "semantic_sha256": "b84d75b604caff30730ea73762438b68e5c14a45352fd28c0f1b4dcfacb83a1c"},
+    {"policy_version": "data-platform.query-contract/14", "registry": "contracts/data-platform/query-contract.yaml", "semantic_sha256": "6f902043cacca3b855a5f6f4e7f2e2be051fccd420a580c13b8d68a5ae564517"}
   ]
 }

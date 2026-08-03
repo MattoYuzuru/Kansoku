@@ -54,6 +54,7 @@ var Budgets = map[string]QueryBudget{
 	"reliability_counts_range":     {ID: "reliability_counts_range", MaxMS: 250},
 	"system_snapshot":              {ID: "system_snapshot", MaxMS: 50},
 	"privacy_canary_history_range": {ID: "privacy_canary_history_range", MaxMS: 100},
+	"metric_reconciliation_range":  {ID: "metric_reconciliation_range", MaxMS: 200},
 }
 
 // ErrBudgetExceeded is returned when a budgeted query's measured wall-clock
