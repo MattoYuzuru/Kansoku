@@ -126,6 +126,15 @@ func ScanHostInventory(host *adaptersdk.HostView, target adaptersdk.Installation
 
 	settingsPath := filepath.Join(target.StateRoot, settingsFileName)
 	result, err := host.ReadConfigProbe(settingsPath)
+	if err != nil {
+		// The read was refused, not absent. Swallowing this made a state root
+		// whose settings.json is a symlink out of the allowed roots -- the
+		// documented non-container layout -- report zero plugins and zero MCP
+		// servers, indistinguishable from a host that has none. The refusal is
+		// now tallied so the appliance can say "could not read" instead of
+		// silently saying "there is nothing here".
+		input.CoverageGaps.Add(rootGapClass(settingsPath))
+	}
 	if err == nil && result.Exists {
 		var shape claudeSettingsShape
 		decoder := json.NewDecoder(strings.NewReader(string(result.Content)))
@@ -271,6 +280,10 @@ func scanPluginCache(host *adaptersdk.HostView, stateRoot string) (marketplaces 
 
 		pluginEntries, err := host.ListDirectoryProbe(marketDir)
 		if err != nil {
+			// A bare continue here tallied nothing, so a refused marketplace
+			// directory reduced the plugin count without leaving any trace of
+			// why. The deeper levels below had the same hole.
+			gaps.Add(rootGapClass(marketDir))
 			continue
 		}
 		pluginFolders := make([]string, 0, len(pluginEntries))
@@ -289,6 +302,7 @@ func scanPluginCache(host *adaptersdk.HostView, stateRoot string) (marketplaces 
 			pluginDir := filepath.Join(marketDir, pluginFolder)
 			versionEntries, err := host.ListDirectoryProbe(pluginDir)
 			if err != nil {
+				gaps.Add(rootGapClass(pluginDir))
 				continue
 			}
 			versionNames := make([]string, 0, len(versionEntries))
@@ -312,14 +326,33 @@ func scanPluginCache(host *adaptersdk.HostView, stateRoot string) (marketplaces 
 				composite := declaredName + "@" + marketName
 				skills, skillGaps, _ := scanSkillRoot(host, filepath.Join(versionDir, "skills"), adaptersdk.ScopePluginCache)
 				gaps.Merge(skillGaps)
+				// A plugin package ships five child kinds, not one.
+				// contracts/plugins/inventory-and-identity.yaml has always
+				// declared skill/hook/mcp/command/app, and PluginDescriptor
+				// has always carried the fields -- only skills/ was ever read,
+				// so a plugin's subagents, commands, hooks and MCP servers
+				// could not be inventoried, could not be shown as unused, and
+				// could not be attributed when they were invoked.
+				subagents, subagentGaps := scanBundledSubagents(host, versionDir)
+				gaps.Merge(subagentGaps)
+				commands, commandGaps := scanBundledCommands(host, versionDir)
+				gaps.Merge(commandGaps)
+				hooks, hookGaps := scanBundledHooks(host, versionDir)
+				gaps.Merge(hookGaps)
+				mcpServers, mcpGaps := scanBundledMCPServers(host, versionDir)
+				gaps.Merge(mcpGaps)
 				candidates = append(candidates, PluginDescriptor{
-					Name:            composite,
-					Version:         versionHash,
-					Scope:           adaptersdk.ScopePluginCache,
-					FromMarketplace: marketName,
-					PathPseudonym:   host.PseudonymizePath(versionDir),
-					Fingerprint:     stableHex("plugin-cache", composite, versionHash),
-					BundledSkills:   skills,
+					Name:              composite,
+					Version:           versionHash,
+					Scope:             adaptersdk.ScopePluginCache,
+					FromMarketplace:   marketName,
+					PathPseudonym:     host.PseudonymizePath(versionDir),
+					Fingerprint:       stableHex("plugin-cache", composite, versionHash),
+					BundledSkills:     skills,
+					BundledSubagents:  subagents,
+					BundledCommands:   commands,
+					BundledHooks:      hooks,
+					BundledMCPServers: mcpServers,
 				})
 				pluginBudget--
 			}
@@ -467,6 +500,14 @@ func mergePluginCacheData(target *PluginDescriptor, cache PluginDescriptor) {
 	target.FromMarketplace = cache.FromMarketplace
 	target.PathPseudonym = cache.PathPseudonym
 	target.BundledSkills = cache.BundledSkills
+	// The other four child kinds are carried across for the same reason
+	// skills are: the cache directory is where a configured plugin's contents
+	// physically live, so dropping them here would make an installed plugin
+	// look like it bundles nothing but skills.
+	target.BundledSubagents = cache.BundledSubagents
+	target.BundledCommands = cache.BundledCommands
+	target.BundledHooks = cache.BundledHooks
+	target.BundledMCPServers = cache.BundledMCPServers
 	target.Fingerprint = stableHex("plugin-config-cache", target.Name, boolString(target.ActiveEnabledFor != ""), cache.Fingerprint)
 }
 
