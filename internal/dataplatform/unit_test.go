@@ -194,6 +194,8 @@ func TestBudgetsMatchQueryContract(t *testing.T) {
 		"reliability_counts_range":     250,
 		"system_snapshot":              50,
 		"privacy_canary_history_range": 100,
+		// Declared in the contract, unlike the Wave 1b block above.
+		"metric_reconciliation_range": 200,
 	}
 	if len(Budgets) != len(expected) {
 		t.Fatalf("expected %d budgets, got %d", len(expected), len(Budgets))
