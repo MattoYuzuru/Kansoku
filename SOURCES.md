@@ -495,6 +495,239 @@ third-party identity remains `not_observed`. PostgreSQL's exported snapshot is u
 format dump and its table-count/version manifest observe the same transaction snapshot during
 concurrent ingestion.
 
+## 2026-07-26 Session 16 implementation verification
+
+- OpenAI plugin build documentation:
+  <https://developers.openai.com/plugins/build/plugins>
+- Codex App Server protocol:
+  <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
+- Codex App Server JSON Schema generated from local Codex CLI `0.145.0`, including
+  `plugin/read`, `PluginReadParams`, `PluginReadResponse`, `PluginDetail`, `PluginSummary`,
+  `SkillSummary`, `PluginHookSummary`, `AppSummary` and MCP server names.
+- Claude Code monitoring:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Claude Code plugins reference:
+  <https://code.claude.com/docs/en/plugins-reference>
+- Retrieved and live-checked: 2026-07-26.
+- Locally observed versions: Codex CLI `0.145.0`; Claude Code `2.1.197`; Go `1.26.5`;
+  Node `26.3.0`; npm `11.16.0`.
+
+The current Codex protocol exposes `plugin/list`, `plugin/installed` and `plugin/read`.
+`plugin/read` returned the Session 16 local canary as one plugin with local version `0.1.0`, one
+enabled namespaced skill and one named MCP server. Kansoku uses only those bounded identity and
+membership fields; marketplace/plugin paths, descriptions, prompts, URLs and content are discarded
+before persistence. The App Server methods remain experimental and the bridge stays pinned to
+0.145.0.
+
+Claude documents `plugin_installed` and one `plugin_loaded` event per enabled plugin at session
+start. The load event includes plugin identity, marketplace/version/scope and bounded bundle counts;
+third-party identity is redacted unless detailed telemetry is explicitly enabled. Kansoku maps
+installed and loaded independently and does not infer plugin success from either event or from a
+child outcome.
+
+## 2026-07-28 P0/P1 incident implementation re-check
+
+- Codex App Server protocol:
+  <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
+- Local generated JSON Schema command:
+  `codex app-server generate-json-schema --experimental --out TARGET`
+- Claude Code monitoring:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Claude Code plugins reference:
+  <https://code.claude.com/docs/en/plugins-reference>
+- PostgreSQL 18 database object-size functions:
+  <https://www.postgresql.org/docs/18/functions-admin.html#FUNCTIONS-ADMIN-DBSIZE>
+- PostgreSQL 18 cumulative statistics:
+  <https://www.postgresql.org/docs/18/monitoring-stats.html>
+- Retrieved and executable versions checked: 2026-07-28.
+- Local versions: Codex CLI `0.145.0`; Claude Code `2.1.197`; PostgreSQL `18`; Go `1.26.5`.
+
+The generated 0.145.0 App Server aggregate schema SHA-256 is
+`6008369088efb49582c6d90299ffcb378cddddf22a14ac67faa0b81b2030f27c`; selected
+JSON-RPC, `SkillsListResponse`, `ItemStartedNotification` and
+`ThreadStatusChangedNotification` hashes are recorded in
+`contracts/codex/generated/app-server-0.145.0-schema-manifest.json`. The bridge is exact-version
+only and now demultiplexes concurrent request IDs; unrelated responses and documented service
+notifications are not bridge schema failures.
+
+Claude 2.1.197 documentation and the installed executable confirm the bounded
+`skill_activated`/`invocation_trigger` and `plugin_loaded` metadata used by the mapper. Kansoku
+keeps detailed tool-content, user-prompt and raw-API-body flags disabled. PostgreSQL size functions
+support the advisory database/table/index observations; current WAL rollback headroom and current
+temporary-file occupancy are not derivable from the application role and remain explicit
+`not_observed` exclusions. The 25–30 GiB Docker free-space recommendation is a Kansoku rollback,
+backup and WAL operating envelope, not a PostgreSQL hard limit.
+
+## 2026-07-29 supervised bridge/runtime re-check
+
+- Codex App Server protocol:
+  <https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md>
+- Local generated JSON Schema command:
+  `codex app-server generate-json-schema --experimental --out TARGET`
+- Claude Code CLI help and monitoring:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Retrieved/rechecked: 2026-07-29.
+- Executable versions unchanged: Codex CLI `0.145.0`; Claude Code `2.1.197`; PostgreSQL `18`;
+  Go `1.26.5`.
+
+The local 0.145.0 generator was rerun twice. Individual files were stable:
+`ClientRequest.json` SHA-256
+`03e30c97136d6618273e3e9197d8621bad9ac6cfd733c0cfe09dc8754ee6ac5c` and
+`v2/PluginReadResponse.json` SHA-256
+`c2819939ba7a71a9deb3a1574b489124b0a20c7d2023f963ce38729300a20c45`.
+The combined aggregate schema file changed byte order between runs, so its historical hash is not
+used alone as a compatibility proof; selected generated-file hashes are authoritative in the
+manifest and validator. The Kansoku route is a local authenticated transport around this reviewed
+JSON-RPC demultiplexer and does not claim ordinary-CLI coverage. Per operator direction no further
+Claude process was launched and no Claude configuration was changed during this phase.
+
+## 2026-07-29 Codex plugin catalog inventory re-check
+
+- Codex manual, plugin build and plugin use sections:
+  <https://developers.openai.com/plugins/build/plugins> and
+  <https://learn.chatgpt.com/docs/plugins>
+- Retrieved through the official Codex manual helper: 2026-07-29.
+- Locally observed Codex CLI version: `0.145.0`.
+
+The current official material defines a plugin as an installable package that may bundle skills,
+MCP and other capabilities; its minimal package shape includes
+`.codex-plugin/plugin.json` and `skills/<skill>/SKILL.md`. It also says Codex CLI installs plugins
+from a marketplace through `/plugins`, requires a new session for bundled skills/tools, and
+separates installed from enabled state. The official material does **not** promise the internal
+`CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>` storage layout.
+
+That cache layout was therefore treated as a version-observed 0.145.0 local source, not as a stable
+public interface. The mounted personal Codex home contained 2 marketplace directories, 12 plugin
+version directories and 67 immediate skill manifests at retrieval time, all within the declared
+64/512/2,048 scanner bounds. Kansoku reads this source through `HostView` only, never writes agent
+directories, never infers enabled from cache presence, and persists only identity metadata, HMAC
+path pseudonyms, counts and fingerprints. An absent cache and an unreadable/ambiguous cache remain
+distinct coverage states.
+
+Kansoku's installation binding is an internal lineage decision rather than an upstream Codex
+claim: the explicitly mounted home, its inventory snapshot and its ordinary-CLI rollout watcher use
+one configured opaque ID. App Server evidence joins that population only when its producer supplies
+the same ID. No official source is interpreted as permission to infer a logical installation from
+the latest database row.
+
+## 2026-07-29 browser verification re-check
+
+- Chrome Headless mode:
+  <https://developer.chrome.com/docs/chromium/headless/>
+- Chrome DevTools Protocol:
+  <https://chromedevtools.github.io/devtools-protocol/>
+- DevTools Protocol Emulation domain:
+  <https://chromedevtools.github.io/devtools-protocol/tot/Emulation/>
+- DevTools Protocol Page domain:
+  <https://chromedevtools.github.io/devtools-protocol/tot/Page/>
+- WCAG 2.2:
+  <https://www.w3.org/TR/WCAG22/>
+- Retrieved/rechecked: 2026-07-29.
+- Local executable versions: Google Chrome `150.0.7871.187`; Node `26.3.0`; npm `11.16.0`.
+
+The repository browser verifier launches local Chrome headless with an ephemeral profile and uses
+CDP only for navigation, viewport/media/scale emulation, DOM/accessibility assertions and runtime
+error collection. It covers WCAG 2.2 text contrast, both half-width reflow and actual CDP page
+scale `2.0`, reduced motion, keyboard-named controls and desktop/mobile overflow. CDP tip-of-tree
+is explicitly not treated as a stable wire contract; the harness uses the local
+browser-advertised protocol endpoint.
+
+## 2026-07-30 defect-research interface re-check
+
+- Codex App Server:
+  <https://developers.openai.com/codex/app-server/>
+- Codex skill authoring and invocation:
+  <https://developers.openai.com/codex/skills/>
+- Claude Code monitoring and usage:
+  <https://code.claude.com/docs/en/monitoring-usage>
+- Claude organization skill analytics:
+  <https://platform.claude.com/docs/en/api/admin/analytics/skills>
+- PostgreSQL 18 ordered-set aggregates:
+  <https://www.postgresql.org/docs/18/functions-aggregate.html>
+- Retrieved/rechecked: 2026-07-30.
+- Locally observed versions: Codex CLI `0.145.0`; Claude Code `2.1.197`;
+  PostgreSQL `18.4`; Google Chrome `150.0.7871.187`; Go `1.26.5`;
+  Node `26.3.0`; npm `11.16.0`.
+
+Current Codex documentation distinguishes inventory from invocation. `skills/list` and
+`skills/changed` expose discovery and invalidation, while an App Server client can make one
+explicit request observable by sending both a `$<skill-name>` text marker and the recommended
+typed `skill` input item. The skill guide also documents implicit activation by the model. Neither
+page defines an ordinary-CLI skill-activation lifecycle notification. Kansoku may therefore count
+typed App Server requests exactly, but its ordinary-CLI rollout reconstruction remains
+version-pinned evidence with explicit coverage and must not be presented as universal exact
+activation telemetry. Current App Server plugin list/read methods are marked under development.
+
+Current Claude Code monitoring documentation still defines `skill_activated` and one
+`plugin_loaded` event per enabled plugin at session start. It additionally documents
+`skill.name`, `plugin.name`, and `agent.name` attribution on token and cost counters, a
+`success` field on `tool_result`, and `skill_name` inside Skill-tool parameters when detailed tool
+telemetry is enabled. Detailed tool telemetry also exposes content-bearing fields, so it is not a
+privacy-safe Kansoku default. These current pages may describe a newer executable than the locally
+installed `2.1.197`; sanitized version-pinned fixtures are required before adapter changes.
+
+The Claude organization analytics endpoint is a separate authenticated remote API. Its
+`invocation_count`, when enabled, is a true per-use count that can be summed over a window, while
+distinct session/conversation counts can be approximate in range mode. Kansoku does not currently
+configure this remote source, and default-deny egress means it cannot be used implicitly as a
+substitute for local telemetry.
+
+PostgreSQL `percentile_cont` remains the exact ordered-set calculation used by Kansoku for
+continuous percentiles over the selected non-null fact population. Formatting those results to two
+decimal places is a presentation decision and must not change the stored or queried population.
+
+## 2026-08-01 Claude Code skill telemetry re-check
+
+- Monitoring and OpenTelemetry: <https://code.claude.com/docs/en/monitoring-usage>
+- Skills: <https://code.claude.com/docs/en/skills>
+- Hooks reference: <https://code.claude.com/docs/en/hooks>
+- Retrieved/rechecked: 2026-08-01.
+- Locally observed runtime: Claude Code `2.1.220`. Documentation behavior gates still run through
+  `2.1.216`, so `2.1.220` is a locally observed runtime, not documented coverage, and neither alone
+  is a support claim. `contracts/claude/manifest.yaml`, `contracts/claude/hooks-and-otel.yaml` and
+  `contracts/capabilities.yaml` now record the observed range `2.1.197`–`2.1.220`; earlier dated
+  sections of this file keep the version that was actually installed when they were written.
+
+Observed on a live loopback OTLP capture of `skill_activated`, recorded from the operator's own
+session and reduced to attribute names and non-content values only:
+
+```text
+event.name="skill_activated"        skill.name="sre-agent:verification-strategy"
+invocation_trigger="claude-proactive"  skill.source="plugin"
+plugin.name="sre-agent"             marketplace.name="yuzuru-engineering"
+```
+
+Findings that change the mapper's assumptions:
+
+1. **`skill.name` is already owner-qualified.** It arrives as `<plugin>:<skill>` together with a
+   separate `plugin.name`. Prepending the owner a second time yields identities such as
+   `sre-agent:sre-agent:verification-strategy`, which no inventory row can match. User-scope skills
+   with no owning plugin arrive bare.
+2. **`skill.source` is Claude's vocabulary, not Kansoku's.** Observed `skill.source="plugin"`,
+   `plugin.scope="user-local"`, `enabled_via="user-install"`. None is a member of
+   `system|user|repository|admin|marketplace|plugin_cache|transient_session`. Live inventory stores
+   plugin-bundled Claude skills at `plugin_cache`. Using the raw value as a resolution filter reduces
+   every candidate set to zero.
+3. **`marketplace.name` is emitted** on `skill_activated` and `plugin_loaded` and is currently
+   dropped. It is the exact disambiguator the resolver approximates by splitting the owner declared
+   name on `@`.
+4. **`hook_registered` and `assistant_response` are emitted but undeclared**, so both quarantine on
+   every session start. Both are metadata-only; `assistant_response`'s response text stays outside
+   the allowlist.
+5. **`skill.name="third-party"` / `plugin.name="third-party"` is a sentinel** on `api_request` and
+   on `claude_code.cost.usage` / `token.usage`. Per-skill cost and token attribution is therefore not
+   achievable for third-party skills.
+6. **Built-in skills ship inside the compiled executable.** `find` over the installed
+   `@anthropic-ai/claude-code` package returns no `SKILL.md`; the built-in set is compiled into the
+   platform binary. No filesystem scan can inventory them.
+7. **No exposure surface exists.** Neither the monitoring reference nor the skills reference
+   documents an event or snapshot reporting the model-visible skill set, and the SessionStart hook
+   payload carries only `session_id`, `transcript_path`, `cwd`, `hook_event_name` and `source`.
+   Claude's exposed plane is therefore declared `unsupported` rather than inferred.
+
+No agent configuration was written and no skill root was modified during this re-check; all
+observation was read-only against already-flowing loopback telemetry and read-only binds.
+
 ## Source maintenance policy
 
 For every supported agent release:

@@ -107,3 +107,20 @@ ID. Triage routes cannot set detector state and no resolve route exists. Fixed O
 descriptor names may form an observed structural shape; sources without a value-free descriptor
 remain `not_observed`. Confirmed retention expires detail while preserving aggregate incident
 counts and an explicit occurrence-detail exclusion count.
+
+## 2026-07-30 workbench amendment
+
+Incident and quarantine lists consume the existing signed keyset cursors through bounded infinite
+queries. The viewport sentinel may request the next page, while a keyboard-accessible Load more
+button is always the fallback. At most 200 rows are mounted; the user must refine URL-addressable
+filters beyond that boundary.
+
+Detector and triage filters use the shared ARIA Dropdown. Text filters, tab changes, profile links,
+Back and refresh stay inside Wouter navigation without replacing the document. Scroll position is
+stored per non-sensitive Reliability URL in session storage. Query failures render an alert
+instead of an endless loading state.
+
+The existing version-pinned unknown-schema integration fixture remains the acceptance proof:
+repeat delivery creates one incident and one manifest, adds a distinct occurrence, reconciles the
+durable aggregate count, preserves source/adapter/schema/parser/event-type attribution and rejects
+a tampered cursor. No incident is deleted or mass-resolved, and Claude is not launched.

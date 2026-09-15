@@ -19,7 +19,7 @@ LOCK_PATH = ROOT / "contracts" / "observability-policy-locks.yaml"
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "session-03" / "shared-scenario.json"
 
 FILES = ("envelope.yaml", "ingress.yaml", "lifecycles.yaml", "reconciliation.yaml")
-EVENT_FIELDS = ["spec_version", "event_id", "fact_key", "event_type", "emitted_at", "observed_at", "ingested_at", "timestamp_quality", "source", "scope", "subject", "measurements", "value_state", "outcome", "correlation_status", "lifecycle"]
+EVENT_FIELDS = ["spec_version", "event_id", "fact_key", "event_type", "emitted_at", "observed_at", "ingested_at", "timestamp_quality", "source", "scope", "subject", "component_evidence", "activity", "measurements", "value_state", "outcome", "correlation_status", "lifecycle"]
 EVIDENCE_FIELDS = ["evidence_id", "event_id", "source", "tier", "confidence", "completeness", "replay_count", "first_seen_at", "last_seen_at", "sanitizer_version", "privacy_contract_sha256", "assertion"]
 EVIDENCE_ASSERTION_FIELDS = ["event_type", "outcome", "value_state"]
 SOURCE_LIFECYCLE = ["discovered", "configured", "connected", "producing", "reconciled"]
@@ -64,7 +64,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
     envelope, ingress, lifecycles, reconciliation = (by_name[name] for name in FILES)
 
     expected_top = {
-        "envelope.yaml": {"schema_version", "contract_version", "effective_at", "event_spec_version", "event_fields", "source_fields", "scope_fields", "subject_fields", "measurement_fields", "evidence_fields", "evidence_assertion_fields", "forbidden_fields", "identity", "time"},
+        "envelope.yaml": {"schema_version", "contract_version", "effective_at", "event_spec_version", "event_fields", "source_fields", "scope_fields", "subject_fields", "component_evidence_fields", "activity_fields", "measurement_fields", "evidence_fields", "evidence_assertion_fields", "forbidden_fields", "identity", "time"},
         "ingress.yaml": {"schema_version", "contract_version", "effective_at", "protocols", "limits", "otlp", "source_schemas", "otlp_safe_attributes", "ignored_prohibited_otlp_surfaces", "unknown_schema", "durability"},
         "lifecycles.yaml": {"schema_version", "contract_version", "effective_at", "source_primary", "source_branches", "event_primary", "terminal_failure", "correlation_states", "completeness_states", "evidence_tiers", "confidence_ceilings", "invariants"},
         "reconciliation.yaml": {"schema_version", "contract_version", "effective_at", "capability", "logical_fixture", "expected_lanes", "one_fact_rule", "complete_when", "partial_when", "dedupe", "reorder", "late", "watermark_fields", "silence", "recovery", "contradiction", "durable_state_validation"},

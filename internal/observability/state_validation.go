@@ -13,13 +13,13 @@ var (
 	hex32IDPattern      = regexp.MustCompile(`^(?:evt|evd|cor|inc|qua)_[0-9a-f]{32}$`)
 	safeIDPattern       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$`)
 	pseudonymPattern    = regexp.MustCompile(`^hmac-sha256:[0-9a-f]{64}$`)
-	installationPattern = regexp.MustCompile(`^ain_(?:fixture|[0-9a-f]{32})$`)
+	installationPattern = regexp.MustCompile(`^ain_[A-Za-z0-9][A-Za-z0-9_-]{0,123}$`)
 	devicePattern       = regexp.MustCompile(`^dev_(?:fixture|[0-9a-f]{32})$`)
 )
 
 func validSourceKind(kind SourceKind) bool {
 	switch kind {
-	case SourceHook, SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric, SourceTranscript, SourceAdapterBatch, SourceEvidenceBridge:
+	case SourceHook, SourceOTLPLog, SourceOTLPSpan, SourceOTLPMetric, SourceTranscript, SourceAdapterBatch, SourceEvidenceBridge, SourceCodexRollout:
 		return true
 	default:
 		return false
@@ -84,7 +84,7 @@ func validEventType(value string) bool {
 	switch value {
 	case "session.started", "prompt.submitted", "component.executed", "session.stopped",
 		"model.requested", "model.responded", "component.installed", "component.enabled",
-		"component.exposed", "component.loaded", "component.invoked",
+		"component.exposed", "component.requested", "component.loaded", "component.invoked",
 		"source.observed",
 		// "tool.called" is appended (never replacing component.executed) for
 		// Gap A: it is the real, already-tested canonical event type both
@@ -94,7 +94,13 @@ func validEventType(value string) bool {
 		// (internal/codexadapter/otel.go, internal/claudeadapter/otel.go).
 		// The fixture-agent lane's own tool_finished -> component.executed
 		// mapping (normalize.go's canonicalEventTypes) is untouched.
-		"tool.called":
+		"tool.called",
+		// "tool.decided" is the permission answer a tool call received. It is
+		// deliberately a separate canonical type from tool.called: an
+		// execution is still counted exactly once, from tool_result, while a
+		// decision that was denied has no execution to be counted from at all
+		// and used to vanish into source.observed.
+		"tool.decided":
 		return true
 	default:
 		return false
@@ -134,6 +140,9 @@ func validSource(source SourceRef) bool {
 	if source.Kind == SourceOTLPLog || source.Kind == SourceOTLPSpan || source.Kind == SourceOTLPMetric {
 		return source.SchemaID == "codex.otel/1" || source.SchemaID == "claude.otel/1"
 	}
+	if source.Kind == SourceCodexRollout {
+		return source.SchemaID == "codex.rollout/2"
+	}
 	return false
 }
 
@@ -160,6 +169,13 @@ func validateEvent(event Event, factKey string) error {
 		(event.Measurements.OutputTokens != nil && *event.Measurements.OutputTokens < 0) ||
 		(event.Measurements.ProviderCostMicros != nil && *event.Measurements.ProviderCostMicros < 0) ||
 		(event.Measurements.Count != nil && *event.Measurements.Count < 0) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.QualifiedIdentity) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.IdentitySource) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.OwnerPluginIdentity) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.InvocationMode) ||
+		!safeComponentMetadataValue(event.ComponentEvidence.SourceScope) ||
+		(event.ComponentEvidence.UpstreamIdentityHash != "" &&
+			!pseudonymPattern.MatchString(event.ComponentEvidence.UpstreamIdentityHash)) ||
 		!validValueState(event.ValueState) || !validOutcome(event.Outcome) || !validCorrelation(event.CorrelationStatus) {
 		return errors.New("invalid_event")
 	}
@@ -291,7 +307,8 @@ func ValidateState(state DurableState) error {
 	}
 	for index, quarantine := range state.Quarantine {
 		if !hex32IDPattern.MatchString(quarantine.QuarantineID) || !validSourceKind(quarantine.SourceKind) || !fingerprintPattern.MatchString(quarantine.SchemaFingerprint) ||
-			!safeIDPattern.MatchString(quarantine.Category) || quarantine.ByteCount < 0 || quarantine.RecordCount < 0 || quarantine.ObservedAt.IsZero() {
+			!safeIDPattern.MatchString(quarantine.Category) || quarantine.ByteCount < 0 || quarantine.RecordCount < 0 || quarantine.ObservedAt.IsZero() ||
+			(quarantine.OccurrenceKey != "" && !fingerprintPattern.MatchString(quarantine.OccurrenceKey)) {
 			return fmt.Errorf("invalid_quarantine:%d", index)
 		}
 	}

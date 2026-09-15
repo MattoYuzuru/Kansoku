@@ -1,0 +1,39 @@
+{
+  "schema_version": "kansoku.codex-generated-schema-manifest/1",
+  "agent": "codex-cli",
+  "agent_version": "0.145.0",
+  "generated_at": "2026-07-29",
+  "generation_command": "codex app-server generate-json-schema --experimental --out TARGET",
+  "artifacts": [
+    {
+      "path": "codex_app_server_protocol.v2.schemas.json",
+      "sha256": "6008369088efb49582c6d90299ffcb378cddddf22a14ac67faa0b81b2030f27c"
+    },
+    {
+      "path": "JSONRPCMessage.json",
+      "sha256": "7b819754ee909272f46d45dbd51bc9eb7bab9861905ac1195f1fb5afd7ff5e83"
+    },
+    {
+      "path": "v2/SkillsListResponse.json",
+      "sha256": "9d7dcc8cc75aac6be70803a941eedc9594725b66eacaa54062a3b6518acf70d5"
+    },
+    {
+      "path": "v2/ItemStartedNotification.json",
+      "sha256": "35e7674f955c0661ad30f47f6e1b709425748df45d90293f03bfbf34ebfdadaa"
+    },
+    {
+      "path": "v2/ThreadStatusChangedNotification.json",
+      "sha256": "146af6d3702c4f3c844bd10b6b6b3e2b872e958a8d7d822157c19aaa6dc085f6"
+    },
+    {
+      "path": "ClientRequest.json",
+      "sha256": "03e30c97136d6618273e3e9197d8621bad9ac6cfd733c0cfe09dc8754ee6ac5c"
+    },
+    {
+      "path": "v2/PluginReadResponse.json",
+      "sha256": "c2819939ba7a71a9deb3a1574b489124b0a20c7d2023f963ce38729300a20c45"
+    }
+  ],
+  "scope": "hash_manifest_only_generated_schema_content_is_not_runtime_telemetry",
+  "compatibility": "exact_version_only"
+}

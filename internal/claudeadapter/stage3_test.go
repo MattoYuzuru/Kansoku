@@ -98,20 +98,39 @@ func TestBuildInventorySnapshotLinksPluginBundledComponentsWithBundlesEdgeNeverS
 	}
 
 	foundBundles := false
-	foundDirectEnabledForBundledSkill := false
+	foundEnabledForBundledSkill := false
+	pluginEnabled := false
 	for _, edge := range snapshot.Edges {
 		if edge.Kind == adaptersdk.EdgeBundles && edge.FromNode == pluginNode.NodeID && edge.ToNode == bundledSkillNode.NodeID {
 			foundBundles = true
 		}
 		if edge.Kind == adaptersdk.EdgeEnabledFor && edge.FromNode == bundledSkillNode.NodeID {
-			foundDirectEnabledForBundledSkill = true
+			foundEnabledForBundledSkill = true
+		}
+		if edge.Kind == adaptersdk.EdgeEnabledFor && edge.FromNode == pluginNode.NodeID {
+			pluginEnabled = true
 		}
 	}
 	if !foundBundles {
 		t.Fatal("a plugin-bundled skill must be linked to its owning plugin package node by a bundles edge")
 	}
-	if foundDirectEnabledForBundledSkill {
-		t.Fatal("a plugin-bundled component must never receive its own direct enabled_for edge to the installation (it is enabled transitively through the plugin, never reported as a standalone unowned component)")
+	// ADR 0024. This assertion used to be the opposite: a bundled component
+	// was required NOT to carry an enabled_for edge, on the stated grounds
+	// that it is "enabled transitively through the plugin". Nothing ever
+	// implemented that transitivity -- internal/dataplatform/inventory.go
+	// derives `enabled` from the enabled_for edge alone and never walks
+	// bundles -- so the intention held here produced 139 plugin-bundled
+	// skills reported disabled underneath 21 plugins reported enabled, and an
+	// invoked bundled skill could never become `used`.
+	//
+	// The inheritance is now materialized as an edge, which is also what
+	// cache_separation's own wording requires: a component is reported
+	// enabled only when an enabled_for edge to an active installation exists.
+	if !pluginEnabled {
+		t.Fatal("fixture precondition: the acme-toolkit plugin must itself be enabled")
+	}
+	if !foundEnabledForBundledSkill {
+		t.Fatal("a component bundled by an enabled plugin must inherit an enabled_for edge, otherwise it is reported disabled while its owner is reported enabled")
 	}
 }
 
@@ -138,6 +157,102 @@ func TestBuildInventorySnapshotCacheEntryNeverReportedEnabled(t *testing.T) {
 	for _, edge := range snapshot.Edges {
 		if edge.Kind == adaptersdk.EdgeEnabledFor && edge.FromNode == cacheNode.NodeID {
 			t.Fatal("a plugin/marketplace cache artifact must never receive an enabled_for edge")
+		}
+	}
+}
+
+// TestBuildInventorySnapshotDedupesMarketplaceNodeSharedByMultiplePlugins
+// proves two different plugins pointing at the same FromMarketplace name
+// (the normal case for any real marketplace hosting more than one plugin)
+// produce exactly one marketplace node, never two -- two nodes with the
+// same declared name but no input.Marketplaces entry would otherwise get
+// the *same* NodeID (hashed from the name alone) and get silently
+// duplicated, which downstream snapshot validation rejects outright as an
+// invalid duplicate node.
+func TestBuildInventorySnapshotDedupesMarketplaceNodeSharedByMultiplePlugins(t *testing.T) {
+	now := time.Now()
+	input := claudeadapter.InventoryInput{
+		InstallationID: "install-4",
+		Plugins: []claudeadapter.PluginDescriptor{
+			{
+				Name: "plugin-x@shared-market", Scope: adaptersdk.ScopeUser,
+				ActiveEnabledFor: "install-4", FromMarketplace: "shared-market", Fingerprint: "fp-plugin-x",
+			},
+			{
+				Name: "plugin-y@shared-market", Scope: adaptersdk.ScopeUser,
+				ActiveEnabledFor: "install-4", FromMarketplace: "shared-market", Fingerprint: "fp-plugin-y",
+			},
+		},
+	}
+	snapshot, err := claudeadapter.BuildInventorySnapshot(input, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var marketNodes []adaptersdk.Node
+	for _, node := range snapshot.Nodes {
+		if node.DeclaredName == "shared-market" {
+			marketNodes = append(marketNodes, node)
+		}
+	}
+	if len(marketNodes) != 1 {
+		t.Fatalf("expected exactly one marketplace node shared by both plugins, got %d: %+v", len(marketNodes), marketNodes)
+	}
+
+	configuredInCount := 0
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeConfiguredIn && edge.ToNode == marketNodes[0].NodeID {
+			configuredInCount++
+		}
+		if edge.Kind == adaptersdk.EdgeCollidesWith && (edge.FromNode == marketNodes[0].NodeID || edge.ToNode == marketNodes[0].NodeID) {
+			t.Fatal("a single shared marketplace node must never collide with itself")
+		}
+	}
+	if configuredInCount != 2 {
+		t.Fatalf("expected both plugins' configured_in edges to point at the single shared marketplace node, got %d", configuredInCount)
+	}
+}
+
+// TestBuildInventorySnapshotMergesMarketplaceDescriptorWithPluginPointer
+// proves that when input.Marketplaces already describes a marketplace by
+// name (with a real PathPseudonym from a filesystem scan), a plugin's own
+// FromMarketplace pointer reuses that same node instead of minting a second,
+// path-less node under the same name -- which would otherwise spuriously
+// collide with the richer one despite describing the same real marketplace.
+func TestBuildInventorySnapshotMergesMarketplaceDescriptorWithPluginPointer(t *testing.T) {
+	now := time.Now()
+	input := claudeadapter.InventoryInput{
+		InstallationID: "install-5",
+		Plugins: []claudeadapter.PluginDescriptor{
+			{
+				Name: "plugin-z@scanned-market", Scope: adaptersdk.ScopeUser,
+				ActiveEnabledFor: "install-5", FromMarketplace: "scanned-market", Fingerprint: "fp-plugin-z",
+			},
+		},
+		Marketplaces: []claudeadapter.MarketplaceDescriptor{
+			{Name: "scanned-market", PathPseudonym: "pseudo-scanned-market", Fingerprint: "fp-scanned-market"},
+		},
+	}
+	snapshot, err := claudeadapter.BuildInventorySnapshot(input, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var marketNodes []adaptersdk.Node
+	for _, node := range snapshot.Nodes {
+		if node.DeclaredName == "scanned-market" {
+			marketNodes = append(marketNodes, node)
+		}
+	}
+	if len(marketNodes) != 1 {
+		t.Fatalf("expected exactly one marketplace node, got %d: %+v", len(marketNodes), marketNodes)
+	}
+	if marketNodes[0].PathPseudonym != "pseudo-scanned-market" {
+		t.Fatalf("expected the plugin pointer to reuse the richer scanned marketplace descriptor, got %+v", marketNodes[0])
+	}
+	for _, edge := range snapshot.Edges {
+		if edge.Kind == adaptersdk.EdgeCollidesWith && (edge.FromNode == marketNodes[0].NodeID || edge.ToNode == marketNodes[0].NodeID) {
+			t.Fatal("a plugin pointer merged into an already-scanned marketplace descriptor must never collide with it")
 		}
 	}
 }

@@ -70,7 +70,13 @@ func (c *InventoryCollector) ScanOnce(ctx context.Context) error {
 }
 
 func (c *InventoryCollector) scanTarget(ctx context.Context, target InventoryTarget) error {
-	host, err := adaptersdk.NewHostView([]string{target.StateRoot}, nil, c.identityKey)
+	// LinkRoots widen the permitted read surface to exactly the directories a
+	// symlinked state root points into. Without them HostView refuses every
+	// link -- it resolves one level and then requires the target to also sit
+	// inside a permitted root -- and the scan records a coverage gap per
+	// refused entry instead of the skills that are really there.
+	allowedRoots := append([]string{target.StateRoot}, target.LinkRoots...)
+	host, err := adaptersdk.NewHostView(allowedRoots, nil, c.identityKey)
 	if err != nil {
 		return errors.New("host_view_initialization_failed")
 	}
@@ -87,16 +93,19 @@ func (c *InventoryCollector) scanTarget(ctx context.Context, target InventoryTar
 	}
 	installationID := target.InstallationID
 	if installationID == "" {
-		installationID, err = dataplatform.LatestInstallationForAdapter(ctx, c.pool, target.AdapterID)
-		if err != nil {
-			return errors.New("installation_lookup_failed")
-		}
-	}
-	if installationID == "" {
 		installationID = normalizedInstallationID(target.AdapterID)
 	}
 	if err := dataplatform.EnsureInventoryInstallation(ctx, c.pool, installationID, target.AdapterID); err != nil {
 		return errors.New("installation_projection_failed")
+	}
+	// The adapter's own manifest states which component evidence planes it can
+	// observe at all. It is read from the registry like any other manifest
+	// field and persisted as data; nothing here knows or asks which agent this
+	// is, and an adapter that declares nothing simply writes nothing.
+	if err := dataplatform.UpsertComponentPlaneSupport(
+		ctx, c.pool, installationID, adapter.Manifest(), c.now().UTC(),
+	); err != nil {
+		return errors.New("plane_support_projection_failed")
 	}
 	snapshot, err := adapter.Inventory(ctx, adaptersdk.Installation{
 		InstallationID: installationID, AdapterID: target.AdapterID,
@@ -105,12 +114,28 @@ func (c *InventoryCollector) scanTarget(ctx context.Context, target InventoryTar
 	if err != nil {
 		return errors.New("adapter_inventory_failed")
 	}
-	result, err := dataplatform.PersistInventorySnapshot(ctx, c.pool, snapshot, "complete")
+	reconciliation := adapter.Reconcile(
+		ctx,
+		adaptersdk.ReconcileScope{InstallationID: installationID},
+		adaptersdk.InventorySnapshot{},
+		snapshot,
+	)
+	completeness := reconciliation.Completeness
+	if completeness == "" {
+		completeness = "unknown"
+	}
+	result, err := dataplatform.PersistInventorySnapshot(ctx, c.pool, snapshot, completeness)
 	if err != nil {
 		return errors.New("inventory_persistence_failed")
 	}
+	state := completeness
+	errorClass := ""
+	if completeness == "unknown" {
+		state = "not_observed"
+		errorClass = "inventory_source_coverage_absent"
+	}
 	return c.recordStatus(
-		ctx, target, installationID, "complete", "", &snapshot,
+		ctx, target, installationID, state, errorClass, &snapshot,
 		result.NodeCount, result.EdgeCount,
 	)
 }

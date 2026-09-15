@@ -5,7 +5,7 @@
  * Go process on :43100. There is no login screen: the Go index handler injects
  * the read-bearer + CSRF tokens into <meta> tags per request, and this client
  * reads them once at startup and attaches `Authorization: Bearer <read-token>`
- * to every /api/v1 fetch. The dashboard is read-only (all 14 routes are GET),
+ * to every /api/v1 fetch. The dashboard is read-only (every dashboard route uses GET),
  * so the mutation bearer is never embedded and no X-Kansoku-CSRF header is sent.
  *
  * Tokens live only in this module's memory for the page's lifetime — never

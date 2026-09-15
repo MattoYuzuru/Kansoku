@@ -77,9 +77,11 @@ func TestSkillEvidencePlanesColdIdentityAndProfileAgainstPostgres(t *testing.T) 
 				assertion_id,component_installation_id,agent_installation_id,
 				assertion_kind,mode,evidence_tier,confidence,source_instance_id,
 				adapter_version,schema_version,observed_at,idempotency_key,
-				identity_resolution,declared_identity_pseudonym,candidate_count
+				identity_resolution,declared_identity_pseudonym,candidate_count,
+				component_kind
 			) VALUES ($1,$2,'ain_fixture',$3,$4,'native',1,'src_skill_bridge',
-				'1.0.0','fixture.skill/1',$5,$1,$6,'hmac-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',$7)
+				'1.0.0','fixture.skill/1',$5,$1,$6,'hmac-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',$7,
+				'skill')
 		`, id, componentID, kind, mode, base.Add(10*time.Minute), resolution, candidateCount); err != nil {
 			t.Fatal(err)
 		}
@@ -118,11 +120,13 @@ func TestSkillEvidencePlanesColdIdentityAndProfileAgainstPostgres(t *testing.T) 
 			assertion_id,component_installation_id,agent_installation_id,
 			assertion_kind,mode,outcome,evidence_tier,confidence,source_instance_id,
 			adapter_version,schema_version,observed_at,idempotency_key,
-			identity_resolution,declared_identity_pseudonym,candidate_count
+			identity_resolution,declared_identity_pseudonym,candidate_count,
+			component_kind
 		) VALUES ('invalid_outcome','ci_noop_skill','ain_fixture','outcome','not_observed',
 			'succeeded','native',1,'src_skill_bridge','1.0.0','fixture.skill/1',$1,
 			'invalid-outcome','exact',
-			'hmac-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1)
+			'hmac-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1,
+			'skill')
 	`, base); err == nil {
 		t.Fatal("outcome without terminal contract was accepted")
 	}

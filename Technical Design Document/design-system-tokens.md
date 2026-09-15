@@ -31,7 +31,7 @@ are runtime-mutable (§9).
 
   --text-primary:    #EDEDF0;  /* 16.5:1 on --bg */
   --text-muted:      #9A9AA3;  /* 6.91:1 on --bg */
-  --text-faint:      #6E6E77;  /* large/UI only, 3.6:1 */
+  --text-faint:      #808089;  /* 4.61:1 on surface; AA for 12px metadata */
   --text-on-accent:  #0E0E11;
 
   --accent-purple:        #8B7FD6;  /* 5.6:1 on --bg */
@@ -51,10 +51,10 @@ are runtime-mutable (§9).
   --status-complete:     #5FB98A;  /* 8.07:1 */
   --status-partial:      #D9B45B;  /* 9.76:1 */
   --status-degraded:     #E06C6C;  /* 5.99:1 */
-  --status-unsupported:  #6E6E77;
-  --status-not-observed: #6E6E77;
+  --status-unsupported:  #808089;
+  --status-not-observed: #808089;
   --status-redacted:     #8B7FD6;
-  --status-unknown:      #6E6E77;
+  --status-unknown:      #808089;
   --status-zero:         #9A9AA3;
 }
 ```
@@ -74,7 +74,7 @@ are runtime-mutable (§9).
 
   --text-primary:    #1A1A1E;  /* 16.76:1 on --bg */
   --text-muted:      #6A6A72;  /* 5.18:1 on --bg */
-  --text-faint:      #9A9AA0;  /* large/UI only */
+  --text-faint:      #73737B;  /* 4.54:1 on background; AA for 12px metadata */
   --text-on-accent:  #FFFFFF;
 
   /* On-light "deep" variants — required for AA text/stroke use */
@@ -96,10 +96,10 @@ are runtime-mutable (§9).
   --status-complete:     #2E7D5B;  /* 4.83:1 */
   --status-partial:      #8A6D1F;  /* 4.73:1 */
   --status-degraded:     #C0392B;  /* 5.25:1 */
-  --status-unsupported:  #8A8A90;
-  --status-not-observed: #8A8A90;
+  --status-unsupported:  #73737B;
+  --status-not-observed: #73737B;
   --status-redacted:     #6F63C4;
-  --status-unknown:      #8A8A90;
+  --status-unknown:      #73737B;
   --status-zero:         #6A6A72;
 }
 ```

@@ -98,9 +98,9 @@
     {
       "otel_event_name": "codex.tool_decision",
       "attribute_shape": ["kansoku.event.id", "kansoku.session.id", "kansoku.event.type"],
-      "expected_canonical_event_type": "source.observed",
+      "expected_canonical_event_type": "tool.decided",
       "expect_error": null,
-      "note": "tool_result_is_the_single_counted_execution"
+      "note": "tool_result_is_still_the_single_counted_execution_the_decision_is_its_own_event_so_a_denied_call_which_never_executes_is_counted_at_all"
     },
     {
       "otel_event_name": "codex.not_a_real_future_event",

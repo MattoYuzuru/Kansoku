@@ -1,0 +1,59 @@
+=== STEP 1: fresh preview (claude.user_otel, original={}) ===
+=== COMMAND ===
+curl -sS -i -X POST http://127.0.0.1:43100/api/v1/plans/preview ... -d '{"target_id":"claude.user_otel","original":{}}'
+=== OUTPUT ===
+
+[http_code=200]
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:53 GMT
+Content-Length: 1763
+
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:53 GMT
+Content-Length: 1763
+
+{"api_version":"kansoku.api/1","request_id":"req_06072a8a0525c2d7045ade9b63f6837f","data":{"plan_id":"plan_3bebcf7687334ecd28b565f91707f7b8","target_id":"claude.user_otel","plan_sha256":"ecef5a0b66140eba7a107d20116803841f0c58da8045c9d51714fa319b2c0a0f","original_sha256":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","planned_sha256":"508cfef8ca47f2f5d595f79c8ed61abf3bf8ca2ef58af464f583b24a1d0d967f","exact_operations":[{"action":"set","field":"env.CLAUDE_CODE_ENABLE_TELEMETRY","old_preview":null,"new_preview":"1","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_EXPORTER_OTLP_ENDPOINT","old_preview":null,"new_preview":"http://127.0.0.1:4318","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_LOG_ASSISTANT_RESPONSES","old_preview":null,"new_preview":"0","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_LOG_RAW_API_BODIES","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_TOOL_CONTENT","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_TOOL_DETAILS","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_USER_PROMPTS","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"}],"privacy_tradeoffs":["agent payloads remain untrusted and are sanitized at loopback ingress","managed or environment precedence can block application"],"expires_at":"2026-08-01T07:34:53.645602743Z"},"completeness":{"exclusions":[],"status":"complete"}}
+
+
+=== STEP 2: apply ===
+=== COMMAND ===
+curl -sS -i -X POST http://127.0.0.1:43100/api/v1/plans/apply -H "Authorization: Bearer $MB" -H "X-Kansoku-CSRF: $CS" -H "Origin: http://127.0.0.1:43100" -H "Content-Type: application/json" -d @p4_apply.json
+--- REQUEST BODY ---
+{"plan_id":"","plan_sha256":"","target_id":"claude.user_otel","original_sha256":"","planned_sha256":"","approval_nonce":"lane09-nonce-4d548a188d17","current":{}}
+=== OUTPUT ===
+HTTP/1.1 409 Conflict
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:53 GMT
+Content-Length: 110
+
+{"api_version":"kansoku.api/1","request_id":"req_71c8876808d99b192b0c4e0ee74be648","error":"unknown_preview"}
+

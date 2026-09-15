@@ -170,9 +170,13 @@ func writeProtoSuccess(w http.ResponseWriter, response proto.Message) {
 }
 
 func writeIngestError(w http.ResponseWriter, err error) {
-	if errors.Is(err, ErrBackpressure) {
+	if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
 		w.Header().Set("Retry-After", "1")
-		writeProtoStatus(w, http.StatusServiceUnavailable, "backpressure_retryable")
+		message := "backpressure_retryable"
+		if errors.Is(err, ErrDurabilityUnavailable) {
+			message = "durability_unavailable_retryable"
+		}
+		writeProtoStatus(w, http.StatusServiceUnavailable, message)
 		return
 	}
 	writeProtoStatus(w, http.StatusBadRequest, "invalid_otlp")
@@ -243,7 +247,28 @@ func safeFields(attributes []*commonv1.KeyValue, timestamp uint64) (map[string]a
 		{"kansoku.outcome", "outcome"}, {"kansoku.value_state", "value_state"},
 		{"kansoku.model.id", "model"}, {"kansoku.tool.id", "tool_name"},
 		{"kansoku.component.kind", "component_kind"},
+		{"kansoku.component.identity", "component_identity"},
+		{"kansoku.component.identity_source", "component_identity_source"},
+		{"kansoku.component.owner_plugin", "component_owner_plugin"},
+		{"kansoku.component.invocation_mode", "component_invocation_mode"},
+		{"kansoku.component.upstream_identity_hash", "component_upstream_identity_hash"},
+		{"kansoku.component.source_scope", "component_source_scope"},
+		{"kansoku.component.marketplace", "component_marketplace"},
+		{"kansoku.component.version", "component_version"},
 		{"kansoku.turn.id", "turn_id"},
+		{"kansoku.message.id", "message_id"},
+		{"kansoku.user.id", "user_id"},
+		{"kansoku.tool.decision", "tool_decision"},
+		{"kansoku.tool.source", "tool_source"},
+		{"kansoku.tool.decision_source", "tool_decision_source"},
+		{"kansoku.tool.use_id", "tool_use_id"},
+		{"kansoku.hook.event", "hook_event"},
+		{"kansoku.hook.type", "hook_type"},
+		{"kansoku.hook.source", "hook_source"},
+		{"kansoku.session.start_type", "session_start_type"},
+		{"kansoku.session.query_source", "query_source"},
+		{"kansoku.session.terminal_type", "terminal_type"},
+		{"kansoku.session.safe_mode", "safe_mode"},
 	} {
 		if value := stringAttribute(attributes, optional.attr); value != "" {
 			fields[optional.field] = value
@@ -256,6 +281,11 @@ func safeFields(attributes []*commonv1.KeyValue, timestamp uint64) (map[string]a
 		{"kansoku.cached_input_tokens", "cached_input_tokens"},
 		{"kansoku.output_tokens", "output_tokens"},
 		{"kansoku.provider_cost_micros", "provider_cost_micros"},
+		{"kansoku.cache_creation_tokens", "cache_creation_tokens"},
+		{"kansoku.cache_read_tokens", "cache_read_tokens"},
+		{"kansoku.response_length_characters", "response_character_count"},
+		{"kansoku.tool.input_bytes", "tool_input_bytes"},
+		{"kansoku.tool.result_bytes", "tool_result_bytes"},
 	} {
 		if value, ok := int64Attribute(attributes, optional.attr); ok {
 			fields[optional.field] = value
@@ -334,6 +364,25 @@ func translateToSafeAttributes(kind otlpAdapterKind, attributes []*commonv1.KeyV
 					continue
 				}
 			}
+			if slot == "kansoku.component.invocation_mode" {
+				raw := value.GetStringValue()
+				mode := map[string]string{
+					"user-slash":       "explicit",
+					"claude-proactive": "proactive",
+					"nested-skill":     "nested",
+				}[raw]
+				if mode == "" {
+					// A trigger this table does not recognize is recorded as
+					// "unknown", never dropped and never coerced to
+					// "not_observed". Dropping it made an observed-but-
+					// unrecognized invocation indistinguishable from one the
+					// agent never reported a mode for -- two states AGENTS.md
+					// requires be kept apart -- and hid every future trigger
+					// vocabulary addition behind a silent `continue`.
+					mode = "unknown"
+				}
+				value = &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: mode}}
+			}
 			translated = append(translated, &commonv1.KeyValue{Key: slot, Value: value})
 		}
 	}
@@ -377,6 +426,27 @@ func outcomeValue(value *commonv1.AnyValue) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// plainScalar renders an attribute value as the agent wrote it. canonicalScalar
+// below deliberately prefixes a type tag because it feeds schema fingerprints,
+// where "1" the string and 1 the integer must not collide. A stored dimension
+// or a pseudonym input needs the opposite: the value itself, so a metric's
+// session handle is byte-identical to the one the log lane derives from the
+// same session id.
+func plainScalar(value *commonv1.AnyValue) string {
+	switch typed := value.GetValue().(type) {
+	case *commonv1.AnyValue_StringValue:
+		return typed.StringValue
+	case *commonv1.AnyValue_IntValue:
+		return strconv.FormatInt(typed.IntValue, 10)
+	case *commonv1.AnyValue_BoolValue:
+		return strconv.FormatBool(typed.BoolValue)
+	case *commonv1.AnyValue_DoubleValue:
+		return strconv.FormatFloat(typed.DoubleValue, 'g', -1, 64)
+	default:
+		return ""
+	}
 }
 
 func canonicalScalar(value *commonv1.AnyValue) string {
@@ -577,6 +647,17 @@ func (r *OTLPReceiver) ingestOneRecord(kind otlpAdapterKind, scopeName string, a
 		}
 	}
 	addAdapterEventDefaults(kind, eventName, &safeAttributes)
+	if kind == adapterClaude &&
+		(eventName == string(claudeadapter.OTelPluginInstalled) ||
+			eventName == string(claudeadapter.OTelPluginLoaded)) &&
+		stringAttribute(safeAttributes, "kansoku.component.identity") == "" {
+		if plugin := stringAttribute(safeAttributes, "kansoku.component.owner_plugin"); plugin != "" {
+			safeAttributes = append(safeAttributes, &commonv1.KeyValue{
+				Key:   "kansoku.component.identity",
+				Value: &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: plugin}},
+			})
+		}
+	}
 	fields, sequence, err := safeFields(safeAttributes, timestamp)
 	if err != nil {
 		return err
@@ -630,10 +711,8 @@ func addAdapterEventDefaults(kind otlpAdapterKind, eventName string, attributes 
 		addString("kansoku.outcome", "failed")
 	case kind == adapterClaude && eventName == string(claudeadapter.OTelSkillActivated):
 		addString("kansoku.component.kind", "skill")
-		addString("kansoku.outcome", "succeeded")
 	case kind == adapterClaude && (eventName == string(claudeadapter.OTelPluginInstalled) || eventName == string(claudeadapter.OTelPluginLoaded)):
 		addString("kansoku.component.kind", "plugin")
-		addString("kansoku.outcome", "succeeded")
 	}
 }
 
@@ -658,28 +737,46 @@ func adapterIdentity(kind otlpAdapterKind) string {
 
 func (r *OTLPReceiver) unknown(message proto.Message, kind SourceKind, records int, service, version, schema string) error {
 	fingerprint := r.ingestor.keyedIdentity("unknown-otlp-schema/1", string(kind)+"\x00"+string(message.ProtoReflect().Descriptor().FullName())+"\x00"+service+"\x00"+version+"\x00"+schema)
-	if err := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(message)), records); err != nil {
+	window := r.ingestor.now().UTC().Truncate(time.Hour).Format(time.RFC3339)
+	occurrenceKey := r.ingestor.keyedIdentity(
+		"unknown-otlp-occurrence/1",
+		string(kind)+"\x00"+fingerprint+"\x00"+window+"\x00"+
+			strconv.Itoa(records)+"\x00"+strconv.Itoa(proto.Size(message)),
+	)
+	if err := r.ingestor.ingestUnknown(kind, fingerprint, int64(proto.Size(message)), records, occurrenceKey); err != nil {
 		return err
 	}
-	return errors.New("unknown_otlp_schema")
+	return nil
 }
 
 func (r *OTLPReceiver) ingestLogs(request *collectorlogsv1.ExportLogsServiceRequest, kind SourceKind) error {
-	count := 0
 	for _, resourceLogs := range request.GetResourceLogs() {
+		count := 0
 		for _, scope := range resourceLogs.GetScopeLogs() {
 			count += len(scope.GetLogRecords())
 		}
 		adapterKind := matchAdapterResource(resourceLogs.GetResource())
 		if adapterKind == adapterNone {
 			service, version, schema := resourceIdentity(resourceLogs.GetResource())
-			return r.unknown(request, kind, count, service, version, schema)
+			if err := r.unknown(resourceLogs, kind, count, service, version, schema); err != nil {
+				return err
+			}
+			continue
 		}
 		for _, scope := range resourceLogs.GetScopeLogs() {
 			scopeName := scope.GetScope().GetName()
 			for _, record := range scope.GetLogRecords() {
 				if err := r.ingestOneRecord(adapterKind, scopeName, record.GetAttributes(), logTimestamp(record), kind); err != nil {
-					return err
+					if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+						return err
+					}
+					fingerprint := stableID(
+						"invalid-otlp-record/1", string(kind), adapterIdentity(adapterKind),
+						scopeName, nativeEventName(adapterKind, scopeName, record.GetAttributes()),
+					)
+					if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(record)), 1); quarantineErr != nil {
+						return quarantineErr
+					}
 				}
 			}
 		}
@@ -695,21 +792,33 @@ func logTimestamp(record *logsv1.LogRecord) uint64 {
 }
 
 func (r *OTLPReceiver) ingestTraces(request *collectortracev1.ExportTraceServiceRequest, kind SourceKind) error {
-	count := 0
 	for _, resourceSpans := range request.GetResourceSpans() {
+		count := 0
 		for _, scope := range resourceSpans.GetScopeSpans() {
 			count += len(scope.GetSpans())
 		}
 		adapterKind := matchAdapterResource(resourceSpans.GetResource())
 		if adapterKind == adapterNone {
 			service, version, schema := resourceIdentity(resourceSpans.GetResource())
-			return r.unknown(request, kind, count, service, version, schema)
+			if err := r.unknown(resourceSpans, kind, count, service, version, schema); err != nil {
+				return err
+			}
+			continue
 		}
 		for _, scope := range resourceSpans.GetScopeSpans() {
 			scopeName := scope.GetScope().GetName()
 			for _, span := range scope.GetSpans() {
 				if err := r.ingestOneRecord(adapterKind, scopeName, span.GetAttributes(), span.GetStartTimeUnixNano(), kind); err != nil {
-					return err
+					if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+						return err
+					}
+					fingerprint := stableID(
+						"invalid-otlp-record/1", string(kind), adapterIdentity(adapterKind),
+						scopeName, nativeEventName(adapterKind, scopeName, span.GetAttributes()),
+					)
+					if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(span)), 1); quarantineErr != nil {
+						return quarantineErr
+					}
 				}
 			}
 		}
@@ -718,27 +827,176 @@ func (r *OTLPReceiver) ingestTraces(request *collectortracev1.ExportTraceService
 }
 
 func (r *OTLPReceiver) ingestMetrics(request *collectormetricsv1.ExportMetricsServiceRequest, kind SourceKind) error {
-	count := 0
 	for _, resourceMetrics := range request.GetResourceMetrics() {
+		count := 0
 		adapterKind := matchAdapterResource(resourceMetrics.GetResource())
 		if adapterKind == adapterNone {
+			for _, scope := range resourceMetrics.GetScopeMetrics() {
+				for _, metric := range scope.GetMetrics() {
+					count += len(numberPoints(metric))
+				}
+			}
 			service, version, schema := resourceIdentity(resourceMetrics.GetResource())
-			return r.unknown(request, kind, count, service, version, schema)
+			if err := r.unknown(resourceMetrics, kind, count, service, version, schema); err != nil {
+				return err
+			}
+			continue
 		}
 		for _, scope := range resourceMetrics.GetScopeMetrics() {
 			scopeName := scope.GetScope().GetName()
 			for _, metric := range scope.GetMetrics() {
+				// Only Claude Code publishes a documented metric vocabulary,
+				// so only Claude metrics take the metric lane. The fixture
+				// agent stamps kansoku.event.type on its metric points by
+				// wire convention and genuinely belongs on the event lane;
+				// Codex publishes no metric attribute vocabulary at all.
+				// Routing either through the metric lane would replace
+				// working behaviour with a guess.
+				if adapterKind != adapterClaude {
+					points := numberPoints(metric)
+					count += len(points)
+					for _, point := range points {
+						if err := r.ingestOneRecord(adapterKind, scopeName, point.GetAttributes(), point.GetTimeUnixNano(), kind); err != nil {
+							if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+								return err
+							}
+							fingerprint := stableID(
+								"invalid-otlp-record/1", string(kind), adapterIdentity(adapterKind),
+								scopeName, nativeEventName(adapterKind, scopeName, point.GetAttributes()),
+							)
+							if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(point)), 1); quarantineErr != nil {
+								return quarantineErr
+							}
+						}
+					}
+					continue
+				}
 				points := numberPoints(metric)
+				// A histogram, exponential histogram or summary yields no
+				// number points. Previously that produced an empty slice and
+				// the metric vanished without a trace; now the shape is
+				// quarantined, because "we do not understand this" and "there
+				// was nothing here" are different facts.
+				if len(points) == 0 {
+					count++
+					fingerprint := stableID(
+						"unsupported-otlp-metric-shape/1", string(kind),
+						adapterIdentity(adapterKind), scopeName, metric.GetName(),
+					)
+					if err := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(metric)), 1); err != nil {
+						return err
+					}
+					continue
+				}
 				count += len(points)
 				for _, point := range points {
-					if err := r.ingestOneRecord(adapterKind, scopeName, point.GetAttributes(), point.GetTimeUnixNano(), kind); err != nil {
-						return err
+					if err := r.ingestMetricPoint(adapterKind, scopeName, metric, point, kind); err != nil {
+						if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) ||
+							errors.Is(err, ErrMetricLaneUnavailable) {
+							return err
+						}
+						fingerprint := stableID(
+							"invalid-otlp-metric/1", string(kind), adapterIdentity(adapterKind),
+							scopeName, metric.GetName(),
+						)
+						if quarantineErr := r.ingestor.IngestUnknown(kind, fingerprint, int64(proto.Size(point)), 1); quarantineErr != nil {
+							return quarantineErr
+						}
 					}
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// ingestMetricPoint routes one metric data point through the metric lane.
+//
+// The dispatch key is the metric name, not an event name: a metric point
+// carries no event.name attribute, so the previous event-lane routing made
+// nativeEventName fall back to the instrumentation-scope name and quarantine
+// every point Claude Code has ever sent. Name, unit and value are all read
+// here -- previously only the point's attributes were, which is why four
+// documented measurements including the only "time actually spent" signal any
+// agent reports were never stored.
+func (r *OTLPReceiver) ingestMetricPoint(
+	adapterKind otlpAdapterKind,
+	scopeName string,
+	metric *metricsv1.Metric,
+	point *metricsv1.NumberDataPoint,
+	sourceKind SourceKind,
+) error {
+	if adapterKind != adapterClaude {
+		// Only Claude Code publishes a documented metric vocabulary. Another
+		// adapter's metrics are quarantined rather than guessed at.
+		return errors.New("metric_vocabulary_not_documented_for_adapter")
+	}
+	metricName, ok := claudeadapter.MetricNameFromString(metric.GetName())
+	if !ok {
+		return errors.New("undocumented_metric_name")
+	}
+
+	sample := MetricSample{
+		MetricName:        string(metricName),
+		Unit:              metric.GetUnit(),
+		ObservedAt:        time.Unix(0, int64(point.GetTimeUnixNano())).UTC(),
+		AdapterID:         claudeadapter.AdapterID,
+		AdapterVersion:    "1.0.0",
+		SourceKind:        sourceKind,
+		SchemaFingerprint: stableID("otel-metric-schema/1", scopeName, string(metricName), metric.GetUnit()),
+	}
+	switch point.GetValue().(type) {
+	case *metricsv1.NumberDataPoint_AsInt:
+		value := point.GetAsInt()
+		sample.ValueInt = &value
+	case *metricsv1.NumberDataPoint_AsDouble:
+		value := point.GetAsDouble()
+		sample.ValueDouble = &value
+	default:
+		return errors.New("metric_point_without_value")
+	}
+
+	for _, attribute := range point.GetAttributes() {
+		slot, mapped := claudeadapter.MetricAttributeSafeSlot(
+			claudeadapter.MetricAttribute(attribute.GetKey()))
+		if !mapped {
+			continue
+		}
+		value := plainScalar(attribute.GetValue())
+		if value == "" {
+			continue
+		}
+		switch slot {
+		case "kansoku.session.id":
+			sample.SessionID = "ses_" + r.ingestor.SyntheticProbeIdentity("session/1",
+				claudeadapter.AdapterID+"\x00"+value)[:24]
+		case "kansoku.user.id":
+			sample.UserID = "usr_" + r.ingestor.SyntheticProbeIdentity("user/1",
+				claudeadapter.AdapterID+"\x00"+value)[:24]
+		case "kansoku.model.id":
+			sample.ModelID = value
+		case "kansoku.session.terminal_type":
+			sample.TerminalType = value
+		case "kansoku.session.query_source":
+			sample.QuerySource = value
+		case "kansoku.session.start_type":
+			sample.StartType = value
+		case "kansoku.metric.dimension":
+			sample.Dimension = value
+		}
+	}
+
+	// One point per (metric, dimensions, timestamp) is one fact. Replaying the
+	// same export must not add a second row.
+	sample.IdempotencyKey = stableID("otel-metric-sample/1",
+		string(sourceKind), string(metricName), sample.Unit, sample.SessionID,
+		sample.UserID, sample.ModelID, sample.TerminalType, sample.QuerySource,
+		sample.StartType, sample.Dimension,
+		strconv.FormatUint(point.GetTimeUnixNano(), 10))
+	sample.SampleID = "mts_" + sample.IdempotencyKey[:32]
+	sample.AgentInstallationID = "ain_" + stableID("agent-installation/1", claudeadapter.AdapterID)[:32]
+
+	return r.ingestor.IngestMetricSample(sample)
 }
 
 func numberPoints(metric *metricsv1.Metric) []*metricsv1.NumberDataPoint {

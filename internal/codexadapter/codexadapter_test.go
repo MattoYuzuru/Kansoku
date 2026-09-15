@@ -498,8 +498,12 @@ func TestCanonicalEventForOTelRejectsUndocumentedEventName(t *testing.T) {
 }
 
 func TestCanonicalEventForOTelPreservesDocumentedMetadataOnlyEvents(t *testing.T) {
+	// codex.tool_decision left this list when decisions gained their own
+	// canonical event: it is no longer metadata-only, because the decision it
+	// carries is now read instead of discarded. Its mapping is asserted
+	// directly below rather than through the metadata-only loop.
 	for _, name := range []codexadapter.OTelEventName{
-		codexadapter.OTelModelTokenUsage, codexadapter.OTelToolDecision,
+		codexadapter.OTelModelTokenUsage,
 	} {
 		canonical, err := codexadapter.CanonicalEventForOTel(name, codexadapter.OTelAttributeShape{
 			InstrumentationScope: string(name),
@@ -511,6 +515,19 @@ func TestCanonicalEventForOTelPreservesDocumentedMetadataOnlyEvents(t *testing.T
 		if canonical != "source.observed" {
 			t.Fatalf("documented metadata-only event %q = %q, want source.observed", name, canonical)
 		}
+	}
+}
+
+func TestCanonicalEventForOTelMapsToolDecisionToItsOwnEvent(t *testing.T) {
+	canonical, err := codexadapter.CanonicalEventForOTel(codexadapter.OTelToolDecision, codexadapter.OTelAttributeShape{
+		InstrumentationScope: string(codexadapter.OTelToolDecision),
+		PresentAttributeKeys: []string{"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if canonical != "tool.decided" {
+		t.Fatalf("codex.tool_decision = %q, want tool.decided", canonical)
 	}
 }
 
@@ -605,5 +622,26 @@ func TestDroppedOTelSurfacesNeverIncludesASafeAttribute(t *testing.T) {
 		if safe[dropped] {
 			t.Fatalf("dropped surface %q must never also be a safe attribute", dropped)
 		}
+	}
+}
+
+// TestManifestDeclaresExposedSkillPlaneNative pins Codex's exposure plane by
+// contract rather than by the absence of a declaration. Codex populates the
+// exposure observation windows from the App Server skills/list response; if a
+// regression stopped doing that, an undeclared adapter would be indistinguish-
+// able from one that never supported the plane, and the Claude fallback path
+// would silently start applying to Codex rows.
+func TestManifestDeclaresExposedSkillPlaneNative(t *testing.T) {
+	declarations := codexadapter.New().Manifest().ComponentPlaneSupport
+	if len(declarations) != 1 {
+		t.Fatalf("declarations=%+v want exactly one", declarations)
+	}
+	declaration := declarations[0]
+	if declaration.ComponentKind != "skill" || declaration.Plane != adaptersdk.PlaneExposed ||
+		declaration.State != adaptersdk.PlaneNative {
+		t.Fatalf("declaration=%+v want skill/exposed/native", declaration)
+	}
+	if declaration.Reason != "app_server_skills_list_response" {
+		t.Fatalf("reason=%q", declaration.Reason)
 	}
 }

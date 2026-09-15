@@ -1,0 +1,17 @@
+=== full pg_dump (schema+data) grep KANSOKUCANARYL05 ===
+dump bytes: 378322
+0
+grep exit=1
+=== data dir (spool/checkpoints/mirror) ===
+/tmp/kansoku-testbed/data/checkpoints/state.json 1245
+data grep exit=1
+=== appliance log ===
+0
+log grep exit=1
+=== backups ===
+bk grep exit=1
+=== unknown_schema_observations ===
+Did not find any relation named "unknown_schema_observations".
+ERROR:  relation "unknown_schema_observations" does not exist
+LINE 1: select * from unknown_schema_observations order by 1 limit 2...
+                      ^

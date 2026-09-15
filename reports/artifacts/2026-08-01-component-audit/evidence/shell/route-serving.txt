@@ -1,0 +1,44 @@
+### SPA route serving (no Authorization header)
+/                                        200 text/html; charset=utf-8 3210
+/activity                                200 text/html; charset=utf-8 3210
+/prompts                                 200 text/html; charset=utf-8 3210
+/agents                                  200 text/html; charset=utf-8 3210
+/agents/zzz                              200 text/html; charset=utf-8 3210
+/models                                  200 text/html; charset=utf-8 3210
+/components/skills                       200 text/html; charset=utf-8 3210
+/components/skills/zzz                   200 text/html; charset=utf-8 3210
+/components/plugins                      200 text/html; charset=utf-8 3210
+/components/plugins/zzz                  200 text/html; charset=utf-8 3210
+/components/mcp                          200 text/html; charset=utf-8 3210
+/components/mcp/zzz                      200 text/html; charset=utf-8 3210
+/components/mcp/zzz/tools/ttt            200 text/html; charset=utf-8 3210
+/tools                                   200 text/html; charset=utf-8 3210
+/reliability                             200 text/html; charset=utf-8 3210
+/privacy                                 200 text/html; charset=utf-8 3210
+/system                                  200 text/html; charset=utf-8 3210
+/glossary                                200 text/html; charset=utf-8 3210
+/settings                                200 text/html; charset=utf-8 3210
+/definitely-not-a-route                  200 text/html; charset=utf-8 3210
+
+### index meta tags present?
+name="kansoku-read-token" content=<REDACTED len=REDACTED>
+name="kansoku-csrf-token" content=<REDACTED len=REDACTED>
+
+### token meta tag count and content lengths
+kansoku-read-token present, content length 44
+kansoku-csrf-token present, content length 44
+csp meta present: False
+
+### response headers for /
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-fe386ae6fa02a8cd9bed85c235dccb3c'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:28:21 GMT
+Transfer-Encoding: chunked
+

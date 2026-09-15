@@ -17,13 +17,14 @@ func TestRuntimeTargetPoliciesMatchAuthoritativeInstallerContract(t *testing.T) 
 	}
 	var contract struct {
 		Targets []struct {
-			ID          string         `json:"id"`
-			AgentID     string         `json:"agent_id"`
-			Format      string         `json:"format"`
-			LocatorKind string         `json:"config_locator_kind"`
-			Ownership   string         `json:"ownership"`
-			Required    map[string]any `json:"required_settings"`
-			Forbidden   []string       `json:"forbidden_keys"`
+			ID           string         `json:"id"`
+			AgentID      string         `json:"agent_id"`
+			Format       string         `json:"format"`
+			LocatorKind  string         `json:"config_locator_kind"`
+			Ownership    string         `json:"ownership"`
+			Required     map[string]any `json:"required_settings"`
+			Forbidden    []string       `json:"forbidden_keys"`
+			NeverWritten []string       `json:"never_written_keys"`
 		} `json:"targets"`
 	}
 	if err := json.Unmarshal(raw, &contract); err != nil {
@@ -34,8 +35,15 @@ func TestRuntimeTargetPoliciesMatchAuthoritativeInstallerContract(t *testing.T) 
 	}
 	for _, expected := range contract.Targets {
 		actual, ok := targetSpecs[expected.ID]
-		if !ok || actual.agent != expected.AgentID || actual.format != expected.Format || actual.locatorKind != expected.LocatorKind || actual.ownership != expected.Ownership || !reflect.DeepEqual(actual.required, expected.Required) || !reflect.DeepEqual(actual.forbidden, expected.Forbidden) {
+		if !ok || actual.agent != expected.AgentID || actual.format != expected.Format || actual.locatorKind != expected.LocatorKind || actual.ownership != expected.Ownership || !reflect.DeepEqual(actual.required, expected.Required) || !reflect.DeepEqual(actual.forbidden, expected.Forbidden) || !reflect.DeepEqual(actual.neverWritten, expected.NeverWritten) {
 			t.Fatalf("runtime target policy drift: %s", expected.ID)
+		}
+		// A key cannot be both required and never-written; the runtime rejects
+		// such a spec, and the contract must not declare one either.
+		for _, key := range expected.NeverWritten {
+			if _, required := expected.Required[key]; required {
+				t.Fatalf("%s declares %s as both required and never-written", expected.ID, key)
+			}
 		}
 	}
 }
@@ -156,7 +164,12 @@ func TestUnsafeExistingSettingsAndUnboundedConfigsAreRejected(t *testing.T) {
 		original map[string]any
 	}{
 		{"codex.user_otel", map[string]any{"otel.endpoint": "https://remote.invalid"}},
-		{"claude.user_otel", map[string]any{"env.OTEL_EXPORTER_OTLP_HEADERS": "Authorization=secret"}},
+		// env.OTEL_EXPORTER_OTLP_HEADERS moved to never-written: see
+		// TestPreExistingUserOwnedHeadersYieldADisclosedPlan. These two stay
+		// hard-forbidden -- a file exporter writes telemetry outside the
+		// loopback sanitizer, and a remote endpoint defeats the boundary.
+		{"claude.user_otel", map[string]any{"env.OTEL_LOGS_EXPORTER_FILE": "/tmp/raw-logs"}},
+		{"claude.user_otel", map[string]any{"env.OTEL_EXPORTER_OTLP_ENDPOINT": "https://remote.invalid"}},
 		{"gemini.user_otel", map[string]any{"telemetry.target": "gcp"}},
 		{"gemini.user_otel", map[string]any{"telemetry.outfile": "/tmp/raw"}},
 		{"cursor.user_hooks", map[string]any{"hook_as_privacy_enforcement": true}},
@@ -299,3 +312,84 @@ func cloneForTest(t *testing.T, value map[string]any) map[string]any {
 	return result
 }
 func normalizeMap(t *testing.T, value map[string]any) map[string]any { return cloneForTest(t, value) }
+
+// TestPreExistingUserOwnedHeadersYieldADisclosedPlan covers the split between
+// keys that must never happen and keys that are simply not Kansoku's to set.
+//
+// env.OTEL_EXPORTER_OTLP_HEADERS is Claude Code's only header mechanism and the
+// loopback OTLP ingress requires a bearer, so the operator has to set it for
+// telemetry to be accepted at all. While it was hard-forbidden, the one
+// supported configuration could not be previewed: a correctly configured host
+// failed the preview it needed to pass. It is now disclosed, never written, and
+// never read.
+func TestPreExistingUserOwnedHeadersYieldADisclosedPlan(t *testing.T) {
+	const headerKey = "env.OTEL_EXPORTER_OTLP_HEADERS"
+	plan, err := BuildClaudePlan("plan", "/private/config", "/private/backup", "/bin/rollback",
+		map[string]any{headerKey: "Authorization=Bearer operator-owned"})
+	if err != nil {
+		t.Fatalf("a pre-existing user-owned header key must not fail the preview: %v", err)
+	}
+	disclosed := false
+	for _, tradeoff := range plan.PrivacyTradeoffs {
+		if strings.Contains(tradeoff, headerKey) && strings.Contains(tradeoff, "user-owned") {
+			disclosed = true
+		}
+	}
+	if !disclosed {
+		t.Fatalf("no disclosure named %s: %v", headerKey, plan.PrivacyTradeoffs)
+	}
+	// The key must never appear as something this plan writes.
+	for _, field := range plan.DisclosedFields {
+		if field == headerKey {
+			t.Fatalf("%s appeared in planned writes", headerKey)
+		}
+	}
+	for _, operation := range plan.ExactOperations {
+		if operation.Field == headerKey {
+			t.Fatalf("%s appeared as a planned operation", headerKey)
+		}
+	}
+	// The operator's secret value must never be echoed into the plan.
+	encoded, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(encoded, []byte("operator-owned")) {
+		t.Fatal("the operator's header value was echoed into the plan")
+	}
+	// An absent key is disclosed too: the operator has to know Kansoku will not
+	// set it for them.
+	absent, err := BuildClaudePlan("plan", "/private/config", "/private/backup", "/bin/rollback", map[string]any{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stated := false
+	for _, tradeoff := range absent.PrivacyTradeoffs {
+		if strings.Contains(tradeoff, headerKey) && strings.Contains(tradeoff, "must be set by the operator") {
+			stated = true
+		}
+	}
+	if !stated {
+		t.Fatalf("absent never-written key not disclosed: %v", absent.PrivacyTradeoffs)
+	}
+
+	// Effective-settings verification must accept the operator's header too,
+	// or the plan would pass preview and fail the gate immediately after.
+	approval, err := Approve(absent, absent.TargetID, "nonce")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = approval
+	effective := map[string]any{headerKey: "Authorization=Bearer operator-owned"}
+	for key, value := range targetSpecs["claude.user_otel"].required {
+		effective[key] = value
+	}
+	if err := VerifyEffectiveSettings(absent, EffectiveSettings{
+		TargetID: absent.TargetID, Values: effective,
+	}, RuntimeCanaryReceipt{
+		TargetID: absent.TargetID, ConfigSHA256: absent.PlannedSHA256,
+		SourceRevision: "rev", Status: "pass",
+	}); err != nil {
+		t.Fatalf("effective settings carrying the operator's header were rejected: %v", err)
+	}
+}

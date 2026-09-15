@@ -112,6 +112,24 @@ func NewSyntheticPipelineCheck(guard *localhttp.Guard, ingestor *observability.I
 	return &SyntheticPipelineCheck{Guard: guard, Ingestor: ingestor, OTLPReceiver: receiver, Store: store, Bearer: append([]byte(nil), bearer...), Now: time.Now}
 }
 
+// NewPostgresSyntheticPipelineCheck verifies the production system of record
+// directly. It intentionally has no FileStore dependency: production no
+// longer mirrors fact/evidence payloads into local JSON.
+func NewPostgresSyntheticPipelineCheck(
+	guard *localhttp.Guard,
+	ingestor *observability.Ingestor,
+	receiver *observability.OTLPReceiver,
+	pool *pgxpool.Pool,
+	handoff *dataplatform.ObservabilityHandoff,
+	bearer []byte,
+) *SyntheticPipelineCheck {
+	return &SyntheticPipelineCheck{
+		Guard: guard, Ingestor: ingestor, OTLPReceiver: receiver,
+		Postgres: pool, Handoff: handoff, RequirePostgres: true,
+		Bearer: append([]byte(nil), bearer...), Now: time.Now,
+	}
+}
+
 // NewProductionSyntheticPipelineCheck extends the shared public-ingress
 // check through the Session 04 PostgreSQL system of record, rollup worker
 // and budgeted query surface. Production assembly uses this constructor;
@@ -139,8 +157,8 @@ func (c *SyntheticPipelineCheck) StageID() StageID { return Stage5SyntheticPipel
 func (c *SyntheticPipelineCheck) CheckID() string  { return SyntheticPipelineCheckID }
 
 func (c *SyntheticPipelineCheck) validateProductionReady(sharedPool *pgxpool.Pool) error {
-	if c == nil || c.Guard == nil || c.Ingestor == nil || c.OTLPReceiver == nil || c.Store == nil {
-		return fmt.Errorf("public ingress/FileStore dependencies are incomplete")
+	if c == nil || c.Guard == nil || c.Ingestor == nil || c.OTLPReceiver == nil {
+		return fmt.Errorf("public ingress dependencies are incomplete")
 	}
 	if !c.RequirePostgres || c.Postgres == nil {
 		return fmt.Errorf("PostgreSQL event/evidence/rollup path is required")
@@ -179,7 +197,7 @@ func (c *SyntheticPipelineCheck) Evaluate(ctx context.Context, in CheckInput, _ 
 	if !in.Now.IsZero() {
 		now = in.Now
 	}
-	if c.Guard == nil || c.Ingestor == nil || c.OTLPReceiver == nil || c.Store == nil {
+	if c.Guard == nil || c.Ingestor == nil || c.OTLPReceiver == nil {
 		return syntheticPipelineFailure(now, "synthetic_pipeline_probe_not_wired"), nil
 	}
 	if c.RequirePostgres && c.Postgres == nil {
@@ -210,15 +228,24 @@ func (c *SyntheticPipelineCheck) Evaluate(ctx context.Context, in CheckInput, _ 
 		var postgresErr error
 		var scopeErr error
 		if c.Postgres != nil {
-			currentFacts, _ := exactSyntheticFacts(c.Store.Snapshot(), expectedNativeIDs)
-			scope, buildErr := syntheticPostgresScopeFromFacts(currentFacts)
+			var scope syntheticPostgresScope
+			var buildErr error
+			if c.Store != nil {
+				currentFacts, _ := exactSyntheticFacts(c.Store.Snapshot(), expectedNativeIDs)
+				scope, buildErr = syntheticPostgresScopeFromFacts(currentFacts)
+			} else {
+				scope, buildErr = c.syntheticPostgresScopeFromNativeIDs(context.Background(), expectedNativeIDs)
+			}
 			if buildErr != nil {
 				scopeErr = buildErr
 			} else {
 				postgresErr = c.cleanupPostgresProbe(context.Background(), scope)
 			}
 		}
-		fileErr := c.cleanupFileFacts(expectedNativeIDs)
+		var fileErr error
+		if c.Store != nil {
+			fileErr = c.cleanupFileFacts(expectedNativeIDs)
+		}
 		if fileErr != nil || postgresErr != nil || scopeErr != nil {
 			outcome = syntheticPipelineFailure(now, "synthetic_probe_cleanup_failed")
 			err = nil
@@ -242,28 +269,33 @@ func (c *SyntheticPipelineCheck) Evaluate(ctx context.Context, in CheckInput, _ 
 		return syntheticPipelineFailure(now, fmt.Sprintf("otlp_metric_probe_rejected status=%d transport_error=%t", metricStatus, metricErr != nil)), nil
 	}
 
-	after := c.Store.Snapshot()
-	facts, factKeys := exactSyntheticFacts(after, expectedNativeIDs)
-	if len(facts) != 4 || len(factKeys) != 4 {
-		return syntheticPipelineFailure(now, fmt.Sprintf("expected_4_exact_synthetic_facts_observed=%d", len(facts))), nil
-	}
-	for _, fact := range facts {
-		if len(fact.EvidenceIDs) == 0 {
-			return syntheticPipelineFailure(now, "synthetic_fact_missing_evidence"), nil
+	var scope syntheticPostgresScope
+	if c.Store != nil {
+		after := c.Store.Snapshot()
+		facts, factKeys := exactSyntheticFacts(after, expectedNativeIDs)
+		if len(facts) != 4 || len(factKeys) != 4 {
+			return syntheticPipelineFailure(now, fmt.Sprintf("expected_4_exact_synthetic_facts_observed=%d", len(facts))), nil
 		}
-		for _, evidenceID := range fact.EvidenceIDs {
-			if _, ok := after.Evidence[evidenceID]; !ok {
-				return syntheticPipelineFailure(now, "synthetic_evidence_not_durable"), nil
+		for _, fact := range facts {
+			if len(fact.EvidenceIDs) == 0 {
+				return syntheticPipelineFailure(now, "synthetic_fact_missing_evidence"), nil
+			}
+			for _, evidenceID := range fact.EvidenceIDs {
+				if _, ok := after.Evidence[evidenceID]; !ok {
+					return syntheticPipelineFailure(now, "synthetic_evidence_not_durable"), nil
+				}
 			}
 		}
+		scope, err = syntheticPostgresScopeFromFacts(facts)
+	} else {
+		scope, err = c.syntheticPostgresScopeFromNativeIDs(ctx, expectedNativeIDs)
+	}
+	if err != nil {
+		return syntheticPipelineFailure(now, "postgres_scope_verification_failed"), nil
 	}
 
-	detail := fmt.Sprintf("verified_facts=%d", len(facts))
+	detail := "verified_facts=4"
 	if c.Postgres != nil {
-		scope, buildErr := syntheticPostgresScopeFromFacts(facts)
-		if buildErr != nil {
-			return syntheticPipelineFailure(now, "postgres_scope_verification_failed"), nil
-		}
 		verifyErr := c.verifyPostgresPath(ctx, scope, now)
 		if verifyErr != nil {
 			return syntheticPipelineFailure(now, "postgres_event_evidence_rollup_query_verification_failed"), nil
@@ -425,6 +457,84 @@ type syntheticPostgresScope struct {
 	SourceInstanceIDs   []string
 	ComponentID         string
 	AdapterVersionID    string
+}
+
+func (c *SyntheticPipelineCheck) syntheticPostgresScopeFromNativeIDs(
+	ctx context.Context,
+	nativeIDs map[string]bool,
+) (syntheticPostgresScope, error) {
+	if c.Postgres == nil || len(nativeIDs) != 4 {
+		return syntheticPostgresScope{}, fmt.Errorf("synthetic PostgreSQL scope is incomplete")
+	}
+	values := make([]string, 0, len(nativeIDs))
+	for value := range nativeIDs {
+		values = append(values, value)
+	}
+	sort.Strings(values)
+	rows, err := c.Postgres.Query(ctx, `
+		SELECT e.event_id, e.agent_installation_id, e.surface_id, e.project_id,
+		       e.session_id, e.turn_id, e.component_id, e.source_instance_id,
+		       ai.device_id, si.adapter_version_id, e.event_type
+		FROM events e
+		JOIN agent_installations ai
+		  ON ai.agent_installation_id = e.agent_installation_id
+		JOIN source_instances si
+		  ON si.source_instance_id = e.source_instance_id
+		WHERE e.source_native_event_id = ANY($1)
+		ORDER BY e.event_id
+	`, values)
+	if err != nil {
+		return syntheticPostgresScope{}, err
+	}
+	defer rows.Close()
+	var result syntheticPostgresScope
+	turnIDs := map[string]bool{}
+	sourceIDs := map[string]bool{}
+	for rows.Next() {
+		var eventID, installationID, surfaceID, projectID, sessionID string
+		var turnID, componentID, sourceID, deviceID, adapterVersionID, eventType string
+		if err := rows.Scan(
+			&eventID, &installationID, &surfaceID, &projectID, &sessionID,
+			&turnID, &componentID, &sourceID, &deviceID, &adapterVersionID, &eventType,
+		); err != nil {
+			return syntheticPostgresScope{}, err
+		}
+		dimensionScope := installationID + "|" + surfaceID + "|" + componentID + "|" + eventType
+		if len(result.EventIDs) == 0 {
+			result.AgentInstallationID = installationID
+			result.SurfaceID = surfaceID
+			result.ProjectID = projectID
+			result.SessionID = sessionID
+			result.ComponentID = componentID
+			result.DeviceID = deviceID
+			result.AdapterVersionID = adapterVersionID
+			result.DimensionScope = dimensionScope
+		} else if result.AgentInstallationID != installationID ||
+			result.SurfaceID != surfaceID || result.ProjectID != projectID ||
+			result.SessionID != sessionID || result.ComponentID != componentID ||
+			result.DeviceID != deviceID || result.AdapterVersionID != adapterVersionID ||
+			result.DimensionScope != dimensionScope {
+			return syntheticPostgresScope{}, fmt.Errorf("synthetic PostgreSQL rows did not share one dimension scope")
+		}
+		result.EventIDs = append(result.EventIDs, eventID)
+		turnIDs[turnID] = true
+		sourceIDs[sourceID] = true
+	}
+	if err := rows.Err(); err != nil {
+		return syntheticPostgresScope{}, err
+	}
+	if len(result.EventIDs) != 4 {
+		return syntheticPostgresScope{}, fmt.Errorf("expected four synthetic PostgreSQL events, got %d", len(result.EventIDs))
+	}
+	for value := range turnIDs {
+		result.TurnIDs = append(result.TurnIDs, value)
+	}
+	for value := range sourceIDs {
+		result.SourceInstanceIDs = append(result.SourceInstanceIDs, value)
+	}
+	sort.Strings(result.TurnIDs)
+	sort.Strings(result.SourceInstanceIDs)
+	return result, nil
 }
 
 func syntheticPostgresScopeFromFacts(facts []observability.Fact) (syntheticPostgresScope, error) {

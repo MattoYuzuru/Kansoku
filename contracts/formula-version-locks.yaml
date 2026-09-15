@@ -24,6 +24,10 @@
       "semantic_sha256": "dc8a49b96817df7845d12c2bb74240e5027bbafa86097fd2ed92db0c11a0f0a3"
     },
     {
+      "formula_version": "collection.ingest_latency_seconds/2",
+      "semantic_sha256": "9e461eb0727893ba19b0df4079a3123f164f741875933e8101b7e5945e033b85"
+    },
+    {
       "formula_version": "collection.rollup_freshness_seconds/1",
       "semantic_sha256": "c31c1b8b0a272b7a070ae4aa8128fb458408c34cb7277b6849637d63ff42ecbc"
     },

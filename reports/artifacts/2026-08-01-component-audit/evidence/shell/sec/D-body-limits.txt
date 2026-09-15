@@ -1,0 +1,262 @@
+=== GROUP D: body limits (guard maxBodyBytes = 1<<20 = 1048576) ===
+date: 2026-08-01T10:24:11+03:00
+payload sizes: body-2mib.json=2097207 B ; body-just-under-1mib.json=1048000 B ; blob-2mib.bin=2097152 B
+payloads generated in /tmp/kansoku-sec-lane (JSON = {"target_id":"claude.user_otel","original":{},"pad":"AAAA..."})
+===============================================
+### D1 POST 2 MiB JSON to /api/v1/plans/preview (valid mutation bearer + CSRF + Origin); -w shows curl exit/connection state
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data-binary @/tmp/kansoku-sec-lane/body-2mib.json -w '\n[curl] exitcode_follows size_upload=%{size_upload} http_code=%{http_code} time_total=%{time_total}\n' 'http://127.0.0.1:43100/api/v1/plans/preview'; echo "[curl] exit=$?"
+HTTP/1.1 100 Continue
+
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Connection: close
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:12 GMT
+Content-Length: 110
+
+{"api_version":"kansoku.api/1","request_id":"req_c0aaa1bdeb480e73f865e3a821fef2e7","error":"invalid_request"}
+
+[curl] exitcode_follows size_upload=2097207 http_code=400 time_total=0.010650
+[curl] exit=0
+
+-----------------------------------------------
+### D1b same as D1 but forcing chunked transfer (no Content-Length) via -H 'Transfer-Encoding: chunked'
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' -H 'Transfer-Encoding: chunked' --data-binary @/tmp/kansoku-sec-lane/body-2mib.json -w '\n[curl] http_code=%{http_code} size_upload=%{size_upload}\n' 'http://127.0.0.1:43100/api/v1/plans/preview'; echo "[curl] exit=$?"
+HTTP/1.1 100 Continue
+
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Connection: close
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:12 GMT
+Content-Length: 110
+
+{"api_version":"kansoku.api/1","request_id":"req_10a00d410b49c0baba0ffcb33f128fad","error":"invalid_request"}
+
+[curl] http_code=400 size_upload=2097475
+[curl] exit=0
+
+-----------------------------------------------
+### D2 POST 1048000 B JSON (just under 1 MiB) to /api/v1/plans/preview (valid bearer+CSRF+Origin)
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data-binary @/tmp/kansoku-sec-lane/body-just-under-1mib.json -w '\n[curl] http_code=%{http_code} size_upload=%{size_upload} time_total=%{time_total}\n' 'http://127.0.0.1:43100/api/v1/plans/preview'; echo "[curl] exit=$?"
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:12 GMT
+Content-Length: 110
+
+{"api_version":"kansoku.api/1","request_id":"req_d091a6b7d8d0db64c6c8c1a2da78f26d","error":"invalid_request"}
+
+[curl] http_code=400 size_upload=1048000 time_total=0.006045
+[curl] exit=0
+
+-----------------------------------------------
+### D3 POST 2 MiB octet blob to OTLP ingress http://127.0.0.1:4318/v1/metrics (Content-Type: application/x-protobuf, ingress bearer)
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $ING" -H 'Content-Type: application/x-protobuf' --data-binary @/tmp/kansoku-sec-lane/blob-2mib.bin -w '\n[curl] http_code=%{http_code} size_upload=%{size_upload} time_total=%{time_total}\n' 'http://127.0.0.1:4318/v1/metrics'; echo "[curl] exit=$?"
+HTTP/1.1 100 Continue
+
+HTTP/1.1 413 Request Entity Too Large
+Cache-Control: no-store
+Connection: close
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/x-protobuf
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:12 GMT
+Content-Length: 19
+
+oversized_input
+[curl] http_code=413 size_upload=1900544 time_total=0.003444
+[curl] exit=0
+
+-----------------------------------------------
+### D3b control: POST 1024 B octet blob to OTLP ingress (baseline, same headers)
+$ head -c 1024 /tmp/kansoku-sec-lane/blob-2mib.bin | curl -sS -i --max-time 30 -X POST -H "Authorization: Bearer $ING" -H 'Content-Type: application/x-protobuf' --data-binary @- -w '\n[curl] http_code=%{http_code} size_upload=%{size_upload}\n' 'http://127.0.0.1:4318/v1/metrics'; echo "[curl] exit=$?"
+HTTP/1.1 400 Bad Request
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/x-protobuf
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:12 GMT
+Content-Length: 16
+
+invalid_otlp
+[curl] http_code=400 size_upload=1024
+[curl] exit=0
+
+-----------------------------------------------
+
+=== GROUP D ADDENDUM: disambiguate 'size limit' vs 'strict JSON / unknown field' for the 400 in D1+D2 ===
+date: 2026-08-01T10:24:42+03:00
+The D1/D2 payloads carried an extra top-level "pad" field. These probes keep the exact contract shape
+  {"target_id":"claude.user_otel","original":{"env":{"PAD":"AAAA..."}}} and vary only total byte size.
+-----------------------------------------------
+### D2-x1 POST tiny-pad.json (56 B, HAS extra top-level "pad" field)
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data-binary @/tmp/kansoku-sec-lane/tiny-pad.json -w '...' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:42 GMT
+Content-Length: 110
+
+{"api_version":"kansoku.api/1","request_id":"req_23fbd37134cf3c298cc28e334d41fac3","error":"invalid_request"}
+
+[curl] http_code=400 size_upload=56 time_total=0.000442
+[curl] exit=0
+
+-----------------------------------------------
+### D2-x2 POST tiny-orig.json (63 B, contract shape, padding inside original.env)
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data-binary @/tmp/kansoku-sec-lane/tiny-orig.json -w '...' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:42 GMT
+Content-Length: 1763
+
+{"api_version":"kansoku.api/1","request_id":"req_9aaafbddf0cd369bce51c1a9b1c86cd4","data":{"plan_id":"plan_9bf85f14104aeb74f09cd63ad82afc98","target_id":"claude.user_otel","plan_sha256":"883e81d6e01ce073a201a58a05dcfc6e5552a291241fa932c2367f6d36176120","original_sha256":"b103ec43598bd94a38876a1299c5ecc3a7e64aab50a8afed3927f77ca56bec2e","planned_sha256":"ff0ffcb9d60cecc8487c39396629505d9c9575980d67936f8025e303432a12ea","exact_operations":[{"action":"set","field":"env.CLAUDE_CODE_ENABLE_TELEMETRY","old_preview":null,"new_preview":"1","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_EXPORTER_OTLP_ENDPOINT","old_preview":null,"new_preview":"http://127.0.0.1:4318","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_LOG_ASSISTANT_RESPONSES","old_preview":null,"new_preview":"0","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_LOG_RAW_API_BODIES","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_TOOL_CONTENT","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_TOOL_DETAILS","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_USER_PROMPTS","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"}],"privacy_tradeoffs":["agent payloads remain untrusted and are sanitized at loopback ingress","managed or environment precedence can block application"],"expires_at":"2026-08-01T07:34:42.872219321Z"},"completeness":{"exclusions":[],"status":"complete"}}
+
+[curl] http_code=200 size_upload=63 time_total=0.000609
+[curl] exit=0
+
+-----------------------------------------------
+### D2-x3 POST orig-just-under-1mib.json (1048000 B, contract shape)
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data-binary @/tmp/kansoku-sec-lane/orig-just-under-1mib.json -w '...' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:42 GMT
+Content-Length: 118
+
+{"api_version":"kansoku.api/1","request_id":"req_7faae4ee92476d0a83f86d9720eb912a","error":"invalid_original_config"}
+
+[curl] http_code=400 size_upload=1048000 time_total=0.008012
+[curl] exit=0
+
+-----------------------------------------------
+### D2-x4 POST orig-1mib-exact.json (1048576 B == maxBodyBytes exactly)
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data-binary @/tmp/kansoku-sec-lane/orig-1mib-exact.json -w '...' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:42 GMT
+Content-Length: 118
+
+{"api_version":"kansoku.api/1","request_id":"req_5392dbd1c181919559e2b023018cde9d","error":"invalid_original_config"}
+
+[curl] http_code=400 size_upload=1048576 time_total=0.006981
+[curl] exit=0
+
+-----------------------------------------------
+### D2-x5 POST orig-1mib-plus-1.json (1048577 B == maxBodyBytes+1)
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data-binary @/tmp/kansoku-sec-lane/orig-1mib-plus-1.json -w '...' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 100 Continue
+
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Connection: close
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:42 GMT
+Content-Length: 110
+
+{"api_version":"kansoku.api/1","request_id":"req_f7d073d5919ceaf8833b10fb98097596","error":"invalid_request"}
+
+[curl] http_code=400 size_upload=1048577 time_total=0.004319
+[curl] exit=0
+
+-----------------------------------------------
+### D1-x6 POST orig-2mib.json (2097152 B, contract shape)
+$ curl -sS -i --max-time 60 -X POST -H "Authorization: Bearer $MUT" -H "X-Kansoku-CSRF: $CSRF" -H 'Origin: http://127.0.0.1:43100' -H 'Content-Type: application/json' --data-binary @/tmp/kansoku-sec-lane/orig-2mib.json -w '...' 'http://127.0.0.1:43100/api/v1/plans/preview'
+HTTP/1.1 100 Continue
+
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Connection: close
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:24:42 GMT
+Content-Length: 110
+
+{"api_version":"kansoku.api/1","request_id":"req_aed9d634de781a4ed72024c702320aec","error":"invalid_request"}
+
+[curl] http_code=400 size_upload=2097152 time_total=0.004660
+[curl] exit=0
+
+-----------------------------------------------

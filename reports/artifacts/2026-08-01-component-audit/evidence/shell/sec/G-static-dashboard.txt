@@ -1,0 +1,618 @@
+=== GROUP G: static dashboard surface ===
+date: 2026-08-01T10:26:06+03:00
+===============================================
+### G1 GET / with NO Authorization header (status + first 40 lines of body)
+$ curl -sS -i --max-time 10 'http://127.0.0.1:43100/' | head -60
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-45d8867ae084bce6948906ee56810658'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:06 GMT
+Transfer-Encoding: chunked
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/mask-icon.svg" color="#8B7FD6" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0E0E11" />
+
+    
+    <script nonce="45d8867ae084bce6948906ee56810658">
+      (function () {
+        try {
+          var raw = localStorage.getItem("kansoku.appearance.v1");
+          var a = raw ? JSON.parse(raw) : null;
+          var theme = a && a.theme === "light" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+          var purple = theme === "light" ? "#6F63C4" : "#8B7FD6";
+          var gold = theme === "light" ? "#8A6D1F" : "#D9B45B";
+          if (a && a.version === 1) {
+            purple = (theme === "light" ? a.accentPurpleLight : a.accentPurple) || purple;
+            gold = (theme === "light" ? a.accentGoldLight : a.accentGold) || gold;
+          }
+          function rgb(hex) {
+            var match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+            if (!match) return null;
+            var value = parseInt(match[1], 16);
+            return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+          }
+          function mix(base, accent, weight) {
+            var left = rgb(base);
+            var right = rgb(accent);
+            if (!left || !right) return base;
+            return ("#" + left.map(function (channel, index) {
+              return Math.round(channel * (1 - weight) + right[index] * weight)
+
+-----------------------------------------------
+### G1b GET / with NO auth, size + content-type only
+$ curl -sS -o /tmp/kansoku-sec-lane/root.html --max-time 10 -w 'http_code=%{http_code} content_type=%{content_type} size_download=%{size_download}\n' 'http://127.0.0.1:43100/'; echo '--- first 400 bytes of body ---'; head -c 400 /tmp/kansoku-sec-lane/root.html; echo
+http_code=200 content_type=text/html; charset=utf-8 size_download=3210
+--- first 400 bytes of body ---
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <l
+
+-----------------------------------------------
+### G2 GET /settings with NO auth
+$ curl -sS -i --max-time 10 'http://127.0.0.1:43100/settings' | head -40
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-224605283002c759bc6a324ffd2cb2b4'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:06 GMT
+Transfer-Encoding: chunked
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/mask-icon.svg" color="#8B7FD6" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0E0E11" />
+
+    
+    <script nonce="224605283002c759bc6a324ffd2cb2b4">
+      (function () {
+        try {
+          var raw = localStorage.getItem("kansoku.appearance.v1");
+          var a = raw ? JSON.parse(raw) : null;
+
+-----------------------------------------------
+### G2b GET /privacy with NO auth
+$ curl -sS -i --max-time 10 'http://127.0.0.1:43100/privacy' | head -40
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-062a251368245df5da12489bec03e5d5'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:06 GMT
+Transfer-Encoding: chunked
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/mask-icon.svg" color="#8B7FD6" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0E0E11" />
+
+    
+    <script nonce="062a251368245df5da12489bec03e5d5">
+      (function () {
+        try {
+          var raw = localStorage.getItem("kansoku.appearance.v1");
+          var a = raw ? JSON.parse(raw) : null;
+
+-----------------------------------------------
+### G2c GET /settings and /privacy status-only summary
+$ for p in / /settings /privacy /index.html /assets/ /favicon.ico /nonexistent-xyz; do printf '%-22s ' "$p"; curl -sS -o /dev/null --max-time 10 -w 'http_code=%{http_code} content_type=%{content_type} size=%{size_download}\n' "http://127.0.0.1:43100$p"; done
+/                      http_code=200 content_type=text/html; charset=utf-8 size=3210
+/settings              http_code=200 content_type=text/html; charset=utf-8 size=3210
+/privacy               http_code=200 content_type=text/html; charset=utf-8 size=3210
+/index.html            http_code=200 content_type=text/html; charset=utf-8 size=3210
+/assets/               http_code=200 content_type=text/html; charset=utf-8 size=3210
+/favicon.ico           http_code=200 content_type=image/vnd.microsoft.icon size=561
+/nonexistent-xyz       http_code=200 content_type=text/html; charset=utf-8 size=3210
+
+-----------------------------------------------
+### G3 ALL response headers for G1 (GET / no auth) -- headers only
+$ curl -sS -D - -o /dev/null --max-time 10 'http://127.0.0.1:43100/'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-129b1a71adbd21abd88d7eca01ad7bbd'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:07 GMT
+Transfer-Encoding: chunked
+
+
+-----------------------------------------------
+### G3b ALL response headers for GET / WITH a valid read bearer (comparison)
+$ curl -sS -D - -o /dev/null --max-time 10 -H "Authorization: Bearer $READ" 'http://127.0.0.1:43100/'
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-60b3e2d0c8d3de60a99034b2bc2ff39d'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:07 GMT
+Transfer-Encoding: chunked
+
+
+-----------------------------------------------
+--- G4: path traversal on the static handler (curl --path-as-is) ---
+### G4a GET /../../etc/passwd --path-as-is
+$ curl -sS -i --path-as-is --max-time 10 'http://127.0.0.1:43100/../../etc/passwd' | head -30
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-a2dd57b34f03b347d88783e38e9b77b7'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:07 GMT
+Transfer-Encoding: chunked
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+-----------------------------------------------
+### G4b GET /assets/../../../etc/passwd --path-as-is
+$ curl -sS -i --path-as-is --max-time 10 'http://127.0.0.1:43100/assets/../../../etc/passwd' | head -30
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-f3c94f6bc5dac93c3bf5e9480991f2c7'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:07 GMT
+Transfer-Encoding: chunked
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+-----------------------------------------------
+### G4c GET /%2e%2e/%2e%2e/etc/passwd --path-as-is (encoded dot-dot)
+$ curl -sS -i --path-as-is --max-time 10 'http://127.0.0.1:43100/%2e%2e/%2e%2e/etc/passwd' | head -30
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-b1c342f40173fc2e533a4f9e1d2f05e0'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:07 GMT
+Transfer-Encoding: chunked
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+-----------------------------------------------
+### G4d GET /assets/%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd --path-as-is
+$ curl -sS -i --path-as-is --max-time 10 'http://127.0.0.1:43100/assets/%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd' | head -30
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-5f9c65f263eb370ac001f53f22cd8013'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:07 GMT
+Transfer-Encoding: chunked
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+-----------------------------------------------
+### G4e raw socket: 'GET /../../../../etc/passwd HTTP/1.1' (bypasses any curl normalisation)
+$ printf 'GET /../../../../etc/passwd HTTP/1.1\r\nHost: 127.0.0.1:43100\r\nConnection: close\r\n\r\n' | timeout 10 nc 127.0.0.1 43100 | head -30
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-14b297bab051b731ee2a995f2d79cca1'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:08 GMT
+Connection: close
+Transfer-Encoding: chunked
+
+c8a
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+
+-----------------------------------------------
+### G4f raw socket: 'GET /..%2f..%2fetc/passwd HTTP/1.1'
+$ printf 'GET /..%%2f..%%2fetc/passwd HTTP/1.1\r\nHost: 127.0.0.1:43100\r\nConnection: close\r\n\r\n' | timeout 10 nc 127.0.0.1 43100 | head -30
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-67f2a3653a53ea6d1f59e791c2b4e9b1'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:08 GMT
+Connection: close
+Transfer-Encoding: chunked
+
+c8a
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+
+-----------------------------------------------
+### G4g raw socket: backslash traversal 'GET /..\\..\\etc\\passwd HTTP/1.1'
+$ printf 'GET /..\\..\\etc\\passwd HTTP/1.1\r\nHost: 127.0.0.1:43100\r\nConnection: close\r\n\r\n' | timeout 10 nc 127.0.0.1 43100 | head -30
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-6feb67ca79b56f20e9ce299d2a530720'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:08 GMT
+Connection: close
+Transfer-Encoding: chunked
+
+c8a
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+
+-----------------------------------------------
+### G-extra: does an UNAUTHENTICATED GET / leak API data? grep body for token-like strings
+$ grep -oE 'Bearer [A-Za-z0-9_-]+|csrf[\"'\''=: ]+[A-Za-z0-9_-]{16,}' /tmp/kansoku-sec-lane/root.html | head -10; echo '[grep exit=]'$?
+[grep exit=]0
+
+-----------------------------------------------
+
+=== GROUP G ADDENDUM: body identity check for the 200s (SPA fallback vs real file contents) ===
+date: 2026-08-01T10:26:27+03:00
+$ for p in ...; do curl -sS --path-as-is -o /tmp/o "$B$p"; sha256sum + size + first 120 bytes; done
+/                                              sha256=6b47d8b726b99fb29508d38f632eb433c461cc10a39272e8e3adff73835a4115 size=3210
+    body[0:120]=<!doctype html> <html lang="en" data-theme="dark">   <head>     <meta charset="UTF-8" />     <meta name="viewport" conte
+    contains_root:x:=0
+/settings                                      sha256=4a6d8667f10c6c82c9ea75c30c19210fe0f58929f98e85066f67a9015c48bb68 size=3210
+    body[0:120]=<!doctype html> <html lang="en" data-theme="dark">   <head>     <meta charset="UTF-8" />     <meta name="viewport" conte
+    contains_root:x:=0
+/privacy                                       sha256=ce74a0aa240cfaa9e96eb4d87cd93bf832827e432982227c802dd0f99e194a5f size=3210
+    body[0:120]=<!doctype html> <html lang="en" data-theme="dark">   <head>     <meta charset="UTF-8" />     <meta name="viewport" conte
+    contains_root:x:=0
+/nonexistent-xyz                               sha256=6ad8427c59b205b12920fa500a7f4327a4fa8d442c6d0257a7a85dbd7d80d5c0 size=3210
+    body[0:120]=<!doctype html> <html lang="en" data-theme="dark">   <head>     <meta charset="UTF-8" />     <meta name="viewport" conte
+    contains_root:x:=0
+/../../etc/passwd                              sha256=f0ecc4291cbc8611d9c64c362fe19e012e24b2db044f2792285cbe2232d79903 size=3210
+    body[0:120]=<!doctype html> <html lang="en" data-theme="dark">   <head>     <meta charset="UTF-8" />     <meta name="viewport" conte
+    contains_root:x:=0
+/assets/../../../etc/passwd                    sha256=1d46f6f00e5bb26c0b3b46e0e32f02ef8a733355b834bae43f00acf6f1e0a6fb size=3210
+    body[0:120]=<!doctype html> <html lang="en" data-theme="dark">   <head>     <meta charset="UTF-8" />     <meta name="viewport" conte
+    contains_root:x:=0
+/%2e%2e/%2e%2e/etc/passwd                      sha256=efff1e449ac814d44fd5446492d9d4eb1221e32878cc7f921ca37db5bb45fd0f size=3210
+    body[0:120]=<!doctype html> <html lang="en" data-theme="dark">   <head>     <meta charset="UTF-8" />     <meta name="viewport" conte
+    contains_root:x:=0
+/assets/%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd sha256=3680b1f827eccaf61ab6540b3245a97ccd03bf51c065d5bc2b26c8026fda4501 size=3210
+    body[0:120]=<!doctype html> <html lang="en" data-theme="dark">   <head>     <meta charset="UTF-8" />     <meta name="viewport" conte
+    contains_root:x:=0
+
+reference: sha256 of real /etc/passwd = 489fb1cb7d1472fbe20069a8320f642f3ac2cb703ea18dfa8ac4cac7c8b37877 size=1767
+-----------------------------------------------
+### G3 full header dump, GET / no auth (verbatim)
+HTTP/1.1 200 OK
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; script-src 'self' 'nonce-3f7d857a00aa699304a62f6b5cd0f0a6'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: text/html; charset=utf-8
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:26:29 GMT
+Transfer-Encoding: chunked
+
+-----------------------------------------------
+### G1 full unauthenticated body of GET / (3210 bytes, verbatim)
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    
+    <meta name="kansoku-read-token" content="hf9RqNheO636SmIMR1V2RR8AKUFXUDItCBHCg8ysNdf2" />
+    <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUxjfWohwHvZnZYqa" />
+
+    <title>Kansoku</title>
+
+    
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/mask-icon.svg" color="#8B7FD6" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0E0E11" />
+
+    
+    <script nonce="4a9619e638fec0f45349de3636192ccf">
+      (function () {
+        try {
+          var raw = localStorage.getItem("kansoku.appearance.v1");
+          var a = raw ? JSON.parse(raw) : null;
+          var theme = a && a.theme === "light" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+          var purple = theme === "light" ? "#6F63C4" : "#8B7FD6";
+          var gold = theme === "light" ? "#8A6D1F" : "#D9B45B";
+          if (a && a.version === 1) {
+            purple = (theme === "light" ? a.accentPurpleLight : a.accentPurple) || purple;
+            gold = (theme === "light" ? a.accentGoldLight : a.accentGold) || gold;
+          }
+          function rgb(hex) {
+            var match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+            if (!match) return null;
+            var value = parseInt(match[1], 16);
+            return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+          }
+          function mix(base, accent, weight) {
+            var left = rgb(base);
+            var right = rgb(accent);
+            if (!left || !right) return base;
+            return ("#" + left.map(function (channel, index) {
+              return Math.round(channel * (1 - weight) + right[index] * weight)
+                .toString(16).padStart(2, "0");
+            }).join("")).toUpperCase();
+          }
+          var surface = theme === "light" ? "#FFFFFF" : "#16161B";
+          if (!rgb(purple)) purple = theme === "light" ? "#6F63C4" : "#8B7FD6";
+          document.documentElement.style.setProperty("--accent-purple", purple);
+          document.documentElement.style.setProperty("--accent-gold", gold);
+          document.documentElement.style.setProperty("--row-hover", mix(surface, purple, 0.1));
+          document.documentElement.style.setProperty("--row-selected", mix(surface, purple, 0.18));
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-DGZ2hRe7.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/query-IUxZtWqF.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-9Wp7qkon.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+
+-----------------------------------------------
+-----------------------------------------------
+=== GROUP G ADDENDUM 2: does the unauthenticated HTML embed any secret material? ===
+date: 2026-08-01T10:26:44+03:00
+$ curl -sS http://127.0.0.1:43100/ > /tmp/kansoku-sec-lane/root.html ; then grep each secret file's literal value inside it
+  secret read_bearer        -> PRESENT_IN_HTML
+  secret mutation_bearer    -> absent
+  secret ingress_bearer     -> absent
+  secret csrf               -> PRESENT_IN_HTML
+  secret audit_hmac         -> absent
+  secret identity_hmac      -> absent
+  secret database_password  -> absent
+$ grep -oE 'nonce-[a-f0-9]+|Bearer [A-Za-z0-9_+/=-]{8,}' /tmp/kansoku-sec-lane/root.html
+$ two consecutive fetches of / -> differing sha256 explained by per-request CSP nonce:
+nonce="6ca26544a7144ef94544e9175ccb8f69"
+nonce="9c8b52aaad8ed779b7d5b8d635670f7a"
+-----------------------------------------------
+=== GROUP G ADDENDUM 3: exact embedding context of the two secrets in the unauthenticated / response ===
+date: 2026-08-01T10:27:44+03:00
+(token values masked to first 6 chars HERE; the full verbatim body is already recorded above under 'G1 full unauthenticated body')
+--- read_bearer found at byte offset 217 of the 3210-byte unauthenticated body ---
+d>     <meta charset="UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1.0" />           <meta name="kansoku-read-token" content="<READ_BEARER:hf9RqN...44B>" />     <meta name="kansoku-csrf-token" content="YLS1xl5GTa5L3vd1OAkbWj3jZoeLUx
+
+--- csrf found at byte offset 311 of the 3210-byte unauthenticated body ---
+-scale=1.0" />           <meta name="kansoku-read-token" content="<READ_BEARER:hf9RqN...44B>" />     <meta name="kansoku-csrf-token" content="<CSRF:YLS1xl...44B>" />      <title>Kansoku</title>           <link rel="icon" href="/favicon.ico" 
+
+$ curl -sS http://127.0.0.1:43100/settings | grep -o 'kansoku-read-token\|kansoku-csrf-token'  (no auth)
+kansoku-read-token
+kansoku-csrf-token
+$ curl -sS http://127.0.0.1:43100/privacy | grep -o 'kansoku-read-token\|kansoku-csrf-token'  (no auth)
+kansoku-read-token
+kansoku-csrf-token
+$ curl -sS http://127.0.0.1:43100/nonexistent-xyz | grep -o 'kansoku-read-token\|kansoku-csrf-token'  (no auth, SPA fallback)
+kansoku-read-token
+kansoku-csrf-token
+$ do the meta tokens rotate per request? (compare read-token meta across 2 fetches, masked)
+name="kansoku-read-token" content="hf9RqNhe
+name="kansoku-read-token" content="hf9RqNhe
+-----------------------------------------------

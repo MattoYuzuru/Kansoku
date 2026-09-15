@@ -47,6 +47,19 @@ const (
 	OTelPluginInstalled OTelEventName = "plugin_installed"
 	OTelPluginLoaded    OTelEventName = "plugin_loaded"
 	OTelSkillActivated  OTelEventName = "skill_activated"
+	// OTelHookRegistered and OTelAssistantResponse are emitted by Claude Code
+	// 2.1.220 on every session start and on assistant turns respectively.
+	// Both were observed on the wire while undeclared here, so each one
+	// quarantined as an unsupported adapter event once per session -- standing
+	// incident noise that said "this schema drifted" about a shape that had
+	// simply never been written down. They are declared as metadata-only
+	// source activity: their canonical mapping is source.observed, and no
+	// measurement, component identity or content is read from either. In
+	// particular assistant_response is *not* mapped onto model.responded --
+	// api_request already counts that exact operation, and counting both would
+	// double every model response.
+	OTelHookRegistered    OTelEventName = "hook_registered"
+	OTelAssistantResponse OTelEventName = "assistant_response"
 )
 
 // DocumentedOTelEvents is the closed, documented Claude Code OTel event
@@ -57,23 +70,28 @@ func DocumentedOTelEvents() []OTelEventName {
 	return []OTelEventName{
 		OTelUserPrompt, OTelAPIRequest, OTelAPIError, OTelToolDecision, OTelToolResult,
 		OTelPluginInstalled, OTelPluginLoaded, OTelSkillActivated,
+		OTelHookRegistered, OTelAssistantResponse,
 	}
 }
 
 // otelEventCanonical is the subset of
 // contracts/claude/hooks-and-otel.yaml's source_event_mapping table whose
-// source_kind is otlp_log_span_metric. Tool decisions are intentionally
-// absent because tool_result is the single counted tool execution; counting
-// both decision and result would double every call.
+// source_kind is otlp_log_span_metric. A tool decision is its own canonical
+// event (tool.decided), never a second tool.called: tool_result remains the
+// single counted execution, so counting decisions cannot double a call, while
+// the decision itself -- which permission answer a call received, and from
+// which source -- stops being flattened into a contentless source.observed.
 var otelEventCanonical = map[OTelEventName]string{
-	OTelUserPrompt:      "prompt.submitted",
-	OTelToolDecision:    "source.observed",
-	OTelToolResult:      "tool.called",
-	OTelAPIRequest:      "model.responded",
-	OTelAPIError:        "model.responded",
-	OTelPluginInstalled: "component.installed",
-	OTelPluginLoaded:    "component.loaded",
-	OTelSkillActivated:  "component.invoked",
+	OTelUserPrompt:        "prompt.submitted",
+	OTelToolDecision:      "tool.decided",
+	OTelToolResult:        "tool.called",
+	OTelAPIRequest:        "model.responded",
+	OTelAPIError:          "model.responded",
+	OTelPluginInstalled:   "component.installed",
+	OTelPluginLoaded:      "component.loaded",
+	OTelSkillActivated:    "component.invoked",
+	OTelHookRegistered:    "source.observed",
+	OTelAssistantResponse: "source.observed",
 }
 
 // OTLPSafeAttributes is the exact, closed OTLP attribute allowlist reused
@@ -89,7 +107,20 @@ func OTLPSafeAttributes() []string {
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
 		"kansoku.component.kind", "kansoku.duration_ms", "kansoku.prompt_length_characters",
 		"kansoku.input_tokens", "kansoku.cached_input_tokens", "kansoku.output_tokens", "kansoku.provider_cost_micros",
-		"kansoku.turn.id",
+		"kansoku.cache_creation_tokens", "kansoku.cache_read_tokens",
+		"kansoku.response_length_characters",
+		"kansoku.tool.decision", "kansoku.tool.source", "kansoku.tool.use_id",
+		"kansoku.tool.input_bytes", "kansoku.tool.result_bytes",
+		"kansoku.hook.event", "kansoku.hook.type", "kansoku.hook.source",
+		"kansoku.session.start_type", "kansoku.session.query_source",
+		"kansoku.session.terminal_type", "kansoku.session.safe_mode",
+		"kansoku.message.id", "kansoku.user.id",
+		"kansoku.tool.decision_source",
+		"kansoku.component.marketplace", "kansoku.component.version",
+		"kansoku.turn.id", "kansoku.component.identity",
+		"kansoku.component.identity_source", "kansoku.component.owner_plugin",
+		"kansoku.component.invocation_mode", "kansoku.component.upstream_identity_hash",
+		"kansoku.component.source_scope",
 	}
 }
 
@@ -119,9 +150,14 @@ func DroppedOTelSurfaces() []string {
 type ClaudeComponentAttribute string
 
 const (
-	AttributeSkillName  ClaudeComponentAttribute = "skill.name"
-	AttributePluginName ClaudeComponentAttribute = "plugin.name"
-	AttributeAgentName  ClaudeComponentAttribute = "agent.name"
+	AttributeSkillName         ClaudeComponentAttribute = "skill.name"
+	AttributePluginName        ClaudeComponentAttribute = "plugin.name"
+	AttributeAgentName         ClaudeComponentAttribute = "agent.name"
+	AttributeInvocationTrigger ClaudeComponentAttribute = "invocation_trigger"
+	AttributeSkillSource       ClaudeComponentAttribute = "skill.source"
+	AttributePluginScope       ClaudeComponentAttribute = "plugin.scope"
+	AttributeEnabledVia        ClaudeComponentAttribute = "enabled_via"
+	AttributePluginIDHash      ClaudeComponentAttribute = "plugin_id_hash"
 )
 
 // DocumentedComponentAttributes is the closed, documented identity/component
@@ -129,7 +165,11 @@ const (
 // contracts/claude/hooks-and-otel.yaml's
 // otel_source.documented_attributes.identity_and_component verbatim.
 func DocumentedComponentAttributes() []ClaudeComponentAttribute {
-	return []ClaudeComponentAttribute{AttributeSkillName, AttributePluginName, AttributeAgentName}
+	return []ClaudeComponentAttribute{
+		AttributeSkillName, AttributePluginName, AttributeAgentName,
+		AttributeInvocationTrigger, AttributeSkillSource, AttributePluginScope,
+		AttributeEnabledVia, AttributePluginIDHash,
+	}
 }
 
 // ComponentAttributeSafeSlot returns the existing OTLPSafeAttributes() slot a
@@ -139,10 +179,44 @@ func DocumentedComponentAttributes() []ClaudeComponentAttribute {
 // skill.name/plugin.name/agent.name.
 func ComponentAttributeSafeSlot(attribute ClaudeComponentAttribute) (string, bool) {
 	switch attribute {
-	case AttributeSkillName, AttributePluginName, AttributeAgentName:
-		return "kansoku.tool.id", true
+	case AttributeSkillName, AttributeAgentName:
+		return "kansoku.component.identity", true
+	case AttributePluginName:
+		return "kansoku.component.owner_plugin", true
+	case AttributeInvocationTrigger:
+		return "kansoku.component.invocation_mode", true
+	case AttributeSkillSource, AttributePluginScope:
+		return "kansoku.component.source_scope", true
+	case AttributeEnabledVia:
+		return "kansoku.component.identity_source", true
+	case AttributePluginIDHash:
+		return "kansoku.component.upstream_identity_hash", true
 	default:
 		return "", false
+	}
+}
+
+// DocumentedSourceScopeValues records, per source-scope-shaped attribute, the
+// raw values a locally-installed Claude Code has actually been observed to
+// stamp -- taken from the 2.1.220 wire capture in
+// reports/artifacts/2026-08-01-component-audit, not from a specification.
+//
+// This is advisory documentation only. Nothing resolves against it: the data
+// platform classifies an observed value against the closed
+// adaptersdk.SourceScope vocabulary itself, and a value outside that
+// vocabulary widens rather than narrows resolution. The list exists so the
+// divergence is written down where the adapter recipe lives -- none of these
+// values is a vocabulary member, and every one of them would otherwise look
+// like an unexplained mismatch to the next reader.
+//
+// Claude Code's own words are not Kansoku's: "plugin" describes where the
+// skill came from, while inventory records the same plugin-bundled skills at
+// "plugin_cache" (where they physically live). The two genuinely mean
+// different things, which is exactly why neither is translated into the other.
+func DocumentedSourceScopeValues() map[ClaudeComponentAttribute][]string {
+	return map[ClaudeComponentAttribute][]string{
+		AttributeSkillSource: {"plugin"},
+		AttributePluginScope: {"user-local"},
 	}
 }
 
@@ -170,7 +244,52 @@ const (
 	NativeAttributeInputTokens  NativeOTLPAttribute = "input_tokens"
 	NativeAttributeOutputTokens NativeOTLPAttribute = "output_tokens"
 	NativeAttributeCostMicros   NativeOTLPAttribute = "cost_usd_micros"
+	// The attributes below were observed on the 2.1.220 wire
+	// (reports/artifacts/2026-08-01-component-audit/evidence/plugins/
+	// 03-claude-otlp-capture-strings.jsonl) while this table read none of
+	// them. Each is a vocabulary token, a size, a count or an identifier --
+	// never content. tool_input/tool_parameters/prompt/response stay on
+	// DroppedOTelSurfaces() and are still never read.
+	NativeAttributeToolDecision    NativeOTLPAttribute = "decision"
+	NativeAttributeToolSource      NativeOTLPAttribute = "tool_source"
+	// tool_decision carries two independent provenances and they are not
+	// interchangeable: source says where the permission answer came from
+	// ("config"), tool_source says where the tool itself came from
+	// ("builtin"). Storing tool_source under both names would make every
+	// decision look configuration-free.
+	NativeAttributeDecisionSource  NativeOTLPAttribute = "source"
+	NativeAttributeToolUseID       NativeOTLPAttribute = "tool_use_id"
+	NativeAttributeToolInputBytes  NativeOTLPAttribute = "tool_input_size_bytes"
+	NativeAttributeToolResultBytes NativeOTLPAttribute = "tool_result_size_bytes"
+	NativeAttributeCacheCreation   NativeOTLPAttribute = "cache_creation_tokens"
+	NativeAttributeCacheRead       NativeOTLPAttribute = "cache_read_tokens"
+	NativeAttributeResponseLength  NativeOTLPAttribute = "response_length"
+	NativeAttributeHookEvent       NativeOTLPAttribute = "hook_event"
+	NativeAttributeHookType        NativeOTLPAttribute = "hook_type"
+	NativeAttributeHookSource      NativeOTLPAttribute = "hook_source"
+	NativeAttributeStartType       NativeOTLPAttribute = "start_type"
+	NativeAttributeQuerySource     NativeOTLPAttribute = "query_source"
+	NativeAttributeTerminalType    NativeOTLPAttribute = "terminal.type"
+	NativeAttributeSafeMode        NativeOTLPAttribute = "safe_mode"
+	NativeAttributeMessageUUID     NativeOTLPAttribute = "message.uuid"
+	NativeAttributeUserID          NativeOTLPAttribute = "user.id"
+	NativeAttributeMarketplaceName NativeOTLPAttribute = "marketplace.name"
+	NativeAttributePluginVersion   NativeOTLPAttribute = "plugin.version"
 )
+
+// Two wire attributes are deliberately absent from the table above.
+//
+// hook_matcher arrives next to hook_event/hook_type/hook_source and is the
+// only member of that group a user writes by hand: it can carry a path or a
+// project name. It is excluded rather than pseudonymized.
+//
+// plugin.scope is absent here because it is already claimed by
+// ComponentAttributeSafeSlot(AttributePluginScope) -> kansoku.component
+// .source_scope. Declaring it in both tables would not add a second
+// measurement -- the wire carries the value once -- it would only let this
+// table shadow the component table in nativeAttributeSafeSlot, which tries
+// the native table first and returns on the first hit. One wire attribute,
+// one slot.
 
 // NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
 // a real, documented Claude-native OTLP activity attribute name maps onto,
@@ -201,6 +320,46 @@ func NativeOTLPAttributeSafeSlot(attribute NativeOTLPAttribute) (string, bool) {
 		return "kansoku.output_tokens", true
 	case NativeAttributeCostMicros:
 		return "kansoku.provider_cost_micros", true
+	case NativeAttributeToolDecision:
+		return "kansoku.tool.decision", true
+	case NativeAttributeToolSource:
+		return "kansoku.tool.source", true
+	case NativeAttributeDecisionSource:
+		return "kansoku.tool.decision_source", true
+	case NativeAttributeToolUseID:
+		return "kansoku.tool.use_id", true
+	case NativeAttributeToolInputBytes:
+		return "kansoku.tool.input_bytes", true
+	case NativeAttributeToolResultBytes:
+		return "kansoku.tool.result_bytes", true
+	case NativeAttributeCacheCreation:
+		return "kansoku.cache_creation_tokens", true
+	case NativeAttributeCacheRead:
+		return "kansoku.cache_read_tokens", true
+	case NativeAttributeResponseLength:
+		return "kansoku.response_length_characters", true
+	case NativeAttributeHookEvent:
+		return "kansoku.hook.event", true
+	case NativeAttributeHookType:
+		return "kansoku.hook.type", true
+	case NativeAttributeHookSource:
+		return "kansoku.hook.source", true
+	case NativeAttributeStartType:
+		return "kansoku.session.start_type", true
+	case NativeAttributeQuerySource:
+		return "kansoku.session.query_source", true
+	case NativeAttributeTerminalType:
+		return "kansoku.session.terminal_type", true
+	case NativeAttributeSafeMode:
+		return "kansoku.session.safe_mode", true
+	case NativeAttributeMessageUUID:
+		return "kansoku.message.id", true
+	case NativeAttributeUserID:
+		return "kansoku.user.id", true
+	case NativeAttributeMarketplaceName:
+		return "kansoku.component.marketplace", true
+	case NativeAttributePluginVersion:
+		return "kansoku.component.version", true
 	default:
 		return "", false
 	}
@@ -257,9 +416,14 @@ func ExpectedOTelAttributeFingerprint(name OTelEventName) (string, bool) {
 		OTelToolResult:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
 		OTelAPIRequest:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"},
 		OTelAPIError:        {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms"},
-		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		// Metadata-only: identity and event type, never a measurement or a
+		// component. Requiring more would quarantine a record that is
+		// genuinely shaped this way upstream.
+		OTelHookRegistered:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelAssistantResponse: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
 	}
 	required, ok := requiredByEvent[name]
 	if !ok {
@@ -329,9 +493,14 @@ func requiredOTelKeys(name OTelEventName) []string {
 		OTelToolResult:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms"},
 		OTelAPIRequest:      {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms", "kansoku.input_tokens", "kansoku.output_tokens"},
 		OTelAPIError:        {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.model.id", "kansoku.duration_ms"},
-		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
-		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.tool.id", "kansoku.component.kind"},
+		OTelPluginInstalled: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelPluginLoaded:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		OTelSkillActivated:  {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type", "kansoku.component.identity", "kansoku.component.kind"},
+		// Metadata-only: identity and event type, never a measurement or a
+		// component. Requiring more would quarantine a record that is
+		// genuinely shaped this way upstream.
+		OTelHookRegistered:    {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
+		OTelAssistantResponse: {"kansoku.event.id", "kansoku.session.id", "kansoku.event.type"},
 	}
 	return requiredByEvent[name]
 }

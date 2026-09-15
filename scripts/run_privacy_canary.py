@@ -84,7 +84,13 @@ def run() -> dict[str, object]:
         raise RuntimeError("isolated backup does not restore the exact safe export bytes")
     database = json.loads(decoded["database"])
     records = database.get("records", [])
-    expected_record_fields = {"record_id", "idempotency_key", "adapter_id", "adapter_version", "source_schema_id", "schema_fingerprint", "observed_at", "received_at", "confidence", "event_type", "outcome", "value_state", "model", "tool", "component_kind", "component_mentions", "prompt_features", "telemetry", "redaction_counts", "lineage"}
+    expected_record_fields = {
+        "record_id", "idempotency_key", "adapter_id", "adapter_version",
+        "source_schema_id", "schema_fingerprint", "observed_at", "received_at",
+        "confidence", "event_type", "outcome", "value_state", "model", "tool",
+        "component_kind", "component_mentions", "component_evidence",
+        "prompt_features", "telemetry", "redaction_counts", "lineage",
+    }
     if not records or set(records[0]) != expected_record_fields:
         raise RuntimeError("safe record field assertion failed")
     source_paths = [

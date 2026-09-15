@@ -14,11 +14,11 @@ import { RangeControl } from "../components/RangeControl";
 import { deriveViewState } from "../api/client";
 import { usePromptShape } from "../api/queries";
 import { useRange } from "../hooks/useRange";
-import { sum } from "../lib/format";
+import { formatMetric, sum } from "../lib/format";
 import { bucketedTimeSeriesOption } from "../components/chartOptions";
 
 export function Prompts() {
-  const range = useRange();
+  const range = useRange("prompts");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],
@@ -32,6 +32,11 @@ export function Prompts() {
   const lastRow = rows[rows.length - 1];
   const lastMedian = lastRow?.character_percentiles?.p50 ?? lastRow?.percentiles?.p50 ?? null;
   const lastUnit = lastRow?.character_percentiles?.p50 != null ? "characters" : "bytes";
+  // The percentile band is computed only from prompts that carried a length.
+  // Numerator, denominator and the named exclusion are shown together so the
+  // band is never read as covering every prompt in the range.
+  const population = shape.data?.data?.population;
+  const unmeasured = shape.data?.data?.exclusions?.prompt_without_length_measurement ?? 0;
 
   return (
     <section className="k-page">
@@ -50,6 +55,8 @@ export function Prompts() {
             label="Median size (p50, last day)"
             value={rows.length > 0 ? lastMedian : null}
             unit={lastUnit}
+            precision={2}
+            formatValue={formatMetric}
             state={
               rows.length > 0 && lastMedian == null
                 ? "not_observed"
@@ -106,6 +113,15 @@ export function Prompts() {
               and exact UTF-8 byte length were not observed).
             </p>
           )
+        )}
+        {population != null && (
+          <GapNote>
+            Length percentiles cover {population.numerator} of {population.denominator}{" "}
+            prompts in range
+            {unmeasured > 0
+              ? `; ${unmeasured} carried no length measurement and are excluded from the band while still being counted as prompts.`
+              : "."}
+          </GapNote>
         )}
         <GapNote>
           Calendar and weekday/hour heatmaps need a separate two-dimensional query.

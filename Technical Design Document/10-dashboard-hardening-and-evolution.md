@@ -79,6 +79,14 @@ Every panel handles:
 
 Blank chart and “0” are never generic fallbacks.
 
+The 2026-07-30 containment pass makes this contract executable at three boundaries:
+
+- collection-bearing Skill and Plugin profile responses serialize absent collections as `[]`;
+- the query boundary normalizes legacy cached/mixed-version `null` collections, and merge helpers
+  still fail safe if an unnormalized payload reaches them;
+- query failures render a privacy-safe Retry/Back state, route render failures retain the
+  `AppShell`, and a root boundary leaves a non-empty recovery surface if the shell itself fails.
+
 ## Core visual specifications
 
 ### Activity timeline
@@ -183,3 +191,52 @@ capability/version evidence record.
 All supported routes pass accessibility, privacy, reliability, performance and visual-state tests;
 formula/evidence drill-down is universal; release/restore is reproducible; the project has a safe
 adapter and metric evolution process beyond the initial ten sessions.
+
+## Contract-backed glossary route (2026-07-29)
+
+`web/scripts/gen-routes.mjs` reads both `contracts/dashboard.yaml` and
+`contracts/glossary.yaml`. It generates the route registry plus a typed term registry at build
+time. `/glossary` renders only those generated definitions, supports local search and stable term
+anchors, and performs no API call or external request. Contextual info links use the same anchors.
+The route is lazy-loaded and remains within the existing read-only dashboard authorization model.
+
+## Reliability and model formula reconciliation (2026-07-30)
+
+`model.error_ratio/1` is materialized in `ModelUsageResponse.error_ratio_metric`. The backend sums
+daily failure, terminal and excluded populations before division. Each daily row also carries its
+own numerator, denominator and exclusions for exact table/export reconciliation. A zero numerator
+with a non-zero terminal denominator is numeric zero; an absent denominator keeps the value null.
+
+`collection_health_snapshot/2` returns separate typed fields for receive-to-commit latency,
+active-source observation age, evidence replays, late/backfill candidates and declared clock skew.
+Its population is accepted plus quarantined input, and its exclusion map counts accepted events
+whose durable receive/commit timestamps are unavailable. Receive-to-commit therefore serializes as
+absent/null and renders `not_observed`; it is not derived from source timestamps.
+
+The late/backfill candidate query excludes declared clock-skew events and uses
+`ingested_at - observed_at > 5 minutes`. Observation age is a p95 over active source watermarks,
+not an event latency percentile. Replay count comes from evidence rows in the selected interval.
+These populations remain visibly separate in Reliability.
+
+The historical `collection.ingest_latency_seconds/1` lock is retained. The current registry and
+formula fixture use `collection.ingest_latency_seconds/2` with
+`p95(durable_commit_at - received_at)` and the explicit
+`receive_or_commit_timestamp_not_observed` exclusion.
+
+The Models query selects the latest price-bound estimate for all token rows once and joins that
+bounded relation. It does not execute a lateral `cost_estimates` scan per response. On the
+measured live 7,988-response range, the old plan touched about 1.1 million shared buffers and took
+1,849.465 ms; the set-based plan touched 961 shared buffers and took 74.816 ms. A 5,000-response
+PostgreSQL regression fixture remains below the unchanged 150 ms query budget and reconciles exact
+request, costed-request and cost totals. The per-model leaderboard uses the same bounded
+latest-cost relation and per-operation aggregation, so provider cost and cost coverage are counted
+once per response rather than once per joined token row.
+
+At the live 337,293-event seven-day contour, the reconstructed active-duration aggregate requires
+one exact event-index pass and measured 186.795 ms. `activity_timeline_range` therefore has an
+evidence-backed 250 ms wall/statement ceiling; no row, session or range is omitted. Reliability
+counts measured about 50 ms alone but exceeded the former 100 ms ceiling while the Reliability
+route issued its independent coverage, health, incident and quarantine queries. Its ceiling is
+250 ms at the live contour when the visible Health tab concurrently reads coverage and collection
+health. Hidden-tab queries are disabled separately. These Go query budgets do not change a metric
+formula or completeness population.

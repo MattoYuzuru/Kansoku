@@ -32,11 +32,13 @@ EXPECTED_ROUTES = {
     "/components/skills",
     "/components/skills/:id",
     "/components/plugins",
+    "/components/plugins/:id",
     "/components/mcp",
     "/tools",
     "/reliability",
     "/privacy",
     "/system",
+    "/glossary",
     "/settings",
 }
 IDENTIFIER_RE = re.compile(r"^[a-z0-9][a-z0-9._/:_-]{2,127}$")

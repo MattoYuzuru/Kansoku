@@ -3,9 +3,16 @@
  * browser's IANA timezone and re-resolved while a visible tab is open, so a
  * dashboard left across midnight never keeps yesterday's frozen `to`.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  RANGE_PREFERENCE_STORAGE_KEY,
+  readRangePreference,
+  writeRangePreference,
+  type RangePageKey,
+  type RangePreset,
+} from "../lib/rangePreference";
 
-export type RangeKey = "day" | "week" | "month" | "six_months" | "year" | "all_time";
+export type RangeKey = RangePreset;
 export type BucketGranularity = "hourly" | "daily" | "weekly" | "monthly";
 
 export interface RangeOption {
@@ -89,8 +96,14 @@ export interface UseRangeResult {
   options: readonly RangeOption[];
 }
 
-export function useRange(initial: RangeKey = DEFAULT_RANGE): UseRangeResult {
-  const [rangeKey, setRangeKey] = useState<RangeKey>(initial);
+export function useRange(
+  pageKey: RangePageKey,
+  initial: RangeKey = DEFAULT_RANGE,
+): UseRangeResult {
+  const [rangeKey, setRangeKeyState] = useState<RangeKey>(() => {
+    if (typeof window === "undefined") return initial;
+    return readRangePreference(window.localStorage, pageKey, initial);
+  });
   const [now, setNow] = useState(() => new Date());
   const option = optionFor(rangeKey);
   const timezone = useMemo(browserTimezone, []);
@@ -114,6 +127,23 @@ export function useRange(initial: RangeKey = DEFAULT_RANGE): UseRangeResult {
       window.removeEventListener("focus", refresh);
     };
   }, []);
+
+  useEffect(() => {
+    const syncPreference = (event: StorageEvent) => {
+      if (event.key !== RANGE_PREFERENCE_STORAGE_KEY) return;
+      setRangeKeyState(readRangePreference(window.localStorage, pageKey, initial));
+    };
+    window.addEventListener("storage", syncPreference);
+    return () => window.removeEventListener("storage", syncPreference);
+  }, [initial, pageKey]);
+
+  const setRangeKey = useCallback(
+    (next: RangeKey) => {
+      setRangeKeyState(next);
+      writeRangePreference(window.localStorage, pageKey, next);
+    },
+    [pageKey],
+  );
 
   const windowRange = useMemo(() => computeWindow(rangeKey, now), [rangeKey, now]);
   return {

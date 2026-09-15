@@ -154,8 +154,8 @@ func TestAgentBreakdownEmptyRangeReportsUnknownNotZero(t *testing.T) {
 
 // TestModelBreakdownSumsTokensAcrossModels proves ModelBreakdown groups
 // model_operations/token_usage across every model observed in range and
-// reports a real "data present" completeness rather than a hardcoded
-// "complete".
+// reports exact success/failure outcome coverage plus a real "data present"
+// completeness rather than a hardcoded "complete".
 func TestModelBreakdownSumsTokensAcrossModels(t *testing.T) {
 	dsn := testDSN(t)
 	pool := freshSchema(t, dsn)
@@ -169,8 +169,12 @@ func TestModelBreakdownSumsTokensAcrossModels(t *testing.T) {
 	insertProviderAndModel(t, ctx, pool, "prov_anthropic", "model_sonnet")
 	insertProviderAndModel(t, ctx, pool, "prov_anthropic", "model_haiku")
 
-	insertOperation := func(id, modelID string, observedAt time.Time, inputTokens, outputTokens int64) {
-		if _, err := pool.Exec(ctx, `INSERT INTO model_operations (model_operation_id, observed_at, model_id) VALUES ($1, $2, $3)`, id, observedAt, modelID); err != nil {
+	insertOperation := func(id, modelID, outcome string, observedAt time.Time, inputTokens, outputTokens int64) {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO model_operations (
+				model_operation_id, observed_at, model_id, operation_kind, outcome
+			) VALUES ($1, $2, $3, 'response', nullif($4, ''))
+		`, id, observedAt, modelID, outcome); err != nil {
 			t.Fatalf("insert model_operation: %v", err)
 		}
 		if _, err := pool.Exec(ctx, `INSERT INTO token_usage (token_usage_id, observed_at, model_operation_id, input_tokens, output_tokens) VALUES ($1, $2, $3, $4, $5)`,
@@ -178,9 +182,9 @@ func TestModelBreakdownSumsTokensAcrossModels(t *testing.T) {
 			t.Fatalf("insert token_usage: %v", err)
 		}
 	}
-	insertOperation("mop_1", "model_sonnet", base.Add(time.Minute), 100, 50)
-	insertOperation("mop_2", "model_sonnet", base.Add(2*time.Minute), 200, 75)
-	insertOperation("mop_3", "model_haiku", base.Add(3*time.Minute), 10, 5)
+	insertOperation("mop_1", "model_sonnet", "succeeded", base.Add(time.Minute), 100, 50)
+	insertOperation("mop_2", "model_sonnet", "failed", base.Add(2*time.Minute), 200, 75)
+	insertOperation("mop_3", "model_haiku", "", base.Add(3*time.Minute), 10, 5)
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO price_catalog_versions (
 			price_catalog_version_id, model_id, effective_at,
@@ -204,11 +208,14 @@ func TestModelBreakdownSumsTokensAcrossModels(t *testing.T) {
 		t.Fatalf("insert request observation: %v", err)
 	}
 	// Outside range: must not leak in.
-	insertOperation("mop_4", "model_sonnet", base.AddDate(0, 0, 5), 999, 999)
+	insertOperation("mop_4", "model_sonnet", "succeeded", base.AddDate(0, 0, 5), 999, 999)
 
 	response, err := ModelBreakdown(ctx, pool, base, base.AddDate(0, 0, 1))
 	if err != nil {
 		t.Fatalf("ModelBreakdown: %v", err)
+	}
+	if response.FormulaVersion != FormulaVersionModelBreakdown2 {
+		t.Fatalf("formula_version = %q, want %q", response.FormulaVersion, FormulaVersionModelBreakdown2)
 	}
 	byID := make(map[string]EntityRow, len(response.Data))
 	for _, row := range response.Data {
@@ -228,12 +235,19 @@ func TestModelBreakdownSumsTokensAcrossModels(t *testing.T) {
 		t.Fatalf("model_sonnet cost = (%d,%d), want (1,123)",
 			sonnet.CostedCount, sonnet.EstimatedCostMicros)
 	}
+	if sonnet.SuccessCount != 1 || sonnet.FailureCount != 1 {
+		t.Fatalf("model_sonnet outcomes = (%d,%d), want (1,1)",
+			sonnet.SuccessCount, sonnet.FailureCount)
+	}
 	haiku, ok := byID["model_haiku"]
 	if !ok {
 		t.Fatalf("missing model_haiku row: %+v", response.Data)
 	}
 	if haiku.Value == nil || *haiku.Value != float64(15) {
 		t.Fatalf("model_haiku total tokens = %v, want 15", haiku.Value)
+	}
+	if haiku.SuccessCount != 0 || haiku.FailureCount != 0 {
+		t.Fatalf("model_haiku unknown outcome was coerced: %+v", haiku)
 	}
 	if response.Population.Denominator == 0 {
 		t.Fatalf("expected a nonzero denominator when operations are present: %+v", response.Population)

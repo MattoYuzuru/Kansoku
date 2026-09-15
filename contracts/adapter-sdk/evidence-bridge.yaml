@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.adapter-sdk-evidence-bridge/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-26",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-07-30",
   "api_version": "kansoku.evidence-bridge/v1",
   "manifest_fields": [
     "api_version",
@@ -56,5 +56,7 @@
   "database_boundary": "a_bridge_never_receives_a_database_pool_sql_api_database_credentials_mutation_bearer_or_unrestricted_filesystem_handle",
   "deduplication_rule": "logical_fact_identity_is_lane_independent_evidence_identity_includes_the_lane_and_native_source_identity",
   "health_isolation_rule": "bridge_failure_degrades_only_bridge_owned_capabilities_and_never_invalidates_history_proven_by_other_lanes",
-  "unknown_schema_rule": "unknown_protocol_or_schema_creates_metadata_only_rejection_and_degraded_bridge_health_never_raw_payload_persistence_or_fallback_transcript_parsing"
+  "unknown_schema_rule": "unknown_protocol_or_schema_creates_metadata_only_rejection_and_degraded_bridge_health_never_raw_payload_persistence_or_fallback_transcript_parsing",
+  "terminal_contract": "contracts/adapter-sdk/terminal-outcomes.yaml",
+  "terminal_reconciliation_rule": "a_bounded_bridge_stream_emits_one_logical_call_per_native_call_identity_duplicate_terminals_do_not_inflate_counts_and_missing_or_contradictory_terminals_are_unknown_with_metadata_only_incidents"
 }

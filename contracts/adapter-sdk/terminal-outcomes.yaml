@@ -1,0 +1,65 @@
+{
+  "schema_version": "kansoku.adapter-sdk-terminal-outcomes/1",
+  "contract_version": "1.0.0",
+  "effective_at": "2026-07-30",
+  "canonical_outcomes": [
+    "succeeded",
+    "failed",
+    "cancelled",
+    "interrupted",
+    "timed_out",
+    "abandoned",
+    "unknown"
+  ],
+  "failure_classes": [
+    "none",
+    "execution",
+    "protocol",
+    "policy_denial",
+    "cancelled",
+    "timeout",
+    "transport_loss",
+    "missing_terminal",
+    "contradictory_terminal",
+    "unknown"
+  ],
+  "mapping": {
+    "completed_success_ok": {"outcome": "succeeded", "failure_class": "none"},
+    "completed_with_result_error": {"outcome": "failed", "failure_class": "execution"},
+    "failed_error_execution_error": {"outcome": "failed", "failure_class": "execution"},
+    "protocol_error_json_rpc_error": {"outcome": "failed", "failure_class": "protocol"},
+    "declined_denied_policy_denial": {"outcome": "failed", "failure_class": "policy_denial"},
+    "cancelled_canceled": {"outcome": "cancelled", "failure_class": "cancelled"},
+    "timed_out_timeout": {"outcome": "timed_out", "failure_class": "timeout"},
+    "interrupted": {"outcome": "interrupted", "failure_class": "transport_loss"},
+    "abandoned_transport_lost": {"outcome": "abandoned", "failure_class": "transport_loss"},
+    "missing": {"outcome": "unknown", "failure_class": "missing_terminal"},
+    "unrecognized": {"outcome": "unknown", "failure_class": "unknown"}
+  },
+  "reconciliation": {
+    "one_started_one_terminal": "emit_one_logical_call_with_the_terminal_outcome",
+    "duplicate_same_terminal": "emit_one_logical_call_and_treat_repetition_as_replay",
+    "contradictory_terminals": "emit_one_unknown_logical_call_and_open_a_metadata_only_contradictory_terminal_incident",
+    "started_without_terminal_at_bounded_stream_end": "emit_one_unknown_logical_call_and_open_a_metadata_only_missing_terminal_incident",
+    "default_failure_for_missing_or_unknown": false
+  },
+  "source_matrix": [
+    {
+      "source": "codex_app_server",
+      "version": "0.145.0",
+      "fixture_state": "verified",
+      "native_identity": "typed_item_id",
+      "terminal_surface": "item/completed_status_and_result.isError"
+    },
+    {
+      "source": "claude_hook_and_otel",
+      "version": "2.1.197",
+      "fixture_state": "sanitized_mapping_only",
+      "native_identity": "pseudonymized_hook_or_otel_event_identity",
+      "terminal_surface": "allowlisted_tool_status_or_success",
+      "limitation": "locally_installed_runtime_was_not_launched_and_native_terminal_availability_remains_not_observed"
+    }
+  ],
+  "ratio_rule": "success_ratios_use_terminal_population_as_denominator_and_disclose_unknown_missing_and_contradictory_exclusions",
+  "privacy_rule": "native_call_identity_is_pseudonymized_and_arguments_results_raw_errors_commands_paths_and_environment_have_no_durable_slot"
+}

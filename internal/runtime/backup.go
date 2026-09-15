@@ -34,16 +34,20 @@ var backupTableGroups = map[string][]string{
 		"devices", "agent_installations", "agent_surfaces", "agent_versions",
 		"projects", "providers", "models", "price_catalog_versions",
 		"components", "component_versions", "component_installations",
-		"component_relations", "adapter_versions", "source_instances",
+		"component_relations", "component_relation_observations",
+		"adapter_versions", "source_instances",
 		"source_schema_fingerprints", "sessions", "turns", "prompt_features",
 		"events", "event_evidence", "model_operations", "token_usage",
 		"cost_estimates", "component_lifecycle_events", "tool_calls",
 		"mcp_connections", "change_outcomes", "correlations",
 		"inventory_snapshots", "inventory_nodes", "inventory_edges",
 		"component_inventory_state", "inventory_collection_status",
+		"agent_component_plane_support",
 		"agent_installation_profiles", "source_installation_attributions",
 		"session_installation_attributions",
 		"component_terminal_contracts", "component_assertions",
+		"component_assertion_resolution_history",
+		"observability_projection_receipts",
 		"component_observation_windows", "component_file_tree_metadata",
 		"mcp_server_observations", "mcp_primitive_observations",
 		"mcp_connection_assertions", "mcp_call_assertions",
@@ -64,6 +68,8 @@ var backupTableGroups = map[string][]string{
 	},
 	"runtime": {
 		"runtime_job_runs", "runtime_operation_approvals", "runtime_import_receipts",
+		"runtime_ingestion_health", "runtime_capacity_samples",
+		"runtime_mirror_reconciliations", "runtime_source_health",
 	},
 	"migration_ledgers": {
 		"schema_migrations", "integrity_schema_migrations", "runtime_schema_migrations",
@@ -125,16 +131,17 @@ type retentionPreview struct {
 }
 
 type OperationsService struct {
-	config     Config
-	secrets    Secrets
-	pool       *pgxpool.Pool
-	queue      *DurableIngressQueue
-	jobs       *JobManager
-	tools      NativeToolRunner
-	now        func() time.Time
-	mu         sync.Mutex
-	retention  map[string]retentionPreview
-	usedNonces map[[sha256.Size]byte]bool
+	config            Config
+	secrets           Secrets
+	pool              *pgxpool.Pool
+	queue             *DurableIngressQueue
+	jobs              *JobManager
+	tools             NativeToolRunner
+	now               func() time.Time
+	mu                sync.Mutex
+	retention         map[string]retentionPreview
+	projectionRepairs map[string]projectionRepairPreview
+	usedNonces        map[[sha256.Size]byte]bool
 }
 
 var _ AdminOperations = (*OperationsService)(nil)
@@ -146,7 +153,8 @@ func NewOperationsService(config Config, secrets Secrets, pool *pgxpool.Pool, qu
 	return &OperationsService{
 		config: config, secrets: secrets, pool: pool, queue: queue, jobs: jobs,
 		tools: execNativeTools{}, now: time.Now, retention: map[string]retentionPreview{},
-		usedNonces: map[[sha256.Size]byte]bool{},
+		projectionRepairs: map[string]projectionRepairPreview{},
+		usedNonces:        map[[sha256.Size]byte]bool{},
 	}, nil
 }
 

@@ -52,6 +52,28 @@
   margin: 0;
 }
 
+.k-hierarchy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-faint);
+}
+
+.k-hierarchy a {
+  color: var(--text-muted);
+}
+
+.k-hierarchy a:hover,
+.k-hierarchy a:focus-visible {
+  color: var(--text-primary);
+}
+
+[data-selected-model] {
+  overflow-wrap: anywhere;
+}
+
 .k-reliability-tabs {
   display: flex;
   gap: var(--space-1);

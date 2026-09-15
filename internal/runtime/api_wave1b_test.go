@@ -200,6 +200,42 @@ func TestWave1bRoutesServeRealAggregationsWithEnvelopeIntact(t *testing.T) {
 		})
 	}
 
+	t.Run("collection health separates arrival evidence from live latency", func(t *testing.T) {
+		path := "/api/v1/reliability/collection-health?from=" + from + "&to=" + to
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, entityBreakdownRequest(path, bearer))
+		if response.Code != http.StatusOK {
+			t.Fatalf("status = %d, body=%s", response.Code, response.Body.String())
+		}
+		envelope := decodeEnvelope(t, response.Body.Bytes())
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("collection health data has wrong shape: %#v", envelope.Data)
+		}
+		if data["formula_version"] != "collection_health_snapshot/2" {
+			t.Fatalf("formula_version = %#v", data["formula_version"])
+		}
+		if _, legacy := data["ingest_latency_p95_ms"]; legacy {
+			t.Fatalf("legacy arrival-gap field must not be exposed as live latency: %#v", data)
+		}
+		if _, observed := data["receive_to_commit_p95_ms"]; observed {
+			t.Fatalf("receive-to-commit must remain not_observed without a durable commit timestamp: %#v", data)
+		}
+		if data["late_backfill_candidate_count"] != float64(1) ||
+			data["clock_skew_event_count"] != float64(0) ||
+			data["replay_count"] != float64(0) {
+			t.Fatalf("arrival evidence did not reconcile: %#v", data)
+		}
+		population, ok := data["population"].(map[string]any)
+		if !ok || population["numerator"] != float64(1) || population["denominator"] != float64(2) {
+			t.Fatalf("population did not reconcile: %#v", data["population"])
+		}
+		exclusions, ok := data["exclusions"].(map[string]any)
+		if !ok || exclusions["receive_to_commit_missing_commit_timestamp"] != float64(1) {
+			t.Fatalf("receive-to-commit exclusions did not reconcile: %#v", data["exclusions"])
+		}
+	})
+
 	t.Run("/api/v1/system/snapshot", func(t *testing.T) {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, entityBreakdownRequest("/api/v1/system/snapshot", bearer))

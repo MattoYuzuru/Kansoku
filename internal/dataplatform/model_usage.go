@@ -10,6 +10,7 @@ import (
 // FormulaVersionModelUsage1 is the registered formula version for the model
 // usage + cost time-series query.
 const FormulaVersionModelUsage1 = "model_usage/3"
+const FormulaVersionModelErrorRatio1 = "model.error_ratio/1"
 
 // ModelUsage executes the "model_usage_range" budgeted query: one row per
 // requested calendar bucket inside the half-open [from, to) range with model request
@@ -49,23 +50,23 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, buc
 			JOIN token_usage tu ON tu.model_operation_id = o.model_operation_id AND tu.observed_at = o.observed_at
 			GROUP BY o.model_operation_id
 		),
+		latest_costs AS (
+			SELECT DISTINCT ON (ce.token_usage_id)
+				ce.token_usage_id, ce.cost_estimate_id, ce.cost_micros, ce.method
+			FROM cost_estimates ce
+			JOIN price_catalog_versions pcv
+			  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
+			ORDER BY ce.token_usage_id, pcv.effective_at DESC
+		),
 		cost_totals AS (
 			SELECT o.model_operation_id,
-				coalesce(o.provider_cost_micros, max(ce.cost_micros), 0) AS total_cost_micros,
-				(o.provider_cost_micros IS NOT NULL OR count(ce.cost_estimate_id) > 0) AS is_costed,
+				coalesce(o.provider_cost_micros, max(lc.cost_micros), 0) AS total_cost_micros,
+				(o.provider_cost_micros IS NOT NULL OR count(lc.cost_estimate_id) > 0) AS is_costed,
 				(o.provider_cost_micros IS NOT NULL) AS is_provider_cost,
-				bool_or(ce.method = 'public_api_uncached_upper_bound') AS is_upper_bound
+				bool_or(lc.method = 'public_api_uncached_upper_bound') AS is_upper_bound
 			FROM ops o
 			LEFT JOIN token_usage tu ON tu.model_operation_id = o.model_operation_id AND tu.observed_at = o.observed_at
-			LEFT JOIN LATERAL (
-				SELECT ce.cost_estimate_id, ce.cost_micros, ce.method
-				FROM cost_estimates ce
-				JOIN price_catalog_versions pcv
-				  ON pcv.price_catalog_version_id = ce.price_catalog_version_id
-				WHERE ce.token_usage_id = tu.token_usage_id
-				ORDER BY pcv.effective_at DESC
-				LIMIT 1
-			) ce ON TRUE
+			LEFT JOIN latest_costs lc ON lc.token_usage_id = tu.token_usage_id
 			GROUP BY o.model_operation_id, o.provider_cost_micros
 		),
 		observations AS (
@@ -84,6 +85,7 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, buc
 			coalesce(max(obs.observation_count), 0) AS matched_event_count,
 			coalesce(max(obs.success_count), 0) AS success_count,
 			coalesce(max(obs.failure_count), 0) AS failure_count,
+			coalesce(max(obs.excluded_count), 0) AS excluded_count,
 			max(obs.p50) AS p50,
 			max(obs.p90) AS p90,
 			max(obs.p95) AS p95,
@@ -96,6 +98,10 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, buc
 				count(*) FILTER (WHERE duration_ms IS NOT NULL) AS observation_count,
 				count(*) FILTER (WHERE outcome = 'succeeded') AS success_count,
 				count(*) FILTER (WHERE outcome IN ('failed', 'timed_out', 'abandoned')) AS failure_count,
+				count(*) FILTER (
+					WHERE outcome NOT IN ('succeeded', 'failed', 'timed_out', 'abandoned')
+					   OR outcome IS NULL
+				) AS excluded_count,
 				percentile_cont(0.50) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS p50,
 				percentile_cont(0.90) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS p90,
 				percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL) AS p95,
@@ -110,28 +116,31 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, buc
 		return ModelUsageResponse{}, budgetOrErr(budget, started, err)
 	}
 	var response ModelUsageResponse
-	var totalRequests int64
+	var totalRequests, totalFailures, totalTerminals, totalExcluded int64
 	for rows.Next() {
 		var row ModelUsageDayRow
-		var successCount, failureCount int64
+		var successCount int64
 		var p Percentiles
 		if err := rows.Scan(&row.Day, &row.RequestCount, &row.TotalTokens, &row.EstimatedCostMicros,
 			&row.CostedRequestCount, &row.ProviderCostCount, &row.UpperBoundCostCount,
-			&row.MatchedEventCount, &successCount, &failureCount, &p.P50, &p.P90, &p.P95, &p.P99); err != nil {
+			&row.MatchedEventCount, &successCount, &row.ErrorNumerator,
+			&row.ErrorExcludedCount, &p.P50, &p.P90, &p.P95, &p.P99); err != nil {
 			rows.Close()
 			return ModelUsageResponse{}, err
 		}
 		if p.P50 != nil || p.P90 != nil || p.P95 != nil || p.P99 != nil {
 			row.Percentiles = &p
 		}
-		if terminal := successCount + failureCount; terminal > 0 {
-			ratio := float64(successCount) / float64(terminal)
-			// Error ratio is failed/terminal, not succeeded/terminal.
-			ratio = 1 - ratio
+		row.ErrorDenominator = successCount + row.ErrorNumerator
+		if row.ErrorDenominator > 0 {
+			ratio := float64(row.ErrorNumerator) / float64(row.ErrorDenominator)
 			row.ErrorRatio = &ratio
 		}
 		response.Data = append(response.Data, row)
 		totalRequests += row.RequestCount
+		totalFailures += row.ErrorNumerator
+		totalTerminals += row.ErrorDenominator
+		totalExcluded += row.ErrorExcludedCount
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
@@ -151,6 +160,16 @@ func ModelUsage(ctx context.Context, pool *pgxpool.Pool, from, to time.Time, buc
 	// completeness.
 	response.Population = Population{Numerator: totalRequests, Denominator: totalRequests}
 	response.Completeness = completenessFor(totalRequests, totalRequests)
+	response.ErrorRatio = RatioMetric{
+		FormulaVersion: FormulaVersionModelErrorRatio1,
+		Population:     Population{Numerator: totalFailures, Denominator: totalTerminals},
+		Exclusions:     map[string]int64{"non_terminal_or_unknown_outcome": totalExcluded},
+		Completeness:   completenessFor(totalTerminals, totalTerminals+totalExcluded),
+	}
+	if totalTerminals > 0 {
+		ratio := float64(totalFailures) / float64(totalTerminals)
+		response.ErrorRatio.Value = &ratio
+	}
 
 	watermark, pending, err := aggregateSourceWatermarkFreshness(ctx, pool)
 	if err != nil {

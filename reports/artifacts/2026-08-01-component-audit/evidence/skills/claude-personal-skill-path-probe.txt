@@ -1,0 +1,13 @@
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.
+kansoku-audit-probe-skill
+dataviz
+update-config
+keybindings-help
+simplify
+fewer-permission-prompts
+loop
+claude-api
+run
+init
+review
+security-review

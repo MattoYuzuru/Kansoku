@@ -38,20 +38,41 @@
           var a = raw ? JSON.parse(raw) : null;
           var theme = a && a.theme === "light" ? "light" : "dark";
           document.documentElement.setAttribute("data-theme", theme);
+          var purple = theme === "light" ? "#6F63C4" : "#8B7FD6";
+          var gold = theme === "light" ? "#8A6D1F" : "#D9B45B";
           if (a && a.version === 1) {
-            var purple = theme === "light" ? a.accentPurpleLight : a.accentPurple;
-            var gold = theme === "light" ? a.accentGoldLight : a.accentGold;
-            if (purple) document.documentElement.style.setProperty("--accent-purple", purple);
-            if (gold) document.documentElement.style.setProperty("--accent-gold", gold);
+            purple = (theme === "light" ? a.accentPurpleLight : a.accentPurple) || purple;
+            gold = (theme === "light" ? a.accentGoldLight : a.accentGold) || gold;
           }
+          function rgb(hex) {
+            var match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+            if (!match) return null;
+            var value = parseInt(match[1], 16);
+            return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+          }
+          function mix(base, accent, weight) {
+            var left = rgb(base);
+            var right = rgb(accent);
+            if (!left || !right) return base;
+            return ("#" + left.map(function (channel, index) {
+              return Math.round(channel * (1 - weight) + right[index] * weight)
+                .toString(16).padStart(2, "0");
+            }).join("")).toUpperCase();
+          }
+          var surface = theme === "light" ? "#FFFFFF" : "#16161B";
+          if (!rgb(purple)) purple = theme === "light" ? "#6F63C4" : "#8B7FD6";
+          document.documentElement.style.setProperty("--accent-purple", purple);
+          document.documentElement.style.setProperty("--accent-gold", gold);
+          document.documentElement.style.setProperty("--row-hover", mix(surface, purple, 0.1));
+          document.documentElement.style.setProperty("--row-selected", mix(surface, purple, 0.18));
         } catch (e) {
           document.documentElement.setAttribute("data-theme", "dark");
         }
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-Evy6Jdyv.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/query-CC6nukGY.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-DqZG6jRs.css">
+    <script type="module" crossorigin src="/assets/index-DWI5rWM5.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/query-IUxZtWqF.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-9Wp7qkon.css">
   </head>
   <body>
     <div id="root"></div>

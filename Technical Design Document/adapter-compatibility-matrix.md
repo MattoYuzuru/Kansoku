@@ -4,6 +4,10 @@ Legend: **N** native documented signal, **R** deterministic reconstruction, **I*
 **P** planned/needs fixtures, **—** unsupported or not yet established. This matrix is a planning
 baseline, not a support claim; live evidence and version-specific manifests are authoritative.
 
+An **—** in the exposure row is a declared `unsupported` plane, not a missing measurement: the agent
+publishes no model-visible skill set, so the appliance renders `unsupported` rather than zero and
+falls back to inventory completeness for cold eligibility. See TDD 14 and ADR 0023.
+
 | Capability | Codex | Claude Code | Gemini CLI | Cursor | Generic adapter |
 |---|---:|---:|---:|---:|---:|
 | Agent/version discovery | N/R | N/R | N/R | P | required |
@@ -13,6 +17,7 @@ baseline, not a support claim; live evidence and version-specific manifests are 
 | Model/token metadata | N | N | N | P | optional |
 | Explicit skill invocation | R/N when exposed | N (`Skill`) | P | P | optional |
 | Implicit skill activation | R/I | N/R/I | P/I | P/I | optional |
+| Skill exposure plane | N (`skills/list`) | — declared unsupported | — | — | optional |
 | Plugin attribution | inventory/R | N/R | extension mapping | P | optional |
 | MCP server/tool usage | N/R | N | N | N/P via hooks | optional |
 | Tool calls/latency | N | N | N | N/P via hooks | optional |

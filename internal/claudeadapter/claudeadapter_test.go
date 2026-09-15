@@ -553,6 +553,12 @@ func TestCanonicalEventForOTelRequiresDocumentedAndMappedEventPlusMatchingFinger
 	}
 }
 
+// A tool decision resolves to its own canonical event, not to tool.called and
+// no longer to a contentless source.observed. The distinction this test
+// protects is unchanged in substance -- an execution is still counted exactly
+// once, from tool_result -- while the decision itself is now recorded instead
+// of discarded: a denied call produces no execution at all, so it was
+// previously invisible in every count the appliance published.
 func TestCanonicalEventForOTelPreservesToolDecisionWithoutCountingASecondCall(t *testing.T) {
 	name := claudeadapter.OTelToolDecision
 	canonical, err := claudeadapter.CanonicalEventForOTel(name, claudeadapter.OTelAttributeShape{
@@ -562,8 +568,21 @@ func TestCanonicalEventForOTelPreservesToolDecisionWithoutCountingASecondCall(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if canonical != "source.observed" {
-		t.Fatalf("tool_decision = %q, want source.observed", canonical)
+	if canonical != "tool.decided" {
+		t.Fatalf("tool_decision = %q, want tool.decided", canonical)
+	}
+	result, err := claudeadapter.CanonicalEventForOTel(claudeadapter.OTelToolResult, claudeadapter.OTelAttributeShape{
+		InstrumentationScope: string(claudeadapter.OTelToolResult),
+		PresentAttributeKeys: []string{
+			"kansoku.event.id", "kansoku.session.id", "kansoku.event.type",
+			"kansoku.tool.id", "kansoku.outcome", "kansoku.duration_ms",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != "tool.called" {
+		t.Fatalf("tool_result = %q, want the single counted execution", result)
 	}
 }
 
@@ -700,5 +719,28 @@ func TestResolveSkillComponentRejectsEmptyName(t *testing.T) {
 	id, backed := claudeadapter.ResolveSkillComponent("", map[string]struct{}{})
 	if id != "" || backed {
 		t.Fatal("an empty skill.name must never resolve to a component id")
+	}
+}
+
+// TestManifestDeclaresExposedSkillPlaneUnsupported pins the declaration the
+// Skill observatory's cold eligibility now reads as data. Claude Code emits no
+// event and writes no snapshot naming the skills actually offered to the model
+// for a turn, so the absence of exposure evidence is a property of the agent,
+// not a collection gap. Without this declaration every Claude skill reads
+// not_observed forever, which claims the appliance looked and saw nothing.
+func TestManifestDeclaresExposedSkillPlaneUnsupported(t *testing.T) {
+	declarations := claudeadapter.New().Manifest().ComponentPlaneSupport
+	if len(declarations) != 1 {
+		t.Fatalf("declarations=%+v want exactly one", declarations)
+	}
+	declaration := declarations[0]
+	if declaration.ComponentKind != "skill" || declaration.Plane != adaptersdk.PlaneExposed {
+		t.Fatalf("declaration targets %+v", declaration)
+	}
+	if declaration.State != adaptersdk.PlaneUnsupported {
+		t.Fatalf("state=%s want unsupported", declaration.State)
+	}
+	if declaration.Reason == "" {
+		t.Fatal("an unsupported plane must state why, or the claim has no basis")
 	}
 }

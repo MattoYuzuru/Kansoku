@@ -106,10 +106,10 @@ class Session05AdapterSDKContractTests(unittest.TestCase):
         base = validate_adapter_sdk.registries()
         current = validate_adapter_sdk.load(validate_adapter_sdk.LOCK_PATH)
         changed = copy.deepcopy(base)
-        changed["contracts/adapter-sdk/manifest.yaml"]["contract_version"] = "1.1.0"
+        changed["contracts/adapter-sdk/manifest.yaml"]["contract_version"] = "99.0.0"
         transitioned = copy.deepcopy(current)
         transitioned["locks"].append({
-            "policy_version": "adapter-sdk.manifest/2",
+            "policy_version": "adapter-sdk.manifest/3",
             "registry": "contracts/adapter-sdk/manifest.yaml",
             "semantic_sha256": validate_adapter_sdk.semantic_sha256(changed["contracts/adapter-sdk/manifest.yaml"]),
         })
@@ -121,7 +121,7 @@ class Session05AdapterSDKContractTests(unittest.TestCase):
 
         skipped = copy.deepcopy(current)
         skipped["locks"].append({
-            "policy_version": "adapter-sdk.manifest/3",
+            "policy_version": "adapter-sdk.manifest/4",
             "registry": "contracts/adapter-sdk/manifest.yaml",
             "semantic_sha256": validate_adapter_sdk.semantic_sha256(changed["contracts/adapter-sdk/manifest.yaml"]),
         })

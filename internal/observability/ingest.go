@@ -14,13 +14,21 @@ import (
 )
 
 type Ingestor struct {
-	store       *FileStore
+	store       StateStore
 	sanitizer   *privacy.IngressSanitizer
 	capacity    chan struct{}
 	identityKey []byte
 	now         func() time.Time
 	sinkMu      sync.RWMutex
 	durableSink DurableFactSink
+	healthMu    sync.RWMutex
+	health      LocalStateHealth
+}
+
+type LocalStateHealth struct {
+	LastSuccessfulCommitAt time.Time
+	LastFailedCommitAt     time.Time
+	CommitFailureTotal     uint64
 }
 
 // DurableFactSink is the production handoff from the normalized ingress
@@ -52,7 +60,7 @@ var (
 	ErrDurabilityUnavailable = errors.New("durability_unavailable_retryable")
 )
 
-func NewIngestor(store *FileStore, identityKey []byte, limits privacy.Limits, concurrent int) (*Ingestor, error) {
+func NewIngestor(store StateStore, identityKey []byte, limits privacy.Limits, concurrent int) (*Ingestor, error) {
 	if store == nil || concurrent <= 0 || concurrent > 128 {
 		return nil, errors.New("invalid_ingestor_configuration")
 	}
@@ -115,6 +123,24 @@ func (i *Ingestor) HasDurableFactSink() bool {
 	return i.durableSink != nil
 }
 
+func (i *Ingestor) LocalStateHealth() LocalStateHealth {
+	i.healthMu.RLock()
+	defer i.healthMu.RUnlock()
+	return i.health
+}
+
+func (i *Ingestor) recordLocalStateCommit(err error) {
+	i.healthMu.Lock()
+	defer i.healthMu.Unlock()
+	now := i.now().UTC()
+	if err == nil {
+		i.health.LastSuccessfulCommitAt = now
+		return
+	}
+	i.health.LastFailedCommitAt = now
+	i.health.CommitFailureTotal++
+}
+
 func (i *Ingestor) acquire() bool {
 	select {
 	case i.capacity <- struct{}{}:
@@ -153,17 +179,30 @@ func (i *Ingestor) ingestJSON(raw []byte, kind SourceKind, sequence uint64, chec
 		quarantineID := "qua_" + stableID("quarantine/1", safeErr.SourceSchemaID, safeErr.SchemaFingerprint, safeErr.Category, safeErr.FieldPath)[:32]
 		quarantine := Quarantine{QuarantineID: quarantineID, SourceKind: kind, SchemaFingerprint: safeErr.SchemaFingerprint, Category: safeErr.Category, ByteCount: safeErr.TotalBytes, RecordCount: safeErr.RecordCount, ObservedAt: i.now().UTC()}
 		incident := NewSchemaIncident(safeErr.Category, kind, safeErr.SchemaFingerprint, i.now())
-		_, commitErr := i.store.Commit(CommitRequest{Quarantine: &quarantine, Incident: &incident, Checkpoint: checkpoint})
-		if commitErr != nil {
-			return CommitResult{}, commitErr
-		}
 		i.sinkMu.RLock()
 		sink := i.durableSink
 		i.sinkMu.RUnlock()
+		_, compactProduction := i.store.(*CompactStore)
+		if compactProduction && sink == nil {
+			return CommitResult{}, ErrDurabilityUnavailable
+		}
 		if metadata, ok := sink.(DurableMetadataSink); ok {
 			if err := metadata.PersistQuarantineMetadata(quarantine, incident); err != nil {
 				return CommitResult{}, ErrDurabilityUnavailable
 			}
+		} else if compactProduction {
+			return CommitResult{}, ErrDurabilityUnavailable
+		}
+		_, commitErr := i.store.Commit(CommitRequest{Quarantine: &quarantine, Incident: &incident, Checkpoint: checkpoint})
+		if commitErr != nil {
+			if compactProduction {
+				i.recordLocalStateCommit(commitErr)
+				return CommitResult{}, safeErr
+			}
+			return CommitResult{}, commitErr
+		}
+		if compactProduction {
+			i.recordLocalStateCommit(nil)
 		}
 		return CommitResult{}, safeErr
 	}
@@ -174,10 +213,29 @@ func (i *Ingestor) ingestJSON(raw []byte, kind SourceKind, sequence uint64, chec
 }
 
 func (i *Ingestor) ingestSafe(record privacy.SafeRecord, kind SourceKind, sequence uint64, checkpoint *Checkpoint) (CommitResult, error) {
+	return i.ingestSafeForInstallation(record, kind, sequence, checkpoint, "")
+}
+
+func (i *Ingestor) ingestSafeForInstallation(
+	record privacy.SafeRecord,
+	kind SourceKind,
+	sequence uint64,
+	checkpoint *Checkpoint,
+	installationID string,
+) (CommitResult, error) {
 	now := i.now().UTC()
 	event, evidence, err := NormalizedFromSafe(record, kind, sequence, now)
 	if err != nil {
 		return CommitResult{}, err
+	}
+	if installationID != "" {
+		if !installationPattern.MatchString(installationID) {
+			return CommitResult{}, errors.New("invalid_agent_installation_id")
+		}
+		event.Source.InstallationID = installationID
+		event.Scope.AgentInstallationID = installationID
+		event.Scope.DeviceID = "dev_" + stableID("device-installation/1", installationID)[:32]
+		evidence.Source.InstallationID = installationID
 	}
 	correlation := Correlate(event, nil)
 	event.CorrelationStatus = correlation.Status
@@ -223,6 +281,33 @@ func (i *Ingestor) ingestSafe(record privacy.SafeRecord, kind SourceKind, sequen
 		}
 		defer reservation.Cancel()
 	}
+	_, compactProduction := i.store.(*CompactStore)
+	if compactProduction {
+		if sink == nil {
+			return CommitResult{}, ErrDurabilityUnavailable
+		}
+		// PostgreSQL (or its fsynced emergency spool) is authoritative. The
+		// bounded checkpoint/watermark state advances only after that durable
+		// boundary acknowledges the record.
+		if reservation != nil {
+			if err := reservation.Commit(); err != nil {
+				if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+					return CommitResult{}, err
+				}
+				return CommitResult{}, ErrDurableFactSink
+			}
+		} else if err := sink.PersistNormalizedFact(event, evidence); err != nil {
+			if errors.Is(err, ErrBackpressure) || errors.Is(err, ErrDurabilityUnavailable) {
+				return CommitResult{}, err
+			}
+			return CommitResult{}, ErrDurableFactSink
+		}
+		result, stateErr := i.store.Commit(request)
+		i.recordLocalStateCommit(stateErr)
+		// A lagging checkpoint causes an idempotent replay on restart. It must
+		// not convert an already-durable fact into a client-visible rejection.
+		return result, nil
+	}
 	result, err := i.store.Commit(request)
 	if err != nil {
 		return result, err
@@ -246,23 +331,40 @@ func (i *Ingestor) ingestSafe(record privacy.SafeRecord, kind SourceKind, sequen
 }
 
 func (i *Ingestor) IngestUnknown(kind SourceKind, schemaFingerprint string, byteCount int64, recordCount int) error {
+	return i.ingestUnknown(kind, schemaFingerprint, byteCount, recordCount, "")
+}
+
+func (i *Ingestor) ingestUnknown(kind SourceKind, schemaFingerprint string, byteCount int64, recordCount int, occurrenceKey string) error {
 	if schemaFingerprint == "" {
 		return errors.New("unknown_schema_fingerprint_required")
 	}
 	now := i.now().UTC()
-	quarantine := Quarantine{QuarantineID: "qua_" + stableID("quarantine/1", string(kind), schemaFingerprint)[:32], SourceKind: kind, SchemaFingerprint: schemaFingerprint, Category: "unknown_schema", ByteCount: byteCount, RecordCount: recordCount, ObservedAt: now}
+	quarantine := Quarantine{QuarantineID: "qua_" + stableID("quarantine/1", string(kind), schemaFingerprint)[:32], SourceKind: kind, SchemaFingerprint: schemaFingerprint, Category: "unknown_schema", ByteCount: byteCount, RecordCount: recordCount, ObservedAt: now, OccurrenceKey: occurrenceKey}
 	incident := NewSchemaIncident("unknown_schema", kind, schemaFingerprint, now)
 	watermark := Watermark{SourceID: string(kind), Lifecycle: SourceDegraded, LastDiscovered: now, LastObserved: now, LastCommitted: now, ExpectedCadenceMS: 30_000, GapCount: 1}
-	if _, err := i.store.Commit(CommitRequest{Quarantine: &quarantine, Incident: &incident, Watermark: &watermark}); err != nil {
-		return err
-	}
 	i.sinkMu.RLock()
 	sink := i.durableSink
 	i.sinkMu.RUnlock()
+	_, compactProduction := i.store.(*CompactStore)
+	if compactProduction && sink == nil {
+		return ErrDurabilityUnavailable
+	}
 	if metadata, ok := sink.(DurableMetadataSink); ok {
 		if err := metadata.PersistQuarantineMetadata(quarantine, incident); err != nil {
 			return ErrDurabilityUnavailable
 		}
+	} else if compactProduction {
+		return ErrDurabilityUnavailable
+	}
+	if _, err := i.store.Commit(CommitRequest{Quarantine: &quarantine, Incident: &incident, Watermark: &watermark}); err != nil {
+		if compactProduction {
+			i.recordLocalStateCommit(err)
+			return nil
+		}
+		return err
+	}
+	if compactProduction {
+		i.recordLocalStateCommit(nil)
 	}
 	return nil
 }
@@ -353,8 +455,17 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		"event_id": true, "session_id": true, "observed_at": true, "event_type": true,
 		"outcome": true, "value_state": true, "model": true, "tool_name": true,
 		"component_kind": true, "duration_ms": true, "prompt_character_count": true,
+		"component_identity": true, "component_identity_source": true,
+		"component_owner_plugin": true, "component_invocation_mode": true,
+		"component_upstream_identity_hash": true, "component_source_scope": true,
 		"input_tokens": true, "cached_input_tokens": true, "output_tokens": true, "provider_cost_micros": true,
-		"turn_id": true,
+		"cache_creation_tokens": true, "cache_read_tokens": true, "response_character_count": true,
+		"tool_input_bytes": true, "tool_result_bytes": true,
+		"component_marketplace": true, "component_version": true,
+		"tool_decision": true, "tool_source": true, "tool_decision_source": true, "tool_use_id": true,
+		"hook_event": true, "hook_type": true, "hook_source": true,
+		"session_start_type": true, "query_source": true, "terminal_type": true, "safe_mode": true,
+		"turn_id": true, "message_id": true, "user_id": true,
 	}
 	for key := range fields {
 		if !allowed[key] {
@@ -400,6 +511,22 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 	if turnID, ok := fields["turn_id"].(string); ok && turnID != "" {
 		turnPseudonym = "hmac-sha256:" + i.keyedIdentity("turn/1", adapterID+"\x00"+sessionID+"\x00"+turnID)
 	}
+	// Every upstream identifier below is pseudonymized with the same
+	// device-scoped construction as the turn above, each under its own
+	// domain so two different identifier kinds can never collide into the
+	// same handle. The raw values are not kept anywhere.
+	messagePseudonym := ""
+	if messageID, ok := fields["message_id"].(string); ok && messageID != "" {
+		messagePseudonym = "hmac-sha256:" + i.keyedIdentity("message/1", adapterID+"\x00"+sessionID+"\x00"+messageID)
+	}
+	userPseudonym := ""
+	if userID, ok := fields["user_id"].(string); ok && userID != "" {
+		userPseudonym = "hmac-sha256:" + i.keyedIdentity("user/1", adapterID+"\x00"+userID)
+	}
+	toolUsePseudonym := ""
+	if toolUseID, ok := fields["tool_use_id"].(string); ok && toolUseID != "" {
+		toolUsePseudonym = "hmac-sha256:" + i.keyedIdentity("tool-use/1", adapterID+"\x00"+sessionID+"\x00"+toolUseID)
+	}
 	idempotency := "hmac-sha256:" + i.keyedIdentity("idempotency/1", adapterID+"\x00"+string(kind)+"\x00"+eventID+"\x00"+observedText)
 	// index is always "0": IngestSafeFields ingests exactly one OTLP
 	// record/data point per call (see ingestOneRecord), unlike
@@ -410,6 +537,8 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 	var tool privacy.CatalogObservation
 	if toolName, ok := fields["tool_name"].(string); ok && toolName != "" {
 		tool = privacy.CatalogObservation{State: privacy.ObservationObserved, ID: &toolName}
+	} else if componentIdentity, ok := fields["component_identity"].(string); ok && componentIdentity != "" {
+		tool = privacy.CatalogObservation{State: privacy.ObservationObserved, ID: &componentIdentity}
 	} else {
 		tool = privacy.CatalogObservation{State: privacy.ObservationNotObserved}
 	}
@@ -420,20 +549,95 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		model = privacy.CatalogObservation{State: privacy.ObservationNotObserved}
 	}
 	componentKind, _ := fields["component_kind"].(string)
+	componentIdentity, _ := fields["component_identity"].(string)
+	if componentIdentity == "" {
+		componentIdentity, _ = fields["tool_name"].(string)
+	}
+	identitySource, _ := fields["component_identity_source"].(string)
+	ownerPlugin, _ := fields["component_owner_plugin"].(string)
+	invocationMode, _ := fields["component_invocation_mode"].(string)
+	upstreamIdentityHash, _ := fields["component_upstream_identity_hash"].(string)
+	sourceScope, _ := fields["component_source_scope"].(string)
+	marketplace, _ := fields["component_marketplace"].(string)
+	componentVersion, _ := fields["component_version"].(string)
+	for _, value := range []string{
+		componentIdentity, identitySource, ownerPlugin, invocationMode, sourceScope,
+		marketplace, componentVersion,
+	} {
+		if !safeComponentMetadataValue(value) {
+			return CommitResult{}, errors.New("unsafe_otlp_field")
+		}
+	}
+	switch invocationMode {
+	// "unknown" is an observed-but-unrecognized invocation trigger (see
+	// translateToSafeAttributes). It is deliberately distinct from
+	// "not_observed", which means the source reported no mode at all.
+	case "", "explicit", "proactive", "nested", "requested", "not_observed", "unknown":
+	default:
+		return CommitResult{}, errors.New("unsafe_otlp_field")
+	}
+	if componentIdentity != "" && identitySource == "" {
+		identitySource = "native"
+	}
+	qualifiedIdentity := componentIdentity
+	if componentKind == "skill" {
+		qualifiedIdentity = qualifyComponentIdentity(ownerPlugin, componentIdentity)
+	}
+	if upstreamIdentityHash != "" {
+		upstreamIdentityHash = "hmac-sha256:" + i.keyedIdentity(
+			"upstream-component-identity/1", upstreamIdentityHash,
+		)
+	}
 	measurement := privacy.TelemetryMeasurements{
-		DurationMS:           safeInt64Pointer(fields["duration_ms"]),
-		PromptCharacterCount: safeInt64Pointer(fields["prompt_character_count"]),
-		InputTokens:          safeInt64Pointer(fields["input_tokens"]),
-		CachedInputTokens:    safeInt64Pointer(fields["cached_input_tokens"]),
-		OutputTokens:         safeInt64Pointer(fields["output_tokens"]),
-		ProviderCostMicros:   safeInt64Pointer(fields["provider_cost_micros"]),
+		DurationMS:             safeInt64Pointer(fields["duration_ms"]),
+		PromptCharacterCount:   safeInt64Pointer(fields["prompt_character_count"]),
+		InputTokens:            safeInt64Pointer(fields["input_tokens"]),
+		CachedInputTokens:      safeInt64Pointer(fields["cached_input_tokens"]),
+		OutputTokens:           safeInt64Pointer(fields["output_tokens"]),
+		ProviderCostMicros:     safeInt64Pointer(fields["provider_cost_micros"]),
+		CacheCreationTokens:    safeInt64Pointer(fields["cache_creation_tokens"]),
+		CacheReadTokens:        safeInt64Pointer(fields["cache_read_tokens"]),
+		ResponseCharacterCount: safeInt64Pointer(fields["response_character_count"]),
+		ToolInputBytes:         safeInt64Pointer(fields["tool_input_bytes"]),
+		ToolResultBytes:        safeInt64Pointer(fields["tool_result_bytes"]),
 	}
 	for _, value := range []*int64{
 		measurement.DurationMS, measurement.PromptCharacterCount,
 		measurement.InputTokens, measurement.CachedInputTokens,
 		measurement.OutputTokens, measurement.ProviderCostMicros,
+		measurement.CacheCreationTokens, measurement.CacheReadTokens,
+		measurement.ResponseCharacterCount,
+		measurement.ToolInputBytes, measurement.ToolResultBytes,
 	} {
 		if value != nil && *value < 0 {
+			return CommitResult{}, errors.New("unsafe_otlp_field")
+		}
+	}
+	activity := privacy.ActivityMetadata{
+		ToolDecision:       stringField(fields, "tool_decision"),
+		ToolSource:         stringField(fields, "tool_source"),
+		ToolDecisionSource: stringField(fields, "tool_decision_source"),
+		ToolUsePseudonym:   toolUsePseudonym,
+		HookEvent:        stringField(fields, "hook_event"),
+		HookType:         stringField(fields, "hook_type"),
+		HookSource:       stringField(fields, "hook_source"),
+		SessionStartType: stringField(fields, "session_start_type"),
+		QuerySource:      stringField(fields, "query_source"),
+		TerminalType:     stringField(fields, "terminal_type"),
+		SafeMode:         stringField(fields, "safe_mode"),
+	}
+	// Activity values are vocabulary tokens, not free text: they are bounded
+	// by the same shape rule as component metadata so an agent cannot smuggle
+	// a path, a command or a sentence through one of these slots. An
+	// unrecognized-but-well-shaped token is kept verbatim and classified
+	// downstream; it is never coerced and never dropped.
+	for _, value := range []string{
+		activity.ToolDecision, activity.ToolSource, activity.ToolDecisionSource,
+		activity.HookEvent, activity.HookType,
+		activity.HookSource, activity.SessionStartType, activity.QuerySource,
+		activity.TerminalType, activity.SafeMode,
+	} {
+		if !safeComponentMetadataValue(value) {
 			return CommitResult{}, errors.New("unsafe_otlp_field")
 		}
 	}
@@ -444,15 +648,83 @@ func (i *Ingestor) ingestCanonicalSafeFields(
 		ObservedAt: observedAt.UTC(), ReceivedAt: now,
 		Confidence: 1, EventType: eventType, Outcome: outcome, ValueState: privacy.ValueState(valueState),
 		Model: model, Tool: tool, ComponentKind: componentKind, Telemetry: measurement,
+		ComponentEvidence: privacy.ComponentEvidenceMetadata{
+			QualifiedIdentity: qualifiedIdentity, IdentitySource: identitySource,
+			OwnerPluginIdentity: ownerPlugin, InvocationMode: invocationMode,
+			UpstreamIdentityHash: upstreamIdentityHash, SourceScope: sourceScope,
+			Marketplace:      marketplace,
+			ComponentVersion: componentVersion,
+		},
+		Activity: activity,
 		Lineage: privacy.Lineage{
 			SourceRecordPseudonym: sourceRecordPseudonym, SessionPseudonym: sessionPseudonym,
-			TurnPseudonym: turnPseudonym,
-			AdapterID:     adapterID, AdapterVersion: "1.0.0", SourceSchemaID: sourceSchemaID,
+			TurnPseudonym:    turnPseudonym,
+			MessagePseudonym: messagePseudonym, UserPseudonym: userPseudonym,
+			AdapterID: adapterID, AdapterVersion: "1.0.0", SourceSchemaID: sourceSchemaID,
 			SchemaFingerprint: sourceRecordPseudonym, SanitizerVersion: "kansoku.ingress-sanitizer/1",
 			ContractSHA256: privacy.PrivacyContractSemanticSHA256,
 		},
 	}
 	return i.ingestSafe(record, kind, sequence, nil)
+}
+
+// qualifyComponentIdentity applies an owner plugin's namespace to a skill
+// identity at most once, so qualification is idempotent:
+//
+//	qualifyComponentIdentity(o, qualifyComponentIdentity(o, x)) ==
+//	    qualifyComponentIdentity(o, x)
+//
+// An agent may report a skill identity either bare ("verification-strategy",
+// with the owner carried separately) or already namespaced by its owner
+// ("sre-agent:verification-strategy", the shape Claude Code 2.1.220 actually
+// sends on skill_activated). Prepending unconditionally turned the second
+// shape into "sre-agent:sre-agent:verification-strategy", which
+// dataplatform's resolver -- comparing against
+// owner.declared_name || ':' || component.declared_name -- can never match,
+// so every such invocation resolved to zero candidates.
+//
+// The already-namespaced case is recognised by the ':' separator alone. That
+// is exact rather than heuristic: an inventory declared_name can never contain
+// ':' (both adapters' SKILL.md frontmatter parsers bound the name to
+// [A-Za-z0-9][A-Za-z0-9._-]{0,127}), so an identity carrying one is always an
+// upstream-qualified identity, never a bare name that merely looks like one.
+// This covers the owner spelled bare ("sre-agent:...") and the owner spelled
+// in its marketplace-qualified form ("t-skills-kotlin@yuzuru-engineering:...")
+// identically, without this boundary having to guess which spelling upstream
+// chose. A bare identity is still qualified exactly as before, which is what
+// keeps every existing unprefixed caller -- including codexadapter's App
+// Server bridge, whose identities arrive pre-qualified -- byte-identical.
+func qualifyComponentIdentity(ownerPlugin, identity string) string {
+	if ownerPlugin == "" || identity == "" || strings.Contains(identity, ":") {
+		return identity
+	}
+	return ownerPlugin + ":" + identity
+}
+
+func safeComponentMetadataValue(value string) bool {
+	if value == "" {
+		return true
+	}
+	if len(value) > 256 || strings.HasPrefix(value, "/") ||
+		strings.Contains(value, "..") || strings.ContainsAny(value, "\\\x00\r\n\t") {
+		return false
+	}
+	for _, char := range value {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || strings.ContainsRune("._:@/-", char) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// stringField reads one optional safe string field. An absent field and a
+// field present as some other type both read as empty, which the callers
+// treat as not_observed rather than as an error.
+func stringField(fields map[string]any, key string) string {
+	value, _ := fields[key].(string)
+	return value
 }
 
 func safeInt64Pointer(value any) *int64 {
@@ -501,6 +773,57 @@ func (i *Ingestor) IngestSanitizedBridgeRecord(record privacy.SafeRecord, sequen
 	return i.ingestSafe(record, SourceEvidenceBridge, sequence, nil)
 }
 
+// IngestSanitizedBridgeRecordForInstallation binds trusted orchestration
+// context to a bridge record after the raw frame has been reduced to the
+// SafeRecord allowlist. installationID is not read from agent content and is
+// copied only into canonical typed source/scope identifiers.
+func (i *Ingestor) IngestSanitizedBridgeRecordForInstallation(
+	record privacy.SafeRecord,
+	sequence uint64,
+	installationID string,
+) (CommitResult, error) {
+	if !installationPattern.MatchString(installationID) {
+		return CommitResult{}, errors.New("invalid_agent_installation_id")
+	}
+	if err := validateSanitizedRecordForKind(record, SourceEvidenceBridge); err != nil {
+		return CommitResult{}, err
+	}
+	if !i.acquire() {
+		return CommitResult{}, ErrBackpressure
+	}
+	defer i.release()
+	return i.ingestSafeForInstallation(
+		record, SourceEvidenceBridge, sequence, nil, installationID,
+	)
+}
+
+// IngestSanitizedRolloutRecord is the read-only Codex CLI rollout watcher
+// boundary. It is reconstructed evidence, never native App Server evidence.
+func (i *Ingestor) IngestSanitizedRolloutRecord(record privacy.SafeRecord, sequence uint64) (CommitResult, error) {
+	return i.IngestSanitizedRolloutRecordForInstallation(record, sequence, "")
+}
+
+// IngestSanitizedRolloutRecordForInstallation keeps ordinary CLI rollout
+// evidence on the same explicitly configured logical installation as its
+// read-only inventory target. An empty installationID preserves the
+// deterministic adapter-derived fallback used by older callers.
+func (i *Ingestor) IngestSanitizedRolloutRecordForInstallation(
+	record privacy.SafeRecord,
+	sequence uint64,
+	installationID string,
+) (CommitResult, error) {
+	if err := validateSanitizedRecordForKind(record, SourceCodexRollout); err != nil {
+		return CommitResult{}, err
+	}
+	if !i.acquire() {
+		return CommitResult{}, ErrBackpressure
+	}
+	defer i.release()
+	return i.ingestSafeForInstallation(
+		record, SourceCodexRollout, sequence, nil, installationID,
+	)
+}
+
 func validateSanitizedAdapterRecord(record privacy.SafeRecord) error {
 	return validateSanitizedRecordForKind(record, SourceAdapterBatch)
 }
@@ -518,7 +841,14 @@ func validateSanitizedRecordForKind(record privacy.SafeRecord, kind SourceKind) 
 		record.Lineage.ContractSHA256 != privacy.PrivacyContractSemanticSHA256 ||
 		!strings.HasPrefix(record.Lineage.SourceRecordPseudonym, "hmac-sha256:") ||
 		!strings.HasPrefix(record.Lineage.SessionPseudonym, "hmac-sha256:") ||
-		len(record.ComponentMentions) > 128 {
+		len(record.ComponentMentions) > 128 ||
+		!safeComponentMetadataValue(record.ComponentEvidence.QualifiedIdentity) ||
+		!safeComponentMetadataValue(record.ComponentEvidence.IdentitySource) ||
+		!safeComponentMetadataValue(record.ComponentEvidence.OwnerPluginIdentity) ||
+		!safeComponentMetadataValue(record.ComponentEvidence.InvocationMode) ||
+		!safeComponentMetadataValue(record.ComponentEvidence.SourceScope) ||
+		(record.ComponentEvidence.UpstreamIdentityHash != "" &&
+			!strings.HasPrefix(record.ComponentEvidence.UpstreamIdentityHash, "hmac-sha256:")) {
 		return errors.New("invalid_sanitized_adapter_record")
 	}
 	for _, value := range record.ComponentMentions {

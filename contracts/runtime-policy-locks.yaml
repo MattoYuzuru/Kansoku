@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.runtime-policy-locks/1",
-  "effective_at": "2026-07-26",
+  "effective_at": "2026-07-29",
   "locks": [
     {"policy_version": "runtime.auth-and-plans/1", "registry": "contracts/runtime/auth-and-plans.yaml", "semantic_sha256": "774677e401e14dabb079eecd584a803d6858fde1c5cd7701a395724bc8d19864"},
     {"policy_version": "runtime.operations-backup-and-soak/1", "registry": "contracts/runtime/operations-backup-and-soak.yaml", "semantic_sha256": "b47139e4c793da192975773f4d879ed2eef930411e788c8d026692826a135695"},
@@ -9,6 +9,19 @@
     {"policy_version": "runtime.operations-backup-and-soak/2", "registry": "contracts/runtime/operations-backup-and-soak.yaml", "semantic_sha256": "3b3d1e0df2a9a6aeeea01859b7f8ae485a4e6a3dffb09d865dacdcda0f1a94a2"},
     {"policy_version": "runtime.runtime-and-api/2", "registry": "contracts/runtime/runtime-and-api.yaml", "semantic_sha256": "0abfa3b28f34d69253fe8029faae01e71be7f86c7d834b443d5eee907a8fd216"},
     {"policy_version": "runtime.queue-and-durability/2", "registry": "contracts/runtime/queue-and-durability.yaml", "semantic_sha256": "23efa645fc0f27b7343a6f8799bca73aadd622b02c5111ec7ad343fce490f530"},
-    {"policy_version": "runtime.runtime-and-api/3", "registry": "contracts/runtime/runtime-and-api.yaml", "semantic_sha256": "6ba710f5bfa28e3ff363bc27f6d9d3392e23781c61668c4d90f75ae425ee37e2"}
+    {"policy_version": "runtime.runtime-and-api/3", "registry": "contracts/runtime/runtime-and-api.yaml", "semantic_sha256": "6ba710f5bfa28e3ff363bc27f6d9d3392e23781c61668c4d90f75ae425ee37e2"},
+    {"policy_version": "runtime.queue-and-durability/3", "registry": "contracts/runtime/queue-and-durability.yaml", "semantic_sha256": "e5d1090f23bb640ff9f78253a15bb0f2ab2523e5f7e6906ebb2c141bda14099b"},
+    {"policy_version": "runtime.runtime-and-api/4", "registry": "contracts/runtime/runtime-and-api.yaml", "semantic_sha256": "5c62703fe9d0716dd2b98e4359af2218d6841417fc80dc1cc2cc73e058a23e9b"},
+    {"policy_version": "runtime.operations-backup-and-soak/3", "registry": "contracts/runtime/operations-backup-and-soak.yaml", "semantic_sha256": "a66d9ca6fffa63fed751c4bbec5e14ee2fa203cb875682e63a88627b0676503b"},
+    {"policy_version": "runtime.queue-and-durability/4", "registry": "contracts/runtime/queue-and-durability.yaml", "semantic_sha256": "b6bc15599aa19246a3acbe325cfdf59138a8e40c6c46a813d656781f95cc5068"},
+    {"policy_version": "runtime.runtime-and-api/5", "registry": "contracts/runtime/runtime-and-api.yaml", "semantic_sha256": "fdf6f7aa2308c94f74a2f8b3394c099c56907c83b8ec0efb2e03df364b6782ef"},
+    {"policy_version": "runtime.auth-and-plans/2", "registry": "contracts/runtime/auth-and-plans.yaml", "semantic_sha256": "67d80ae961b7b0fd00745ef0522a3cd1e5af19f94cd188a294110c676628248d"},
+    {"policy_version": "runtime.queue-and-durability/5", "registry": "contracts/runtime/queue-and-durability.yaml", "semantic_sha256": "3966778730926cb5e47c6373e984c47de9bc48bb7afc2d0218f3fe38a6f1a34d"},
+    {"policy_version": "runtime.runtime-and-api/6", "registry": "contracts/runtime/runtime-and-api.yaml", "semantic_sha256": "5042b0afa9dd5868e95ce08ca91a4be8d813a733076275c6955aa15725ebd0bb"},
+    {"policy_version": "runtime.auth-and-plans/3", "registry": "contracts/runtime/auth-and-plans.yaml", "semantic_sha256": "0531e66da21326c918dca0c3e87d30c5724ad792da4b24b4ff4f648b8871c48f"},
+    {"policy_version": "runtime.queue-and-durability/6", "registry": "contracts/runtime/queue-and-durability.yaml", "semantic_sha256": "f2db0b06a8b100c361bed468005bda14daa2de963d43496b69b19168fcad52d6"},
+    {"policy_version": "runtime.queue-and-durability/7", "registry": "contracts/runtime/queue-and-durability.yaml", "semantic_sha256": "bb3083f54aa07afba47ed39926e6dc5fb4cd906bc84e28c4c57a5d9bf38279ef"},
+    {"policy_version": "runtime.operations-backup-and-soak/4", "registry": "contracts/runtime/operations-backup-and-soak.yaml", "semantic_sha256": "26f1b0e34a32570e210f88c769f1fc01ce0ff1b2b6cf6b55517d9a175046391a"},
+    {"policy_version": "runtime.runtime-and-api/7", "registry": "contracts/runtime/runtime-and-api.yaml", "semantic_sha256": "181c3d99139357bd895030aa3ce213725d7d522d115a86974303807bb91b0407"}
   ]
 }

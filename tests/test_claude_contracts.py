@@ -47,10 +47,10 @@ class Session07ClaudeContractTests(unittest.TestCase):
         base = validate_claude.claude_registries()
         current = validate_claude.load(validate_claude.CLAUDE_LOCK_PATH)
         changed = copy.deepcopy(base)
-        changed["contracts/claude/manifest.yaml"]["contract_version"] = "1.1.0"
+        changed["contracts/claude/manifest.yaml"]["contract_version"] = "99.0.0"
         transitioned = copy.deepcopy(current)
         transitioned["locks"].append({
-            "policy_version": "claude.manifest/2",
+            "policy_version": "claude.manifest/3",
             "registry": "contracts/claude/manifest.yaml",
             "semantic_sha256": validate_claude.semantic_sha256(changed["contracts/claude/manifest.yaml"]),
         })
@@ -62,7 +62,7 @@ class Session07ClaudeContractTests(unittest.TestCase):
 
         skipped = copy.deepcopy(current)
         skipped["locks"].append({
-            "policy_version": "claude.manifest/3",
+            "policy_version": "claude.manifest/4",
             "registry": "contracts/claude/manifest.yaml",
             "semantic_sha256": validate_claude.semantic_sha256(changed["contracts/claude/manifest.yaml"]),
         })

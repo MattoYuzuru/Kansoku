@@ -16,6 +16,7 @@ python3 scripts/validate_codex.py
 python3 scripts/validate_claude.py
 python3 scripts/validate_integrity.py
 python3 scripts/validate_incidents.py
+python3 scripts/validate_plugins.py
 python3 -m unittest discover -s tests -v
 python3 scripts/run_go_tests.py
 python3 scripts/run_privacy_canary.py
@@ -194,3 +195,12 @@ signed-keyset pagination, fresh-audit recovery, the absence of a manual resolve 
 sanitized unknown-schema fixture. Incident list/detail, occurrence, quarantine and debug-bundle
 queries are registered in the data-platform query-budget contract. The incident API and both debug
 bundle formats are mandatory zero-canary privacy subsurfaces.
+
+Session 16 adds four closed plugin-observatory registries under `contracts/plugins/`: durable
+inventory/identity, exact child attribution, metrics/privacy, and the deterministic bundle canary.
+Their semantic digests live in the append-only `contracts/plugins-policy-locks.yaml`.
+`scripts/validate_plugins.py` proves snapshot-scoped relation observations, exact single-owner
+attribution, independent installed/enabled/loaded planes, complete-population requirements,
+unsupported universal plugin outcome, and the absence of any content route. The shared adapter
+inventory vocabulary gains `app_definition` and `provides` without adding agent-name branching;
+plugin list/profile queries are registered in the data-platform query-budget contract.

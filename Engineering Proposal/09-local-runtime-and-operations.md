@@ -73,3 +73,41 @@ A clean machine can install, configure and open Kansoku from documented commands
 accelerated soak survives kills/restarts/upgrades without acknowledged-event loss or metric
 inflation; backup restore reproduces counts; all ports/mounts/egress match the privacy manifest.
 
+## 2026-07-28 capacity and migration amendment
+
+`spool_max_bytes` limits each emergency spool lane; it is not a database or mirror limit.
+`database_soft_limit_bytes` defaults to 5 GiB and is advisory, with warning/degraded/critical
+thresholds at 70/85/95 percent. Health exposes database bytes and growth, checkpoint and per-lane
+spool use, ingest rejection/durability counters, source freshness, and storage-component
+completeness. Filesystem preflight is independently critical below the configured 25 GiB
+recommendation; Kansoku never changes Docker Desktop allocation.
+
+Legacy `mirror/state.json` cutover requires checksum-preserving backup, PostgreSQL fact/evidence and
+lineage reconciliation, a durable report, then atomic archive. Archive deletion is a separate
+preview/confirmation action. Database, indexes, backups, temporary bytes and emergency spool are
+reported independently; WAL/rollback headroom stays `not_observed` when it cannot be measured.
+
+## 2026-07-29 runtime follow-through
+
+Normal `serve` owns the authenticated bounded
+`POST /v1/evidence-bridges/codex-app-server` lane. It accepts only an explicit opaque installation
+header and transient JSONL; it neither discovers nor configures Codex. Ingestion rejection counters
+are PostgreSQL-backed and reloaded after restart. A canonical fact whose derived projection fails
+keeps its typed sanitized Event/Evidence in the existing per-source spool and retries every
+15 seconds; the receipt and spool keep health degraded until idempotent completion.
+
+An approval-gated operator repair handles the crash boundary where PostgreSQL owns the canonical
+fact but no spool frame survived. While a projection is pending, its receipt temporarily owns one
+closed, maximum-32-KiB normalized Event/Evidence input in PostgreSQL. It contains no generic
+attributes or content fields and is deleted on projection success. One apply runs at most 256
+database projections, one spool replay pass and a receipt reconciliation; it never re-inserts the
+canonical fact/evidence, increments source replay count, discards a failed receipt or returns the
+retained input. Pre-`0014` receipts are not rewritten and remain visibly incomplete when they no
+longer have an owned spool frame.
+
+Runtime collector activation belongs only to long-running `serve`, immediately before listener
+binding. One-shot `backup`, `restore-verify`, export/import, diagnostics and explicit evidence
+commands may reuse durable service assembly, but they do not run inventory/rollout scans or
+register unrelated source health. Their narrower Compose profiles intentionally omit agent-state
+mounts; treating that absence as a serving collector failure would overwrite truthful production
+health. One-shot commands may persist only the state owned by the requested operation.

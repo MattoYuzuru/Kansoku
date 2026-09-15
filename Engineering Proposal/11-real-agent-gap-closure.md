@@ -119,3 +119,13 @@ inventory state; later stages require lifecycle events. A complete scan with no 
 numeric zero. A component population with no activation event is `not_observed`, not zero. A
 component kind with no installed population remains unknown. This preserves the proposal's
 acceptance rule instead of inferring execution from installation.
+
+The 2026-07-29 Codex observer amendment also binds every explicitly mounted `CODEX_HOME` to one
+stable `agent_installation_id` shared by inventory and the read-only rollout watcher. Catalog
+resolution is filtered to that installation, and emitted rollout evidence carries the same
+source/scope identity. A syntactically valid marker is retained as `requested` even if inventory is
+late; versioned re-resolution links it later instead of losing it at checkpoint advance. An
+omitted legacy ID uses the deterministic adapter ID; it never adopts the
+latest database row. If the same rollout file is discovered under conflicting bindings, collection
+degrades and emits no facts. An App Server producer for that logical installation must supply the
+same ID explicitly.

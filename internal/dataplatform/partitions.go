@@ -11,7 +11,10 @@ import (
 
 // PartitionedTables lists the fact tables partitioned monthly by observed_at,
 // matching contracts/data-platform/schema.yaml `partitioning.partitioned_tables`.
-var PartitionedTables = []string{"events", "event_evidence", "model_operations", "token_usage", "tool_calls", "mcp_connections"}
+var PartitionedTables = []string{
+	"events", "event_evidence", "model_operations", "token_usage", "tool_calls",
+	"mcp_connections", "tool_decisions", "hook_registrations", "metric_samples",
+}
 
 func partitionName(table string, month time.Time) string {
 	return fmt.Sprintf("%s_p%04d%02d", table, month.Year(), int(month.Month()))

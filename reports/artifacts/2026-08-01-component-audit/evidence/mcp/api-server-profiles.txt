@@ -1,0 +1,311 @@
+===== /components/mcp/mcp_l03_filesystem =====
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_51aac2b3c9050b3983c72470852eceae",
+    "data": {
+        "identity": {
+            "server_component_id": "mcp_l03_filesystem",
+            "declared_name": "l03-filesystem",
+            "configured": true,
+            "enabled": true,
+            "transport": "stdio",
+            "locality": "local",
+            "enumeration_completeness": "complete",
+            "primitive_count": 2,
+            "tool_count": 2,
+            "latest_connection_state": "disconnected",
+            "call_count": 4,
+            "terminal_count": 4,
+            "observable_seconds": 1800,
+            "connected_seconds": 1790,
+            "uptime_ratio": 0.9944444444444445,
+            "inventory": {
+                "status": "supported",
+                "completeness": "complete"
+            },
+            "connection": {
+                "status": "supported",
+                "completeness": "complete"
+            },
+            "calls": {
+                "status": "supported",
+                "completeness": "complete"
+            }
+        },
+        "primitives": [
+            {
+                "tool_component_id": "mcpt_l03_fs_read",
+                "declared_name": "read_file",
+                "kind": "tool",
+                "enumeration_completeness": "complete",
+                "last_advertised_at": "2026-08-01T03:00:00+03:00"
+            },
+            {
+                "tool_component_id": "mcpt_l03_fs_write",
+                "declared_name": "write_file",
+                "kind": "tool",
+                "enumeration_completeness": "complete",
+                "last_advertised_at": "2026-08-01T03:00:00+03:00"
+            }
+        ],
+        "outcomes": {
+            "started": 4,
+            "completed": 3,
+            "execution_error": 1,
+            "protocol_error": 0,
+            "cancelled": 0,
+            "timed_out": 0,
+            "denied": 0,
+            "transport_lost": 0,
+            "incomplete": 0
+        },
+        "call_p95_ms": 47.75,
+        "formula_version": "mcp.server_profile/1",
+        "population": {
+            "numerator": 4,
+            "denominator": 4
+        },
+        "exclusions": {
+            "incomplete_pagination": 1
+        },
+        "completeness": {
+            "status": "complete",
+            "covered_ratio": 1,
+            "intervals": []
+        }
+    },
+    "completeness": {
+        "completeness": "complete",
+        "denominator": 4,
+        "exclusions": {
+            "incomplete_pagination": 1
+===== /components/mcp/mcp_l03_github =====
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_ec19d5890ac4a364a8796225d1462d45",
+    "data": {
+        "identity": {
+            "server_component_id": "mcp_l03_github",
+            "declared_name": "l03-github",
+            "configured": true,
+            "enabled": true,
+            "transport": "streamable_http",
+            "locality": "remote",
+            "enumeration_completeness": "complete",
+            "primitive_count": 1,
+            "tool_count": 1,
+            "latest_connection_state": "disconnected",
+            "call_count": 2,
+            "terminal_count": 1,
+            "observable_seconds": 3010,
+            "connected_seconds": 2400,
+            "uptime_ratio": 0.7973421926910299,
+            "inventory": {
+                "status": "supported",
+                "completeness": "complete"
+            },
+            "connection": {
+                "status": "supported",
+                "completeness": "complete"
+            },
+            "calls": {
+                "status": "supported",
+                "completeness": "complete"
+            }
+        },
+        "primitives": [
+            {
+                "tool_component_id": "mcpt_l03_gh_search",
+                "declared_name": "search_issues",
+                "kind": "tool",
+                "enumeration_completeness": "complete",
+                "last_advertised_at": "2026-08-01T03:00:00+03:00"
+            }
+        ],
+        "outcomes": {
+            "started": 2,
+            "completed": 0,
+            "execution_error": 0,
+            "protocol_error": 0,
+            "cancelled": 0,
+            "timed_out": 1,
+            "denied": 1,
+            "transport_lost": 0,
+            "incomplete": 0
+        },
+        "call_p95_ms": 3000,
+        "formula_version": "mcp.server_profile/1",
+        "population": {
+            "numerator": 1,
+            "denominator": 2
+        },
+        "exclusions": {
+            "incomplete_pagination": 1
+        },
+        "completeness": {
+            "status": "partial",
+            "covered_ratio": 0.5,
+            "intervals": []
+        }
+    },
+    "completeness": {
+        "completeness": "partial",
+        "denominator": 2,
+        "exclusions": {
+            "incomplete_pagination": 1
+        },
+        "numerator": 1
+    }
+}
+===== /components/mcp/mcp_l03_never =====
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_e2381eb555db54189b9fe54896f2d88e",
+    "data": {
+        "identity": {
+            "server_component_id": "mcp_l03_never",
+            "declared_name": "l03-never-connected",
+            "configured": true,
+            "enabled": true,
+            "transport": "stdio",
+            "locality": "local",
+            "enumeration_completeness": "complete",
+            "primitive_count": 1,
+            "tool_count": 1,
+            "latest_connection_state": "not_observed",
+            "call_count": 0,
+            "terminal_count": 0,
+            "observable_seconds": 0,
+            "connected_seconds": 0,
+            "inventory": {
+                "status": "supported",
+                "completeness": "complete"
+            },
+            "connection": {
+                "status": "not_observed",
+                "completeness": "unknown"
+            },
+            "calls": {
+                "status": "supported",
+                "completeness": "complete"
+            }
+        },
+        "primitives": [
+            {
+                "tool_component_id": "mcpt_l03_never_ping",
+                "declared_name": "ping",
+                "kind": "tool",
+                "enumeration_completeness": "complete",
+                "last_advertised_at": "2026-08-01T03:00:00+03:00"
+            }
+        ],
+        "outcomes": {
+            "started": 0,
+            "completed": 0,
+            "execution_error": 0,
+            "protocol_error": 0,
+            "cancelled": 0,
+            "timed_out": 0,
+            "denied": 0,
+            "transport_lost": 0,
+            "incomplete": 0
+        },
+        "formula_version": "mcp.server_profile/1",
+        "population": {
+            "numerator": 0,
+            "denominator": 0
+        },
+        "exclusions": {
+            "incomplete_pagination": 1
+        },
+        "completeness": {
+            "status": "unknown",
+            "covered_ratio": 0,
+            "intervals": []
+        }
+    },
+    "completeness": {
+        "completeness": "unknown",
+        "denominator": 0,
+        "exclusions": {
+            "incomplete_pagination": 1
+        },
+        "numerator": 0
+    }
+}
+===== /components/mcp/mcp_l03_partial =====
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_273fc753921aacaa3724802d70df8ab8",
+    "data": {
+        "identity": {
+            "server_component_id": "mcp_l03_partial",
+            "declared_name": "l03-partial-enum",
+            "configured": true,
+            "enabled": true,
+            "transport": "sse",
+            "locality": "remote",
+            "enumeration_completeness": "partial",
+            "primitive_count": 1,
+            "tool_count": 1,
+            "latest_connection_state": "not_observed",
+            "call_count": 0,
+            "terminal_count": 0,
+            "observable_seconds": 0,
+            "connected_seconds": 0,
+            "inventory": {
+                "status": "supported",
+                "completeness": "partial"
+            },
+            "connection": {
+                "status": "not_observed",
+                "completeness": "unknown"
+            },
+            "calls": {
+                "status": "not_observed",
+                "completeness": "unknown"
+            }
+        },
+        "primitives": [
+            {
+                "tool_component_id": "mcpt_l03_partial_a",
+                "declared_name": "alpha",
+                "kind": "tool",
+                "enumeration_completeness": "partial",
+                "last_advertised_at": "2026-08-01T03:00:00+03:00"
+            }
+        ],
+        "outcomes": {
+            "started": 0,
+            "completed": 0,
+            "execution_error": 0,
+            "protocol_error": 0,
+            "cancelled": 0,
+            "timed_out": 0,
+            "denied": 0,
+            "transport_lost": 0,
+            "incomplete": 0
+        },
+        "formula_version": "mcp.server_profile/1",
+        "population": {
+            "numerator": 0,
+            "denominator": 0
+        },
+        "exclusions": {
+            "incomplete_pagination": 1
+        },
+        "completeness": {
+            "status": "unknown",
+            "covered_ratio": 0,
+            "intervals": []
+        }
+    },
+    "completeness": {
+        "completeness": "unknown",
+        "denominator": 0,
+        "exclusions": {
+            "incomplete_pagination": 1
+        },
+        "numerator": 0
+    }
+}

@@ -22,6 +22,23 @@ var migrationFS embed.FS
 
 var migrationName = regexp.MustCompile(`^(\d{4})_[a-z0-9_]+\.(up|down)\.sql$`)
 
+// Migration 0012 was applied to the live appliance with one additional
+// trailing newline before its first trusted commit. SQL bytes and behavior
+// are otherwise identical. Keep this exact pair narrow: every other mismatch
+// still fails closed, and neither checksum is accepted for any other version.
+var equivalentMigrationChecksums = map[string]map[string]string{
+	"0012": {
+		"5f58cd0d729700d175eca48287aa8f206064770e58a1bd157eb39c2533af0f69": "37e8beecd80b28ee6354fb851f5c1303ae68a3c2363fab58157cee4e3f747c05",
+	},
+}
+
+func migrationChecksumMatches(version, applied, embedded string) bool {
+	if applied == embedded {
+		return true
+	}
+	return equivalentMigrationChecksums[version][applied] == embedded
+}
+
 // Migration is one named, checksummed forward/backward SQL pair.
 type Migration struct {
 	Version  string
@@ -102,7 +119,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	rows.Close()
 	for _, migration := range migrations {
 		if checksum, ok := applied[migration.Version]; ok {
-			if checksum != migration.UpSHA256 {
+			if !migrationChecksumMatches(migration.Version, checksum, migration.UpSHA256) {
 				return fmt.Errorf("migration %s checksum mismatch: ledger has changed or migration file was edited after being applied", migration.Version)
 			}
 			continue

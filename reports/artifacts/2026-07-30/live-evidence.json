@@ -1,0 +1,370 @@
+{
+  "schema_version": "kansoku.defect-research-evidence/1",
+  "observed_at": "2026-07-30",
+  "privacy": {
+    "raw_prompts_persisted": false,
+    "raw_model_responses_persisted": false,
+    "raw_tool_io_persisted": false,
+    "credentials_persisted": false,
+    "user_specific_filesystem_paths_persisted": false,
+    "notes": "Only aggregate counts, safe classifications, versions, and bounded browser observations are retained."
+  },
+  "runtime": {
+    "dashboard_url": "http://127.0.0.1:43100",
+    "application_container": "running_unhealthy",
+    "postgres_container": "running_healthy",
+    "versions": {
+      "codex_cli": "0.145.0",
+      "claude_code": "2.1.197",
+      "postgresql": "18.4",
+      "chrome": "150.0.7871.187",
+      "go": "1.26.5",
+      "node": "26.3.0",
+      "npm": "11.16.0"
+    }
+  },
+  "source_health": [
+    {
+      "source_id": "codex.app_server",
+      "state": "configured",
+      "value_state": "not_observed",
+      "last_error_class": null
+    },
+    {
+      "source_id": "codex.remote_orchestration",
+      "state": "unsupported",
+      "value_state": "unsupported",
+      "last_error_class": null
+    },
+    {
+      "source_id": "codex.rollout",
+      "state": "degraded",
+      "value_state": "unknown",
+      "last_error_class": "rollout_scan_failed"
+    }
+  ],
+  "rollout_scan": {
+    "jsonl_files": 174,
+    "configured_max_line_bytes": 1048576,
+    "maximum_observed_line_bytes": 7756804,
+    "oversized_lines": 10,
+    "oversized_envelope_types": {
+      "event_msg": 2,
+      "response_item": 8
+    },
+    "finding": "The scanner aborts a file on an oversized line and degrades the entire source instead of quarantining the bounded structural fact and advancing safely."
+  },
+  "agents": {
+    "installations_by_agent": {
+      "claude": {
+        "installations": 2,
+        "events": 5310
+      },
+      "codex": {
+        "installations": 3,
+        "events": 128253
+      },
+      "mcp-evidence": {
+        "installations": 1,
+        "events": 0
+      }
+    },
+    "codex_installation_interpretation": {
+      "real_candidate": 1,
+      "manual_canaries": 2,
+      "classification_quality": "inferred_from_existing_test_identifiers_not_a_durable_domain_field",
+      "four_codex_rows_reproduced": false
+    },
+    "profile_browser_result": {
+      "profiles_opened": 5,
+      "unknown_agent_headings": 5,
+      "profiles_stuck_loading": 5
+    },
+    "profile_api_result": {
+      "status": 503,
+      "safe_error": "agent_profile_unavailable",
+      "query_budget_ms": 200,
+      "observed_core_query_wall_ms": {
+        "activity": 69.9,
+        "tool": 27.7,
+        "model": 34.3,
+        "sources": 15.7,
+        "population": 26.5
+      },
+      "core_query_subtotal_ms": 174.1,
+      "finding": "Sequential work plus identity, incidents, freshness, and transport exceeds the endpoint's total 200 ms budget even when individual statements stay below it."
+    },
+    "identity_projection_finding": {
+      "confirmed": true,
+      "detail": "The identity query selects agent_id into the response adapter_id field."
+    }
+  },
+  "models_exact_installation_attribution": [
+    {
+      "agent": "claude",
+      "model": "claude-sonnet-5",
+      "operations": 1360,
+      "token_rows": 1334,
+      "input_tokens": 692005,
+      "cached_input_tokens": 0,
+      "output_tokens": 1533290,
+      "provider_costed_operations": 1334,
+      "provider_cost_micros": 101907915,
+      "succeeded": 1334,
+      "failed": 26,
+      "unknown": 0
+    },
+    {
+      "agent": "claude",
+      "model": "claude-haiku-4-5-20251001",
+      "operations": 230,
+      "token_rows": 230,
+      "input_tokens": 12639,
+      "cached_input_tokens": 0,
+      "output_tokens": 51954,
+      "provider_costed_operations": 230,
+      "provider_cost_micros": 1822192,
+      "succeeded": 230,
+      "failed": 0,
+      "unknown": 0
+    },
+    {
+      "agent": "codex",
+      "model": "gpt-5.6-sol",
+      "operations": 3335,
+      "token_rows": 2838,
+      "input_tokens": 408757858,
+      "cached_input_tokens": 399428009,
+      "output_tokens": 1269366,
+      "provider_costed_operations": 0,
+      "provider_cost_micros": 0,
+      "succeeded": 2838,
+      "failed": 0,
+      "unknown": 497
+    },
+    {
+      "agent": "codex",
+      "model": "gpt-5.6-terra",
+      "operations": 110,
+      "token_rows": 53,
+      "input_tokens": 2265955,
+      "cached_input_tokens": 2030370,
+      "output_tokens": 18969,
+      "provider_costed_operations": 0,
+      "provider_cost_micros": 0,
+      "succeeded": 53,
+      "failed": 0,
+      "unknown": 57
+    },
+    {
+      "agent": "codex",
+      "model": "gpt-5.6-luna",
+      "operations": 55,
+      "token_rows": 39,
+      "input_tokens": 1235278,
+      "cached_input_tokens": 210908,
+      "output_tokens": 16066,
+      "provider_costed_operations": 0,
+      "provider_cost_micros": 0,
+      "succeeded": 39,
+      "failed": 0,
+      "unknown": 16
+    },
+    {
+      "agent": "codex",
+      "model": "gpt-5.4-mini",
+      "operations": 24,
+      "token_rows": 24,
+      "input_tokens": 963369,
+      "cached_input_tokens": 871936,
+      "output_tokens": 13600,
+      "provider_costed_operations": 0,
+      "provider_cost_micros": 0,
+      "succeeded": 24,
+      "failed": 0,
+      "unknown": 0
+    }
+  ],
+  "skills": {
+    "assertions_by_kind": {
+      "installed_exact": 242,
+      "enabled_exact": 197,
+      "exposed_exact": 2,
+      "requested_exact_reconstructed": 3,
+      "requested_unresolved_reconstructed": 32,
+      "loaded_exact_native": 7,
+      "loaded_exact_reconstructed": 3,
+      "loaded_unresolved_native": 2,
+      "invoked_exact_native": 7,
+      "invoked_exact_reconstructed": 3,
+      "invoked_unresolved_native": 9,
+      "outcome": 0
+    },
+    "search_workflow": {
+      "invoked_exact": 10,
+      "loaded_exact": 10
+    },
+    "sre_plugin_family": {
+      "installed_or_enabled_only": true,
+      "requested_exact": 3,
+      "loaded_exact": 0,
+      "child_activity_exact": 0,
+      "outcome_exact": 0
+    },
+    "rollout_marker_false_positive_finding": {
+      "confirmed": true,
+      "unresolved_requested_assertions": 32,
+      "examples_are_omitted_for_privacy": true,
+      "detail": "The broad dollar-marker regex classifies non-skill dollar-prefixed identifiers from user text as skill requests."
+    }
+  },
+  "outcomes": {
+    "tool_calls": {
+      "claude": {
+        "succeeded": 1616,
+        "failed": 48
+      },
+      "codex_exact": {
+        "succeeded": 3986,
+        "failed": 52
+      },
+      "unattributed": {
+        "succeeded": 1715,
+        "failed": 24
+      }
+    },
+    "model_operations": {
+      "claude": {
+        "succeeded": 1564,
+        "failed": 26,
+        "unknown": 0
+      },
+      "codex_exact": {
+        "succeeded": 2960,
+        "failed": 0,
+        "unknown": 570
+      },
+      "unattributed": {
+        "succeeded": 1112,
+        "unknown": 61,
+        "null_legacy_outcome": 270
+      }
+    },
+    "classification_correctness": "not_proven_against_terminal_source_canaries"
+  },
+  "incidents": {
+    "unknown_schema": {
+      "open_incidents": 48,
+      "occurrences": 9808,
+      "source_unattributed_incidents": 48
+    },
+    "component_identity_unresolved": {
+      "open_incidents": 49,
+      "occurrences": 135
+    },
+    "component_identity_ambiguous": {
+      "open_incidents": 1,
+      "occurrences": 1
+    },
+    "other_ingestion": {
+      "open_incidents": 2,
+      "occurrences": 5
+    },
+    "claude_attribution": "not_observed_and_must_not_be_inferred"
+  },
+  "quarantine": {
+    "manifests": {
+      "otlp_log": {
+        "count": 28,
+        "occurrences": 6066,
+        "total_records": 6082,
+        "event_type_not_observed": 28,
+        "source_not_observed": 28
+      },
+      "otlp_metric": {
+        "count": 24,
+        "occurrences": 3754,
+        "total_records": 3753,
+        "event_type_not_observed": 24,
+        "source_not_observed": 24
+      },
+      "evidence_bridge": {
+        "count": 2,
+        "occurrences": 5,
+        "total_records": 5,
+        "event_type_not_observed": 2,
+        "source_not_observed": 2
+      }
+    },
+    "metadata_record_sums": {
+      "otlp_log": 44,
+      "otlp_metric": 23,
+      "evidence_bridge": 2
+    },
+    "finding": "Manifest occurrence/record aggregates and retained metadata row counts have different semantics and need explicit reconciliation before incidents are resolved."
+  },
+  "ingest_latency_last_30_days": [
+    {
+      "source_kind": "evidence_bridge",
+      "events": 98,
+      "p50_ms": 9225.13,
+      "p95_ms": 83788268.22,
+      "negative_latency_rows": 7
+    },
+    {
+      "source_kind": "otlp_log",
+      "events": 133443,
+      "p50_ms": 1256.92,
+      "p95_ms": 4002084.15,
+      "negative_latency_rows": 205
+    },
+    {
+      "source_kind": "codex_rollout",
+      "events": 10,
+      "p50_ms": 3943.33,
+      "p95_ms": 3092032.54,
+      "negative_latency_rows": 0
+    },
+    {
+      "source_kind": "otlp_metric",
+      "events": 2,
+      "p50_ms": 2535.94,
+      "p95_ms": 4777.93,
+      "negative_latency_rows": 0
+    },
+    {
+      "source_kind": "otlp_span",
+      "events": 2,
+      "p50_ms": 1763.57,
+      "p95_ms": 3316.66,
+      "negative_latency_rows": 0
+    },
+    {
+      "source_kind": "hook_http",
+      "events": 4,
+      "p50_ms": 14.81,
+      "p95_ms": 400.45,
+      "negative_latency_rows": 0
+    }
+  ],
+  "latency_finding": {
+    "current_formula": "ingested_at_minus_observed_at",
+    "problem": "The KPI mixes transport/storage latency with source clock skew, replay, and historical backfill age; 212 rows are negative in the selected window.",
+    "required_split": [
+      "live_receive_to_commit_latency",
+      "source_observation_age",
+      "replay_or_backfill_population",
+      "clock_skew_or_invalid_timestamp_exclusions"
+    ]
+  },
+  "dependency_audit": {
+    "high": 1,
+    "critical": 0,
+    "direct_package": "vite",
+    "installed_range": "6.3.6",
+    "affected_range": "<=6.4.2",
+    "non_major_fix": "6.4.3",
+    "production_runtime_exposure": "not_observed_embedded_production_serves_prebuilt_assets",
+    "development_server_exposure": "requires_separate_review"
+  }
+}

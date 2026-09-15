@@ -1,0 +1,351 @@
+{
+    "api_version": "kansoku.api/1",
+    "request_id": "req_e6174c8fdcbbb26c845598790ed7cab5",
+    "data": {
+        "data": [
+            {
+                "quarantine_id": "qua_0ad114acd10980fc3f675028cede5a63",
+                "incident_id": "inc_5954aab848ddd9dcb9c98be2a25166e5",
+                "source_kind": "otlp_metric",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_metric",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_metrics",
+                    "$.resource_metrics[].scope_metrics",
+                    "$.resource_metrics[].scope_metrics[].metrics"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "1d5872921e437e6dd8eba05c10f5d1b4c85bb092198001358cd502416e739277",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:22:02.609343+03:00",
+                "last_seen_at": "2026-08-01T10:26:40.323607+03:00",
+                "occurrence_count": 7,
+                "total_record_count": 7,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            },
+            {
+                "quarantine_id": "qua_8228accf3d1a670439b638b5e3faf0da",
+                "incident_id": "inc_773ef57cf9a586247a71d201f3a81add",
+                "source_kind": "otlp_metric",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_metric",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_metrics",
+                    "$.resource_metrics[].scope_metrics",
+                    "$.resource_metrics[].scope_metrics[].metrics"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "56a91a18aa930467275a78389f6ccfb940bf196fb05a1e69245557935d1786ed",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:22:02.606775+03:00",
+                "last_seen_at": "2026-08-01T10:26:40.323026+03:00",
+                "occurrence_count": 40,
+                "total_record_count": 40,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            },
+            {
+                "quarantine_id": "qua_ef187a6786bbc65a5f23292595411e0b",
+                "incident_id": "inc_7329aa88c56cc17d2300d9a750744c84",
+                "source_kind": "otlp_metric",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_metric",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_metrics",
+                    "$.resource_metrics[].scope_metrics",
+                    "$.resource_metrics[].scope_metrics[].metrics"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "c672cf7f869fe1dfb58f3a39469b344d5a0cbaf4a021c75a5e59bd492bdd6a32",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:22:02.6061+03:00",
+                "last_seen_at": "2026-08-01T10:26:40.320719+03:00",
+                "occurrence_count": 10,
+                "total_record_count": 10,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            },
+            {
+                "quarantine_id": "qua_b46f94db8bb7786800406ef3323ce191",
+                "incident_id": "inc_80361a64032682f9857398215a195d2e",
+                "source_kind": "otlp_metric",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_metric",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_metrics",
+                    "$.resource_metrics[].scope_metrics",
+                    "$.resource_metrics[].scope_metrics[].metrics"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "c81773cd618647a4650c48eaab08aced9d9c9862a0308a04847aebfb608d1963",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:22:02.502131+03:00",
+                "last_seen_at": "2026-08-01T10:26:40.319927+03:00",
+                "occurrence_count": 7,
+                "total_record_count": 7,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            },
+            {
+                "quarantine_id": "qua_a45825ecdf38ec6112b5323f5211ed8a",
+                "incident_id": "inc_17dda6ab2e577bd46b60db3af883d2e1",
+                "source_kind": "otlp_log",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_log",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_logs",
+                    "$.resource_logs[].scope_logs",
+                    "$.resource_logs[].scope_logs[].log_records"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "1c932d984978cd67a05d716ed8e0f3d265d773ec1cc916bacde3e69b5f13422c",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:22:02.602718+03:00",
+                "last_seen_at": "2026-08-01T10:26:40.317499+03:00",
+                "occurrence_count": 7,
+                "total_record_count": 7,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            },
+            {
+                "quarantine_id": "qua_0e03780e748e12be8ff8c54b8d05472d",
+                "incident_id": "inc_1ee2783cd68697ee511e222723efca18",
+                "source_kind": "otlp_log",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_log",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_logs",
+                    "$.resource_logs[].scope_logs",
+                    "$.resource_logs[].scope_logs[].log_records"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "b753cca90dc013662655868047c8b5b99a6c267fd24c66bcaa9a3105a9dd29a6",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:26:17.240293+03:00",
+                "last_seen_at": "2026-08-01T10:26:40.314214+03:00",
+                "occurrence_count": 12,
+                "total_record_count": 12,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            },
+            {
+                "quarantine_id": "qua_af11710c77a3acc319f3e6945c1dbde1",
+                "incident_id": "inc_0f7d2effde4ac45433d37eee4e6aa1dc",
+                "source_kind": "otlp_log",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_log",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_logs",
+                    "$.resource_logs[].scope_logs",
+                    "$.resource_logs[].scope_logs[].log_records"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "1034b73fa4970a24ccf8c204442932e86ed0a8e675fc210a8595051980ce897d",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:24:47.666469+03:00",
+                "last_seen_at": "2026-08-01T10:24:47.666469+03:00",
+                "occurrence_count": 1,
+                "total_record_count": 1,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            },
+            {
+                "quarantine_id": "qua_0c58009eede84079747988edd4144deb",
+                "incident_id": "inc_edfed8358acc6abccbd9276e4b1a6b24",
+                "source_kind": "otlp_log",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_log",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_logs",
+                    "$.resource_logs[].scope_logs",
+                    "$.resource_logs[].scope_logs[].log_records"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "0c5a3005b0eec4a6681f867f42d76612b39f3e38c0270a898497d8afa0819e4f",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:24:47.653115+03:00",
+                "last_seen_at": "2026-08-01T10:24:47.653115+03:00",
+                "occurrence_count": 1,
+                "total_record_count": 1,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            },
+            {
+                "quarantine_id": "qua_e348a9fbb447a4b4f1471333d4cb6922",
+                "incident_id": "inc_5d129db283ef3675b5eba9ecd1e66c2e",
+                "source_kind": "otlp_log",
+                "source_instance": {
+                    "state": "not_observed",
+                    "value": null
+                },
+                "signal_kind": "otlp_log",
+                "event_type": {
+                    "state": "unknown",
+                    "value": null
+                },
+                "structural_field_paths": [
+                    "$.resource_logs",
+                    "$.resource_logs[].scope_logs",
+                    "$.resource_logs[].scope_logs[].log_records"
+                ],
+                "primitive_types": [
+                    "array",
+                    "object"
+                ],
+                "shape_value_state": "observed",
+                "schema_fingerprint": "7c4a89e819324f8aee6c2ab3c81cdac2e41da39e7920164681ca5c5d25622f11",
+                "adapter_version": null,
+                "source_schema_version": null,
+                "parser_version": null,
+                "classification": "metadata_only_unknown_schema",
+                "rejection_reason": "unknown_schema",
+                "first_seen_at": "2026-08-01T10:22:02.58544+03:00",
+                "last_seen_at": "2026-08-01T10:24:33.276247+03:00",
+                "occurrence_count": 16,
+                "total_record_count": 16,
+                "total_byte_count": 0,
+                "disposition": "unresolved"
+            }
+        ],
+        "has_more": false,
+        "total_state": "lower_bound",
+        "total_lower_bound": 9,
+        "formula_version": "reliability.quarantine_manifest/1",
+        "exclusions": [
+            "unknown_values",
+            "raw_payload"
+        ],
+        "completeness": "complete"
+    },
+    "completeness": {
+        "denominator": 9,
+        "exclusions": [
+            "unknown_values",
+            "raw_payload"
+        ],
+        "numerator": 9,
+        "page_complete": true,
+        "status": "complete"
+    }
+}

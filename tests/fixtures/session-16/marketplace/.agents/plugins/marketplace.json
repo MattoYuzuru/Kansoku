@@ -1,0 +1,20 @@
+{
+  "name": "kansoku-session16-fixture",
+  "interface": {
+    "displayName": "Kansoku Session 16 Fixture"
+  },
+  "plugins": [
+    {
+      "name": "kansoku-session16-canary",
+      "source": {
+        "source": "local",
+        "path": "./plugins/kansoku-session16-canary"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

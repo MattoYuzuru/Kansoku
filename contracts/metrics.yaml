@@ -285,16 +285,16 @@
     },
     {
       "id": "collection.ingest_latency_seconds",
-      "title": "Ingest latency p95",
+      "title": "Receive-to-commit latency p95",
       "priority": "must",
       "unit": "seconds",
       "formula": {
-        "version": "collection.ingest_latency_seconds/1",
+        "version": "collection.ingest_latency_seconds/2",
         "calculation": "p95",
-        "expression": "p95(ingested_at - observed_at)",
-        "population_id": "collection.ingest_latency_seconds.population/1",
+        "expression": "p95(durable_commit_at - received_at)",
+        "population_id": "collection.ingest_latency_seconds.population/2",
         "evaluator": {
-          "id": "collection.ingest_latency_seconds/1",
+          "id": "collection.ingest_latency_seconds/2",
           "implementation": "percentile_cont_record_field",
           "parameters": {
             "value_field": "value",
@@ -311,13 +311,14 @@
           "dedupe_key": "record_id",
           "interval": "preclassified boolean in_interval; timestamp boundary classification is not exercised",
           "authorized_exclusions": [
-            "declared_maintenance"
+            "declared_maintenance",
+            "receive_or_commit_timestamp_not_observed"
           ],
           "ordering": "value ASC NULLS excluded"
         },
-        "semantic_sha256": "dc8a49b96817df7845d12c2bb74240e5027bbafa86097fd2ed92db0c11a0f0a3"
+        "semantic_sha256": "9e461eb0727893ba19b0df4079a3123f164f741875933e8101b7e5945e033b85"
       },
-      "population": "durably accepted supported events",
+      "population": "durably accepted supported events with durable receive and commit timestamps",
       "dimensions": [
         "time_range",
         "agent",

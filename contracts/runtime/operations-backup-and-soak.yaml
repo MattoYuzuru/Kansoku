@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.runtime-operations-backup-and-soak/1",
-  "contract_version": "1.1.0",
-  "effective_at": "2026-07-26",
+  "contract_version": "1.3.0",
+  "effective_at": "2026-07-29",
   "job_state": {
     "jobs": ["daily_integrity", "rollup_repair", "retention", "backup", "restore_verify", "export", "import"],
     "states": ["scheduled", "running", "passed", "failed", "cancelled", "interrupted", "already_running"],
@@ -17,8 +17,12 @@
     "metadata_expiry": {"tables": ["incident_occurrences", "quarantine_structural_manifests", "schema_quarantine_metadata"], "minimum_horizon_days": 30, "aggregate_preserved": true, "preview_operation": "partition_drop_plus_incident_metadata_expiry"},
     "default_horizon_days": 400,
     "disk_budget_fraction": 0.90,
+    "database_soft_limit_bytes": 5368709120,
+    "database_budget_thresholds": {"warning_fraction": 0.70, "degraded_fraction": 0.85, "critical_fraction": 0.95},
+    "docker_minimum_recommended_free_bytes": 26843545600,
+    "full_load_stop_condition": "do not start or continue a 5 GiB load when Docker free space would fall below 20 percent; cleanup only synthetic namespace-scoped data",
     "forecast_before_next_daily_cycle": true,
-    "resource_metrics": ["process_cpu_seconds", "process_rss_bytes", "goroutines", "db_pool_acquired", "db_pool_idle", "queue_depth", "oldest_queue_age_seconds"],
+    "resource_metrics": ["process_cpu_seconds", "process_rss_bytes", "goroutines", "db_pool_acquired", "db_pool_idle", "queue_depth", "oldest_queue_age_seconds", "database_bytes_and_growth", "checkpoint_bytes", "spool_bytes_per_lane", "backpressure_rejected_total", "durability_unavailable_total", "source_freshness"],
     "log_fields": ["timestamp", "level", "event_name", "request_id", "job_run_id", "duration_ms", "count", "error_class"],
     "log_forbidden": ["payload", "sql_parameters", "path", "environment", "credential", "prompt", "response", "tool_input", "tool_output"]
   },
@@ -29,9 +33,9 @@
     "destination_local_only": true,
     "manifest_fields": ["backup_version", "app_version", "dataplatform_schema_version", "integrity_schema_version", "runtime_schema_version", "formula_registry_version", "adapter_versions", "privacy_policy_sha256", "archive_sha256", "created_at", "table_counts"],
     "covered_table_groups": {
-      "dataplatform": ["devices", "agent_installations", "agent_surfaces", "projects", "sessions", "turns", "components", "adapter_versions", "source_instances", "events", "event_evidence", "metric_rollups_hourly", "metric_rollups_daily", "rollup_status", "formula_versions", "retention_policies", "incidents", "incident_occurrences", "schema_quarantine_metadata", "quarantine_structural_manifests"],
+      "dataplatform": ["devices", "agent_installations", "agent_surfaces", "projects", "sessions", "turns", "components", "adapter_versions", "source_instances", "events", "event_evidence", "metric_rollups_hourly", "metric_rollups_daily", "rollup_status", "formula_versions", "retention_policies", "incidents", "incident_occurrences", "schema_quarantine_metadata", "quarantine_structural_manifests", "observability_projection_receipts", "component_assertion_resolution_history"],
       "integrity": ["integrity_audit_attempts", "integrity_audit_runs", "integrity_audit_checks", "integrity_incidents", "integrity_incident_details", "integrity_schema_compatibility", "integrity_live_canary_state", "integrity_backup_status", "integrity_fingerprints", "integrity_audit_reports"],
-      "runtime": ["runtime_job_runs", "runtime_operation_approvals", "runtime_import_receipts"],
+      "runtime": ["runtime_job_runs", "runtime_operation_approvals", "runtime_import_receipts", "runtime_ingestion_health", "runtime_capacity_samples", "runtime_source_health", "runtime_mirror_reconciliations"],
       "migration_ledgers": ["schema_migrations", "integrity_schema_migrations", "runtime_schema_migrations"]
     },
     "isolated_restore_verification": ["archive_checksum", "all_table_counts", "constraints", "migration_ledgers", "sample_formula_results", "formula_version_lineage"],
@@ -54,6 +58,15 @@
     "forbidden": ["event_rows", "prompts", "responses", "tool_input", "tool_output", "source_code", "paths", "environment", "credentials", "SQL", "user_notes"],
     "maximum_bytes": 1048576,
     "deterministic": true
+  },
+  "one_shot_runtime_boundary": {
+    "collector_activation_owner": "serve_via_Appliance.Run_before_listener_bind",
+    "commands_without_runtime_collector_activation": ["backup", "restore-verify", "export", "import", "diagnostics", "evidence-bridge", "mcp-evidence"],
+    "agent_state_mount_required": false,
+    "inventory_health_mutation": false,
+    "unrelated_source_health_mutation": false,
+    "command_owned_durable_writes_only": true,
+    "regression_test": "TestOneShotAssemblyDoesNotActivateRuntimeSources"
   },
   "compose_policy": {
     "services": ["kansoku", "postgres"],

@@ -1,6 +1,6 @@
 {
   "schema_version": "kansoku.claude-manifest/1",
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "effective_at": "2026-07-23",
   "adapter_id": "claude",
   "adapter_id_naming": "adapter_id_is_the_stable_lowercase_hyphenated_identifier_registered_once_through_adaptersdk.Registry.Register_never_a_branch_inside_adaptersdk_core",
@@ -47,7 +47,7 @@
       "2.1.216_changes_prometheus_unit_compatibility_and_permission_decision_classifications",
       "2.1.193_or_later_required_for_independently_gated_assistant_response_text_which_kansoku_never_enables_or_reads_regardless"
     ],
-    "locally_observed_runtime": "2.1.197_not_fixture_verified_documentation_coverage_and_locally_verified_runtime_coverage_are_recorded_separately_neither_alone_is_a_support_claim"
+    "locally_observed_runtime": "2.1.220_not_fixture_verified_documentation_behavior_gates_run_through_2.1.216_so_the_observed_runtime_is_ahead_of_documented_coverage_documentation_coverage_and_locally_verified_runtime_coverage_are_recorded_separately_neither_alone_is_a_support_claim"
   },
   "sources": ["claude.hook", "claude.otel", "claude.transcript", "claude.inventory"],
   "capability_ids": [

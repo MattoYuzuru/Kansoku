@@ -57,7 +57,7 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 	}
 	tier := TierNative
 	confidence := record.Confidence
-	if kind == SourceTranscript {
+	if kind == SourceTranscript || kind == SourceCodexRollout {
 		tier = TierReconstructed
 		if confidence > 0.95 {
 			confidence = 0.95
@@ -87,7 +87,7 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 		modelID = *record.Model.ID
 	}
 	subjectKind := record.ComponentKind
-	if subjectKind == "" && eventType == "tool.called" {
+	if subjectKind == "" && (eventType == "tool.called" || eventType == "tool.decided") {
 		subjectKind = "tool"
 	}
 	if subjectKind == "" && record.AdapterID == "fixture-agent" {
@@ -106,6 +106,8 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 		}
 	case SourceAdapterBatch:
 		schemaID = record.SourceSchemaID
+	case SourceCodexRollout:
+		schemaID = record.SourceSchemaID
 	}
 	schemaFingerprint := stableID("lane-schema/1", schemaID, record.SchemaFingerprint)
 	now = now.UTC()
@@ -123,6 +125,16 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 	if len(record.Lineage.TurnPseudonym) >= 24 {
 		turnID = "trn_" + record.Lineage.TurnPseudonym[:24]
 	}
+	// Message and operator handles are prefixed and truncated exactly like
+	// the turn handle above, from pseudonyms the sanitizer already produced.
+	messageID := ""
+	if len(record.Lineage.MessagePseudonym) >= 24 {
+		messageID = "msg_" + record.Lineage.MessagePseudonym[:24]
+	}
+	userID := ""
+	if len(record.Lineage.UserPseudonym) >= 24 {
+		userID = "usr_" + record.Lineage.UserPseudonym[:24]
+	}
 	event := Event{
 		SpecVersion: EventSpecVersion, EventID: eventID, FactKey: factKey, EventType: eventType,
 		EmittedAt: record.ObservedAt.UTC(), ObservedAt: record.ObservedAt.UTC(), IngestedAt: now,
@@ -130,14 +142,46 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 			AdapterID: record.AdapterID, AdapterVersion: record.AdapterVersion, Kind: kind,
 			SchemaID: schemaID, SchemaFingerprint: schemaFingerprint,
 			InstallationID: installationID, NativeEventID: record.Lineage.SourceRecordPseudonym, Sequence: sequence,
-		}, Scope: Scope{DeviceID: deviceID, AgentInstallationID: installationID, SessionID: "ses_" + record.Lineage.SessionPseudonym[:24], TurnID: turnID},
+		}, Scope: Scope{
+			DeviceID: deviceID, AgentInstallationID: installationID,
+			SessionID: "ses_" + record.Lineage.SessionPseudonym[:24], TurnID: turnID,
+			MessageID: messageID, UserID: userID,
+		},
 		Subject: Subject{Kind: subjectKind, ComponentID: componentID, ModelID: modelID},
+		ComponentEvidence: ComponentEvidenceMetadata{
+			QualifiedIdentity:    record.ComponentEvidence.QualifiedIdentity,
+			IdentitySource:       record.ComponentEvidence.IdentitySource,
+			OwnerPluginIdentity:  record.ComponentEvidence.OwnerPluginIdentity,
+			InvocationMode:       record.ComponentEvidence.InvocationMode,
+			UpstreamIdentityHash: record.ComponentEvidence.UpstreamIdentityHash,
+			SourceScope:          record.ComponentEvidence.SourceScope,
+			Marketplace:          record.ComponentEvidence.Marketplace,
+			ComponentVersion:     record.ComponentEvidence.ComponentVersion,
+		},
+		Activity: ActivityMetadata{
+			ToolDecision:       record.Activity.ToolDecision,
+			ToolSource:         record.Activity.ToolSource,
+			ToolDecisionSource: record.Activity.ToolDecisionSource,
+			ToolUsePseudonym:   record.Activity.ToolUsePseudonym,
+			HookEvent:        record.Activity.HookEvent,
+			HookType:         record.Activity.HookType,
+			HookSource:       record.Activity.HookSource,
+			SessionStartType: record.Activity.SessionStartType,
+			QuerySource:      record.Activity.QuerySource,
+			TerminalType:     record.Activity.TerminalType,
+			SafeMode:         record.Activity.SafeMode,
+		},
 		Measurements: Measurements{
 			DurationMS: record.Telemetry.DurationMS, Success: success,
 			PromptCharacterCount: record.Telemetry.PromptCharacterCount,
 			InputTokens:          record.Telemetry.InputTokens, CachedInputTokens: record.Telemetry.CachedInputTokens,
-			OutputTokens:       record.Telemetry.OutputTokens,
-			ProviderCostMicros: record.Telemetry.ProviderCostMicros,
+			OutputTokens:           record.Telemetry.OutputTokens,
+			ProviderCostMicros:     record.Telemetry.ProviderCostMicros,
+			CacheCreationTokens:    record.Telemetry.CacheCreationTokens,
+			CacheReadTokens:        record.Telemetry.CacheReadTokens,
+			ResponseCharacterCount: record.Telemetry.ResponseCharacterCount,
+			ToolInputBytes:         record.Telemetry.ToolInputBytes,
+			ToolResultBytes:        record.Telemetry.ToolResultBytes,
 		},
 		ValueState: string(record.ValueState), Outcome: record.Outcome, CorrelationStatus: CorrelationExact,
 		Lifecycle: []EventStage{StageReceived, StageSanitized, StageValidated, StageNormalized},
@@ -153,8 +197,13 @@ func NormalizedFromSafe(record privacy.SafeRecord, kind SourceKind, sequence uin
 
 func eventCarriesComponent(eventType string) bool {
 	switch eventType {
-	case "tool.called", "component.installed", "component.enabled", "component.exposed",
-		"component.loaded", "component.invoked", "component.executed":
+	// tool.decided names a tool exactly as tool.called does -- the wire
+	// carries tool_name on both. Leaving it out here left every decision
+	// with a NULL component, which made "which tool was denied" unanswerable
+	// while subjectKind above already treated the event as tool-shaped.
+	case "tool.called", "tool.decided", "component.installed", "component.enabled",
+		"component.exposed", "component.requested", "component.loaded",
+		"component.invoked", "component.executed":
 		return true
 	default:
 		return false

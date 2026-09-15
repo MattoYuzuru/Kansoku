@@ -1,0 +1,85 @@
+=== prompt_features with count 0 (cases I and J) ===
+          prompt_feature_id          |          observed_at          | prompt_size_bytes | prompt_character_count | value_state 
+-------------------------------------+-------------------------------+-------------------+------------------------+-------------
+ oh_c25a80d57f8dff0bac9120d29542047c | 2026-08-01 10:24:47.875089+03 |                   |                      0 | observed
+ oh_52ed447c3dab7f43b2b1cc1a7b67afd9 | 2026-08-01 10:24:47.867902+03 |                   |                      0 | observed
+(2 rows)
+
+=== ingest_failures ===
+                        Table "public.ingest_failures"
+      Column       |           Type           | Collation | Nullable | Default 
+-------------------+--------------------------+-----------+----------+---------
+ ingest_failure_id | text                     |           | not null | 
+ category          | text                     |           | not null | 
+ observed_at       | timestamp with time zone |           | not null | 
+Indexes:
+    "ingest_failures_pkey" PRIMARY KEY, btree (ingest_failure_id)
+
+ count 
+-------
+     0
+(1 row)
+
+ ingest_failure_id | category | observed_at 
+-------------------+----------+-------------
+(0 rows)
+
+=== quarantine_structural_manifests ===
+                           Table "public.quarantine_structural_manifests"
+           Column            |           Type           | Collation | Nullable |       Default       
+-----------------------------+--------------------------+-----------+----------+---------------------
+ quarantine_id               | text                     |           | not null | 
+ incident_id                 | text                     |           | not null | 
+ source_kind                 | text                     |           | not null | 
+ source_instance_pseudonym   | text                     |           |          | 
+ source_instance_value_state | text                     |           | not null | 
+ signal_kind                 | text                     |           | not null | 
+ safe_event_type             | text                     |           |          | 
+ event_type_value_state      | text                     |           | not null | 
+ structural_field_paths      | jsonb                    |           | not null | '[]'::jsonb
+ primitive_types             | jsonb                    |           | not null | '["object"]'::jsonb
+ shape_value_state           | text                     |           | not null | 
+ schema_fingerprint          | text                     |           | not null | 
+ adapter_version             | text                     |           |          | 
+ source_schema_version       | text                     |           |          | 
+ parser_version              | text                     |           |          | 
+ classification              | text                     |           | not null | 
+ rejection_reason            | text                     |           | not null | 
+ first_seen_at               | timestamp with time zone |           | not null | 
+ last_seen_at                | timestamp with time zone |           | not null | 
+ occurrence_count            | bigint                   |           | not null | 1
+ total_record_count          | bigint                   |           | not null | 0
+ total_byte_count            | bigint                   |           | not null | 0
+ disposition                 | text                     |           | not null | 'unresolved'::text
+ updated_at                  | timestamp with time zone |           | not null | now()
+Indexes:
+    "quarantine_structural_manifests_pkey" PRIMARY KEY, btree (quarantine_id)
+    "idx_quarantine_manifests_page" btree (last_seen_at DESC, quarantine_id DESC)
+Check constraints:
+    "quarantine_structural_manifes_source_instance_value_state_check" CHECK (source_instance_value_state = ANY (ARRAY['observed'::text, 'unsupported'::text, 'not_observed'::text, 'redacted'::text, 'unknown'::text]))
+    "quarantine_structural_manifests_disposition_check" CHECK (disposition = ANY (ARRAY['unresolved'::text, 'fixture_added'::text, 'supported'::text, 'unsupported'::text]))
+    "quarantine_structural_manifests_event_type_value_state_check" CHECK (event_type_value_state = ANY (ARRAY['observed'::text, 'unsupported'::text, 'not_observed'::text, 'redacted'::text, 'unknown'::text]))
+    "quarantine_structural_manifests_occurrence_count_check" CHECK (occurrence_count > 0)
+    "quarantine_structural_manifests_primitive_types_check" CHECK (jsonb_typeof(primitive_types) = 'array'::text)
+    "quarantine_structural_manifests_shape_value_state_check" CHECK (shape_value_state = ANY (ARRAY['observed'::text, 'unsupported'::text, 'not_observed'::text, 'redacted'::text, 'unknown'::text]))
+    "quarantine_structural_manifests_structural_field_paths_check" CHECK (jsonb_typeof(structural_field_paths) = 'array'::text)
+    "quarantine_structural_manifests_total_byte_count_check" CHECK (total_byte_count >= 0)
+    "quarantine_structural_manifests_total_record_count_check" CHECK (total_record_count >= 0)
+Foreign-key constraints:
+    "quarantine_structural_manifests_quarantine_id_fkey" FOREIGN KEY (quarantine_id) REFERENCES schema_quarantine_metadata(quarantine_id)
+
+ count 
+-------
+     8
+(1 row)
+
+=== ingestion health ===
+{
+ "last_successful_ingest_at": "2026-08-01T07:24:47.877643532Z",
+ "last_rejected_ingest_at": null,
+ "backpressure_rejected_total": 0,
+ "durability_unavailable_total": 0,
+ "open_incident_count": 28
+}
+=== quarantine endpoint ===
+{"api_version":"kansoku.api/1","request_id":"req_7859dff44dfa409513880fb84929c354","data":{"data":[{"quarantine_id":"qua_0ad114acd10980fc3f675028cede5a63","incident_id":"inc_5954aab848ddd9dcb9c98be2a25166e5","source_kind":"otlp_metric","source_instance":{"state":"not_observed","value":null},"signal_kind":"otlp_metric","event_type":{"state":"unknown","value":null},"structural_field_paths":["$.resource_metrics","$.resource_metrics[].scope_metrics","$.resource_metrics[].scope_metrics[].metrics"],"primitive_types":["array","object"],"shape_value_state":"observed","schema_fingerprint":"1d5872921e437e6dd8eba05c10f5d1b4c85bb092198001358cd502416e739277","adapter_version":null,"source_schema_version":null,"parser_version":null,"classification":"metadata_only_unknown_schema","rejection_reason":"unknown_schema","first_seen_at":"2026-08-01T10:22:02.609343+03:00","last_seen_at":"2026-08-01T10:24:47.682928+03:00","occurrence_count":4,"total_record_count":4,"total_byte_count":0,"disposition":"unresolved"},{"quarantine_id":"qua_8228accf3d1a670439b638b5e3faf0da","incident_id":"inc_773ef57cf9a586247a71d201f3a81add","source_kind":"otlp_metric","source_instance":{"state":"not_observed","value":null},"signal_kind":"otlp_metric","event_type":{"state":"unknown","value":null},"structural_field_paths":["$.resource_metrics","$.resource_metrics[].scope_metrics","$.resource_metrics[].scope_metrics[].metrics"],"primitive_types":["array","object"],"shape_value_state":"observed","schema_fingerprint":"56a91a18aa930467275a78389f6ccfb940bf196fb05a1e69245557935d1786ed","adapter_version":null,"source_schema_version":null,"parser_version":null,"classification":"metadata_only_unknown_schema","rejection_reason":"unknown_schema","first_seen_at":"2026-08-01T10:22:02.606775+03:00","last_seen_at":"2026-08-01T10:24:47.682364+03:00","occurrence_count":28,"total_record_count":28,"total_byte_count":0,"disposition":"unresolved"},{"quarantine_id":"qua_ef187a6786bbc65a5f23292595411e0b","incident_id":"inc_7329aa88c5

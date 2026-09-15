@@ -174,6 +174,10 @@ func (a *Adapter) Reconcile(ctx context.Context, scope adaptersdk.ReconcileScope
 	completeness := "complete"
 	if !hasComponentNodes(current) {
 		completeness = "unknown"
+	} else if current.CoverageGapCount > 0 {
+		// A scan that skipped entries it could not read is partial, never
+		// complete, mirroring claudeadapter's identical rule.
+		completeness = "partial"
 	}
 	return adaptersdk.ReconcileResult{
 		SnapshotID: current.SnapshotID, AddedNodeIDs: added, RemovedNodeIDs: removed,

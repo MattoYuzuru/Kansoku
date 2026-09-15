@@ -57,7 +57,7 @@ var otelEventCanonical = map[OTelEventName]string{
 	OTelAPIRequest:         "model.requested",
 	OTelModelTokenUsage:    "source.observed",
 	OTelUserPrompt:         "prompt.submitted",
-	OTelToolDecision:       "source.observed",
+	OTelToolDecision:       "tool.decided",
 	OTelToolResult:         "tool.called",
 	OTelSSEEvent:           "model.responded",
 }
@@ -71,7 +71,26 @@ func OTLPSafeAttributes() []string {
 		"kansoku.value_state", "kansoku.model.id", "kansoku.tool.id", "kansoku.sequence",
 		"kansoku.component.kind", "kansoku.duration_ms", "kansoku.prompt_length_characters",
 		"kansoku.input_tokens", "kansoku.cached_input_tokens", "kansoku.output_tokens",
-		"kansoku.provider_cost_micros", "kansoku.turn.id",
+		"kansoku.provider_cost_micros",
+		// The slots below are agent-neutral registry members, not Claude's
+		// private surface: this adapter declares the same closed registry even
+		// where Codex reports nothing into a given slot, because the registry
+		// is shared and a per-agent divergence is exactly what the cross-agent
+		// invariant test forbids.
+		"kansoku.cache_creation_tokens", "kansoku.cache_read_tokens",
+		"kansoku.response_length_characters",
+		"kansoku.tool.decision", "kansoku.tool.source", "kansoku.tool.use_id",
+		"kansoku.tool.input_bytes", "kansoku.tool.result_bytes",
+		"kansoku.hook.event", "kansoku.hook.type", "kansoku.hook.source",
+		"kansoku.session.start_type", "kansoku.session.query_source",
+		"kansoku.session.terminal_type", "kansoku.session.safe_mode",
+		"kansoku.message.id", "kansoku.user.id",
+		"kansoku.tool.decision_source",
+		"kansoku.component.marketplace", "kansoku.component.version",
+		"kansoku.turn.id",
+		"kansoku.component.identity", "kansoku.component.identity_source",
+		"kansoku.component.owner_plugin", "kansoku.component.invocation_mode",
+		"kansoku.component.upstream_identity_hash", "kansoku.component.source_scope",
 	}
 }
 
@@ -331,6 +350,15 @@ const (
 	NativeAttributeCachedTokens   NativeOTLPAttribute = "cached_token_count"
 	NativeAttributeOutputTokens   NativeOTLPAttribute = "output_token_count"
 )
+
+// codex.tool_decision is a documented event name and is canonicalized to
+// tool.decided alongside Claude's, but Codex publishes no attribute
+// vocabulary for it: the 2026-07-25 codex-cli 0.145.0 capture recorded typed
+// attributes for codex.tool_result only (SOURCES.md). No decision/source
+// attribute is declared here, because declaring one would mean inventing an
+// upstream name. A Codex decision therefore lands with its decision recorded
+// as not_observed rather than fabricated, and this comment exists so the
+// asymmetry with Claude reads as evidence-bound rather than forgotten.
 
 // NativeOTLPAttributeSafeSlot returns the existing OTLPSafeAttributes() slot
 // a real, documented Codex-native OTLP attribute name maps onto, mirroring

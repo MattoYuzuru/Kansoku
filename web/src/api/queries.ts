@@ -7,8 +7,9 @@
  * span <= 366 days); see hooks/useRange.ts for the shared UI control that
  * produces them.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { apiGet, type ApiEnvelope } from "./client";
+import { normalizePluginProfile, normalizeSkillProfile } from "./normalize";
 import type {
   ActivityTimelineResponse,
   CompletenessSummary,
@@ -31,10 +32,13 @@ import type {
   QuarantinePage,
   ReliabilityCountsResponse,
   ReliabilityTimelineResponse,
+  RuntimeHealthResponse,
   SystemSnapshotResponse,
   ToolAnalyticsResponse,
   SkillObservatoryResponse,
   SkillProfileResponse,
+  PluginObservatoryResponse,
+  PluginProfileResponse,
   MCPObservatoryResponse,
   MCPServerProfileResponse,
   MCPPrimitiveListResponse,
@@ -109,15 +113,16 @@ export function useMCPUptime(range: RangeParams) {
   });
 }
 
-export function useReliabilityCounts(range: RangeParams) {
+export function useReliabilityCounts(range: RangeParams, enabled = true) {
   return useQuery({
     queryKey: rk("reliability-counts", range),
     queryFn: ({ signal }) =>
       apiGet<ReliabilityCountsResponse>("/api/v1/reliability/counts", { ...range }, signal),
+    enabled,
   });
 }
 
-export function useCollectionHealth(range: RangeParams) {
+export function useCollectionHealth(range: RangeParams, enabled = true) {
   return useQuery({
     queryKey: rk("collection-health", range),
     queryFn: ({ signal }) =>
@@ -126,6 +131,7 @@ export function useCollectionHealth(range: RangeParams) {
         { ...range },
         signal,
       ),
+    enabled,
   });
 }
 
@@ -134,6 +140,15 @@ export function useSystemSnapshot() {
     queryKey: rk("system-snapshot"),
     queryFn: ({ signal }) =>
       apiGet<SystemSnapshotResponse>("/api/v1/system/snapshot", undefined, signal),
+  });
+}
+
+export function useRuntimeHealth() {
+  return useQuery({
+    queryKey: rk("runtime-health"),
+    queryFn: ({ signal }) =>
+      apiGet<RuntimeHealthResponse>("/api/v1/health", undefined, signal),
+    refetchInterval: 30_000,
   });
 }
 
@@ -166,6 +181,25 @@ export function useIncidents(params: IncidentQueryParams = {}) {
   return useQuery({
     queryKey: rk("incidents", params),
     queryFn: ({ signal }) => apiGet<IncidentPage>("/api/v1/incidents", { ...params }, signal),
+  });
+}
+
+export function useInfiniteIncidents(
+  params: Omit<IncidentQueryParams, "cursor"> = {},
+  enabled = true,
+) {
+  return useInfiniteQuery({
+    queryKey: rk("incidents-infinite", params),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      apiGet<IncidentPage>(
+        "/api/v1/incidents",
+        { ...params, cursor: pageParam },
+        signal,
+      ),
+    getNextPageParam: (lastPage) =>
+      lastPage.data?.has_more ? lastPage.data.next_cursor : undefined,
+    enabled,
   });
 }
 
@@ -222,6 +256,31 @@ export function useQuarantine(
     queryKey: rk("quarantine", params),
     queryFn: ({ signal }) =>
       apiGet<QuarantinePage>("/api/v1/quarantine", { ...params }, signal),
+  });
+}
+
+export function useInfiniteQuarantine(
+  params: {
+    fingerprint?: string;
+    source?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  } = {},
+  enabled = true,
+) {
+  return useInfiniteQuery({
+    queryKey: rk("quarantine-infinite", params),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      apiGet<QuarantinePage>(
+        "/api/v1/quarantine",
+        { ...params, cursor: pageParam },
+        signal,
+      ),
+    getNextPageParam: (lastPage) =>
+      lastPage.data?.has_more ? lastPage.data.next_cursor : undefined,
+    enabled,
   });
 }
 
@@ -326,9 +385,80 @@ export function useSkills(range: RangeParams) {
 export function useSkillProfile(id: string, range: RangeParams) {
   return useQuery({
     queryKey: rk("skill-profile", { id, ...range }),
-    queryFn: ({ signal }) =>
-      apiGet<SkillProfileResponse>(`/api/v1/skills/${encodeURIComponent(id)}`, { ...range }, signal),
+    queryFn: async ({ signal }) => {
+      const envelope = await apiGet<SkillProfileResponse>(
+        `/api/v1/skills/${encodeURIComponent(id)}`,
+        { ...range },
+        signal,
+      );
+      return envelope.data
+        ? { ...envelope, data: normalizeSkillProfile(envelope.data) }
+        : envelope;
+    },
     enabled: Boolean(id),
+  });
+}
+
+export function useSkillProfiles(ids: readonly string[], range: RangeParams) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: rk("skill-profile", { id, ...range }),
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const envelope = await apiGet<SkillProfileResponse>(
+          `/api/v1/skills/${encodeURIComponent(id)}`,
+          { ...range },
+          signal,
+        );
+        return envelope.data
+          ? { ...envelope, data: normalizeSkillProfile(envelope.data) }
+          : envelope;
+      },
+      enabled: Boolean(id),
+    })),
+  });
+}
+
+export function usePlugins(range: RangeParams) {
+  return useQuery({
+    queryKey: rk("plugins", range),
+    queryFn: ({ signal }) =>
+      apiGet<PluginObservatoryResponse>("/api/v1/plugins", { ...range }, signal),
+  });
+}
+
+export function usePluginProfile(id: string, range: RangeParams) {
+  return useQuery({
+    queryKey: rk("plugin-profile", { id, ...range }),
+    queryFn: async ({ signal }) => {
+      const envelope = await apiGet<PluginProfileResponse>(
+        `/api/v1/plugins/${encodeURIComponent(id)}`,
+        { ...range },
+        signal,
+      );
+      return envelope.data
+        ? { ...envelope, data: normalizePluginProfile(envelope.data) }
+        : envelope;
+    },
+    enabled: Boolean(id),
+  });
+}
+
+export function usePluginProfiles(ids: readonly string[], range: RangeParams) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: rk("plugin-profile", { id, ...range }),
+      queryFn: async ({ signal }: { signal: AbortSignal }) => {
+        const envelope = await apiGet<PluginProfileResponse>(
+          `/api/v1/plugins/${encodeURIComponent(id)}`,
+          { ...range },
+          signal,
+        );
+        return envelope.data
+          ? { ...envelope, data: normalizePluginProfile(envelope.data) }
+          : envelope;
+      },
+      enabled: Boolean(id),
+    })),
   });
 }
 
@@ -371,7 +501,7 @@ export function useMCPToolProfile(serverID: string, toolID: string, range: Range
   });
 }
 
-export function useReliabilityCoverageTimeline(range: RangeParams) {
+export function useReliabilityCoverageTimeline(range: RangeParams, enabled = true) {
   return useQuery({
     queryKey: rk("reliability-coverage-timeline", range),
     queryFn: ({ signal }) =>
@@ -380,6 +510,7 @@ export function useReliabilityCoverageTimeline(range: RangeParams) {
         { budget_id: "reliability_coverage_timeline", ...range },
         signal,
       ),
+    enabled,
   });
 }
 

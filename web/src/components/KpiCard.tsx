@@ -5,13 +5,13 @@
  * §4 #7 (no animation library); it collapses to the final number immediately
  * under prefers-reduced-motion.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { StatusBadge } from "./StatusBadge";
 import type { ViewState } from "../api/client";
 import "./KpiCard.css";
 
 export interface KpiCardProps {
-  label: string;
+  label: ReactNode;
   value: number | null;
   unit?: string;
   /** Signed delta vs. the comparison period; rendered in KPI unit/delta type. */
@@ -20,6 +20,8 @@ export interface KpiCardProps {
   state?: Exclude<ViewState, "loading"> | "loading";
   /** Decimal places for the displayed number. */
   precision?: number;
+  /** Shared presentation formatter; the raw numeric value remains in the title/ARIA label. */
+  formatValue?: (value: number) => string;
   /** Why this KPI is not complete; exposed by the status badge tooltip. */
   stateReason?: string;
 }
@@ -77,6 +79,7 @@ export function KpiCard({
   delta,
   state = "complete",
   precision = 0,
+  formatValue,
   stateReason,
 }: KpiCardProps) {
   const display = useCountUp(value, precision);
@@ -89,7 +92,13 @@ export function KpiCard({
         {loading || value === null ? (
           <span className="k-kpi__value t-kpi-number k-kpi__value--muted">—</span>
         ) : (
-          <span className="k-kpi__value t-kpi-number">{display.toLocaleString()}</span>
+          <span
+            className="k-kpi__value t-kpi-number"
+            title={formatValue ? `Exact value: ${String(value)}` : undefined}
+            aria-label={formatValue ? `${formatValue(display)}; exact value ${String(value)}` : undefined}
+          >
+            {formatValue ? formatValue(display) : display.toLocaleString()}
+          </span>
         )}
         {unit && <span className="k-kpi__unit t-kpi-unit">{unit}</span>}
       </div>

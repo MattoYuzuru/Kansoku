@@ -1,7 +1,7 @@
 {
   "schema_version": "kansoku.claude-skill-evidence-and-reconciliation/1",
-  "contract_version": "1.0.0",
-  "effective_at": "2026-07-23",
+  "contract_version": "1.1.0",
+  "effective_at": "2026-08-01",
   "skill_evidence_model": {
     "evidence_tiers_reused_from": "contracts/observability/lifecycles.yaml_evidence_tiers_verbatim_corroborated_native_reconstructed_inferred_no_new_tier_is_invented",
     "evidence_kinds": [
@@ -17,6 +17,15 @@
     "no_false_exact_count": "the_dashboard_never_combines_these_evidence_kinds_into_a_single_false_exact_activation_count_it_displays_an_evidence_breakdown_by_tier_and_a_best_supported_lifecycle_stage",
     "ambiguous_ownership_rule": "no_rule_converts_a_helper_or_mcp_call_into_component.invoked_evidence_when_ownership_across_multiple_candidate_skill_identity_plugin_or_subagent_nodes_is_ambiguous_it_remains_component.executed_with_plural_candidates",
     "native_exact_activation_prohibition": "the_adapter_never_represents_component.opportunity_or_reconstructed_tier_evidence_as_a_component.invoked_native_exact_activation_this_is_the_session_06_exit_gate_invariant_carried_over_unchanged_for_claude_and_is_enforced_independently_of_dashboard_rendering",
+    "exposure_plane_support": {
+      "component_kind": "skill",
+      "plane": "exposed",
+      "state": "unsupported",
+      "reason": "claude_code_documents_no_model_visible_skill_set_event_or_snapshot",
+      "evidence": "skill_activated_reports_one_activation_after_the_fact_and_the_SessionStart_hook_payload_carries_session_id_transcript_path_cwd_hook_event_name_and_source_only",
+      "consequence": "cold_eligibility_for_this_adapter_rests_on_inventory_snapshot_completeness_per_skill.cold_count/2_and_the_exposed_plane_renders_as_unsupported_never_as_zero",
+      "rejected_alternative": "deriving_exposure_from_installed_and_enabled_would_convert_a_global_enabled_list_into_an_exposure_assertion_and_make_cold_a_partly_inferred_user_facing_claim"
+    },
     "unsupported_rendering_rule": "a_capability_or_field_claude_code_does_not_document_or_expose_natively_renders_as_an_explicit_unsupported_state_never_a_zero_value_that_could_be_misread_as_observed_absence_of_use"
   },
   "source_to_canonical_mapping": [
@@ -45,7 +54,7 @@
     "missing_source_rule": "missing_one_expected_source_marks_only_that_sources_own_capabilities_and_reconciliation_interval_degraded_it_never_silently_reports_zero_usage_for_the_whole_session",
     "expected_lanes_reused_from": "contracts/observability/reconciliation.yaml_expected_lanes_shape_hook_http_otlp_transcript_jsonl_mapped_onto_claude.hook_claude.otel_claude.transcript",
     "one_fact_rule_reused": "contracts/observability/reconciliation.yaml_one_fact_rule_logical_identity_is_lane_independent_each_lane_keeps_a_distinct_evidence_identity",
-    "cost_and_token_attribution": "token_and_cost_otel_attributes_are_attributed_to_a_skill_or_plugin_only_when_the_native_source_semantics_directly_support_that_attribution_a_documented_potential_double_attribution_case_multiple_concurrent_subagents_sharing_one_billed_call_is_retained_and_surfaced_rather_than_silently_divided_or_summed"
+    "cost_and_token_attribution": "token_and_cost_otel_attributes_are_attributed_to_a_skill_or_plugin_only_when_the_native_source_semantics_directly_support_that_attribution_a_documented_potential_double_attribution_case_multiple_concurrent_subagents_sharing_one_billed_call_is_retained_and_surfaced_rather_than_silently_divided_or_summed; third_party_skills_carry_no_per_skill_attribution_at_all_because_claude_code_stamps_the_literal_sentinel_skill.name_third-party_and_plugin.name_third-party_on_api_request_and_on_cost_and_token_metrics_the_sentinel_names_no_component_and_is_never_counted_as_one_so_this_class_is_reported_as_unsupported_attribution_never_as_zero_cost"
   },
   "required_tests": [
     "sanitized_transcript_fixtures_for_each_declared_compatibility_version_and_event_variant",

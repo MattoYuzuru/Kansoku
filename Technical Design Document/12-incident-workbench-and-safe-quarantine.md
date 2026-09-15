@@ -151,6 +151,10 @@ stable cursors, filters and a visible total state (`exact`, `lower_bound`, `unkn
 profiles link every degraded metric back to the affected interval and capability. Quarantine rows
 show shape summaries, not JSON previews.
 
+All internal Reliability tab, profile, back and pagination links use the shared Wouter navigation
+path. Query-string changes therefore update the workbench without replacing the document; direct
+URLs, browser Back and full refresh preserve the same URL-addressable state.
+
 ## Audit and recovery
 
 The daily audit verifies:
@@ -215,3 +219,30 @@ live unknown-schema-to-recovery proof.
 - Restore verification is defined against the immutable archive, its manifest and compiled
   migration ledgers. It never compares an old archive with later mutable rollups in the source
   database; repeated verification therefore remains stable while ingestion continues.
+
+## Bounded streaming UI reconciliation (2026-07-30)
+
+`useInfiniteIncidents` and `useInfiniteQuarantine` pass only backend-issued opaque signed cursors as
+TanStack Query page parameters. Filters are part of the query key; changing one removes any legacy
+cursor from the URL and starts a new keyset sequence. Pages are flattened in arrival order and
+sliced to a 200-row DOM ceiling.
+
+`LoadMoreControl` observes a non-semantic sentinel with a 240 px root margin and invokes the same
+fetch function as its visible button. It disconnects while loading, after `has_more=false`, or when
+the DOM ceiling is reached. Environments without IntersectionObserver keep the button path.
+
+Reliability filter forms prevent native submission and use Wouter navigation. Detector/triage use
+the shared keyboard and ARIA Dropdown contract. Session storage is keyed by the local query string
+and restores scroll on the next animation frame; it stores neither cursor contents separately nor
+telemetry values.
+
+Queries are enabled by the visible URL tab. Health loads coverage, reliability counts and the
+collection snapshot; Incidents loads only its keyset page; Quarantine loads only its keyset page.
+Profiles enable only their typed detail/occurrence/bundle queries. Hidden tabs do not consume the
+appliance's fixed 120-request/minute local safety budget or contend with the visible query budget.
+
+`TestIncidentWorkbenchReplayPaginationProfilesAndDebugBundle` remains the backend reconciliation
+gate for an unknown version-pinned fixture: one manifest and incident, replay-safe aggregate
+counts, append-only occurrences, deterministic lineage replacement, stable concurrent-insert
+pagination, filter attribution and cursor-tamper rejection. Profile and manifest responses retain
+safe adapter, source schema, parser, schema fingerprint and event-type fields only.

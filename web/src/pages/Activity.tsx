@@ -20,7 +20,7 @@ import { secondsToReadable, sum } from "../lib/format";
 import { bucketedTimeSeriesOption } from "../components/chartOptions";
 
 export function Activity() {
-  const range = useRange();
+  const range = useRange("activity");
   const rangeParams = useMemo(
     () => ({ from: range.from, to: range.to, granularity: range.granularity, timezone: range.timezone }),
     [range.from, range.to, range.granularity, range.timezone],

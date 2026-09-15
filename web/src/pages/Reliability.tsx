@@ -1,23 +1,26 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, type FormEvent } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { KpiCard } from "../components/KpiCard";
 import { ChartContainer } from "../components/ChartContainer";
 import { DataTable, type Column } from "../components/DataTable";
 import { GapNote, Panel } from "../components/Panel";
 import { RangeControl } from "../components/RangeControl";
 import { StatusBadge } from "../components/StatusBadge";
+import { Dropdown } from "../components/Dropdown";
 import { deriveViewState } from "../api/client";
 import {
   useCollectionHealth,
   useIncident,
   useIncidentDebugBundle,
   useIncidentOccurrences,
-  useIncidents,
-  useQuarantine,
+  useInfiniteIncidents,
+  useInfiniteQuarantine,
   useQuarantineManifest,
   useReliabilityCounts,
   useReliabilityCoverageTimeline,
 } from "../api/queries";
 import { useRange } from "../hooks/useRange";
+import { formatMetric } from "../lib/format";
 import { dayLabel, sum } from "../lib/format";
 import { bucketedStackedBarOption } from "../components/chartOptions";
 import type {
@@ -29,8 +32,8 @@ import type {
 
 type ReliabilityTab = "health" | "incidents" | "quarantine";
 
-function queryState() {
-  const params = new URLSearchParams(window.location.search);
+function queryState(search: string) {
+  const params = new URLSearchParams(search);
   const requested = params.get("tab");
   const tab: ReliabilityTab =
     requested === "incidents" || requested === "quarantine" ? requested : "health";
@@ -58,8 +61,10 @@ function valueLabel(value: { state: string; value: string | null }) {
 }
 
 export function Reliability() {
-  const range = useRange();
-  const page = queryState();
+  const range = useRange("reliability");
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const page = useMemo(() => queryState(search), [search]);
   const rangeParams = useMemo(
     () => ({
       from: range.from,
@@ -69,11 +74,11 @@ export function Reliability() {
     }),
     [range.from, range.to, range.granularity, range.timezone],
   );
-  const coverage = useReliabilityCoverageTimeline(rangeParams);
-  const counts = useReliabilityCounts(rangeParams);
-  const collectionHealth = useCollectionHealth(rangeParams);
-  const incidents = useIncidents({
-    cursor: page.tab === "incidents" ? page.cursor : undefined,
+  const healthEnabled = page.tab === "health";
+  const coverage = useReliabilityCoverageTimeline(rangeParams, healthEnabled);
+  const counts = useReliabilityCounts(rangeParams, healthEnabled);
+  const collectionHealth = useCollectionHealth(rangeParams, healthEnabled);
+  const incidents = useInfiniteIncidents({
     state: page.state,
     triage: page.triage,
     adapter: page.adapter,
@@ -81,13 +86,12 @@ export function Reliability() {
     capability: page.capability,
     failure: page.failure,
     limit: 25,
-  });
-  const quarantine = useQuarantine({
-    cursor: page.tab === "quarantine" ? page.cursor : undefined,
+  }, page.tab === "incidents" && !page.incidentID);
+  const quarantine = useInfiniteQuarantine({
     fingerprint: page.fingerprint,
     source: page.source,
     limit: 25,
-  });
+  }, page.tab === "quarantine" && !page.quarantineID);
   const incident = useIncident(page.incidentID);
   const occurrences = useIncidentOccurrences(page.incidentID);
   const debugBundle = useIncidentDebugBundle(page.incidentID);
@@ -103,8 +107,42 @@ export function Reliability() {
   const countsState = deriveViewState(counts.data, { isLoading: counts.isLoading });
   const unknownSchemaTotal = sum(countsRows.map((row) => row.unknown_schema_count));
   const mismatchTotal = sum(countsRows.map((row) => row.reconciliation_mismatch_count));
-  const incidentRows = incidents.data?.data?.data ?? [];
-  const quarantineRows = quarantine.data?.data?.data ?? [];
+  const incidentPages = incidents.data?.pages ?? [];
+  const quarantinePages = quarantine.data?.pages ?? [];
+  const incidentRows = incidentPages.flatMap((item) => item.data?.data ?? []).slice(0, 200);
+  const quarantineRows = quarantinePages.flatMap((item) => item.data?.data ?? []).slice(0, 200);
+  const incidentPage = incidentPages[0]?.data;
+
+  useEffect(() => {
+    const key = `kansoku.reliability.scroll:${search}`;
+    const saved = Number(sessionStorage.getItem(key) ?? "0");
+    const frame = requestAnimationFrame(() => window.scrollTo({ top: saved }));
+    return () => {
+      cancelAnimationFrame(frame);
+      sessionStorage.setItem(key, String(window.scrollY));
+    };
+  }, [search]);
+
+  const setFilter = (key: string, value: string) => {
+    const params = new URLSearchParams(search);
+    if (value) params.set(key, value);
+    else params.delete(key);
+    params.delete("cursor");
+    navigate(`/reliability?${params.toString()}`);
+  };
+  const applyTextFilters = (tab: ReliabilityTab, event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const values = new FormData(event.currentTarget);
+    const params = new URLSearchParams(search);
+    params.set("tab", tab);
+    for (const key of ["adapter", "source", "capability", "failure", "fingerprint"]) {
+      const value = String(values.get(key) ?? "").trim();
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+    params.delete("cursor");
+    navigate(`/reliability?${params.toString()}`);
+  };
 
   const coverageColumns: Column<ReliabilityDayRow>[] = [
     { key: "day", header: "Day", render: (row) => dayLabel(row.day) },
@@ -122,9 +160,9 @@ export function Reliability() {
       key: "incident_id",
       header: "Incident",
       render: (row) => (
-        <a href={`/reliability?tab=incidents&incident=${encodeURIComponent(row.incident_id)}`}>
+        <Link href={`/reliability?tab=incidents&incident=${encodeURIComponent(row.incident_id)}`}>
           {row.incident_id}
-        </a>
+        </Link>
       ),
     },
     { key: "detector", header: "Detector", render: (row) => row.detector_state },
@@ -144,9 +182,9 @@ export function Reliability() {
       key: "quarantine_id",
       header: "Manifest",
       render: (row) => (
-        <a href={`/reliability?tab=quarantine&quarantine=${encodeURIComponent(row.quarantine_id)}`}>
+        <Link href={`/reliability?tab=quarantine&quarantine=${encodeURIComponent(row.quarantine_id)}`}>
           {row.quarantine_id}
-        </a>
+        </Link>
       ),
     },
     { key: "source", header: "Source", render: (row) => row.source_kind },
@@ -172,14 +210,14 @@ export function Reliability() {
 
       <nav aria-label="Reliability views" className="k-reliability-tabs">
         {(["health", "incidents", "quarantine"] as const).map((tab) => (
-          <a
+          <Link
             key={tab}
             href={tabHref(tab)}
             aria-current={page.tab === tab ? "page" : undefined}
             className={page.tab === tab ? "is-active" : ""}
           >
             {tab[0].toUpperCase() + tab.slice(1)}
-          </a>
+          </Link>
         ))}
       </nav>
 
@@ -190,19 +228,34 @@ export function Reliability() {
               <KpiCard label="Accepted events" value={health?.accepted_event_count ?? null} state={healthState} />
               <KpiCard label="Quarantined records" value={health?.quarantined_record_count ?? null} state={healthState} />
               <KpiCard
-                label="Ingest latency p95"
-                value={health?.ingest_latency_p95_ms ?? null}
+                label="Receive-to-commit p95"
+                value={health?.receive_to_commit_p95_ms ?? null}
                 unit="ms"
-                precision={1}
-                state={health?.ingest_latency_p95_ms == null && health ? "not_observed" : healthState}
+                precision={2}
+                formatValue={formatMetric}
+                state={health?.receive_to_commit_p95_ms == null && health ? "not_observed" : healthState}
+                stateReason="A durable per-event commit timestamp is not available; observation age is shown separately."
               />
+              <KpiCard
+                label="Observation age p95"
+                value={health?.observation_age_p95_seconds ?? null}
+                unit="s"
+                precision={2}
+                formatValue={formatMetric}
+                state={health?.observation_age_p95_seconds == null && health ? "not_observed" : healthState}
+              />
+              <KpiCard label="Replays" value={health?.replay_count ?? null} state={healthState} />
+              <KpiCard label="Late/backfill candidates" value={health?.late_backfill_candidate_count ?? null} state={healthState} />
+              <KpiCard label="Clock-skew events" value={health?.clock_skew_event_count ?? null} state={healthState} />
               <KpiCard label="Active sources" value={health?.active_source_count ?? null} state={healthState} />
               <KpiCard label="Sequence gaps" value={health?.source_gap_count ?? null} state={healthState} />
               <KpiCard label="Queue depth" value={health?.queue_depth ?? null} state={healthState} />
               <KpiCard label="Pending rollups" value={health?.pending_rollup_count ?? null} state={healthState} />
             </div>
             <GapNote>
-              Snapshot values remain separate from historical interval coverage.
+              Receive-to-commit, observation age, replay, late/backfill candidates and declared
+              clock skew are separate populations. Late/backfill candidates use the versioned
+              five-minute arrival-gap rule; they are not silently called live latency.
             </GapNote>
           </Panel>
 
@@ -249,12 +302,32 @@ export function Reliability() {
       {page.tab === "incidents" && !page.incidentID && (
         <Panel
           title="Incident history"
-          caption={`${incidents.data?.data?.total_state ?? "unknown"} total ≥ ${incidents.data?.data?.total_lower_bound ?? 0}; page formula ${incidents.data?.data?.formula_version ?? "unknown"}`}
+          caption={`${incidentPage?.total_state ?? "unknown"} total ≥ ${incidentPage?.total_lower_bound ?? 0}; page formula ${incidentPage?.formula_version ?? "unknown"}; DOM capped at 200 rows`}
         >
-          <form method="get" action="/reliability" className="k-workbench-filters">
-            <input type="hidden" name="tab" value="incidents" />
-            <label>Detector<select name="state" defaultValue={page.state ?? ""}><option value="">All</option><option value="open">Open</option><option value="recovering">Recovering</option><option value="resolved">Resolved</option></select></label>
-            <label>Triage<select name="triage" defaultValue={page.triage ?? ""}><option value="">All</option><option value="new">New</option><option value="acknowledged">Acknowledged</option><option value="investigating">Investigating</option><option value="action_ready">Action ready</option></select></label>
+          <form className="k-workbench-filters" onSubmit={(event) => applyTextFilters("incidents", event)}>
+            <Dropdown
+              caption="DETECTOR"
+              value={page.state ?? ""}
+              onChange={(value) => setFilter("state", value)}
+              options={[
+                { value: "", label: "All" },
+                { value: "open", label: "Open" },
+                { value: "recovering", label: "Recovering" },
+                { value: "resolved", label: "Resolved" },
+              ]}
+            />
+            <Dropdown
+              caption="TRIAGE"
+              value={page.triage ?? ""}
+              onChange={(value) => setFilter("triage", value)}
+              options={[
+                { value: "", label: "All" },
+                { value: "new", label: "New" },
+                { value: "acknowledged", label: "Acknowledged" },
+                { value: "investigating", label: "Investigating" },
+                { value: "action_ready", label: "Action ready" },
+              ]}
+            />
             <label>Adapter<input name="adapter" defaultValue={page.adapter ?? ""} /></label>
             <label>Source<input name="source" defaultValue={page.source ?? ""} /></label>
             <label>Capability<input name="capability" defaultValue={page.capability ?? ""} /></label>
@@ -265,13 +338,16 @@ export function Reliability() {
             columns={incidentColumns}
             rows={incidentRows}
             rowKey={(row) => row.incident_id}
-            emptyMessage={incidents.isLoading ? "Loading…" : "No incidents match this page."}
+            emptyMessage={incidents.isLoading ? "Loading…" : incidents.isError ? "Incident query failed." : "No incidents match these filters."}
           />
-          {incidents.data?.data?.has_more && incidents.data.data.next_cursor && (
-            <a href={pageHref("incidents", incidents.data.data.next_cursor)}>
-              Next page
-            </a>
-          )}
+          {incidents.isError && <p role="alert">Incident history is unavailable. Retry the current view.</p>}
+          <LoadMoreControl
+            label="incidents"
+            rowCount={incidentRows.length}
+            hasMore={Boolean(incidents.hasNextPage)}
+            loading={incidents.isFetchingNextPage}
+            onLoad={() => void incidents.fetchNextPage()}
+          />
         </Panel>
       )}
 
@@ -289,8 +365,7 @@ export function Reliability() {
           title="Safe structural manifests"
           caption="Values and raw payloads are never retained."
         >
-          <form method="get" action="/reliability" className="k-workbench-filters">
-            <input type="hidden" name="tab" value="quarantine" />
+          <form className="k-workbench-filters" onSubmit={(event) => applyTextFilters("quarantine", event)}>
             <label>Fingerprint<input name="fingerprint" defaultValue={page.fingerprint ?? ""} /></label>
             <label>Source<input name="source" defaultValue={page.source ?? ""} /></label>
             <button type="submit">Apply filters</button>
@@ -299,13 +374,16 @@ export function Reliability() {
             columns={quarantineColumns}
             rows={quarantineRows}
             rowKey={(row) => row.quarantine_id}
-            emptyMessage={quarantine.isLoading ? "Loading…" : "No quarantine manifests observed."}
+            emptyMessage={quarantine.isLoading ? "Loading…" : quarantine.isError ? "Quarantine query failed." : "No quarantine manifests observed."}
           />
-          {quarantine.data?.data?.has_more && quarantine.data.data.next_cursor && (
-            <a href={pageHref("quarantine", quarantine.data.data.next_cursor)}>
-              Next page
-            </a>
-          )}
+          {quarantine.isError && <p role="alert">Quarantine history is unavailable. Retry the current view.</p>}
+          <LoadMoreControl
+            label="quarantine manifests"
+            rowCount={quarantineRows.length}
+            hasMore={Boolean(quarantine.hasNextPage)}
+            loading={quarantine.isFetchingNextPage}
+            onLoad={() => void quarantine.fetchNextPage()}
+          />
         </Panel>
       )}
 
@@ -316,13 +394,45 @@ export function Reliability() {
   );
 }
 
-function pageHref(tab: ReliabilityTab, cursor: string) {
-  const params = new URLSearchParams(window.location.search);
-  params.set("tab", tab);
-  params.set("cursor", cursor);
-  params.delete("incident");
-  params.delete("quarantine");
-  return `/reliability?${params.toString()}`;
+function LoadMoreControl({
+  label,
+  rowCount,
+  hasMore,
+  loading,
+  onLoad,
+}: {
+  label: string;
+  rowCount: number;
+  hasMore: boolean;
+  loading: boolean;
+  onLoad: () => void;
+}) {
+  const sentinel = useRef<HTMLSpanElement>(null);
+  const withinLimit = rowCount < 200;
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || !hasMore || !withinLimit || loading || !("IntersectionObserver" in window)) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) onLoad();
+    }, { rootMargin: "240px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, loading, onLoad, withinLimit]);
+
+  if (!hasMore) return null;
+  if (!withinLimit) {
+    return <p className="t-caption">200-row DOM limit reached. Refine filters to continue.</p>;
+  }
+  return (
+    <div>
+      <span ref={sentinel} aria-hidden="true" />
+      <button type="button" onClick={onLoad} disabled={loading}>
+        {loading ? "Loading…" : `Load more ${label}`}
+      </button>
+    </div>
+  );
 }
 
 function IncidentProfile({
@@ -348,7 +458,7 @@ function IncidentProfile({
   ];
   return (
     <>
-      <Panel title="Incident profile" actions={<a href={tabHref("incidents")}>Back to incidents</a>}>
+      <Panel title="Incident profile" actions={<Link href={tabHref("incidents")}>Back to incidents</Link>}>
         <dl className="k-kv">
           <div className="k-kv__row"><dt>Detector / triage</dt><dd>{incident.detector_state} / {incident.triage_state}</dd></div>
           <div className="k-kv__row"><dt>Installation</dt><dd>{valueLabel(incident.installation)}</dd></div>
@@ -385,7 +495,7 @@ function QuarantineProfile({
     return <Panel title="Structural manifest">{loading ? "Loading…" : "Manifest unavailable."}</Panel>;
   }
   return (
-    <Panel title="Structural manifest" actions={<a href={tabHref("quarantine")}>Back to quarantine</a>}>
+    <Panel title="Structural manifest" actions={<Link href={tabHref("quarantine")}>Back to quarantine</Link>}>
       <dl className="k-kv">
         <div className="k-kv__row"><dt>Source / signal</dt><dd>{manifest.source_kind} / {manifest.signal_kind}</dd></div>
         <div className="k-kv__row"><dt>Event type</dt><dd>{valueLabel(manifest.event_type)}</dd></div>

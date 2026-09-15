@@ -1,0 +1,19 @@
+=== COMMAND ===
+curl -sS -i -X POST http://127.0.0.1:43100/api/v1/plans/preview -H "Authorization: Bearer $MB" -H "X-Kansoku-CSRF: $CS" -H "Origin: http://127.0.0.1:43100" -H "Content-Type: application/json" -d '{"target_id":"foo.bar","original":{}}'
+=== OUTPUT ===
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:22:51 GMT
+Content-Length: 118
+
+{"api_version":"kansoku.api/1","request_id":"req_b4faa27ddf6a01d864a9190938b6c3d9","error":"unsupported_plan_target"}
+

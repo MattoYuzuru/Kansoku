@@ -1,0 +1,421 @@
+{
+  "schema_version": "kansoku.defect-inventory/1",
+  "created_at": "2026-07-30",
+  "scope": "Research and prioritization only; no fixes from this inventory are implemented in this commit.",
+  "priority_policy": {
+    "P0": "Trust, data correctness, or a route is unusable.",
+    "P1": "Material correctness, accessibility, operability, or repeated UX failure.",
+    "P2": "Polish or product discovery with a safe workaround.",
+    "confirmed": "Reproduced against the live appliance or proven directly in code/data.",
+    "partially_confirmed": "Part of the report is proven; another part needs a controlled canary or product decision.",
+    "not_reproduced": "The exact observation is absent now; related evidence is documented.",
+    "design_question": "Requires an information-architecture/product decision, not just a bug fix."
+  },
+  "delivery_order": [
+    {
+      "wave": "A",
+      "name": "Decorative warm-up",
+      "items": ["R01", "R05-format", "R09", "R12", "R13"],
+      "constraint": "Keep metric formula changes out of the formatting commit."
+    },
+    {
+      "wave": "B",
+      "name": "Frontend failure containment",
+      "items": ["R02", "R11-navigation"],
+      "constraint": "Add route/root recovery and explicit query errors before broad UI refactors."
+    },
+    {
+      "wave": "C",
+      "name": "Broken data profiles",
+      "items": ["R06"],
+      "constraint": "Restore the existing profile contract before adding charts or merging routes."
+    },
+    {
+      "wave": "D",
+      "name": "Telemetry trust",
+      "items": ["R03", "R08", "R10"],
+      "constraint": "Prove exact counts, replay idempotency, attribution, and coverage states with controlled canaries."
+    },
+    {
+      "wave": "E",
+      "name": "Reliability workbench and incident reconciliation",
+      "items": ["R04", "R05-formula", "R11-workbench"],
+      "constraint": "Never delete historical incidents to make the UI clean."
+    },
+    {
+      "wave": "F",
+      "name": "Information architecture",
+      "items": ["R07", "R06-visualization"],
+      "constraint": "Preserve deep links and complete/partial/not-observed semantics."
+    }
+  ],
+  "items": [
+    {
+      "id": "R01",
+      "user_item": 1,
+      "title": "Persist the selected range independently per page",
+      "priority": "P1",
+      "finding_state": "confirmed",
+      "evidence": [
+        "Live browser changed Activity to Last 7 days, navigated away and back, and observed Last 30 days.",
+        "web/src/hooks/useRange.ts keeps the selection only in component useState."
+      ],
+      "root_cause": "The server query cache is range-aware, but the user preference has no durable page-scoped storage.",
+      "recommended_scope": [
+        "Store a versioned map under one localStorage key, keyed by a stable logical page identifier.",
+        "Validate saved values and fall back to the page's intentional default when storage is absent, corrupt, or unavailable.",
+        "Decide whether detail pages inherit the parent range or own a separate key; document the choice.",
+        "Keep from/to live and recompute them from the saved preset instead of persisting stale timestamps."
+      ],
+      "acceptance": [
+        "Activity can retain 7 days while Models retains 1 year across route changes and a browser restart.",
+        "Invalid and old-version storage values fall back without throwing.",
+        "Private-mode or disabled storage leaves the page usable in memory.",
+        "Two tabs converge through the storage event without overwriting unrelated page preferences."
+      ]
+    },
+    {
+      "id": "R02",
+      "user_item": 2,
+      "title": "Skill profile crashes to a persistent white screen",
+      "priority": "P0",
+      "finding_state": "confirmed",
+      "evidence": [
+        "The live SPA route produced TypeError: Cannot read properties of null (reading 'map').",
+        "After the exception, #root had zero children and the application stayed blank.",
+        "The API serializes an empty Go slice as file_tree:null; mergeSkillProfiles calls profile.file_tree.map.",
+        "App.tsx has no route or root error boundary."
+      ],
+      "root_cause": "A nullable collection violates the TypeScript response assumption, and the uncontained render exception unmounts the entire application.",
+      "recommended_scope": [
+        "Initialize all API collection fields to [] and add contract tests for empty skill and plugin profiles.",
+        "Defensively normalize nullable legacy responses in the client at the API boundary.",
+        "Audit plugin children, versions, assertions, sources, and every other response collection for the same nil-slice shape.",
+        "Add a route-level error boundary with retry/back navigation plus a root fallback that never leaves an empty document.",
+        "Pass query isError/error into a visible error state; deriveViewState currently treats missing data as loading."
+      ],
+      "acceptance": [
+        "Open an empty skill via SPA click, direct URL, back/forward, and refresh without a blank root.",
+        "Inject a fixture with every collection null and prove a localized recoverable error or empty state.",
+        "A simulated render exception leaves the shell/navigation usable.",
+        "No runtime exception is reported by the browser matrix."
+      ]
+    },
+    {
+      "id": "R03",
+      "user_item": 3,
+      "title": "Plugin-owned skill invocations are absent from the plugin profile",
+      "priority": "P0",
+      "finding_state": "confirmed",
+      "evidence": [
+        "The SRE plugin family has installed/enabled/requested facts but zero exact loaded, child_activity, or outcome facts.",
+        "Its child skills also have inventory facts only.",
+        "The aggregation code can persist child activity when an exact child event reaches it; the current live observer did not deliver those invocations."
+      ],
+      "root_cause": "This is primarily an observation/ingestion coverage failure, not a chart summation bug. The Codex rollout source is degraded, and ordinary implicit skill activation has no stable upstream lifecycle notification.",
+      "recommended_scope": [
+        "Restore source health first, then count only typed App Server skill items or corroborated version-pinned rollout evidence.",
+        "For a plugin-owned child invocation, persist one child invocation and one plugin child_activity assertion; do not fabricate a plugin invocation.",
+        "Keep inventory, requested, loaded, invoked, child use, and terminal outcome as separate facts.",
+        "Expose exact/reconstructed/not_observed coverage alongside every count."
+      ],
+      "acceptance": [
+        "Invoke one standalone skill twice and observe exactly two invocations after duplicate replay.",
+        "Invoke one plugin child twice and observe child=2 and owning plugin child_activity=2.",
+        "The same sanitized payload replay does not increase either count.",
+        "Ambiguous or multi-owner resolution produces no fabricated exact attribution and opens a visible incident."
+      ]
+    },
+    {
+      "id": "R04",
+      "user_item": 4,
+      "title": "Prompt metadata and unknown-schema incident backlog",
+      "priority": "P1",
+      "finding_state": "partially_confirmed",
+      "evidence": [
+        "There are 48 open unknown_schema incidents with 9,808 occurrences.",
+        "All 48 lack observed source attribution, so they cannot safely be classified as Claude or Codex.",
+        "The quarantine contains 28 OTLP log and 24 OTLP metric manifests; safe event type and source instance are not observed.",
+        "Manifest occurrence/record aggregates and retained metadata row counts have different, currently unexplained totals."
+      ],
+      "root_cause": "Ingress discarded too much safe provenance before incident creation, and no reconciliation workflow yet explains the different aggregation levels.",
+      "recommended_scope": [
+        "Add safe source-instance, adapter/schema version, parser version, and bounded event-type attribution at ingress.",
+        "Group incidents by safe source/version/fingerprint and create sanitized fixtures before parser changes.",
+        "Reconcile metadata rows, manifest record totals, occurrence totals, and incident totals explicitly.",
+        "Resolve incidents only after fresh supported evidence and a passing recovery audit; preserve history.",
+        "Prioritize Claude-shaped fixtures after frontend blockers, but do not attribute current rows to Claude without evidence."
+      ],
+      "acceptance": [
+        "Every new unknown-schema incident has an observed or explicit not_observed source and version state.",
+        "A reconciliation query explains every count shown in incident and quarantine views.",
+        "A version-pinned fixture reproduces each supported schema and unknown schemas fail visibly.",
+        "Resolution retains occurrences and links recovery evidence."
+      ]
+    },
+    {
+      "id": "R05",
+      "user_item": 5,
+      "title": "Percentile formatting and formula verification",
+      "priority": "P0",
+      "finding_state": "partially_confirmed",
+      "subpriorities": {
+        "formatting": "P2",
+        "metric_semantics": "P0"
+      },
+      "evidence": [
+        "PostgreSQL queries use percentile_cont directly over selected non-null facts; existing unit/integration tests cover exact percentile interpolation.",
+        "Formatting is inconsistent: Tools uses at most 2 decimals, Agent detail rounds to an integer, Reliability uses 1 decimal, and KpiCard defaults to 0.",
+        "The live Ingest latency p95 is 4,025,091.354 ms.",
+        "The formula is ingested_at - observed_at, which mixes transport time with clock skew, replay, and backfill; 212 rows in the 30-day population are negative.",
+        "Models displays an unweighted mean of daily error ratios, not failed/terminal over the selected range."
+      ],
+      "root_cause": "Presentation rules are fragmented, while two aggregate labels hide materially different populations and formulas.",
+      "recommended_scope": [
+        "Create a shared metric formatter with an explicit maximum of two decimals and unit-aware compact rendering.",
+        "Keep raw numeric values in tooltips and exports.",
+        "Split live receive-to-commit latency from source observation age, replay/backfill delay, and clock-skew exclusions.",
+        "Either calculate window error ratio as total failures / total terminal outcomes or rename the current KPI to unweighted average daily error ratio.",
+        "Version formulas and expose numerator, denominator, exclusions, and completeness."
+      ],
+      "acceptance": [
+        "Every p50/p90/p95/p99 surface follows the same documented two-decimal policy.",
+        "SQL/API/UI values reconcile on a fixture with an even and odd number of observations.",
+        "Daily buckets are never averaged to create a range percentile.",
+        "Live latency excludes or separately labels replay/backfill and negative clock-skew rows.",
+        "Error ratio has a test where weighted and unweighted daily averages differ."
+      ]
+    },
+    {
+      "id": "R06",
+      "user_item": 6,
+      "title": "Duplicate-looking agents, unusable profiles, and missing model/cost analytics",
+      "priority": "P0",
+      "finding_state": "partially_confirmed",
+      "evidence": [
+        "The live database currently has three Codex installations, not four: one real candidate and two manual canaries inferred from existing test identifiers.",
+        "Five visible agent profiles all rendered Unknown agent and remained loading.",
+        "Every captured agent profile API request returned 503 agent_profile_unavailable.",
+        "Core sequential query work consumed about 174 ms before identity, incidents, freshness, and transport under a total 200 ms budget.",
+        "The identity SELECT scans agent_id into adapter_id.",
+        "Exact model/token/provider-cost facts exist and are listed in live-evidence.json."
+      ],
+      "root_cause": "Canary identities share the production catalog without a durable classification, and the profile query exceeds its total latency contract. The UI hides query errors as loading.",
+      "recommended_scope": [
+        "Add an explicit installation class/provenance field such as real, canary, fixture, imported, or unknown; do not infer it from IDs.",
+        "Default-filter or clearly badge canaries without deleting historical telemetry.",
+        "Optimize/combine/parallelize profile work inside a consistent snapshot, then prove the 200 ms budget or revise the contract with evidence.",
+        "Fix identity projection and return initialized arrays.",
+        "Expose model/date filters, token composition, cost coverage, outcome coverage, latency, and per-model comparison.",
+        "Call Codex monetary data API-equivalent estimated cost unless a provider billing source exists. Claude has provider-reported cost coverage; Codex currently does not."
+      ],
+      "acceptance": [
+        "All real, canary, and fixture rows are explicitly classified and filterable.",
+        "Every existing profile returns 200 or a visible localized error; none stays Unknown/loading after failure.",
+        "Model request/token totals reconcile with exact-attribution database facts.",
+        "Costs show provider-reported versus API-equivalent coverage and never label Codex estimates as billed spend.",
+        "Sol, Luna, Terra, and other observed models can be compared over a selected period without hiding unknown outcomes."
+      ]
+    },
+    {
+      "id": "R07",
+      "user_item": 7,
+      "title": "Evaluate merging Agents and Models into one drill-down",
+      "priority": "P2",
+      "finding_state": "design_question",
+      "evidence": [
+        "Agents represents installations while Models aggregates operations across installations; they are related but not identical dimensions.",
+        "The current Agent detail already contains a model table, but it is unavailable because R06 fails."
+      ],
+      "root_cause": "The information architecture exposes implementation dimensions as peer routes instead of the user's fleet-to-installation-to-model flow.",
+      "recommended_scope": [
+        "First restore Agent profiles, then test a Fleet route with installation list and detail tabs: Overview, Models, Sources, Components, Incidents.",
+        "Let model rows open a filtered model drill-down and preserve a global cross-agent model comparison view.",
+        "Do not remove /models until deep-link compatibility, route redirects, navigation telemetry, and an ADR are ready.",
+        "Prefer comparison bars/lines and a table; use a donut only for a bounded 3-5 category share."
+      ],
+      "acceptance": [
+        "A user can move fleet -> installation -> model and back without losing range/filter state.",
+        "Global cross-agent model questions remain answerable.",
+        "Existing URLs have tested redirects and browser history remains correct.",
+        "An ADR records the retained domain distinctions and removal plan."
+      ]
+    },
+    {
+      "id": "R08",
+      "user_item": 8,
+      "title": "Skills show Degraded and only search-workflow has exact usage",
+      "priority": "P0",
+      "finding_state": "confirmed",
+      "evidence": [
+        "Only search-workflow has exact usage in the current named installed catalog: 10 invoked and 10 loaded.",
+        "The Codex rollout observer is degraded with rollout_scan_failed.",
+        "Ten rollout JSONL lines exceed the scanner's 1 MiB limit; the largest is 7,756,804 bytes.",
+        "Most enabled skills lack a complete exposure window, so cold/used denominators are incomplete.",
+        "The rollout dollar-marker parser created 32 unresolved reconstructed requests from non-skill text.",
+        "Timezone bucketing uses a validated browser IANA timezone, but no DST canary proves the displayed invocation timestamps."
+      ],
+      "root_cause": "One oversized line stops a whole source, observer coverage is incomplete, and the request heuristic is too permissive. The UI then applies the least-complete state too broadly.",
+      "recommended_scope": [
+        "Replace Scanner failure with a bounded streaming reader that can hash/classify/skip an oversized line, quarantine a safe structural fact, advance the checkpoint, and continue.",
+        "Restrict dollar markers to explicit Codex syntax and corroborate them with a typed item or a skill file read before counting invoked.",
+        "Show source health separately from metric completeness; inventory counts should not all become Degraded because usage coverage is absent.",
+        "Run controlled canaries for standalone, plugin-owned, repo/user/system, success/failure, duplicate replay, and timezone/DST.",
+        "Use a temporary directory for the Kotlin write canary and a no-external-action expected failure for central-university-lms."
+      ],
+      "acceptance": [
+        "An oversized synthetic JSONL line is quarantined without stopping later valid records.",
+        "Dollar-prefixed code and environment identifiers create zero skill requests.",
+        "The requested skill pool yields exact expected counts and repeat replay stays idempotent.",
+        "Europe/Moscow and a DST timezone bucket/display fixtures correctly.",
+        "Unavailable observation lanes show not_observed/partial rather than fabricated zero or blanket degradation."
+      ]
+    },
+    {
+      "id": "R09",
+      "user_item": 9,
+      "title": "Soft pulse for glossary targets after navigation",
+      "priority": "P2",
+      "finding_state": "confirmed",
+      "evidence": [
+        "The target exists and receives a static :target border.",
+        "Computed animation name is none and duration is 0s."
+      ],
+      "root_cause": "No target-entry interaction exists.",
+      "recommended_scope": [
+        "Use a deterministic 2-3 cycle background/border pulse over about 5 seconds; randomness adds no useful value.",
+        "Replay it on hash changes, including navigation while already on Glossary.",
+        "Remove the transient class after completion.",
+        "Under prefers-reduced-motion, use a static highlight and preserve focus/announcement."
+      ],
+      "acceptance": [
+        "Each glossary icon scrolls and pulses the exact target without layout shift.",
+        "Repeated navigation to the same hash restarts the cue.",
+        "Reduced-motion mode has no animation.",
+        "The animation uses paint-only properties and produces no sustained CPU work."
+      ]
+    },
+    {
+      "id": "R10",
+      "user_item": 10,
+      "title": "Validate success/failure classification and preserve call identity",
+      "priority": "P0",
+      "finding_state": "partially_confirmed",
+      "evidence": [
+        "Current facts include Codex and Claude succeeded/failed tool calls, but there is no terminal-source canary proving every classification.",
+        "Codex model operations include 570 unknown outcomes under exact installation attribution.",
+        "There are zero skill outcome assertions.",
+        "Legacy unattributed model operations include null outcomes."
+      ],
+      "root_cause": "Different sources expose started/completed/denied/cancelled signals at different fidelity, and the dashboard lacks a per-source terminal reconciliation contract.",
+      "recommended_scope": [
+        "Build a source-by-source terminal matrix for success, execution failure, protocol failure, denial, cancellation, timeout, interruption, missing completion, duplicate completion, and contradictory completion.",
+        "Correlate by safe native call pseudonym and retain only bounded tool/category identity.",
+        "Expose outcome coverage and unknown counts with the ratio denominator.",
+        "Defer detailed call names until privacy and cardinality contracts define safe bounded identities."
+      ],
+      "acceptance": [
+        "Version-pinned Codex App Server and Claude sanitized fixtures map every terminal case exactly once.",
+        "Duplicate start/completion replay is idempotent.",
+        "Missing or contradictory terminals remain unknown and open a visible incident; they never become failed by guesswork.",
+        "Success ratios disclose terminal denominator and unknown exclusions."
+      ]
+    },
+    {
+      "id": "R11",
+      "user_item": 11,
+      "title": "Reliability overflow, hard reloads, stale filters, and pagination UX",
+      "priority": "P1",
+      "finding_state": "confirmed",
+      "evidence": [
+        "Ingest latency p95 overflows its card at desktop, tablet, and mobile widths.",
+        "Reliability tabs, rows, back links, and pagination use native anchors; a page sentinel disappeared after the incident-tab click, proving a full document reload.",
+        "Incident filters contain two native select elements despite the custom Dropdown contract.",
+        "Incident and quarantine lists expose a visible Next page link.",
+        "The captured table clips dense columns horizontally."
+      ],
+      "root_cause": "The page bypasses SPA navigation and shared controls, and the KPI/table layouts do not contain long values.",
+      "recommended_scope": [
+        "Use Wouter Link/navigation for internal routes and preserve previous data/skeletons during fetches.",
+        "Replace native selects with the shared accessible Dropdown and keep filters in the URL.",
+        "Implement signed-keyset infinite loading with useInfiniteQuery and IntersectionObserver.",
+        "Bound retained pages or virtualize rows; provide an accessible Load more fallback and announce appended results.",
+        "Add min-width:0, overflow/wrapping/compact-unit policy, and responsive DataTable behavior."
+      ],
+      "acceptance": [
+        "Tab/detail/back navigation preserves the shell and never shows an empty document.",
+        "No default select remains on Reliability.",
+        "Scrolling loads the next signed-keyset page once, restores position on back, and does not grow the DOM without bound.",
+        "Keyboard and screen-reader users can load more explicitly.",
+        "Desktop/tablet/mobile/200% views have no KPI or table overflow."
+      ]
+    },
+    {
+      "id": "R12",
+      "user_item": 12,
+      "title": "Database size overflows System cards",
+      "priority": "P2",
+      "finding_state": "confirmed",
+      "evidence": [
+        "The raw 263,550,655 byte value overflows at desktop, tablet, and mobile widths.",
+        "System and Privacy pass database_size_bytes directly into KpiCard even though a readable helper already exists below the card."
+      ],
+      "root_cause": "A raw byte integer is used as the primary KPI and the value row has no shrink/containment policy.",
+      "recommended_scope": [
+        "Display a compact MiB/GiB value with at most two decimals and a clear IEC or SI unit.",
+        "Keep exact bytes in the detail/tooltip/export.",
+        "Fix the generic KpiCard containment so future long values cannot escape."
+      ],
+      "acceptance": [
+        "The current database renders as a readable unit with exact bytes still accessible.",
+        "System and Privacy use one formatter.",
+        "No overflow occurs in the browser viewport/zoom matrix."
+      ]
+    },
+    {
+      "id": "R13",
+      "user_item": 13,
+      "title": "Sidebar hover/selected colors ignore custom accents",
+      "priority": "P2",
+      "finding_state": "confirmed",
+      "evidence": [
+        "Changing accent-purple and accent-gold changed the active marker but left --row-hover, --row-selected, and the active background unchanged.",
+        "tokens.css defines fixed dark/light row colors and applyAppearance only overrides the two accents."
+      ],
+      "root_cause": "Interaction colors are static neutral tokens rather than derived appearance tokens.",
+      "recommended_scope": [
+        "Derive hover/selected tokens from the active accent with a contrast-aware blend and a fallback for unsupported color functions.",
+        "Apply the same derivation in the inline pre-paint script to avoid a flash.",
+        "Verify dark/light, every preset, user colors, hover, selected, focus, and disabled contrast."
+      ],
+      "acceptance": [
+        "Changing the selected accent changes active and hover backgrounds immediately and after reload.",
+        "The inline boot script and React theme provider produce identical tokens.",
+        "Text/focus contrast remains WCAG 2.2 AA across the supported palette."
+      ]
+    },
+    {
+      "id": "R14",
+      "user_item": null,
+      "title": "Direct Vite dependency has one high-severity audit finding",
+      "priority": "P1",
+      "finding_state": "confirmed",
+      "evidence": [
+        "npm audit reports one high finding for Vite 6.3.6 / affected <=6.4.2.",
+        "A non-major update to 6.4.3 is available.",
+        "The production appliance serves prebuilt embedded assets; live dev-server exposure was not observed."
+      ],
+      "root_cause": "The frontend build dependency is behind patched releases.",
+      "recommended_scope": [
+        "Upgrade Vite to 6.4.3 in an isolated dependency commit.",
+        "Run typecheck, component tests, accessibility, production build, embed parity, and npm audit.",
+        "Record whether any Windows/dev-server workflow is reachable before assigning production exploitability."
+      ],
+      "acceptance": [
+        "npm audit has no high/critical finding from the listed advisories.",
+        "Generated embedded dist remains byte-consistent with the production build.",
+        "No production exposure claim is made without deployment evidence."
+      ]
+    }
+  ]
+}

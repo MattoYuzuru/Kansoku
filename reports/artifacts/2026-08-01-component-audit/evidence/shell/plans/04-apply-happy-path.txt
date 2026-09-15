@@ -1,0 +1,49 @@
+NOTE: a first attempt at this scenario was aborted because of a harness mistake on my side
+(curl -i combined with -o wrote headers into the JSON body file, so jq extracted empty ids and the
+apply returned 409 unknown_preview). That aborted transcript is kept verbatim in
+04-apply-happy-path-ABORTED-harness-error.txt. Below is the clean run.
+
+=== STEP 1: fresh preview (claude.user_otel, original={}) ===
+=== COMMAND ===
+curl -sS -X POST http://127.0.0.1:43100/api/v1/plans/preview -H "Authorization: Bearer $MB" -H "X-Kansoku-CSRF: $CS" -H "Origin: http://127.0.0.1:43100" -H "Content-Type: application/json" -d '{"target_id":"claude.user_otel","original":{}}'
+=== OUTPUT (body) ===
+http_code=200
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:25:16 GMT
+Content-Length: 1763
+
+{"api_version":"kansoku.api/1","request_id":"req_2f2a290acfc81db7271718a5be7f6ad4","data":{"plan_id":"plan_e76ddf425a4b2e80b22a6716a7dabed4","target_id":"claude.user_otel","plan_sha256":"208714ca4746f923afe57e39101f6dbeadc44074bd99eb1524eaa26fda4eda99","original_sha256":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","planned_sha256":"508cfef8ca47f2f5d595f79c8ed61abf3bf8ca2ef58af464f583b24a1d0d967f","exact_operations":[{"action":"set","field":"env.CLAUDE_CODE_ENABLE_TELEMETRY","old_preview":null,"new_preview":"1","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_EXPORTER_OTLP_ENDPOINT","old_preview":null,"new_preview":"http://127.0.0.1:4318","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_LOG_ASSISTANT_RESPONSES","old_preview":null,"new_preview":"0","disclosure":"enables only loopback metadata collection"},{"action":"set","field":"env.OTEL_LOG_RAW_API_BODIES","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_TOOL_CONTENT","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_TOOL_DETAILS","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"},{"action":"set","field":"env.OTEL_LOG_USER_PROMPTS","old_preview":null,"new_preview":"0","disclosure":"explicitly disables raw content exposure"}],"privacy_tradeoffs":["agent payloads remain untrusted and are sanitized at loopback ingress","managed or environment precedence can block application"],"expires_at":"2026-08-01T07:35:16.724025546Z"},"completeness":{"exclusions":[],"status":"complete"}}
+
+
+=== STEP 2: apply ===
+=== COMMAND ===
+curl -sS -i -X POST http://127.0.0.1:43100/api/v1/plans/apply -H "Authorization: Bearer $MB" -H "X-Kansoku-CSRF: $CS" -H "Origin: http://127.0.0.1:43100" -H "Content-Type: application/json" -d @/tmp/lane09-work/p4_apply.json
+--- REQUEST BODY (verbatim) ---
+{"plan_id":"plan_e76ddf425a4b2e80b22a6716a7dabed4","plan_sha256":"208714ca4746f923afe57e39101f6dbeadc44074bd99eb1524eaa26fda4eda99","target_id":"claude.user_otel","original_sha256":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","planned_sha256":"508cfef8ca47f2f5d595f79c8ed61abf3bf8ca2ef58af464f583b24a1d0d967f","approval_nonce":"lane09-nonce-84e296d9f119","current":{}}
+=== OUTPUT ===
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:43100
+Cache-Control: no-store
+Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+Content-Type: application/json
+Cross-Origin-Resource-Policy: same-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Referrer-Policy: no-referrer
+Vary: Origin
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Date: Sat, 01 Aug 2026 07:25:16 GMT
+Content-Length: 877
+
+{"api_version":"kansoku.api/1","request_id":"req_59e6dd2e2afaa6acdfe99f77636747f1","data":{"materialized":{"env.CLAUDE_CODE_ENABLE_TELEMETRY":"1","env.OTEL_EXPORTER_OTLP_ENDPOINT":"http://127.0.0.1:4318","env.OTEL_LOG_ASSISTANT_RESPONSES":"0","env.OTEL_LOG_RAW_API_BODIES":"0","env.OTEL_LOG_TOOL_CONTENT":"0","env.OTEL_LOG_TOOL_DETAILS":"0","env.OTEL_LOG_USER_PROMPTS":"0"},"receipt":{"plan_sha256":"208714ca4746f923afe57e39101f6dbeadc44074bd99eb1524eaa26fda4eda99","target_id":"claude.user_otel","agent_id":"claude","config_path_pseudonym":"hmac-sha256:57a72d04853d4bbb7524c15b98b02d0645cdab547c5522485d8bd3094c2f3b22","operation":"apply","result":"pass","before_sha256":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","after_sha256":"508cfef8ca47f2f5d595f79c8ed61abf3bf8ca2ef58af464f583b24a1d0d967f"}},"completeness":{"exclusions":[],"status":"complete"}}
+

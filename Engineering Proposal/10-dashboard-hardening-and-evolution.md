@@ -110,3 +110,33 @@ After the ten sessions, improvements continue through evidence:
 Every metric in the MVP catalog has a clear home, formula and completeness display; no page exposes
 prohibited data; fresh-install and restore tests pass; supported adapter claims match live evidence;
 the dashboard remains fast on all standard ranges; residual risks and future work are explicit.
+
+## 2026-07-29 terminology amendment
+
+Operations includes a searchable Glossary route generated from the canonical glossary contract.
+Skills, Plugins and System metrics link directly to relevant definitions instead of relying on
+unexplained labels or a second frontend-only term registry. Plain definitions cover lifecycle
+states, catalog variants, plugin child attribution, database/checkpoint budgets, Docker storage,
+backpressure, mirrors, `fsync` and capacity forecasts.
+
+## 2026-07-30 reliability-formula amendment
+
+The Models error ratio is the ratio of field sums across the selected interval:
+`failed terminal operations / all terminal operations`. It is never an unweighted mean of daily
+ratios. The response and KPI expose the formula version, numerator, denominator, excluded
+non-terminal/unknown outcomes and completeness.
+
+Collection health no longer labels `ingested_at - observed_at` as live ingest latency. That
+quantity mixes source age, backfill and clock skew. The UI instead keeps five explicit signals:
+
+- receive-to-durable-commit p95, currently `not_observed` because a per-event durable receive and
+  commit pair is not stored;
+- active-source observation age p95;
+- evidence replay count;
+- arrival gaps over the versioned five-minute late/backfill candidate threshold;
+- events explicitly marked with source clock skew.
+
+The canonical compatibility metric `collection.ingest_latency_seconds` advances to formula version
+2 and means receive-to-durable-commit latency. Version 1 remains locked as historical semantics.
+Until durable timestamps exist, version 2 has an explicit exclusion and must not render a numeric
+zero.

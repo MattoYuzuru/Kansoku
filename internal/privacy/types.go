@@ -8,7 +8,7 @@ import (
 // PrivacyContractSemanticSHA256 is generated from the canonical JSON encoding
 // of every contracts/privacy registry, ordered by repository-relative path.
 // scripts/validate_privacy.py refuses a registry/runtime drift.
-const PrivacyContractSemanticSHA256 = "cf5ac9ee45e224840b7b13f7ac91901c0f2def7206c30c0482de99510adcc057"
+const PrivacyContractSemanticSHA256 = "1fdb47cd6865c4f2bdb3e6ff564740dc334ebb7b03a97423df57f1c605c9b34c"
 
 type ValueState string
 
@@ -31,6 +31,50 @@ type TelemetryMeasurements struct {
 	CachedInputTokens    *int64 `json:"cached_input_tokens"`
 	OutputTokens         *int64 `json:"output_tokens"`
 	ProviderCostMicros   *int64 `json:"provider_cost_micros"`
+	// CacheCreationTokens/CacheReadTokens are the two distinct cache
+	// measurements agents report. CachedInputTokens keeps its existing
+	// meaning -- whatever the source called "cached input" -- rather than
+	// being redefined as a sum of these two, because collapsing three
+	// separately reported numbers into one is exactly the kind of silent
+	// loss this boundary exists to prevent.
+	CacheCreationTokens *int64 `json:"cache_creation_tokens"`
+	CacheReadTokens     *int64 `json:"cache_read_tokens"`
+	// ResponseCharacterCount is a length, never the response itself; it is
+	// the response-side counterpart of PromptCharacterCount.
+	ResponseCharacterCount *int64 `json:"response_character_count"`
+	// ToolInputBytes/ToolResultBytes are sizes the agent already computed.
+	// The payloads they measure remain unconditionally dropped.
+	ToolInputBytes  *int64 `json:"tool_input_bytes"`
+	ToolResultBytes *int64 `json:"tool_result_bytes"`
+}
+
+// ActivityMetadata is the closed, content-free projection of how an activity
+// happened: which decision a tool call received, which surface registered a
+// hook, how a session was started. Every field is a short vocabulary token or
+// an already-pseudonymized correlation handle -- never a payload, matcher,
+// command, path or free-form label. Values outside a known vocabulary are
+// carried through verbatim and classified downstream, exactly as
+// ComponentEvidenceMetadata.SourceScope already is: this boundary records
+// what the agent said, it does not coerce it into something it recognizes.
+type ActivityMetadata struct {
+	ToolDecision string `json:"tool_decision"`
+	// ToolSource is where the tool came from ("builtin", "mcp", ...).
+	// ToolDecisionSource is where the permission answer came from
+	// ("config", ...). The agent reports both on the same record and they
+	// answer different questions, so they are two fields, not one.
+	ToolSource         string `json:"tool_source"`
+	ToolDecisionSource string `json:"tool_decision_source"`
+	// ToolUsePseudonym is the device-scoped HMAC of the agent's tool-use id.
+	// It is what lets a decision be joined to the execution it authorized
+	// without the raw upstream identifier ever becoming durable.
+	ToolUsePseudonym string `json:"tool_use_pseudonym"`
+	HookEvent        string `json:"hook_event"`
+	HookType         string `json:"hook_type"`
+	HookSource       string `json:"hook_source"`
+	SessionStartType string `json:"session_start_type"`
+	QuerySource      string `json:"query_source"`
+	TerminalType     string `json:"terminal_type"`
+	SafeMode         string `json:"safe_mode"`
 }
 
 type ObservationState string
@@ -168,37 +212,66 @@ type Lineage struct {
 	SourceRecordPseudonym string `json:"source_record_pseudonym"`
 	SessionPseudonym      string `json:"session_pseudonym"`
 	TurnPseudonym         string `json:"turn_pseudonym"`
-	AdapterID             string `json:"adapter_id"`
-	AdapterVersion        string `json:"adapter_version"`
-	SourceSchemaID        string `json:"source_schema_id"`
-	SchemaFingerprint     string `json:"schema_fingerprint"`
-	SanitizerVersion      string `json:"sanitizer_version"`
-	ContractSHA256        string `json:"contract_sha256"`
+	// MessagePseudonym and UserPseudonym are device-scoped HMACs of the
+	// agent's own message and user identifiers. They make per-message and
+	// per-operator correlation possible without either raw value ever
+	// becoming durable, the same construction TurnPseudonym already uses.
+	MessagePseudonym  string `json:"message_pseudonym"`
+	UserPseudonym     string `json:"user_pseudonym"`
+	AdapterID         string `json:"adapter_id"`
+	AdapterVersion    string `json:"adapter_version"`
+	SourceSchemaID    string `json:"source_schema_id"`
+	SchemaFingerprint string `json:"schema_fingerprint"`
+	SanitizerVersion  string `json:"sanitizer_version"`
+	ContractSHA256    string `json:"contract_sha256"`
+}
+
+// ComponentEvidenceMetadata is the closed identity-only projection accepted
+// from native component telemetry. It cannot carry a payload, command,
+// environment value or filesystem location.
+type ComponentEvidenceMetadata struct {
+	QualifiedIdentity    string `json:"qualified_identity"`
+	IdentitySource       string `json:"identity_source"`
+	OwnerPluginIdentity  string `json:"owner_plugin_identity"`
+	InvocationMode       string `json:"invocation_mode"`
+	UpstreamIdentityHash string `json:"upstream_identity_hash"`
+	SourceScope          string `json:"source_scope"`
+	// Marketplace is the declared marketplace an owner plugin came from. The
+	// resolver previously approximated it by splitting the owner declared
+	// name on '@' while the exact value sat unread on the wire.
+	Marketplace string `json:"marketplace"`
+	// ComponentVersion is the owner's declared version as the agent reports
+	// it: identity metadata, not a location and not a payload. There is no
+	// separate scope field here -- plugin.scope already lands on SourceScope
+	// above, and the wire carries that value exactly once.
+	ComponentVersion string `json:"component_version"`
 }
 
 // SafeRecord is an explicit persistence allowlist. It deliberately has no
 // generic payload/attributes map.
 type SafeRecord struct {
-	RecordID          string                `json:"record_id"`
-	IdempotencyKey    string                `json:"idempotency_key"`
-	AdapterID         string                `json:"adapter_id"`
-	AdapterVersion    string                `json:"adapter_version"`
-	SourceSchemaID    string                `json:"source_schema_id"`
-	SchemaFingerprint string                `json:"schema_fingerprint"`
-	ObservedAt        time.Time             `json:"observed_at"`
-	ReceivedAt        time.Time             `json:"received_at"`
-	Confidence        float64               `json:"confidence"`
-	EventType         string                `json:"event_type"`
-	Outcome           string                `json:"outcome"`
-	ValueState        ValueState            `json:"value_state"`
-	Model             CatalogObservation    `json:"model"`
-	Tool              CatalogObservation    `json:"tool"`
-	ComponentKind     string                `json:"component_kind"`
-	ComponentMentions []string              `json:"component_mentions"`
-	PromptFeatures    PromptFeatures        `json:"prompt_features"`
-	Telemetry         TelemetryMeasurements `json:"telemetry"`
-	RedactionCounts   RedactionCounts       `json:"redaction_counts"`
-	Lineage           Lineage               `json:"lineage"`
+	RecordID          string                    `json:"record_id"`
+	IdempotencyKey    string                    `json:"idempotency_key"`
+	AdapterID         string                    `json:"adapter_id"`
+	AdapterVersion    string                    `json:"adapter_version"`
+	SourceSchemaID    string                    `json:"source_schema_id"`
+	SchemaFingerprint string                    `json:"schema_fingerprint"`
+	ObservedAt        time.Time                 `json:"observed_at"`
+	ReceivedAt        time.Time                 `json:"received_at"`
+	Confidence        float64                   `json:"confidence"`
+	EventType         string                    `json:"event_type"`
+	Outcome           string                    `json:"outcome"`
+	ValueState        ValueState                `json:"value_state"`
+	Model             CatalogObservation        `json:"model"`
+	Tool              CatalogObservation        `json:"tool"`
+	ComponentKind     string                    `json:"component_kind"`
+	ComponentMentions []string                  `json:"component_mentions"`
+	ComponentEvidence ComponentEvidenceMetadata `json:"component_evidence"`
+	Activity          ActivityMetadata          `json:"activity"`
+	PromptFeatures    PromptFeatures            `json:"prompt_features"`
+	Telemetry         TelemetryMeasurements     `json:"telemetry"`
+	RedactionCounts   RedactionCounts           `json:"redaction_counts"`
+	Lineage           Lineage                   `json:"lineage"`
 }
 
 // SafeError contains structural metadata only. Error intentionally returns

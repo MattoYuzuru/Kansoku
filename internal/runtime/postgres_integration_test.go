@@ -21,7 +21,10 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +42,32 @@ import (
 	"kansoku.local/kansoku/internal/observability"
 	"kansoku.local/kansoku/internal/privacy"
 )
+
+type projectionRepairTestSink struct {
+	pool *pgxpool.Pool
+	fail atomic.Bool
+}
+
+func (s *projectionRepairTestSink) PersistNormalizedFact(
+	event observability.Event,
+	evidence observability.Evidence,
+) error {
+	if s.fail.Load() {
+		return errors.New("projection unavailable")
+	}
+	_, err := s.pool.Exec(context.Background(), `
+		DELETE FROM observability_projection_receipts
+		WHERE evidence_id=$1 AND observed_at=$2
+	`, evidence.EvidenceID, event.ObservedAt.UTC())
+	return err
+}
+
+func (s *projectionRepairTestSink) ReplayPendingProjections(
+	context.Context,
+	int,
+) (dataplatform.ProjectionReplayResult, error) {
+	return dataplatform.ProjectionReplayResult{}, nil
+}
 
 // testDSN returns the ephemeral Postgres DSN provided by the runtime
 // validator harness, or skips the test if it is absent, mirroring the
@@ -137,6 +166,145 @@ func sanitizeSchemaName(name string) string {
 }
 
 func pgIdent(name string) string { return `"` + name + `"` }
+
+func TestScaledPostgresGrowthCompactStateBoundAndIdempotentReplay(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	base := time.Date(2026, 7, 28, 10, 0, 0, 0, time.UTC)
+	refs := dataplatform.DimensionRefs{
+		DeviceID: "dev_p0_load", AgentInstallationID: "ain_p0_load",
+		AgentID: "fixture-agent", SurfaceID: "surface_p0_load",
+		ProjectID: "project_p0_load", SessionID: "session_p0_load",
+		AdapterVersionID: "av_p0_load", AdapterID: "fixture-agent",
+		AdapterVersion: "1.0.0", SourceInstanceID: "src_p0_load",
+		SourceKind: string(observability.SourceAdapterBatch),
+	}
+	if err := dataplatform.EnsureDimensions(ctx, pool, refs); err != nil {
+		t.Fatal(err)
+	}
+	if err := dataplatform.EnsurePartition(ctx, pool, "events", base); err != nil {
+		t.Fatal(err)
+	}
+	if err := dataplatform.EnsurePartition(ctx, pool, "event_evidence", base); err != nil {
+		t.Fatal(err)
+	}
+	var beforeBytes int64
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT sum(pg_total_relation_size(relid)) FROM pg_partition_tree('events')) +
+			(SELECT sum(pg_total_relation_size(relid)) FROM pg_partition_tree('event_evidence'))
+	`).Scan(&beforeBytes); err != nil {
+		t.Fatal(err)
+	}
+	tag, err := pool.Exec(ctx, `
+		INSERT INTO events (
+			event_id,fact_key,event_type,observed_at,ingested_at,
+			timestamp_quality,source_instance_id,source_native_event_id,
+			sequence,agent_installation_id,surface_id,project_id,session_id,
+			value_state,outcome,correlation_status
+		)
+		SELECT
+			'evt_p0_' || n,'fact_p0_' || n,'source.observed',
+			$1::timestamptz + n * interval '1 microsecond',now(),
+			'source_rfc3339','src_p0_load','native_p0_' || n,n,
+			'ain_p0_load','surface_p0_load','project_p0_load','session_p0_load',
+			'observed','unknown','exact'
+		FROM generate_series(1,50000) AS n
+		ON CONFLICT DO NOTHING
+	`, base)
+	if err != nil || tag.RowsAffected() != 50_000 {
+		t.Fatalf("event load rows=%d err=%v", tag.RowsAffected(), err)
+	}
+	tag, err = pool.Exec(ctx, `
+		INSERT INTO event_evidence (
+			evidence_id,event_id,observed_at,source_instance_id,tier,
+			confidence,completeness,replay_count,first_seen_at,last_seen_at,
+			sanitizer_version,privacy_contract_sha256,assertion_event_type,
+			assertion_outcome,assertion_value_state
+		)
+		SELECT
+			'evd_p0_' || n,'evt_p0_' || n,
+			$1::timestamptz + n * interval '1 microsecond','src_p0_load',
+			'reconstructed',0.85,'complete',0,now(),now(),
+			'kansoku.ingress-sanitizer/1',$2,'source.observed','unknown','observed'
+		FROM generate_series(1,50000) AS n
+		ON CONFLICT DO NOTHING
+	`, base, privacy.PrivacyContractSemanticSHA256)
+	if err != nil || tag.RowsAffected() != 50_000 {
+		t.Fatalf("evidence load rows=%d err=%v", tag.RowsAffected(), err)
+	}
+	replay, err := pool.Exec(ctx, `
+		INSERT INTO events (
+			event_id,fact_key,event_type,observed_at,ingested_at,
+			timestamp_quality,source_instance_id,source_native_event_id,
+			sequence,agent_installation_id,surface_id,project_id,session_id,
+			value_state,outcome,correlation_status
+		)
+		SELECT
+			'evt_p0_' || n,'fact_p0_' || n,'source.observed',
+			$1::timestamptz + n * interval '1 microsecond',now(),
+			'source_rfc3339','src_p0_load','native_p0_' || n,n,
+			'ain_p0_load','surface_p0_load','project_p0_load','session_p0_load',
+			'observed','unknown','exact'
+		FROM generate_series(1,50000) AS n
+		ON CONFLICT DO NOTHING
+	`, base)
+	if err != nil || replay.RowsAffected() != 0 {
+		t.Fatalf("duplicate replay rows=%d err=%v", replay.RowsAffected(), err)
+	}
+	var events, evidence, afterBytes int64
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM events`).Scan(&events); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM event_evidence`).Scan(&evidence); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT sum(pg_total_relation_size(relid)) FROM pg_partition_tree('events')) +
+			(SELECT sum(pg_total_relation_size(relid)) FROM pg_partition_tree('event_evidence'))
+	`).Scan(&afterBytes); err != nil {
+		t.Fatal(err)
+	}
+	if events != 50_000 || evidence != 50_000 || afterBytes <= beforeBytes {
+		t.Fatalf("events=%d evidence=%d storage=%d->%d", events, evidence, beforeBytes, afterBytes)
+	}
+
+	statePath := filepath.Join(t.TempDir(), "checkpoints", "state.json")
+	store, err := observability.OpenCompactStore(statePath, 4<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n := 0; n < 50_000; n++ {
+		event := observability.Event{EventID: "not-persisted"}
+		item := observability.Evidence{EvidenceID: "not-persisted"}
+		if _, err := store.Commit(observability.CommitRequest{
+			Event: &event, Evidence: &item,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checkpoint := observability.Checkpoint{
+		ImporterID: "p0-load", Offset: 50_000, Sequence: 50_000,
+		FileID: "hmac-sha256:" + strings.Repeat("a", 64),
+	}
+	if _, err := store.Commit(observability.CommitRequest{Checkpoint: &checkpoint}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := observability.OpenCompactStore(statePath, 4<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Size() >= 32<<10 || len(reopened.Snapshot().Facts) != 0 ||
+		reopened.Snapshot().Checkpoints["p0-load"].Sequence != 50_000 {
+		t.Fatalf("compact state bytes=%d state=%+v", info.Size(), reopened.Snapshot())
+	}
+}
 
 // mustPrivateSpoolDir creates the private data directory and its 0700 spool
 // subdirectory the same way production NewAppliance does before building the
@@ -339,6 +507,127 @@ func backupTestConfig(t *testing.T, dsn string) (Config, Secrets) {
 		t.Fatalf("ephemeral database password is shorter than %d bytes; harness must generate a >=32 byte password", minSecretBytes)
 	}
 	return config, secrets
+}
+
+// TestOneShotAssemblyDoesNotActivateRuntimeSources is a regression for the
+// production backup/restore incident in which NewAppliance ran inventory and
+// App Server source activation inside an operational container that
+// intentionally had no agent-state mounts. The backup itself passed, but the
+// constructor overwrote a complete Codex inventory row with not_observed and
+// downgraded producing App Server health to configured. Runtime activation now
+// belongs to Appliance.Run; constructing the same assembly used by one-shot
+// commands must leave both durable health records byte-for-byte equivalent at
+// the semantic column level.
+func TestOneShotAssemblyDoesNotActivateRuntimeSources(t *testing.T) {
+	dsn := testDSN(t)
+	ctx := context.Background()
+	config, databaseOnlySecrets := backupTestConfig(t, dsn)
+	config.InventoryTargets = []InventoryTarget{{
+		TargetID: "codex-oneshot-regression", AdapterID: "codex",
+		InstallationID: "ain_11111111111111111111111111111111", SurfaceID: "cli",
+		StateRoot: filepath.Join(t.TempDir(), "intentionally-not-mounted"),
+	}}
+	config.InventoryScanIntervalSeconds = 300
+	poolConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	applyAllMigrations(t, ctx, pool)
+
+	fixedAt := time.Date(2026, 7, 29, 0, 0, 0, 0, time.UTC)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO inventory_collection_status (
+			target_id,adapter_id,agent_installation_id,state,error_class,
+			last_attempted_at,last_succeeded_at,snapshot_id,node_count,edge_count
+		) VALUES ($1,'codex','ain_11111111111111111111111111111111','complete',NULL,$2,$2,NULL,116,142)
+		ON CONFLICT (target_id) DO UPDATE SET
+			agent_installation_id=EXCLUDED.agent_installation_id,
+			state=EXCLUDED.state,error_class=NULL,
+			last_attempted_at=EXCLUDED.last_attempted_at,
+			last_succeeded_at=EXCLUDED.last_succeeded_at,
+			snapshot_id=NULL,node_count=EXCLUDED.node_count,edge_count=EXCLUDED.edge_count
+	`, config.InventoryTargets[0].TargetID, fixedAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO runtime_source_health (
+			source_id,state,value_state,last_attempted_at,last_successful_at,
+			last_error_class,updated_at
+		) VALUES ('codex.app_server','producing','observed',$1,$1,NULL,$1)
+		ON CONFLICT (source_id) DO UPDATE SET
+			state=EXCLUDED.state,value_state=EXCLUDED.value_state,
+			last_attempted_at=EXCLUDED.last_attempted_at,
+			last_successful_at=EXCLUDED.last_successful_at,
+			last_error_class=NULL,updated_at=EXCLUDED.updated_at
+	`, fixedAt); err != nil {
+		t.Fatal(err)
+	}
+
+	secrets := Secrets{
+		IngressBearer:    fixedSecret32("oneshot-ingress"),
+		ReadBearer:       fixedSecret32("oneshot-read"),
+		MutationBearer:   fixedSecret32("oneshot-mutation"),
+		CSRF:             fixedSecret32("oneshot-csrf"),
+		IdentityHMAC:     fixedSecret32("oneshot-identity"),
+		AuditHMAC:        fixedSecret32("oneshot-audit"),
+		DatabasePassword: databaseOnlySecrets.DatabasePassword,
+	}
+	appliance, err := NewAppliance(ctx, config, secrets, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := appliance.Shutdown(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	var installationID, inventoryState, inventoryError string
+	var inventoryAttempted time.Time
+	var nodes, edges int64
+	if err := pool.QueryRow(ctx, `
+		SELECT COALESCE(agent_installation_id,''),state,COALESCE(error_class,''),
+		       last_attempted_at,node_count,edge_count
+		FROM inventory_collection_status WHERE target_id=$1
+	`, config.InventoryTargets[0].TargetID).Scan(
+		&installationID, &inventoryState, &inventoryError,
+		&inventoryAttempted, &nodes, &edges,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if installationID != "ain_11111111111111111111111111111111" || inventoryState != "complete" ||
+		inventoryError != "" || !inventoryAttempted.Equal(fixedAt) ||
+		nodes != 116 || edges != 142 {
+		t.Fatalf(
+			"one-shot assembly mutated inventory health: installation=%q state=%q error=%q attempted=%s nodes=%d edges=%d",
+			installationID, inventoryState, inventoryError,
+			inventoryAttempted, nodes, edges,
+		)
+	}
+
+	var sourceState, valueState, sourceError string
+	var sourceAttempted, sourceSuccessful time.Time
+	if err := pool.QueryRow(ctx, `
+		SELECT state,value_state,COALESCE(last_error_class,''),
+		       last_attempted_at,last_successful_at
+		FROM runtime_source_health WHERE source_id='codex.app_server'
+	`).Scan(
+		&sourceState, &valueState, &sourceError,
+		&sourceAttempted, &sourceSuccessful,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if sourceState != "producing" || valueState != "observed" ||
+		sourceError != "" || !sourceAttempted.Equal(fixedAt) ||
+		!sourceSuccessful.Equal(fixedAt) {
+		t.Fatalf(
+			"one-shot assembly mutated App Server health: state=%q value=%q error=%q attempted=%s successful=%s",
+			sourceState, valueState, sourceError, sourceAttempted, sourceSuccessful,
+		)
+	}
 }
 
 // operationsForBackup builds a real OperationsService bound to the default
@@ -753,6 +1042,558 @@ func TestEvidenceBridgeAndOTelCommitOneFactTwoLanesToRealPostgres(t *testing.T) 
 	}
 	if lanes != 2 {
 		t.Fatalf("evidence lane count=%d", lanes)
+	}
+}
+
+func TestSupervisedCodexAppServerIngressPersistsTypedSkillAndSourceHealth(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	handoff, err := dataplatform.NewObservabilityHandoff(pool, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataDir := filepath.Join(t.TempDir(), "data")
+	mustPrivateSpoolDir(t, dataDir)
+	queue, err := NewDurableIngressQueue(handoff, dataDir, 64, 64<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queue.Close()
+	recorder, err := NewPostgresIngestionHealthRecorder(pool, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := queue.ConfigureHealthRecorder(ctx, recorder); err != nil {
+		t.Fatal(err)
+	}
+	store, err := observability.OpenCompactStore(
+		filepath.Join(t.TempDir(), "checkpoint.json"),
+		4<<20,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := bytes.Repeat([]byte("k"), 32)
+	ingestor, err := observability.NewIngestor(store, key, privacy.DefaultLimits(), 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ingestor.ConfigureDurableFactSink(queue); err != nil {
+		t.Fatal(err)
+	}
+	now := time.UnixMilli(1785060002000).UTC()
+	ingress, err := NewCodexAppServerIngress(pool, ingestor, key, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ingress.Configure(ctx); err != nil {
+		t.Fatal(err)
+	}
+	const installationID = "ain_codex_supervised_live"
+	rawPathCanary := "/private/KANSOKU_APP_SERVER_PATH_MUST_NOT_PERSIST/SKILL.md"
+	body := `{"emittedAtMs":1785060001001,"method":"item/started","params":{"threadId":"thr-supervised","turnId":"turn-supervised","startedAtMs":1785060001000,"item":{"type":"userMessage","id":"msg-supervised","content":[{"type":"skill","name":"supervised-canary-skill","path":"` +
+		rawPathCanary + `"},{"type":"text","text":"KANSOKU_RAW_PROMPT_MUST_NOT_PERSIST"}]}}}` + "\n"
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"http://127.0.0.1:4318/v1/evidence-bridges/codex-app-server",
+		strings.NewReader(body),
+	)
+	request.Header.Set(codexAppServerInstallationHeader, installationID)
+	response := httptest.NewRecorder()
+	ingress.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+	var assertions int64
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM component_assertions
+		WHERE agent_installation_id=$1
+		  AND component_kind='skill'
+		  AND assertion_kind IN ('invoked','loaded')
+		  AND evidence_tier='native'
+		  AND qualified_identity='supervised-canary-skill'
+		  AND (
+		    (assertion_kind='invoked' AND mode='explicit' AND invocation_mode='explicit')
+		    OR
+		    (assertion_kind='loaded' AND mode='not_observed')
+		  )
+	`, installationID).Scan(&assertions); err != nil {
+		t.Fatal(err)
+	}
+	if assertions != 2 {
+		t.Fatalf("typed assertions=%d, want 2", assertions)
+	}
+	pluginBody := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":19,"method":"plugin/read","params":{"pluginName":"sre-agent","marketplacePath":"/private/KANSOKU_PLUGIN_REQUEST_PATH","remoteMarketplaceName":"yuzuru-engineering"}}`,
+		`{"jsonrpc":"2.0","id":19,"result":{"plugin":{"marketplaceName":"yuzuru-engineering","marketplacePath":"/private/KANSOKU_PLUGIN_PATH","description":"KANSOKU_PLUGIN_DESCRIPTION_MUST_NOT_PERSIST","shareUrl":"https://example.invalid/KANSOKU_PLUGIN_URL","summary":{"id":"KANSOKU_PLUGIN_UPSTREAM_ID_MUST_NOT_PERSIST","name":"sre-agent","installed":true,"enabled":true,"source":{"type":"local","path":"/private/KANSOKU_PLUGIN_SOURCE_PATH"}},"skills":[{"name":"sre-agent","enabled":true,"path":"/private/KANSOKU_PLUGIN_SKILL_PATH/SKILL.md","description":"KANSOKU_PLUGIN_SKILL_DESCRIPTION_MUST_NOT_PERSIST"}],"hooks":[],"mcpServers":[],"apps":[],"appTemplates":[],"scheduledTasks":[]}}}`,
+	}, "\n") + "\n"
+	for attempt := 0; attempt < 2; attempt++ {
+		request = httptest.NewRequest(
+			http.MethodPost,
+			"http://127.0.0.1:4318/v1/evidence-bridges/codex-app-server",
+			strings.NewReader(pluginBody),
+		)
+		request.Header.Set(codexAppServerInstallationHeader, installationID)
+		response = httptest.NewRecorder()
+		ingress.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("plugin/read attempt=%d status=%d body=%s", attempt, response.Code, response.Body.String())
+		}
+	}
+	var pluginAssertions, pluginChildAssertions, pluginReplayCount int64
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			count(*) FILTER (
+				WHERE component_kind='plugin'
+				  AND assertion_kind IN ('requested','installed','enabled')
+				  AND qualified_identity='sre-agent@yuzuru-engineering'
+				  AND evidence_tier='native'
+				  AND upstream_identity_hash LIKE 'hmac-sha256:%'
+			),
+			count(*) FILTER (
+				WHERE component_kind='skill'
+				  AND assertion_kind IN ('installed','enabled')
+				  AND qualified_identity='sre-agent@yuzuru-engineering:sre-agent'
+				  AND owner_plugin_identity='sre-agent@yuzuru-engineering'
+				  AND evidence_tier='native'
+			),
+			coalesce(sum(ee.replay_count),0)
+		FROM component_assertions ca
+		JOIN event_evidence ee
+		  ON ee.evidence_id=ca.evidence_id AND ee.event_id=ca.event_id
+		WHERE ca.agent_installation_id=$1
+		  AND ca.identity_source='native_bridge_plugin_read'
+	`, installationID).Scan(
+		&pluginAssertions, &pluginChildAssertions, &pluginReplayCount,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if pluginAssertions != 3 || pluginChildAssertions != 2 || pluginReplayCount != 5 {
+		t.Fatalf(
+			"plugin/read assertions=%d child=%d replay_count=%d",
+			pluginAssertions, pluginChildAssertions, pluginReplayCount,
+		)
+	}
+	for _, prohibited := range []string{
+		"KANSOKU_PLUGIN_REQUEST_PATH",
+		"KANSOKU_PLUGIN_PATH",
+		"KANSOKU_PLUGIN_DESCRIPTION_MUST_NOT_PERSIST",
+		"KANSOKU_PLUGIN_URL",
+		"KANSOKU_PLUGIN_UPSTREAM_ID_MUST_NOT_PERSIST",
+		"KANSOKU_PLUGIN_SOURCE_PATH",
+		"KANSOKU_PLUGIN_SKILL_PATH",
+		"KANSOKU_PLUGIN_SKILL_DESCRIPTION_MUST_NOT_PERSIST",
+	} {
+		var persisted int64
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM (
+				SELECT row_to_json(events)::text AS document FROM events
+				UNION ALL
+				SELECT row_to_json(event_evidence)::text FROM event_evidence
+				UNION ALL
+				SELECT row_to_json(component_assertions)::text FROM component_assertions
+			) AS durable
+			WHERE document LIKE '%' || $1 || '%'
+		`, prohibited).Scan(&persisted); err != nil {
+			t.Fatal(err)
+		}
+		if persisted != 0 {
+			t.Fatalf("plugin/read prohibited marker %q persisted %d times", prohibited, persisted)
+		}
+	}
+	var state, valueState string
+	if err := pool.QueryRow(ctx, `
+		SELECT state,value_state
+		FROM runtime_source_health
+		WHERE source_id='codex.app_server'
+	`).Scan(&state, &valueState); err != nil {
+		t.Fatal(err)
+	}
+	if state != "producing" || valueState != "observed" {
+		t.Fatalf("source health=%s/%s", state, valueState)
+	}
+}
+
+func TestCodexRolloutWatcherPersistsRequestedBeforeInventoryAndCorroboratesIdempotently(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	dataDir := filepath.Join(t.TempDir(), "data")
+	mustPrivateSpoolDir(t, dataDir)
+	handoff, err := dataplatform.NewObservabilityHandoff(pool, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queue, err := NewDurableIngressQueue(handoff, dataDir, 64, 64<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queue.Close()
+	store, err := observability.OpenCompactStore(
+		filepath.Join(t.TempDir(), "checkpoint.json"), 4<<20,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := bytes.Repeat([]byte("w"), 32)
+	ingestor, err := observability.NewIngestor(
+		store, key, privacy.DefaultLimits(), 64,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ingestor.ConfigureDurableFactSink(queue); err != nil {
+		t.Fatal(err)
+	}
+	const installationID = "ain_cccccccccccccccccccccccccccccccc"
+	if err := dataplatform.EnsureInventoryInstallation(
+		ctx, pool, installationID, codexadapter.AdapterID,
+	); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(t.TempDir(), "codex")
+	watcher, err := NewCodexRolloutWatcher(
+		pool, ingestor, store,
+		[]InventoryTarget{{
+			TargetID: "codex-rollout-test", AdapterID: codexadapter.AdapterID,
+			InstallationID: installationID, SurfaceID: "cli", StateRoot: root,
+		}},
+		key, 5*time.Second,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The file is intentionally created after supervision starts so it is
+	// consumed from byte zero instead of being treated as historical baseline.
+	watcher.startedAt = time.Now().Add(-time.Second)
+	sessionDir := filepath.Join(root, "sessions", "2026", "07", "29")
+	if err := os.MkdirAll(sessionDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	rolloutPath := filepath.Join(sessionDir, "rollout-canary.jsonl")
+	lines := []string{
+		`{"type":"session_meta","timestamp":"2026-07-29T03:00:00Z","payload":{"id":"KANSOKU_RAW_SESSION_MUST_NOT_PERSIST","cli_version":"0.145.0"}}`,
+		`{"type":"turn_context","timestamp":"2026-07-29T03:00:01Z","payload":{"turn_id":"turn-canary"}}`,
+		strings.Repeat(
+			"KANSOKU_RAW_OVERSIZED_MUST_NOT_PERSIST",
+			maxRolloutWatchLineBytes/len("KANSOKU_RAW_OVERSIZED_MUST_NOT_PERSIST")+2,
+		),
+		`{"type":"event_msg","timestamp":"2026-07-29T03:00:02Z","payload":{"type":"user_message","message":"Use $late-catalog-skill KANSOKU_RAW_ROLLOUT_PROMPT_MUST_NOT_PERSIST"}}`,
+		`{"type":"response_item","timestamp":"2026-07-29T03:00:03Z","payload":{"type":"function_call","call_id":"call-canary","name":"exec_command","arguments":"{\"cmd\":\"sed -n 1,20p /synthetic/KANSOKU_RAW_ROLLOUT_PATH_MUST_NOT_PERSIST/late-catalog-skill/SKILL.md\"}"}}`,
+		`{"type":"response_item","timestamp":"2026-07-29T03:00:04Z","payload":{"type":"function_call_output","call_id":"call-canary","output":"KANSOKU_RAW_SKILL_BODY_MUST_NOT_PERSIST"}}`,
+	}
+	if err := os.WriteFile(
+		rolloutPath, []byte(strings.Join(lines, "\n")+"\n"), 0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := watcher.ScanOnce(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var quarantineRows, quarantineOccurrences, quarantineBytes int64
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*),coalesce(sum(occurrence_count),0),coalesce(sum(total_byte_count),0)
+		FROM quarantine_structural_manifests
+		WHERE source_kind=$1
+	`, observability.SourceCodexRollout).Scan(
+		&quarantineRows, &quarantineOccurrences, &quarantineBytes,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if quarantineRows != 1 || quarantineOccurrences != 1 ||
+		quarantineBytes <= maxRolloutWatchLineBytes {
+		t.Fatalf(
+			"oversized quarantine rows=%d occurrences=%d bytes=%d",
+			quarantineRows, quarantineOccurrences, quarantineBytes,
+		)
+	}
+	var rolloutState, rolloutValueState, rolloutError string
+	if err := pool.QueryRow(ctx, `
+		SELECT state,value_state,coalesce(last_error_class,'')
+		FROM runtime_source_health
+		WHERE source_id='codex.rollout'
+	`).Scan(&rolloutState, &rolloutValueState, &rolloutError); err != nil {
+		t.Fatal(err)
+	}
+	if rolloutState != "producing" || rolloutValueState != "observed" || rolloutError != "" {
+		t.Fatalf(
+			"source health state=%s value=%s error=%s",
+			rolloutState, rolloutValueState, rolloutError,
+		)
+	}
+	assertState := func() {
+		t.Helper()
+		var requested, loaded, invoked, unresolved, replay int64
+		if err := pool.QueryRow(ctx, `
+			SELECT
+				count(*) FILTER (
+					WHERE ca.assertion_kind='requested'
+					  AND ca.mode='not_observed'
+					  AND ca.invocation_mode='requested'
+				),
+				count(*) FILTER (
+					WHERE ca.assertion_kind='loaded'
+					  AND ca.mode='not_observed'
+					  AND ca.invocation_mode='not_observed'
+				),
+				count(*) FILTER (
+					WHERE ca.assertion_kind='invoked'
+					  AND ca.mode='explicit'
+					  AND ca.invocation_mode='explicit'
+				),
+				count(*) FILTER (
+					WHERE cr.identity_resolution='unresolved'
+					  AND cr.candidate_count=0
+				),
+				coalesce(sum(ee.replay_count),0)
+			FROM component_assertions ca
+			JOIN component_assertion_current_resolution cr
+			  ON cr.assertion_id=ca.assertion_id
+			JOIN event_evidence ee
+			  ON ee.evidence_id=ca.evidence_id
+			 AND ee.event_id=ca.event_id
+			 AND ee.observed_at=ca.observed_at
+			WHERE ca.agent_installation_id=$1
+			  AND ca.component_kind='skill'
+			  AND ca.qualified_identity='late-catalog-skill'
+			  AND ca.evidence_tier='reconstructed'
+			  AND ca.confidence=0.85
+		`, installationID).Scan(
+			&requested, &loaded, &invoked, &unresolved, &replay,
+		); err != nil {
+			t.Fatal(err)
+		}
+		if requested != 1 || loaded != 1 || invoked != 1 ||
+			unresolved != 3 || replay != 0 {
+			t.Fatalf(
+				"requested=%d loaded=%d invoked=%d unresolved=%d replay=%d",
+				requested, loaded, invoked, unresolved, replay,
+			)
+		}
+	}
+	assertState()
+	if err := watcher.ScanOnce(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertState()
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*),coalesce(sum(occurrence_count),0)
+		FROM quarantine_structural_manifests
+		WHERE source_kind=$1
+	`, observability.SourceCodexRollout).Scan(
+		&quarantineRows, &quarantineOccurrences,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if quarantineRows != 1 || quarantineOccurrences != 1 {
+		t.Fatalf(
+			"oversized replay rows=%d occurrences=%d",
+			quarantineRows, quarantineOccurrences,
+		)
+	}
+	for _, prohibited := range []string{
+		"KANSOKU_RAW_SESSION_MUST_NOT_PERSIST",
+		"KANSOKU_RAW_OVERSIZED_MUST_NOT_PERSIST",
+		"KANSOKU_RAW_ROLLOUT_PROMPT_MUST_NOT_PERSIST",
+		"KANSOKU_RAW_ROLLOUT_PATH_MUST_NOT_PERSIST",
+		"KANSOKU_RAW_SKILL_BODY_MUST_NOT_PERSIST",
+	} {
+		var persisted int64
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*)
+			FROM (
+				SELECT row_to_json(events)::text AS document FROM events
+				UNION ALL
+				SELECT row_to_json(event_evidence)::text FROM event_evidence
+				UNION ALL
+				SELECT row_to_json(component_assertions)::text FROM component_assertions
+			) durable
+			WHERE document LIKE '%' || $1 || '%'
+		`, prohibited).Scan(&persisted); err != nil {
+			t.Fatal(err)
+		}
+		if persisted != 0 {
+			t.Fatalf("prohibited rollout marker %q persisted %d times", prohibited, persisted)
+		}
+	}
+}
+
+func TestPostgresIngestionHealthCountersReloadAcrossRecorderRestart(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	first, err := NewPostgresIngestionHealthRecorder(pool, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 7, 29, 0, 0, 0, 0, time.UTC)
+	if err := first.Record(
+		observability.SourceOTLPLog,
+		ingestionHealthBackpressureRejected,
+		at,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Record(
+		observability.SourceEvidenceBridge,
+		ingestionHealthDurabilityUnavailable,
+		at.Add(time.Second),
+	); err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := NewPostgresIngestionHealthRecorder(pool, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := restarted.Load(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.BackpressureRejected != 1 ||
+		snapshot.DurabilityUnavailable != 1 ||
+		!snapshot.LastRejected.Equal(at.Add(time.Second)) {
+		t.Fatalf("restart-loaded ingestion health=%+v", snapshot)
+	}
+}
+
+func TestProjectionRepairRequiresPreviewPreservesFailureAndDrainsAfterApprovedRetry(t *testing.T) {
+	dsn := testDSN(t)
+	pool := freshSchema(t, dsn)
+	ctx := context.Background()
+	sink := &projectionRepairTestSink{pool: pool}
+	sink.fail.Store(true)
+	spools := testSpools()
+	queue, err := NewDurableIngressQueueWithSpools(sink, spools, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(queue.Close)
+	event, evidence := safeFact(observability.SourceEvidenceBridge, "operator-projection")
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO observability_projection_receipts (
+			event_id,observed_at,evidence_id,state,attempt_count,
+			last_error_class,first_enqueued_at,last_attempted_at
+		) VALUES ($1,$2,$3,'retryable',7,'derived_projection_failed',$4,$4)
+	`, event.EventID, event.ObservedAt.UTC(), evidence.EvidenceID,
+		event.IngestedAt.UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if err := queue.PersistNormalizedFact(event, evidence); err != nil {
+		t.Fatalf("spool fallback: %v", err)
+	}
+	root := t.TempDir()
+	config := validTestConfig(root)
+	mustPrivateSpoolDir(t, config.DataDir)
+	jobs, err := NewJobManager(pool, map[JobID]JobHandler{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	operations, err := NewOperationsService(
+		config, Secrets{DatabasePassword: fixedSecret32("dbpass")},
+		pool, queue, jobs,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previewValue, err := operations.PreviewProjectionRepair(
+		ctx, ProjectionRepairPreviewRequest{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview := previewValue.(projectionRepairPreview)
+	if preview.CurrentState.TotalReceiptCount != 1 ||
+		preview.CurrentState.ReceiptCounts["retryable"] != 1 ||
+		preview.CurrentState.MaxAttemptCount != 7 ||
+		preview.CurrentState.PayloadsExposed ||
+		preview.CurrentState.AutomaticDiscard ||
+		preview.CurrentState.Lanes[string(observability.SourceEvidenceBridge)].QueueAndSpoolDepth != 1 {
+		t.Fatalf("unsafe or incomplete preview: %+v", preview)
+	}
+	_, err = operations.ApplyProjectionRepair(ctx, ProjectionRepairApplyRequest{
+		RequestID: preview.RequestID, ParametersSHA256: preview.ParametersSHA256,
+		ApprovalNonce: "operator-nonce-failed",
+	})
+	if err == nil || err.Error() != "projection_repair_incomplete" {
+		t.Fatalf("failed retry error=%v", err)
+	}
+	var receiptCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM observability_projection_receipts
+		WHERE event_id=$1 AND observed_at=$2
+	`, event.EventID, event.ObservedAt.UTC()).Scan(&receiptCount); err != nil {
+		t.Fatal(err)
+	}
+	failedStats, err := spools[observability.SourceEvidenceBridge].Stats()
+	if err != nil || receiptCount != 1 || failedStats.Depth != 1 {
+		t.Fatalf("failed retry discarded state: receipt=%d spool=%+v err=%v",
+			receiptCount, failedStats, err)
+	}
+	var failedApproval string
+	if err := pool.QueryRow(ctx, `
+		SELECT result FROM runtime_operation_approvals WHERE request_id=$1
+	`, preview.RequestID).Scan(&failedApproval); err != nil {
+		t.Fatal(err)
+	}
+	if failedApproval != "failed" {
+		t.Fatalf("failed approval result=%s", failedApproval)
+	}
+
+	secondValue, err := operations.PreviewProjectionRepair(
+		ctx, ProjectionRepairPreviewRequest{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := secondValue.(projectionRepairPreview)
+	sink.fail.Store(false)
+	resultValue, err := operations.ApplyProjectionRepair(ctx, ProjectionRepairApplyRequest{
+		RequestID: second.RequestID, ParametersSHA256: second.ParametersSHA256,
+		ApprovalNonce: "operator-nonce-success",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := resultValue.(ProjectionRepairResult)
+	if result.Before.TotalReceiptCount != 1 || result.After.TotalReceiptCount != 0 {
+		t.Fatalf("repair transition=%+v", result)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM observability_projection_receipts
+		WHERE event_id=$1 AND observed_at=$2
+	`, event.EventID, event.ObservedAt.UTC()).Scan(&receiptCount); err != nil {
+		t.Fatal(err)
+	}
+	successStats, err := spools[observability.SourceEvidenceBridge].Stats()
+	if err != nil || receiptCount != 0 || successStats.Depth != 0 {
+		t.Fatalf("successful retry state: receipt=%d spool=%+v err=%v",
+			receiptCount, successStats, err)
+	}
+	var appliedApproval string
+	if err := pool.QueryRow(ctx, `
+		SELECT result FROM runtime_operation_approvals WHERE request_id=$1
+	`, second.RequestID).Scan(&appliedApproval); err != nil {
+		t.Fatal(err)
+	}
+	if appliedApproval != "applied" {
+		t.Fatalf("applied approval result=%s", appliedApproval)
+	}
+
+	thirdValue, err := operations.PreviewProjectionRepair(
+		ctx, ProjectionRepairPreviewRequest{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	third := thirdValue.(projectionRepairPreview)
+	if _, err := operations.ApplyProjectionRepair(ctx, ProjectionRepairApplyRequest{
+		RequestID: third.RequestID, ParametersSHA256: third.ParametersSHA256,
+		ApprovalNonce: "operator-nonce-success",
+	}); err == nil || err.Error() != "replay_nonce" {
+		t.Fatalf("reused nonce error=%v", err)
 	}
 }
 

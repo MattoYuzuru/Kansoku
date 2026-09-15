@@ -1,0 +1,70 @@
+=== START TS (UTC) ===
+2026-08-01T07:22:35Z
+
+=== \d events ===
+                                 Partitioned table "public.events"
+         Column         |           Type           | Collation | Nullable |        Default         
+------------------------+--------------------------+-----------+----------+------------------------
+ event_id               | text                     |           | not null | 
+ fact_key               | text                     |           | not null | 
+ event_type             | text                     |           | not null | 
+ observed_at            | timestamp with time zone |           | not null | 
+ ingested_at            | timestamp with time zone |           | not null | now()
+ timestamp_quality      | text                     |           | not null | 'source_rfc3339'::text
+ source_instance_id     | text                     |           | not null | 
+ source_native_event_id | text                     |           | not null | 
+ sequence               | bigint                   |           | not null | 
+ agent_installation_id  | text                     |           |          | 
+ surface_id             | text                     |           |          | 
+ project_id             | text                     |           |          | 
+ session_id             | text                     |           |          | 
+ turn_id                | text                     |           |          | 
+ component_id           | text                     |           |          | 
+ duration_ms            | bigint                   |           |          | 
+ success                | boolean                  |           |          | 
+ count                  | bigint                   |           |          | 
+ value_state            | text                     |           | not null | 
+ outcome                | text                     |           | not null | 
+ correlation_status     | text                     |           | not null | 
+ source_extension       | jsonb                    |           |          | 
+Partition key: RANGE (observed_at)
+Indexes:
+    "events_pkey" PRIMARY KEY, btree (event_id, observed_at)
+    "events_agent_installation_idx" btree (agent_installation_id, observed_at)
+    "events_agent_profile_cover_idx" btree (agent_installation_id, observed_at) INCLUDE (session_id, event_type, outcome, component_id, source_instance_id)
+    "events_component_idx" btree (component_id, observed_at)
+    "events_idempotency" UNIQUE, btree (source_instance_id, source_native_event_id, observed_at)
+    "events_observed_at_brin" brin (observed_at)
+    "events_session_idx" btree (session_id, observed_at)
+    "events_source_instance_idx" btree (source_instance_id, observed_at)
+Check constraints:
+    "events_correlation_status_check" CHECK (correlation_status = ANY (ARRAY['exact'::text, 'candidate'::text, 'ambiguous'::text, 'unmatched'::text]))
+    "events_count_check" CHECK (count IS NULL OR count >= 0)
+    "events_duration_ms_check" CHECK (duration_ms IS NULL OR duration_ms >= 0)
+    "events_outcome_check" CHECK (outcome = ANY (ARRAY['succeeded'::text, 'failed'::text, 'cancelled'::text, 'interrupted'::text, 'timed_out'::text, 'abandoned'::text, 'unknown'::text]))
+    "events_sequence_check" CHECK (sequence >= 0)
+    "events_value_state_check" CHECK (value_state = ANY (ARRAY['unsupported'::text, 'not_observed'::text, 'redacted'::text, 'unknown'::text, 'numeric_zero'::text, 'observed'::text]))
+Foreign-key constraints:
+    "events_agent_installation_id_fkey" FOREIGN KEY (agent_installation_id) REFERENCES agent_installations(agent_installation_id)
+    "events_component_id_fkey" FOREIGN KEY (component_id) REFERENCES components(component_id)
+    "events_project_id_fkey" FOREIGN KEY (project_id) REFERENCES projects(project_id)
+    "events_session_id_fkey" FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+    "events_source_instance_id_fkey" FOREIGN KEY (source_instance_id) REFERENCES source_instances(source_instance_id)
+    "events_surface_id_fkey" FOREIGN KEY (surface_id) REFERENCES agent_surfaces(surface_id)
+    "events_turn_id_fkey" FOREIGN KEY (turn_id) REFERENCES turns(turn_id)
+Number of partitions: 1 (Use \d+ to list them.)
+
+
+=== counts ===
+                t                | count 
+---------------------------------+-------
+ events                          |    23
+ component_assertions            |    20
+ ingest_failures                 |     0
+ quarantine_structural_manifests |     6
+ schema_quarantine_metadata      |     6
+ sessions                        |     2
+ tool_calls                      |     0
+ component_installations         |     0
+(8 rows)
+

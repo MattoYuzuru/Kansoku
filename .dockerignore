@@ -5,6 +5,7 @@
 benchmarks
 reports
 **/*_test.go
+web/node_modules
 
 # Local deployment secrets
 deploy/secrets/

@@ -103,3 +103,90 @@ The live no-op population reconciled to installed=1, enabled=1, exposed>=1, invo
 with exact identity and one unique session. Outcome remains `unsupported`. The production list
 reports cold as `enabled AND exposed in a complete observation window AND invoked=0`, formula
 `skill.cold_count/1`, with population and identity/source exclusions returned beside it.
+
+## 2026-07-28 evidence-source amendment
+
+Skill populations and exclusions filter `component_kind = skill`; plugin assertions never
+contaminate the denominator. Claude 2.1.197 `skill_activated` maps to native invocation with
+`user-slash`, `claude-proactive` and `nested-skill` mapped to explicit, proactive and nested modes,
+including safe source/owner metadata. For ordinary Codex CLI, a `$skill` marker is only requested;
+loaded/invoked reconstruction additionally requires a matching `SKILL.md` read or independent child
+activity and remains visibly reconstructed. Hosted orchestration outside local collectors is
+`unsupported`/`not_configured`, not numeric zero.
+
+## 2026-07-29 live exactness amendment
+
+A production-image canary sent a typed 0.145.0 skill item through normal `serve`. PostgreSQL
+recorded `search-workflow` as `component_kind=skill`, `invoked`, `mode=explicit`,
+`identity_source=native_bridge`, native evidence at confidence 1.0 and one exact inventory
+candidate. Restart/reconnect duplicate replay left two assertions (invoked and loaded) and only
+incremented evidence replay counts. Claude 2.1.197 plugin/skill controls still terminate with exit
+137 before `skill_activated`; that source remains degraded/not-observed rather than zero.
+
+## 2026-07-29 catalog presentation amendment
+
+The Skills list no longer presents component-installation rows as if each were a different
+human-facing skill. It groups same-named variants inside one agent into a catalog family, ranks
+families by exact invocation count and separately reports skill names, installed variants, used
+skills, invocation events, loads and cold skills. This is a read-only presentation fold: database
+identity, collisions, source/profile/version variants and historical assertions remain unchanged.
+
+Opening a family shows its variants and a combined metadata-only exposure/invocation/load timeline.
+The profile fan-out is bounded to the eight most-used variants and states any exclusion. The default
+view uses the existing five-year retention-horizon range. `ADR 0021` owns these semantics.
+
+## Bounded rollout trust amendment (2026-07-30)
+
+An ordinary CLI `$identity` marker is now held only in bounded process memory. It becomes
+reconstructed requested/loaded/invoked evidence only after a matching `SKILL.md` read completes.
+Shell variables, environment-like identifiers and currency markers without that corroboration
+produce zero durable skill assertions. This narrows ordinary CLI evidence without changing exact
+typed App Server selection.
+
+The rollout reader retains at most 1 MiB of one line plus a 64 KiB reader buffer. An oversized
+newline-terminated record is streamed into a one-way digest, metadata-only quarantined,
+checkpointed and skipped; later valid records continue in the same scan. Raw JSONL has no durable
+destination. The Skills view now presents relevant source lifecycle/health independently from
+metric completeness, so a producing source cannot make an incomplete metric look complete or
+vice versa.
+
+## Exposure-plane and identity amendment (2026-08-01)
+
+Claude skill telemetry was arriving and being persisted, yet no Claude skill was ever counted as
+invoked. The cause was not ingestion but two later stages: identity resolution silently produced
+zero candidates, and exposure eligibility could never hold.
+
+Identity failed for two compounding reasons. Claude sends `skill.name` already qualified with its
+owner plugin, and the appliance prepended the owner a second time. Separately, Claude's
+`skill.source` carries its own vocabulary — `"plugin"` — which was used verbatim as a filter against
+Kansoku's closed source-scope vocabulary, narrowing every candidate set to nothing. Either defect
+alone produces a zero, so both are corrected together.
+
+The exposure question is a product decision, not a bug fix. Claude publishes no event or snapshot
+describing the model-visible skill set, so exposure cannot be observed for it at all. Three options
+were considered.
+
+Deriving exposure from the enabled list was rejected: it contradicts the standing rule that a global
+enabled list is not exposure when the agent filters or applies context limits, and it would turn
+`cold` — a claim shown to users — into a partly inferred number. Implementing the SessionStart hook
+helper was rejected because Claude's hook payload contains no skill list, so a helper would only run
+the same rejected inference inside the agent process.
+
+The accepted option is to make the absence explicit. An adapter declares, per component kind, whether
+its exposed plane is native, reconstructed or unsupported. Claude declares unsupported; Codex
+declares native, pinning existing behaviour by contract rather than by absence. Where the plane is
+unsupported, cold eligibility falls back to a complete inventory snapshot — exactly the basis
+`plugin.active_share/2` already uses, which makes skills the outlier rather than the precedent.
+
+This is what preserves the distinction between "we looked and saw nothing" and "there is no surface
+to look at". An unsupported exposure plane renders as `unsupported`, never as zero. Because the
+fallback rests on inventory completeness, an unreadable or dangling skill entry must downgrade a
+snapshot to `partial` rather than being skipped silently — otherwise a mis-mounted host would produce
+a confident cold count over a truncated inventory.
+
+Two coverage limits are recorded rather than hidden. Built-in Claude skills ship compiled into the
+executable with no on-disk manifest, so they stay unresolved behind a typed exclusion. Repository
+skills sharing a name across several bound projects resolve as ambiguous, because Claude emits no
+project attribute to separate them.
+
+`ADR 0023` owns these semantics.
