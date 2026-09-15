@@ -98,20 +98,39 @@ func TestBuildInventorySnapshotLinksPluginBundledComponentsWithBundlesEdgeNeverS
 	}
 
 	foundBundles := false
-	foundDirectEnabledForBundledSkill := false
+	foundEnabledForBundledSkill := false
+	pluginEnabled := false
 	for _, edge := range snapshot.Edges {
 		if edge.Kind == adaptersdk.EdgeBundles && edge.FromNode == pluginNode.NodeID && edge.ToNode == bundledSkillNode.NodeID {
 			foundBundles = true
 		}
 		if edge.Kind == adaptersdk.EdgeEnabledFor && edge.FromNode == bundledSkillNode.NodeID {
-			foundDirectEnabledForBundledSkill = true
+			foundEnabledForBundledSkill = true
+		}
+		if edge.Kind == adaptersdk.EdgeEnabledFor && edge.FromNode == pluginNode.NodeID {
+			pluginEnabled = true
 		}
 	}
 	if !foundBundles {
 		t.Fatal("a plugin-bundled skill must be linked to its owning plugin package node by a bundles edge")
 	}
-	if foundDirectEnabledForBundledSkill {
-		t.Fatal("a plugin-bundled component must never receive its own direct enabled_for edge to the installation (it is enabled transitively through the plugin, never reported as a standalone unowned component)")
+	// ADR 0024. This assertion used to be the opposite: a bundled component
+	// was required NOT to carry an enabled_for edge, on the stated grounds
+	// that it is "enabled transitively through the plugin". Nothing ever
+	// implemented that transitivity -- internal/dataplatform/inventory.go
+	// derives `enabled` from the enabled_for edge alone and never walks
+	// bundles -- so the intention held here produced 139 plugin-bundled
+	// skills reported disabled underneath 21 plugins reported enabled, and an
+	// invoked bundled skill could never become `used`.
+	//
+	// The inheritance is now materialized as an edge, which is also what
+	// cache_separation's own wording requires: a component is reported
+	// enabled only when an enabled_for edge to an active installation exists.
+	if !pluginEnabled {
+		t.Fatal("fixture precondition: the acme-toolkit plugin must itself be enabled")
+	}
+	if !foundEnabledForBundledSkill {
+		t.Fatal("a component bundled by an enabled plugin must inherit an enabled_for edge, otherwise it is reported disabled while its owner is reported enabled")
 	}
 }
 

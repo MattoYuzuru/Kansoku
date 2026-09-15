@@ -251,6 +251,19 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 				EdgeID: "edge_" + stableHex("bundles", node.NodeID, child.NodeID),
 				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: child.NodeID,
 			})
+			// ADR 0024: every child kind inherits its package's enablement,
+			// not just skills. Codex already did this for bundled skills
+			// above and for nothing else, so the same package reported its
+			// skills enabled and its commands, hooks and MCP servers
+			// disabled.
+			// Codex's CommandDescriptor carries no per-command enabled flag,
+			// so the package's own enablement is the only evidence there is.
+			if !plugin.CachedOnly && plugin.ActiveEnabledFor != "" {
+				edges = append(edges, adaptersdk.Edge{
+					EdgeID: "edge_" + stableHex("plugin-command-enabled", child.NodeID, installationNode.NodeID),
+					Kind:   adaptersdk.EdgeEnabledFor, FromNode: child.NodeID, ToNode: installationNode.NodeID,
+				})
+			}
 		}
 		for _, hook := range plugin.BundledHooks {
 			child := adaptersdk.Node{
@@ -264,6 +277,12 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 				EdgeID: "edge_" + stableHex("bundles", node.NodeID, child.NodeID),
 				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: child.NodeID,
 			})
+			if !plugin.CachedOnly && plugin.ActiveEnabledFor != "" && hook.Enabled && hook.Trusted {
+				edges = append(edges, adaptersdk.Edge{
+					EdgeID: "edge_" + stableHex("plugin-hook-enabled", child.NodeID, installationNode.NodeID),
+					Kind:   adaptersdk.EdgeEnabledFor, FromNode: child.NodeID, ToNode: installationNode.NodeID,
+				})
+			}
 		}
 		for _, mcp := range plugin.BundledMCPServers {
 			server := adaptersdk.Node{
@@ -280,6 +299,12 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 				EdgeID: "edge_" + stableHex("bundles", node.NodeID, server.NodeID),
 				Kind:   adaptersdk.EdgeBundles, FromNode: node.NodeID, ToNode: server.NodeID,
 			})
+			if !plugin.CachedOnly && plugin.ActiveEnabledFor != "" && mcp.Enabled {
+				edges = append(edges, adaptersdk.Edge{
+					EdgeID: "edge_" + stableHex("plugin-mcp-enabled", server.NodeID, installationNode.NodeID),
+					Kind:   adaptersdk.EdgeEnabledFor, FromNode: server.NodeID, ToNode: installationNode.NodeID,
+				})
+			}
 			toolNames := append([]string(nil), mcp.AdvertisedTools...)
 			sort.Strings(toolNames)
 			for _, toolName := range toolNames {

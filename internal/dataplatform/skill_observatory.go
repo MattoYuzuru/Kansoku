@@ -29,6 +29,20 @@ const (
 	// no exposure surface exists.
 	FormulaVersionSkillObservatory2 = "skill.cold_count/2"
 	FormulaVersionSkillProfile2     = "skill_profile/2"
+
+	// Version 3 changes the population, not the formula. ADR 0024 makes a
+	// component bundled by an enabled plugin inherit an enabled_for edge, and
+	// `enabled` is this metric's eligibility precondition, so the denominator
+	// jumps in one step -- on the reference host from 8 enabled Claude skills
+	// to roughly 147 -- and a plugin-bundled skill that was invoked can
+	// finally reach cold_state = used instead of sitting at not_observed
+	// while its own invocation count was above zero.
+	//
+	// The arithmetic is untouched. The version exists so a graph that
+	// suddenly moves has a recorded cause rather than looking like a data
+	// incident.
+	FormulaVersionSkillObservatory3 = "skill.cold_count/3"
+	FormulaVersionSkillProfile3     = "skill_profile/3"
 )
 
 type SkillModeCounts struct {
@@ -310,7 +324,7 @@ func SkillObservatory(ctx context.Context, pool *pgxpool.Pool, from, to time.Tim
 	`, from, to).Scan(&unresolved, &ambiguous); err != nil {
 		return SkillObservatoryResponse{}, err
 	}
-	response.FormulaVersion = FormulaVersionSkillObservatory2
+	response.FormulaVersion = FormulaVersionSkillObservatory3
 	response.Population = Population{
 		Numerator: response.Counts.Cold, Denominator: eligible,
 	}
@@ -456,7 +470,7 @@ func SkillProfile(ctx context.Context, pool *pgxpool.Pool, id string, from, to t
 	`, response.Identity.AgentInstallationID).Scan(&response.IncidentCount); err != nil {
 		return SkillProfileResponse{}, err
 	}
-	response.FormulaVersion = FormulaVersionSkillProfile2
+	response.FormulaVersion = FormulaVersionSkillProfile3
 	response.Population = Population{Numerator: int64(len(response.Assertions)), Denominator: int64(len(response.Assertions))}
 	response.Exclusions = list.Exclusions
 	response.Completeness = list.Completeness

@@ -173,8 +173,8 @@ func TestSkillColdEligibilityAcrossEveryExposurePlaneState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response.FormulaVersion != FormulaVersionSkillObservatory2 {
-		t.Fatalf("formula version=%s want %s", response.FormulaVersion, FormulaVersionSkillObservatory2)
+	if response.FormulaVersion != FormulaVersionSkillObservatory3 {
+		t.Fatalf("formula version=%s want %s", response.FormulaVersion, FormulaVersionSkillObservatory3)
 	}
 	byInstallation := map[string]SkillObservatoryRow{}
 	for _, row := range response.Data {

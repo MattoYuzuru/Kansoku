@@ -99,8 +99,10 @@ def validate(
         errors.append("current resolution view is not declared")
 
     cold = data.get("cold", {})
-    if cold.get("formula_version") != "skill.cold_count/2":
+    if cold.get("formula_version") != "skill.cold_count/3":
         errors.append("cold formula version changed")
+    if "inherited an enabled_for edge" not in str(cold.get("enabled_inheritance", "")):
+        errors.append("cold eligibility must state how inherited enablement counts")
     if "complete exposure observation window" not in str(cold.get("eligible", "")):
         errors.append("cold population requires a complete exposure window")
     if "complete inventory snapshot" not in str(cold.get("eligible", "")):

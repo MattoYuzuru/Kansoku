@@ -544,11 +544,21 @@ func inventoryComponentKind(kind adaptersdk.NodeKind) (string, bool) {
 	case adaptersdk.NodeMCPServerInstance:
 		return "mcp", true
 	case adaptersdk.NodeMCPTool:
-		return "command", true
+		// An MCP tool is a tool a server provides, not a slash command. Both
+		// used to map onto "command", which merged two populations into one
+		// count and made a server's tools indistinguishable from a user's
+		// custom commands.
+		return "mcp_tool", true
 	case adaptersdk.NodeHookDefinition:
 		return "hook", true
 	case adaptersdk.NodeCustomCommandDefinition:
 		return "command", true
+	case adaptersdk.NodeSubagentDefinition:
+		// Previously absent, so every subagent node was dropped at the
+		// caller's `if !ok { continue }` and no subagent ever reached
+		// components/component_inventory_state at all -- they could not be
+		// listed, counted, or reported as unused.
+		return "subagent", true
 	case adaptersdk.NodeAppDefinition:
 		return "app", true
 	default:

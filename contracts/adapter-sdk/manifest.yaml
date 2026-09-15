@@ -7,7 +7,7 @@
   "component_plane_support": {
     "optional": true,
     "fields": ["component_kind", "plane", "state", "reason"],
-    "component_kinds": ["skill", "plugin", "mcp", "hook", "command", "app"],
+    "component_kinds": ["skill", "plugin", "mcp", "mcp_tool", "hook", "command", "subagent", "app"],
     "planes": ["exposed"],
     "states": ["native", "reconstructed", "unsupported"],
     "reason_required": true,

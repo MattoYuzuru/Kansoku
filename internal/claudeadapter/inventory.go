@@ -226,6 +226,29 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 	pluginByName := map[string][]adaptersdk.Node{}
 	marketplaceByName := map[string][]adaptersdk.Node{}
 
+	// enabledOwners records which owner package nodes are themselves actively
+	// enabled, so a bundled component can inherit that enablement.
+	//
+	// Until now a bundled component got no EdgeEnabledFor edge at all and the
+	// data platform derives `enabled` from exactly that edge, so all 139
+	// plugin-bundled Claude skills were reported disabled while their 21
+	// owning plugins were reported enabled. An invoked bundled skill landed
+	// with invoked_count > 0 and enabled = false -- honest about each field,
+	// nonsense as a pair, and it fell out of the cold denominator without
+	// landing in any exclusion bucket. contracts/adapter-sdk/
+	// inventory-graph.yaml's own example path already described the
+	// transitive relation; it simply was never materialized as edges.
+	//
+	// cache_separation is untouched: enablement is inherited only from an
+	// owner that is itself enabled, and a cache-only package never is.
+	enabledOwners := map[string]bool{}
+	inheritsEnablement := func(owner *adaptersdk.Node) bool {
+		if owner == nil {
+			return true
+		}
+		return enabledOwners[owner.NodeID]
+	}
+
 	addSkill := func(skill SkillDescriptor, owner *adaptersdk.Node) adaptersdk.Node {
 		node := adaptersdk.Node{
 			NodeID:        "node_" + stableHex("skill", input.InstallationID, skill.Name, string(skill.Scope), skill.PathPseudonym, ownerKey(owner)),
@@ -238,7 +261,7 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		}
 		nodes = append(nodes, node)
 		skillByName[skill.Name] = append(skillByName[skill.Name], node)
-		if owner == nil && skill.Enabled && !skill.Disabled {
+		if inheritsEnablement(owner) && skill.Enabled && !skill.Disabled {
 			edges = append(edges, edgeEnabledFor(node, installationNode))
 		}
 		return node
@@ -254,7 +277,7 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		}
 		nodes = append(nodes, node)
 		commandByName[command.Name] = append(commandByName[command.Name], node)
-		if owner == nil && command.Enabled {
+		if inheritsEnablement(owner) && command.Enabled {
 			edges = append(edges, edgeEnabledFor(node, installationNode))
 		}
 		return node
@@ -270,7 +293,7 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		}
 		nodes = append(nodes, node)
 		subagentByName[subagent.Name] = append(subagentByName[subagent.Name], node)
-		if owner == nil && subagent.Enabled {
+		if inheritsEnablement(owner) && subagent.Enabled {
 			edges = append(edges, edgeEnabledFor(node, installationNode))
 		}
 		return node
@@ -286,7 +309,7 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		}
 		nodes = append(nodes, node)
 		hookByName[hook.Name] = append(hookByName[hook.Name], node)
-		if owner == nil && hook.Enabled && hook.Trusted {
+		if inheritsEnablement(owner) && hook.Enabled && hook.Trusted {
 			edges = append(edges, edgeEnabledFor(node, installationNode))
 		}
 		return node
@@ -302,7 +325,7 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		}
 		nodes = append(nodes, serverNode)
 		mcpByName[mcp.Name] = append(mcpByName[mcp.Name], serverNode)
-		if owner == nil && mcp.Enabled {
+		if inheritsEnablement(owner) && mcp.Enabled {
 			edges = append(edges, edgeEnabledFor(serverNode, installationNode))
 		}
 		toolNames := append([]string(nil), mcp.AdvertisedTools...)
@@ -398,6 +421,11 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 				EdgeID: "edge_" + stableHex("plugin-enabled", pluginNode.NodeID, plugin.ActiveEnabledFor),
 				Kind:   adaptersdk.EdgeEnabledFor, FromNode: pluginNode.NodeID, ToNode: installationNode.NodeID,
 			})
+			// Recorded before the bundled components below are added, so each
+			// child can inherit this package's enablement. A cache-only or
+			// unconfigured package never reaches this branch, so its children
+			// never inherit anything.
+			enabledOwners[pluginNode.NodeID] = true
 		}
 		if plugin.FromMarketplace != "" {
 			marketNode, exists := marketNodeByName[plugin.FromMarketplace]
@@ -422,11 +450,10 @@ func BuildInventorySnapshot(input InventoryInput, now time.Time) (adaptersdk.Inv
 		// Every component this plugin bundles is linked to the plugin
 		// package node by an EdgeBundles edge and is never also reported as
 		// a standalone, unowned component -- addSkill/addCommand/etc. are
-		// called with owner=&pluginNode here, which both skips the direct
-		// installation EdgeEnabledFor edge (bundled components are enabled
-		// transitively through the plugin, not independently) and folds the
-		// bundled component into the same by-name collision-detection map
-		// standalone components use.
+		// called with owner=&pluginNode here, which folds the bundled
+		// component into the same by-name collision-detection map standalone
+		// components use and makes its enablement inherit the owner's rather
+		// than being asserted independently.
 		for _, skill := range plugin.BundledSkills {
 			node := addSkill(skill, &pluginNode)
 			edges = append(edges, edgeBundles(pluginNode, node))

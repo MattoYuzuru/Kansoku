@@ -128,7 +128,7 @@ def validate(candidate: dict[str, dict[str, Any]] | None = None, locks: dict[str
             "schema_version", "contract_version", "effective_at", "snapshot_fields", "snapshot_semantics",
             "coverage_gap_classes", "coverage_gap_semantics",
             "node_kinds", "node_fields", "source_scopes", "edge_kinds", "edge_fields", "identity_rule",
-            "cache_separation", "path_pseudonymization", "example_graph_paths", "change_plan_fields",
+            "bundled_enablement_inheritance", "cache_separation", "path_pseudonymization", "example_graph_paths", "change_plan_fields",
             "reconcile_scope_fields", "reconcile_result_fields", "reconcile_idempotency",
         },
         "discovery-and-plans.yaml": {

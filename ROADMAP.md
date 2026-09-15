@@ -297,6 +297,11 @@ turns unreadable or dangling skill entries into visible coverage gaps that downg
 repository skills resolve as `ambiguous`, built-in skills stay `unresolved` by decision, and
 `skill.cold_count` / `skill_profile` remain unregistered in `contracts/metrics.yaml`.
 
+Component inventory amendment (2026-08-02): ADR 0024 makes bundled component enablement explicit
+with materialized `enabled_for` edges, preserves cache and child safety boundaries, and persists
+`subagent` and `mcp_tool` as distinct component kinds. The skill cold/profile formula versions move
+to `/3` because this changes the eligible population without changing the arithmetic.
+
 ## Dependency graph
 
 ```text

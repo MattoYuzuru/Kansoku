@@ -29,7 +29,8 @@
     "current_resolution": "current view selects the latest versioned resolution after inventory-triggered re-resolution"
   },
   "cold": {
-    "formula_version": "skill.cold_count/2",
+    "formula_version": "skill.cold_count/3",
+    "enabled_inheritance": "enabled includes a component that inherited an enabled_for edge from an enabled owner package, per contracts/adapter-sdk/inventory-graph.yaml bundled_enablement_inheritance and ADR 0024; /3 changes only this population, the arithmetic is identical to /2",
     "eligible": "enabled and either (exposure plane is not unsupported and the skill was exposed inside a complete exposure observation window) or (exposure plane is unsupported and the installation reports a complete inventory snapshot)",
     "numerator": "eligible skills with zero exact invoked assertions",
     "exclusions": ["partial_or_missing_exposure_window", "exposure_plane_unsupported_without_complete_inventory", "unresolved_or_ambiguous_identity", "non_skill_component_kind"],
